@@ -1,0 +1,3 @@
+[submodule "webrender"]
+	path = webrender
+	url = https://github.com/servo/webrender

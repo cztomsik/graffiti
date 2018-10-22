@@ -1,0 +1,20 @@
+[package]
+name = "node-webrender"
+version = "0.1.0"
+authors = ["Kamil Tomšík <info@tomsik.cz>"]
+license = "MIT"
+build = "build.rs"
+exclude = ["artifacts.json", "index.node"]
+
+[lib]
+name = "node_webrender"
+crate-type = ["dylib"]
+
+[build-dependencies]
+neon-build = "0.2.0"
+
+[dependencies]
+neon = "0.2.0"
+webrender = { path = "../webrender/webrender" }
+glutin = "0.18.0"
+gleam = "0.6.4"
