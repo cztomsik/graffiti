@@ -18,3 +18,5 @@ neon = "0.2.0"
 webrender = { path = "../webrender/webrender" }
 glutin = "0.18.0"
 gleam = "0.6.4"
+font-loader = "0.7.0"
+app_units = "0.7"
