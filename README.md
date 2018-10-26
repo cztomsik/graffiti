@@ -1,12 +1,12 @@
 ! WIP, do not use
 
 # node-webrender
-
-- have rust installed
-- `git clone --recursive`
-- go into
-- run `npm install`
-- run `npm run example`
+```bash
+git clone https://github.com/cztomsik/node-webrender --recursive
+cd node-webrender
+npm install
+npm run example
+```
 
 
 ## TODO
