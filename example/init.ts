@@ -22,8 +22,14 @@ global.window = {
   navigator: { userAgent: '' }
 }
 
+const vuePath = require.resolve('vue')
 const Vue = require('vue/dist/vue')
-require.cache[require.resolve('vue')] = require.cache[require.resolve('vue/dist/vue')]
+
+if (require.cache[vuePath]) {
+  throw new Error('init has to be run before vue is first required')
+}
+
+require.cache[vuePath] = require.cache[require.resolve('vue/dist/vue')]
 
 Object.assign(Vue.config, {
   isReservedTag: () => false
