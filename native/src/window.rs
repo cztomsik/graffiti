@@ -11,11 +11,14 @@ extern crate font_loader;
 extern crate serde;
 extern crate serde_json;
 
+use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::channel;
 use glutin::{GlWindow, EventsLoop, GlContext};
-use webrender::api::{RenderApi, RenderNotifier, Transaction, DisplayListBuilder, LayoutPrimitiveInfo, LayoutRect, LayoutPoint, LayoutSize, ColorF, DocumentId, PipelineId, Epoch, FontKey, FontInstanceKey};
+use webrender::api::{RenderApi, RenderNotifier, Transaction, DisplayListBuilder, ColorF, DocumentId, PipelineId, Epoch, FontKey, FontInstanceKey, GlyphIndex, GlyphDimensions};
 use webrender::{Renderer};
 use std::os::raw::c_int;
 
+use display_item::DisplayItem;
 
 pub struct Window {
     gl_window: GlWindow,
@@ -30,13 +33,16 @@ pub struct Window {
     font: Vec<u8>,
     font_index: c_int,
     font_key: FontKey,
-    font_instance_key: FontInstanceKey
+    font_instance_key: FontInstanceKey,
+
+    rx: Receiver<Msg>
 }
 
 impl Window {
     pub fn new() -> Self {
         let (gl_window, events_loop) = Window::create_gl_window();
-        let (mut api, renderer) = Window::create_api(&gl_window, events_loop);
+        let (tx, rx) = channel();
+        let (mut api, renderer) = Window::create_api(&gl_window, events_loop, tx);
         let (document_id, pipeline_id, epoch) = Window::create_document(&mut api, &gl_window);
         let (font, font_index, font_key, font_instance_key) = Window::load_font(&mut api);
 
@@ -45,7 +51,9 @@ impl Window {
             api, renderer,
             document_id, pipeline_id, epoch,
 
-            font, font_index, font_key, font_instance_key
+            font, font_index, font_key, font_instance_key,
+
+            rx
         };
 
         w.send_initial_frame();
@@ -54,24 +62,15 @@ impl Window {
     }
 
     pub fn send_frame(&mut self, data: &str) {
-        let ops = parse_ops(&data);
         let framebuffer_size = self.get_size();
         let content_size = framebuffer_size.to_f32() / euclid::TypedScale::new(1.0);
 
         let mut b = DisplayListBuilder::new(self.pipeline_id, content_size);
 
-        for op in ops {
-            let info = LayoutPrimitiveInfo::new(LayoutRect::new(
-                LayoutPoint::new(op.xy.0, op.xy.1),
-                LayoutSize::new(op.wh.0, op.wh.1),
-            ));
+        let items = DisplayItem::parse_all_from_json(data);
 
-            let color = ColorF::new(op.color.0, op.color.1, op.color.2, 1.0);
-
-            match op.kind.as_ref() {
-                "rect" => { b.push_rect(&info, color) },
-                _ => {}
-            }
+        for it in items {
+            it.apply(&mut b);
         }
 
         let mut tx = Transaction::new();
@@ -81,17 +80,21 @@ impl Window {
 
         self.api.send_transaction(self.document_id, tx);
 
-        self.epoch.0 += 1
+        self.epoch.0 += 1;
+
+        // TODO: async
+
+        let _msg = self.rx.recv();
+
+        self.redraw();
     }
 
-    pub fn redraw(&mut self) {
-        let framebuffer_size = self.get_size();
-        let renderer = &mut self.renderer;
+    pub fn get_glyph_indices(&self, str: &str) -> Vec<u32> {
+        self.api.get_glyph_indices(self.font_key, str).iter().filter_map(|i| *i).collect()
+    }
 
-        renderer.update();
-        renderer.render(framebuffer_size).unwrap();
-
-        self.gl_window.swap_buffers().ok();
+    pub fn get_glyph_dimensions(&self, glyph_indices: Vec<GlyphIndex>) -> Vec<GlyphDimensions> {
+        self.api.get_glyph_dimensions(self.font_instance_key, glyph_indices).iter().filter_map(|dims| *dims).collect()
     }
 
     fn create_gl_window() -> (GlWindow, EventsLoop){
@@ -109,7 +112,7 @@ impl Window {
         (gl_window, events_loop)
     }
 
-    fn create_api(gl_window: &GlWindow, events_loop: EventsLoop) -> (RenderApi, Renderer) {
+    fn create_api(gl_window: &GlWindow, events_loop: EventsLoop, tx: Sender<Msg>) -> (RenderApi, Renderer) {
         let gl = match gl_window.get_api() {
             glutin::Api::OpenGl => unsafe { gleam::gl::GlFns::load_with(|s| gl_window.get_proc_address(s) as *const _) },
             glutin::Api::OpenGlEs => unsafe { gleam::gl::GlesFns::load_with(|s| gl_window.get_proc_address(s) as *const _) },
@@ -121,7 +124,7 @@ impl Window {
             ..webrender::RendererOptions::default()
         };
 
-        let notifier = Notifier(events_loop.create_proxy());
+        let notifier = Notifier(events_loop.create_proxy(), tx);
 
         let (renderer, sender) = Renderer::new(gl, Box::new(notifier), options, None).unwrap();
         let api = sender.create_api();
@@ -143,6 +146,8 @@ impl Window {
         let font_key = api.generate_font_key();
         let font_instance_key = api.generate_font_instance_key();
 
+        println!("(font_key, font_instance_key) = {}", serde_json::to_string_pretty(&(font_key, font_instance_key)).unwrap());
+
         (font, font_index, font_key, font_instance_key)
     }
 
@@ -152,7 +157,7 @@ impl Window {
 
         // initial tx
         let mut tx = Transaction::new();
-        let mut b = webrender::api::DisplayListBuilder::new(self.pipeline_id, size);
+        let b = webrender::api::DisplayListBuilder::new(self.pipeline_id, size);
 
         tx.add_raw_font(self.font_key, self.font.clone(), self.font_index as u32);
         tx.add_font_instance(self.font_instance_key, self.font_key, app_units::Au::from_px(32), None, None, Vec::new());
@@ -165,6 +170,16 @@ impl Window {
     fn get_size(&self) -> euclid::TypedSize2D<u32, webrender::api::DevicePixel> {
         get_gl_window_size(&self.gl_window)
     }
+
+    fn redraw(&mut self) {
+        let framebuffer_size = self.get_size();
+        let renderer = &mut self.renderer;
+
+        renderer.update();
+        renderer.render(framebuffer_size).unwrap();
+
+        self.gl_window.swap_buffers().ok();
+    }
 }
 
 fn get_gl_window_size(gl_window: &GlWindow) -> euclid::TypedSize2D<u32, webrender::api::DevicePixel> {
@@ -173,11 +188,11 @@ fn get_gl_window_size(gl_window: &GlWindow) -> euclid::TypedSize2D<u32, webrende
 }
 
 
-struct Notifier (glutin::EventsLoopProxy);
+struct Notifier (glutin::EventsLoopProxy, Sender<Msg>);
 
 impl RenderNotifier for Notifier {
     fn clone(&self) -> Box<RenderNotifier> {
-        return Box::new(Notifier(self.0.clone()));
+        return Box::new(Notifier(self.0.clone(), self.1.clone()));
     }
 
     fn wake_up(&self) {
@@ -185,18 +200,10 @@ impl RenderNotifier for Notifier {
     }
 
     fn new_frame_ready(&self, _doc_id: DocumentId, _scrolled: bool, _composite_needed: bool, _render_time_ns: Option<u64>) {
+        println!("frame-ready");
+        let _ = self.1.send(Msg {});
         self.wake_up();
     }
 }
 
-#[derive(Deserialize)]
-pub struct Op {
-    kind: String,
-    xy: (f32, f32),
-    wh: (f32, f32),
-    color: (f32, f32, f32)
-}
-
-fn parse_ops(data: &str) -> Vec<Op> {
-    serde_json::from_str(data).unwrap()
-}
+pub struct Msg {}

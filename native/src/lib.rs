@@ -10,57 +10,11 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 
-use neon::prelude::*;
-
 mod window;
+mod display_item;
+
+use neon::prelude::*;
 use window::{Window};
-
-/*
-fn render(font_key: FontKey, font_instance_key: FontInstanceKey, api: &RenderApi, _txn: &mut Transaction, builder: &mut DisplayListBuilder) {
-    // rect
-    let info = LayoutPrimitiveInfo::new(LayoutRect::new(
-        LayoutPoint::new(10.0, 10.0),
-        LayoutSize::new(100.0, 100.0),
-    ));
-    builder.push_rect(&info, ColorF::new(0.0, 0.0, 1.0, 1.0));
-
-    // text
-    let glyph_indices: Vec<GlyphIndex> = api.get_glyph_indices(font_key, "Hello world").iter().filter_map(|i| *i).collect();
-    let metrics = api.get_glyph_dimensions(font_instance_key, glyph_indices.clone());
-
-    println!("Glyph indices {}", glyph_indices.len());
-
-    // layout glyphs
-    let mut i = 0;
-    let mut x = 0.0;
-    let mut glyphs = Vec::new();
-    for m in metrics {
-        match m {
-            Some(m) => {
-                glyphs.push(GlyphInstance {
-                    index: glyph_indices[i],
-                    point: LayoutPoint::new(x, 60.0)
-                });
-
-                x += m.advance;
-                i += 1;
-            }
-            None => {}
-        }
-    }
-
-    for g in glyphs.clone() {
-        println!("Glyph {} {}", g.index, g.point);
-    }
-
-    let info = LayoutPrimitiveInfo::new(LayoutRect::new(
-        LayoutPoint::new(0.0, 30.0),
-        LayoutSize::new(200.0, 100.0),
-    ));
-    builder.push_text(&info, &glyphs, font_instance_key, ColorF::new(0.0, 1.0, 0.0, 1.0), None);
-}
-
-*/
 
 declare_types! {
     pub class JsWindow for Window {
@@ -74,26 +28,27 @@ declare_types! {
 
         method sendFrame(mut ctx) {
             let data = ctx.argument::<JsString>(0)?.value();
+            let mut this = ctx.this();
 
-            {
-                let mut this = ctx.this();
-                let guard = ctx.lock();
-                let mut w = this.borrow_mut(&guard);
-                w.send_frame(&data);
-            };
+            ctx.borrow_mut(&mut this, |mut w| w.send_frame(&data));
 
             Ok(ctx.undefined().upcast())
         }
 
-        method redraw(mut ctx) {
-            {
-                let mut this = ctx.this();
-                let guard = ctx.lock();
-                let mut w = this.borrow_mut(&guard);
-                w.redraw();
+        method getGlyphIndices(mut ctx) {
+            let str = ctx.argument::<JsString>(0)?.value();
+            let mut this = ctx.this();
+
+            let indices = ctx.borrow(&mut this, |w| w.get_glyph_indices(&str));
+
+            let js_array = JsArray::new(&mut ctx, indices.len() as u32);
+
+            for (i, glyph_i) in indices.iter().enumerate() {
+                let js_num = ctx.number(*glyph_i as f64);
+                let _ = js_array.set(&mut ctx, i as u32, js_num);
             }
 
-            Ok(ctx.undefined().upcast())
+            Ok(js_array.upcast())
         }
     }
 }
