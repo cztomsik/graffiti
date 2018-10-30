@@ -1,6 +1,7 @@
 extern crate webrender;
 extern crate serde;
 extern crate serde_json;
+extern crate log;
 
 use webrender::api::{DisplayListBuilder, LayoutPrimitiveInfo, ColorF, FontInstanceKey, GlyphInstance};
 
@@ -15,7 +16,7 @@ impl DisplayItem {
     pub fn apply(&self, builder: &mut DisplayListBuilder) {
         let b = builder;
 
-        println!("apply {}", serde_json::to_string_pretty(&self).unwrap());
+        debug!("DisplayItem {}", serde_json::to_string_pretty(&self).unwrap());
 
         match *self {
             DisplayItem::Rect { info, color } => b.push_rect(&info, color),

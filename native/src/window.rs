@@ -10,6 +10,7 @@ extern crate app_units;
 extern crate font_loader;
 extern crate serde;
 extern crate serde_json;
+extern crate log;
 
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc::channel;
@@ -146,7 +147,7 @@ impl Window {
         let font_key = api.generate_font_key();
         let font_instance_key = api.generate_font_instance_key();
 
-        println!("(font_key, font_instance_key) = {}", serde_json::to_string_pretty(&(font_key, font_instance_key)).unwrap());
+        debug!("(font_key, font_instance_key) = {}", serde_json::to_string_pretty(&(font_key, font_instance_key)).unwrap());
 
         (font, font_index, font_key, font_instance_key)
     }
@@ -200,7 +201,6 @@ impl RenderNotifier for Notifier {
     }
 
     fn new_frame_ready(&self, _doc_id: DocumentId, _scrolled: bool, _composite_needed: bool, _render_time_ns: Option<u64>) {
-        println!("frame-ready");
         let _ = self.1.send(Msg {});
         self.wake_up();
     }
