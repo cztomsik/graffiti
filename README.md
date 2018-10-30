@@ -16,13 +16,17 @@
 - [x] init webrender
 - [x] clear screen
 - [x] show rect
-- [x] vue example
+- [x] react example
 - [x] load font
 - [ ] yoga
 - [ ] scrolling
+- [ ] window resize
 - [ ] text
 - [ ] word-wrap
 - [ ] click
 - [ ] input
 - [ ] hover
 - [ ] more fonts
+
+## Notes
+- release build `neon build --release` weights ~7MB, dev is ~30MB
