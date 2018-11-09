@@ -1,5 +1,7 @@
 ! WIP, do not use
 
+:bulb: You must have rust installed locally on your machine if you want to use this dependency :bulb:
+
 # node-webrender
 ```bash
 git clone https://github.com/cztomsik/node-webrender --recursive
