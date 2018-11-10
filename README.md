@@ -1,12 +1,14 @@
 ! WIP, do not use
 
-# node-webrender
+:bulb: You must have rust installed locally on your machine if you want to use this dependency :bulb:
 
-- have rust installed
-- `git clone --recursive`
-- go into
-- run `npm install`
-- run `npm run example`
+# node-webrender
+```bash
+git clone https://github.com/cztomsik/node-webrender --recursive
+cd node-webrender
+npm install
+npm run example
+```
 
 
 ## TODO
