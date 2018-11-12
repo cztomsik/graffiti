@@ -8,6 +8,7 @@ extern crate serde;
 extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate log;
+extern crate env_logger;
 
 mod window;
 mod display_item;
@@ -53,5 +54,7 @@ declare_types! {
 }
 
 register_module!(mut ctx, {
+    env_logger::init();
+
     ctx.export_class::<JsWindow>("Window")
 });

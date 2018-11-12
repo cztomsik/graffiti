@@ -9,12 +9,14 @@
     "neon-cli": "^0.2.0"
   },
   "scripts": {
-    "install": "neon build",
-    "example": "ts-node -T example/example.ts"
+    "install": "neon build --release",
+    "build": "neon build",
+    "example": "RUST_LOG=debug ts-node -T example/example.tsx"
   },
   "devDependencies": {
     "@types/node": "^10.12.1",
     "@types/react-reconciler": "^0.15.1",
+    "@types/yoga-layout": "^1.9.0",
     "react": "^16.7.0-alpha.0",
     "react-reconciler": "^0.17.0-alpha.0",
     "scheduler": "^0.10.0",
