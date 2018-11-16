@@ -15,13 +15,13 @@ extern crate log;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc::channel;
 use glutin::{GlWindow, EventsLoop, GlContext};
-use webrender::api::{RenderApi, RenderNotifier, Transaction, DisplayListBuilder, ColorF, DocumentId, PipelineId, Epoch, FontKey, FontInstanceKey, GlyphIndex, GlyphDimensions};
+use webrender::api::{RenderApi, RenderNotifier, Transaction, DisplayListBuilder, ColorF, DocumentId, PipelineId, Epoch, FontKey, FontInstanceKey, GlyphIndex, GlyphDimensions, SpecificDisplayItem, LayoutRect, LayoutPoint, LayoutSize, LayoutPrimitiveInfo, RectangleDisplayItem, BorderDisplayItem};
 use webrender::{Renderer};
 use std::os::raw::c_int;
 
-use display_item::DisplayItem;
-
 pub struct Window {
+    items: Vec<SpecificDisplayItem>,
+
     gl_window: GlWindow,
 
     api: RenderApi,
@@ -40,14 +40,16 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new() -> Self {
-        let (gl_window, events_loop) = Window::create_gl_window();
+    pub fn new(title: String) -> Self {
+        let (gl_window, events_loop) = Window::create_gl_window(title);
         let (tx, rx) = channel();
         let (mut api, renderer) = Window::create_api(&gl_window, events_loop, tx);
         let (document_id, pipeline_id, epoch) = Window::create_document(&mut api, &gl_window);
         let (font, font_index, font_key, font_instance_key) = Window::load_font(&mut api);
 
         let mut w = Window {
+            items: Vec::new(),
+
             gl_window,
             api, renderer,
             document_id, pipeline_id, epoch,
@@ -62,16 +64,46 @@ impl Window {
         w
     }
 
-    pub fn send_frame(&mut self, data: &str) {
+    pub fn create_bucket(&mut self, item: SpecificDisplayItem) -> BucketId {
+        let index = self.items.len();
+
+        self.items.push(item);
+
+        index
+    }
+
+    pub fn update_bucket(&mut self, bucket_id: BucketId, item: SpecificDisplayItem) {
+        match self.items.get_mut(bucket_id) {
+            None => panic!("bucket not found"),
+            Some(bucket) => *bucket = item
+        }
+    }
+
+    pub fn render(&mut self, request: RenderRequest) {
+        let RenderRequest { bucket_ids, layouts } = request;
+
+        if layouts.len() != bucket_ids.len() {
+            panic!("missing/extra layouts")
+        }
+
         let framebuffer_size = self.get_size();
         let content_size = framebuffer_size.to_f32() / euclid::TypedScale::new(1.0);
 
         let mut b = DisplayListBuilder::new(self.pipeline_id, content_size);
 
-        let items = DisplayItem::parse_all_from_json(data);
+        for (layout, i) in layouts.iter().zip(bucket_ids.iter()) {
+            let info = layout.to_info();
 
-        for it in items {
-            it.apply(&mut b);
+            match self.items.get(*i) {
+                None => panic!("item not found"),
+                Some(item) => {
+                    match item {
+                        SpecificDisplayItem::Rectangle(RectangleDisplayItem { color }) => b.push_rect(&info, *color),
+                        SpecificDisplayItem::Border(BorderDisplayItem { widths, details }) => b.push_border(&info, *widths, *details),
+                        _ => panic!("TODO")
+                    }
+                }
+            }
         }
 
         let mut tx = Transaction::new();
@@ -98,8 +130,8 @@ impl Window {
         self.api.get_glyph_dimensions(self.font_instance_key, glyph_indices).iter().filter_map(|dims| *dims).collect()
     }
 
-    fn create_gl_window() -> (GlWindow, EventsLoop){
-        let window_builder = glutin::WindowBuilder::new().with_title("Window").with_dimensions(glutin::dpi::LogicalSize::new(800., 600.));
+    fn create_gl_window(title: String) -> (GlWindow, EventsLoop){
+        let window_builder = glutin::WindowBuilder::new().with_title(title).with_dimensions(glutin::dpi::LogicalSize::new(800., 600.));
         let context_builder = glutin::ContextBuilder::new().with_gl(glutin::GlRequest::GlThenGles {
             opengl_version: (3, 2),
             opengles_version: (3, 0)
@@ -206,4 +238,24 @@ impl RenderNotifier for Notifier {
     }
 }
 
+#[derive(Deserialize)]
+pub struct RenderRequest {
+    bucket_ids: Vec<BucketId>,
+    layouts: Vec<Layout>
+}
+
 pub struct Msg {}
+
+pub type BucketId = usize;
+
+#[derive(Deserialize)]
+struct Layout(f32, f32, f32, f32);
+
+impl Layout {
+    fn to_info(&self) -> LayoutPrimitiveInfo {
+        let Layout(x, y, width, height) = *self;
+        let layout_rect = LayoutRect::new(LayoutPoint::new(x, y), LayoutSize::new(width, height));
+
+        LayoutPrimitiveInfo::new(layout_rect)
+    }
+}

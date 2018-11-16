@@ -2,7 +2,7 @@
   "name": "node-webrender",
   "version": "0.1.0",
   "description": "",
-  "main": "native/index.node",
+  "main": "src/index.js",
   "author": "Kamil Tomšík <info@tomsik.cz>",
   "license": "MIT",
   "dependencies": {

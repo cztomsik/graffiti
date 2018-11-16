@@ -45,16 +45,18 @@ use [webrender](https://github.com/servo/webrender) from node.js
   - api is useful for font-loading, text measurements, font glyph resolving but also for sending **transactions**
   - nothing is rendered unless transaction is sent (and async **processed**, which is when we swap buffers, etc.)
   - even scrolling/zooming has to be sent in trasaction
-  - transaction can also "set" **display list** which is how scene will get rebuild and re-rendered eventually
+  - transaction can also "set" **display list** which is how scene will get rebuilt and re-rendered eventually
   - display list is a binary blob of display items and to make one, it's easiest to use a **builder** (provided by webrender) which has methods like push_rect() and similar
-  - all of **this is done in rust**, to avoid crossing boundaries (communication with JS should be kept at minimum)
+  - **all of this is done in rust**, to avoid crossing boundaries (communication with JS should be kept at minimum)
 
-- layout
-  - knowing where to put rects and glyphs on the screen is hard, so you want to use some existing layout system (like flexbox)
-  - yoga-layout is quite efficient at (re)computing flexbox
-  - layout items are usually dependent on each other so it's necessary to recompute the whole layout on **any dimension change** (incl. text changes) but preferrably only once per UI change (defer/batch)
-
-- structure & dimensions
-  - so usually, we know what to render (rects, borders, shadows) before we know the **dimensions**
-  - dimensions change a lot, more often than the overall **structure** so if we split them, we can quickly generate frames with just minor changes
-  - this also makes it possible to use memoization in react and other UI frameworks
+- drawing from JS
+  - one obvious way would be to send JSON (or something) to native, parse it and build the display list on every UI change
+    - this is simple and it would actually work but it's also very wasteful because everything has to be visited, generated, serialized, sent and parsed over and over again
+  - another approach could be to implement some kind of DOM api which could be then used from JS
+    - which sounds good at first but native is really a whole different world and just getting it right is a lot of work, not to mention there's always some overhead so it's impossible to tell if this would be any faster
+  - in this light, IPC is not that bad if we can improve it
+    - for example, we could have a (window-local) vector of all display items in their creation order
+    - any UI change would send JSON (or something) to replace display item in-place (so it's like a bucket)
+    - to generate a display list we just need indices of those items
+    - this could/should be fast because everything is in the same area of memory so it should go through CPU caches
+    - we can also separate the layout (position and dimensions) which will further reduce the need for updates
