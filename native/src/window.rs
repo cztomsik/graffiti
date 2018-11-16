@@ -116,6 +116,7 @@ impl Window {
         self.epoch.0 += 1;
 
         // TODO: async
+        debug!("waiting until frame ready");
 
         let _msg = self.rx.recv();
 

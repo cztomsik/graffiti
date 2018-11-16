@@ -35,6 +35,7 @@ npm run example
 
 ## Notes
 - release build `npx neon build --release` weights ~7MB, dev is ~30MB
+- negative dimensions will block forever (WR will not generate a frame)
 
 ## How does it work (internally)
 - overview
