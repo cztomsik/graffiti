@@ -33,21 +33,33 @@ const b2 = w.createBucket({
   }
 })
 
+const [aGlyph] = w.getGlyphIndices("A")
+const b3 = w.createBucket({
+  Text: [
+    { font_key: [1, 2], color: RED },
+    [
+      [aGlyph, [220, 130]]
+    ]
+  ]
+})
+
+
 let i = 0
 
 setInterval(() => {
   w.updateBucket(b1, {
     Rectangle: {
-      color: (i % 5) > 1 ?RED :BLUE
+      color: [1, Math.abs(Math.sin(i)), 0, 1]
     }
   })
 
   w.render({
-    bucket_ids: [b1, b2],
+    bucket_ids: [b1, b2, b3],
     layouts: [
       // x, y, w, h
       [0, 0, 100, 100],
-      [100, 100, 100, 50 * (1 + Math.sin(i))]
+      [100, 100, 100, 50 * (1 + Math.sin(i))],
+      [200, 100, 100, 30]
     ]
   })
 

@@ -15,12 +15,12 @@ extern crate log;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc::channel;
 use glutin::{GlWindow, EventsLoop, GlContext};
-use webrender::api::{RenderApi, RenderNotifier, Transaction, DisplayListBuilder, ColorF, DocumentId, PipelineId, Epoch, FontKey, FontInstanceKey, GlyphIndex, GlyphDimensions, SpecificDisplayItem, LayoutRect, LayoutPoint, LayoutSize, LayoutPrimitiveInfo, RectangleDisplayItem, BorderDisplayItem};
+use webrender::api::{RenderApi, RenderNotifier, Transaction, DisplayListBuilder, ColorF, DocumentId, PipelineId, Epoch, FontKey, FontInstanceKey, GlyphIndex, GlyphDimensions, GlyphInstance, LayoutRect, LayoutPoint, LayoutSize, LayoutPrimitiveInfo, RectangleDisplayItem, BorderDisplayItem, TextDisplayItem};
 use webrender::{Renderer};
 use std::os::raw::c_int;
 
 pub struct Window {
-    items: Vec<SpecificDisplayItem>,
+    items: Vec<DisplayItem>,
 
     gl_window: GlWindow,
 
@@ -64,7 +64,7 @@ impl Window {
         w
     }
 
-    pub fn create_bucket(&mut self, item: SpecificDisplayItem) -> BucketId {
+    pub fn create_bucket(&mut self, item: DisplayItem) -> BucketId {
         let index = self.items.len();
 
         self.items.push(item);
@@ -72,7 +72,7 @@ impl Window {
         index
     }
 
-    pub fn update_bucket(&mut self, bucket_id: BucketId, item: SpecificDisplayItem) {
+    pub fn update_bucket(&mut self, bucket_id: BucketId, item: DisplayItem) {
         match self.items.get_mut(bucket_id) {
             None => panic!("bucket not found"),
             Some(bucket) => *bucket = item
@@ -98,9 +98,9 @@ impl Window {
                 None => panic!("item not found"),
                 Some(item) => {
                     match item {
-                        SpecificDisplayItem::Rectangle(RectangleDisplayItem { color }) => b.push_rect(&info, *color),
-                        SpecificDisplayItem::Border(BorderDisplayItem { widths, details }) => b.push_border(&info, *widths, *details),
-                        _ => panic!("TODO")
+                        DisplayItem::Text(TextDisplayItem { font_key, color, glyph_options }, glyphs) => b.push_text(&info, glyphs, *font_key, *color, *glyph_options),
+                        DisplayItem::Rectangle(RectangleDisplayItem { color }) => b.push_rect(&info, *color),
+                        DisplayItem::Border(BorderDisplayItem { widths, details }) => b.push_border(&info, *widths, *details)
                     }
                 }
             }
@@ -201,7 +201,7 @@ impl Window {
         self.api.send_transaction(self.document_id, tx);
     }
 
-    fn get_size(&self) -> euclid::TypedSize2D<u32, webrender::api::DevicePixel> {
+    fn get_size(&self) -> euclid::TypedSize2D<i32, webrender::api::DevicePixel> {
         get_gl_window_size(&self.gl_window)
     }
 
@@ -216,9 +216,9 @@ impl Window {
     }
 }
 
-fn get_gl_window_size(gl_window: &GlWindow) -> euclid::TypedSize2D<u32, webrender::api::DevicePixel> {
+fn get_gl_window_size(gl_window: &GlWindow) -> euclid::TypedSize2D<i32, webrender::api::DevicePixel> {
     let size = gl_window.get_inner_size().unwrap();
-    webrender::api::DeviceUintSize::new(size.width as u32, size.height as u32)
+    webrender::api::DeviceIntSize::new(size.width as i32, size.height as i32)
 }
 
 
@@ -259,4 +259,12 @@ impl Layout {
 
         LayoutPrimitiveInfo::new(layout_rect)
     }
+}
+
+// like SpecificDisplayItem but with text glyphs
+#[derive(Deserialize)]
+pub enum DisplayItem {
+    Rectangle(RectangleDisplayItem),
+    Border(BorderDisplayItem),
+    Text(TextDisplayItem, Vec<GlyphInstance>)
 }
