@@ -44,7 +44,7 @@ declare_types! {
         method updateBucket(mut ctx) {
             let bucket = ctx.argument::<JsNumber>(0)?.value() as usize;
 
-            let data = ctx.argument::<JsString>(0)?.value();
+            let data = ctx.argument::<JsString>(1)?.value();
             let item = serde_json::from_str(&data).unwrap();
 
             let mut this = ctx.this();
