@@ -17,17 +17,18 @@ const b2 = w.createBucket({
     widths: [1, 1, 1, 1],
     details: {
       Normal: {
-        left: { color: BLUE, style: 'Solid' },
-        right: { color: BLUE, style: 'Solid' },
         top: { color: BLUE, style: 'Solid' },
+        right: { color: BLUE, style: 'Solid' },
         bottom: { color: BLUE, style: 'Solid'},
+        left: { color: BLUE, style: 'Solid' },
         radius: {
-          top_left: [0, 0],
-          top_right: [0, 0],
-          bottom_left: [0, 0],
-          bottom_right: [0, 0]
+          top_left: [5, 5],
+          top_right: [5, 5],
+          bottom_left: [5, 5],
+          bottom_right: [5, 5]
         },
-        do_aa: false
+        // has to be true for radius (or we get whitescreen)
+        do_aa: true
       }
     }
   }
