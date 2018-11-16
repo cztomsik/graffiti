@@ -5,7 +5,6 @@ use [webrender](https://github.com/servo/webrender) from node.js
 
 :bulb: You must have rust installed locally on your machine if you want to use this dependency :bulb:
 
-# node-webrender
 ```bash
 git clone https://github.com/cztomsik/node-webrender --recursive
 cd node-webrender
@@ -34,7 +33,8 @@ npm run example
 - [ ] more fonts
 
 ## Notes
-- release build `npx neon build --release` weights ~7MB, dev is ~30MB
+- release build is ~10MB (including debugs) but takes a while to build
+- dev build is ~40MB (`npm run build`)
 
 ## How does it work (internally)
 - overview
