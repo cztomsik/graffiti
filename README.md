@@ -3,11 +3,15 @@
 # node-webrender
 use [webrender](https://github.com/servo/webrender) from node.js
 
-- have rust installed
-- `git clone --recursive`
-- go into
-- run `npm run build`
-- run `npm run example`
+:bulb: You must have rust installed locally on your machine if you want to use this dependency :bulb:
+
+# node-webrender
+```bash
+git clone https://github.com/cztomsik/node-webrender --recursive
+cd node-webrender
+npm install
+npm run example
+```
 
 
 ## TODO
