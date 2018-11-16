@@ -261,7 +261,7 @@ impl Layout {
     }
 }
 
-// like SpecificDisplayItem but with text glyphs
+// like SpecificDisplayItem::* but the Text actually holds glyphs
 #[derive(Deserialize)]
 pub enum DisplayItem {
     Rectangle(RectangleDisplayItem),

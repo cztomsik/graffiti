@@ -11,13 +11,13 @@ const reconciler = Reconciler({
   getChildHostContext: identity,
   prepareForCommit,
   resetAfterCommit,
-  createInstance: (type, props) => createNode(props),
+  createInstance,
   appendInitialChild: appendChild,
   finalizeInitialChildren: noop,
   prepareUpdate: noop,
   shouldSetTextContent: () => false,
   shouldDeprioritizeSubtree: () => false,
-  createTextInstance: identity,
+  createTextInstance: createText,
   scheduleDeferredCallback,
   cancelDeferredCallback,
   setTimeout,
@@ -32,12 +32,12 @@ const reconciler = Reconciler({
   appendChild,
   appendChildToContainer: (ct, child) => {
     ct._rootNode = child
-    child.yogaNode.setWidth(800)
-    child.yogaNode.setHeight(800)
+    child.yogaNode.setWidth('100%')
+    child.yogaNode.setHeight('100%')
   },
   commitTextUpdate: noop,
   commitMount: noop,
-  commitUpdate: noop,
+  commitUpdate,
   insertBefore,
   insertInContainerBefore: (ct, child, before) => insertBefore(ct._rootNode, child, before),
   removeChild,
@@ -46,6 +46,8 @@ const reconciler = Reconciler({
 })
 
 export function render(vnode, window, cb?) {
+  currentWindow = window
+
   if (window._rootContainer === undefined) {
     window._rootContainer = reconciler.createContainer(window, false, false)
   }
@@ -59,17 +61,35 @@ function prepareForCommit(container) {
   currentWindow = container
 }
 
-function createNode({ children = [], layout, appearance }) {
-  console.log('create', layout, appearance)
+function createInstance(type, props) {
+  console.log('create', type, props)
 
   const node = {
     yogaNode: yoga.Node.create(),
+    background: undefined,
+    border: undefined,
     children: []
   }
 
-  update(node, { layout, appearance })
+  commitUpdate(node, undefined, type, null, props, null)
 
   return node
+}
+
+function createText(str, container) {
+  console.log('createText')
+  /*
+  const indices = container.getGlyphIndices(str)
+  const glyphs = indices.map((glyph_index, i) => [glyph_index, [i * 20, 20]])
+
+  const node = createNode({ layout: ['auto', 'auto', 0, 1], appearance: {
+    type: 'Text',
+    color: [0, 0, 0, 1],
+    font_instance_key: [1, 2],
+    glyphs
+  } })
+
+  return node*/
 }
 
 function appendChild(parent, child) {
@@ -95,47 +115,58 @@ function insertBefore(parent, child, before) {
   parent.yogaNode.insertChild(child, index)
 }
 
-function update(node, { layout, appearance }) {
-  updateYogaNode(node.yogaNode, layout)
+function commitUpdate(node, payload, type, oldProps, { layout, background, border }, handle) {
+  try {
+    updateYogaNode(node.yogaNode, layout)
 
-  node.appearance = appearance
+    node.background = bucket(background)
+    node.border = bucket(border)
+  } catch (e) {
+    // one's gotta love react - it's soooo easy to debug reconcillers
+    console.log(e)
+    console.error('err')
+    throw e
+  }
 }
 
 function resetAfterCommit() {
-  console.log('rerender')
+  console.log('reset')
 
   const rootNode = currentWindow._rootNode
 
-  rootNode.yogaNode.calculateLayout()
+  rootNode.yogaNode.calculateLayout(800, 600)
 
-  const buf = []
+  const bucketIds = []
+  const layouts = []
 
-  writeNode(buf, rootNode)
+  writeNode(bucketIds, layouts, rootNode, 0, 0)
 
-  currentWindow.sendFrame(generateFrame(buf))
+  console.log('render', bucketIds, layouts)
+
+  currentWindow.render({ bucket_ids: bucketIds, layouts })
 }
 
-function writeNode(buf, node) {
+function writeNode(bucketIds, layouts, node, x, y) {
   const { left, top, width, height } = node.yogaNode.getComputedLayout()
-  const rect = [[left, top], [width, height]]
+  const layout = [left + x, top + y, width, height]
 
-  buf.push({
-    type: node.appearance.type,
-    info: { rect, clip_rect: rect, is_backface_visible: true },
-    color: node.appearance.color
-  })
+  console.log('write', node)
 
-  node.children.forEach(n => writeNode(buf, n))
-}
+  // TODO: push
 
-function generateFrame(items) {
-  console.log('items', items)
+  if (node.background !== undefined) {
+    bucketIds.push(node.background)
+    layouts.push(layout)
+  }
 
-  const frame = JSON.stringify(items, null, 2)
+  node.children.forEach(c => writeNode(bucketIds, layouts, c, layout[0], layout[1]))
 
-  console.log('frame', frame)
+  // TODO: clip
 
-  return frame
+  if (node.border !== undefined) {
+    bucketIds.push(node.border)
+    layouts.push(layout)
+  }
 }
 
 // TODO: should be in the same "land" with yoga so there is no hopping back and forth)
@@ -144,21 +175,28 @@ function updateYogaNode(n: yoga.YogaNode, values) {
   let i = 0
   const v = values
 
+  n.setWidth(v[i++])
+  n.setHeight(v[i++])
   n.setFlexDirection(v[i++])
   n.setFlex(v[i++])
   // n.setFlexGrow(v[i++])
   // n.setFlexShrink(v[i++])
 
-  // n.setMargin(yoga.EDGE_LEFT, v[i++])
-  // n.setMargin(yoga.EDGE_TOP, v[i++])
-  // n.setMargin(yoga.EDGE_RIGHT, v[i++])
-  // n.setMargin(yoga.EDGE_BOTTOM, v[i++])
+  n.setMargin(yoga.EDGE_TOP, v[i++])
+  n.setMargin(yoga.EDGE_RIGHT, v[i++])
+  n.setMargin(yoga.EDGE_BOTTOM, v[i++])
+  n.setMargin(yoga.EDGE_LEFT, v[i++])
 
-  // n.setPadding(yoga.EDGE_LEFT, v[i++])
-  // n.setPadding(yoga.EDGE_TOP, v[i++])
-  // n.setPadding(yoga.EDGE_RIGHT, v[i++])
-  // n.setPadding(yoga.EDGE_BOTTOM, v[i++])
+  n.setPadding(yoga.EDGE_TOP, v[i++])
+  n.setPadding(yoga.EDGE_RIGHT, v[i++])
+  n.setPadding(yoga.EDGE_BOTTOM, v[i++])
+  n.setPadding(yoga.EDGE_LEFT, v[i++])
+}
 
+// TODO: magic LRU cache?
+// for now, it's ok to just create new bucket every time
+function bucket(data) {
+  return data && currentWindow.createBucket(data)
 }
 
 declare global {

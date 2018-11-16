@@ -1,43 +1,46 @@
 import * as yoga from 'yoga-layout'
 import * as React from 'react'
 
-export const Button = ({ title, style = {} }) =>
-  <View style={[styles.Button, style]}>
-    <Text>{title}</Text>
-  </View>
-
-export const Image = ({ style }) =>
-  <View style={[styles.Image, style]}>
-    <Text>TODO: Image</Text>
-  </View>
-
+// it probably should be inside View, because Text.style extends View.style
+// and it can help with stacking too
 export const Text = ({ children = [] }) =>
-  <node />
+  <React.Fragment>{children}</React.Fragment>
 
-export const View = ({ style = {}, children = [] }) =>
-  <node layout={resolveLayout(style)} appearance={resolveAppearance(style)}>
+export const View = ({ style, children }) =>
+  <view layout={resolveLayout(style)} {...resolveAppearance(style)}>
     {children}
-  </node>
-
-// TODO: theme
-const styles = {
-  Button: {
-    borderWidth: 1,
-    //borderRadius: 5
-  },
-
-  Image: {
-    backgroundColor: '#f00'
-  }
-}
+  </view>
 
 function resolveLayout({
+  width = 'auto',
+  height = 'auto',
   flex = 0,
-  flexDirection = FLEX_DIRECTIONS[0]
+  flexDirection = FLEX_DIRECTIONS[0],
+  padding = 0,
+  margin = 0,
+  ...rest
 }) {
+  const {
+    marginTop = margin,
+    marginRight = margin,
+    marginBottom = margin,
+    marginLeft = margin,
+
+    paddingTop = padding,
+    paddingRight = padding,
+    paddingBottom = padding,
+    paddingLeft = padding
+  } = rest
+
   return [
+    width,
+    height,
     FLEX_DIRECTIONS.indexOf(flexDirection),
-    flex
+    flex,
+
+    marginTop, marginRight, marginBottom, marginLeft,
+
+    paddingTop, paddingRight, paddingBottom, paddingLeft
   ]
 }
 
@@ -52,28 +55,47 @@ function resolveAppearance({
   // borderTopLeftRadius
   // borderTopRightRadius
 
-  borderColor = null, // TODO
+  borderColor = [0, 0, 0, 0], // TODO
   borderWidth = 0,
 
   ...rest
 }) {
   const {
-    borderBottomWidth = borderWidth,
-    borderLeftWidth = borderWidth,
+    borderTopWidth = borderWidth,
     borderRightWidth = borderWidth,
-    borderTopWidth = borderWidth
+    borderBottomWidth = borderWidth,
+    borderLeftWidth = borderWidth
   } = rest
 
   const {
-    borderBottomColor = borderColor,
-    borderLeftColor = borderColor,
+    borderTopColor = borderColor,
     borderRightColor = borderColor,
-    borderTopColor = borderColor
+    borderBottomColor = borderColor,
+    borderLeftColor = borderColor
   } = rest
 
   return {
-    type: 'Rect',
-    color: backgroundColor && color(backgroundColor)
+    background: backgroundColor && { Rectangle: { color: color(backgroundColor) } },
+    border: (borderTopWidth || borderRightWidth || borderBottomWidth || borderLeftWidth || undefined) && {
+      Border: {
+        widths: [borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth],
+        details: {
+          Normal: {
+            top: { color: color(borderTopColor), style: 'Solid' },
+            right: { color: color(borderRightColor), style: 'Solid' },
+            bottom: { color: color(borderBottomColor), style: 'Solid' },
+            left: { color: color(borderLeftColor), style: 'Solid' },
+            radius: {
+              top_left: [0, 0],
+              top_right: [0, 0],
+              bottom_left: [0, 0],
+              bottom_right: [0, 0]
+            },
+            do_aa: false // !! borderRadius
+          }
+        }
+      }
+    }
   }
 }
 
