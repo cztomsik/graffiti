@@ -8,6 +8,9 @@ class Window extends native.Window {
   constructor(title) {
     super(title)
     __gcBug.push(this)
+
+    // keep process up
+    setInterval(() => {}, Math.pow(2, 17))
   }
 
   createBucket(item) {
