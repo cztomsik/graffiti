@@ -1,5 +1,7 @@
 ! WIP, do not use
 
+![screenshot](https://pbs.twimg.com/media/DsMyYURXgAA64Xi.jpg:large)
+
 # node-webrender
 use [webrender](https://github.com/servo/webrender) from node.js
 
@@ -30,9 +32,10 @@ npx ts-node -T example/<file>
 - [x] load font
 - [x] yoga
 - [x] text
+- [ ] honor glyph dimensions
+- [ ] word-wrap
 - [ ] scrolling
 - [ ] window resize
-- [ ] word-wrap
 - [ ] click
 - [ ] input
 - [ ] hover
