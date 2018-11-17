@@ -3,15 +3,13 @@ import { Window } from '..'
 import { View, Button, Text, render } from '../src/react'
 
 const App = () =>
-  <View style={{ flexDirection: 'row', padding: 5, backgroundColor: '#ff0000' }}>
-    <View style={{ flex: 1, backgroundColor: '#0000ff' }}>
+  <View style={{ flexDirection: 'row' }}>
+    <View style={{ flex: 1, padding: 10, backgroundColor: '#dddddd' }}>
+      <Text>SIDEBAR</Text>
     </View>
-    <View style={{ flex: 2, backgroundColor: '#ffffff' }}>
-      <View style={{ width: 100, height: 20, borderWidth: 1, borderColor: '#000000' }}></View>
+    <View style={{ flex: 2, padding: 10 }}>
+      <Button title="HELLO" />
     </View>
   </View>
 
-
 render(<App />, new Window("Example"))
-
-setInterval(() => console.log('tick'), 60 * 1000)

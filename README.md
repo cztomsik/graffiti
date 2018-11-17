@@ -22,10 +22,10 @@ npm run example
 - [x] show rect
 - [x] react example
 - [x] load font
-- [ ] yoga
+- [x] yoga
+- [x] text
 - [ ] scrolling
 - [ ] window resize
-- [ ] text
 - [ ] word-wrap
 - [ ] click
 - [ ] input

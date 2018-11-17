@@ -15,7 +15,7 @@ extern crate log;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc::channel;
 use glutin::{GlWindow, EventsLoop, GlContext};
-use webrender::api::{RenderApi, RenderNotifier, Transaction, DisplayListBuilder, ColorF, DocumentId, PipelineId, Epoch, FontKey, FontInstanceKey, GlyphIndex, GlyphDimensions, GlyphInstance, LayoutRect, LayoutPoint, LayoutSize, LayoutPrimitiveInfo, RectangleDisplayItem, BorderDisplayItem, TextDisplayItem};
+use webrender::api::{RenderApi, RenderNotifier, Transaction, DisplayListBuilder, ColorF, DocumentId, PipelineId, Epoch, FontKey, FontInstanceKey, GlyphIndex, GlyphDimensions, GlyphInstance, LayoutRect, LayoutPoint, LayoutSize, LayoutPrimitiveInfo, RectangleDisplayItem, BorderDisplayItem, TextDisplayItem, PushStackingContextDisplayItem, StackingContext};
 use webrender::{Renderer};
 use std::os::raw::c_int;
 
@@ -100,7 +100,15 @@ impl Window {
                     match item {
                         DisplayItem::Text(TextDisplayItem { font_key, color, glyph_options }, glyphs) => b.push_text(&info, glyphs, *font_key, *color, *glyph_options),
                         DisplayItem::Rectangle(RectangleDisplayItem { color }) => b.push_rect(&info, *color),
-                        DisplayItem::Border(BorderDisplayItem { widths, details }) => b.push_border(&info, *widths, *details)
+                        DisplayItem::Border(BorderDisplayItem { widths, details }) => b.push_border(&info, *widths, *details),
+                        DisplayItem::PopStackingContext => b.pop_stacking_context(),
+
+                        // TODO: filters
+                        DisplayItem::PushStackingContext(PushStackingContextDisplayItem { stacking_context }) => {
+                            let StackingContext { transform_style, mix_blend_mode, clip_node_id, raster_space } = stacking_context;
+
+                            b.push_stacking_context(&info, *clip_node_id, *transform_style, *mix_blend_mode, &Vec::new(), *raster_space)
+                        }
                     }
                 }
             }
@@ -154,7 +162,7 @@ impl Window {
         };
 
         let options = webrender::RendererOptions {
-            clear_color: Some(ColorF::new(0., 0., 0., 1.)),
+            clear_color: Some(ColorF::new(1., 1., 1., 1.)),
             ..webrender::RendererOptions::default()
         };
 
@@ -194,7 +202,7 @@ impl Window {
         let b = webrender::api::DisplayListBuilder::new(self.pipeline_id, size);
 
         tx.add_raw_font(self.font_key, self.font.clone(), self.font_index as u32);
-        tx.add_font_instance(self.font_instance_key, self.font_key, app_units::Au::from_px(32), None, None, Vec::new());
+        tx.add_font_instance(self.font_instance_key, self.font_key, app_units::Au::from_px(24), None, None, Vec::new());
 
         tx.set_display_list(self.epoch, background, size, b.finalize(), true);
         tx.set_root_pipeline(self.pipeline_id);
@@ -266,5 +274,7 @@ impl Layout {
 pub enum DisplayItem {
     Rectangle(RectangleDisplayItem),
     Border(BorderDisplayItem),
-    Text(TextDisplayItem, Vec<GlyphInstance>)
+    Text(TextDisplayItem, Vec<GlyphInstance>),
+    PopStackingContext,
+    PushStackingContext(PushStackingContextDisplayItem)
 }

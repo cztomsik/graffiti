@@ -4,6 +4,7 @@ import * as yoga from 'yoga-layout'
 
 const noop = () => undefined
 const identity = v => v
+const LAYOUT_EMPTY = [0, 0, 0, 0]
 
 const reconciler = Reconciler({
   getPublicInstance: identity,
@@ -17,7 +18,7 @@ const reconciler = Reconciler({
   prepareUpdate: noop,
   shouldSetTextContent: () => false,
   shouldDeprioritizeSubtree: () => false,
-  createTextInstance: createText,
+  createTextInstance,
   scheduleDeferredCallback,
   cancelDeferredCallback,
   setTimeout,
@@ -37,7 +38,7 @@ const reconciler = Reconciler({
   },
   commitTextUpdate: noop,
   commitMount: noop,
-  commitUpdate,
+  commitUpdate: (node, payload, type, oldProps, newProps, handle) => updateNode(node, newProps),
   insertBefore,
   insertInContainerBefore: (ct, child, before) => insertBefore(ct._rootNode, child, before),
   removeChild,
@@ -50,6 +51,17 @@ export function render(vnode, window, cb?) {
 
   if (window._rootContainer === undefined) {
     window._rootContainer = reconciler.createContainer(window, false, false)
+
+    window.TEXT_STACKING_CONTEXT = bucket({
+      PushStackingContext: {
+        stacking_context: {
+          transform_style: 'Flat',
+          mix_blend_mode: 'Normal',
+          raster_space: 'Screen'
+        }
+      }
+    })
+    window.POP_STACKING_CONTEXT = bucket({ PopStackingContext: null })
   }
 
   return reconciler.updateContainer(vnode, window._rootContainer, null, cb)
@@ -62,8 +74,6 @@ function prepareForCommit(container) {
 }
 
 function createInstance(type, props) {
-  console.log('create', type, props)
-
   const node = {
     yogaNode: yoga.Node.create(),
     background: undefined,
@@ -71,67 +81,62 @@ function createInstance(type, props) {
     children: []
   }
 
-  commitUpdate(node, undefined, type, null, props, null)
+  updateNode(node, props)
 
   return node
 }
 
-function createText(str, container) {
-  console.log('createText')
-  /*
+function createTextInstance(str, container) {
   const indices = container.getGlyphIndices(str)
-  const glyphs = indices.map((glyph_index, i) => [glyph_index, [i * 20, 20]])
+  const glyphs = indices.map((glyph_index, i) => [glyph_index, [i * 16, 24]])
 
-  const node = createNode({ layout: ['auto', 'auto', 0, 1], appearance: {
-    type: 'Text',
-    color: [0, 0, 0, 1],
-    font_instance_key: [1, 2],
-    glyphs
-  } })
+  const node = createInstance('text', {
+    layout: ['auto', 'auto', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    stackingContext: currentWindow.TEXT_STACKING_CONTEXT,
+    text: {
+      Text: [{
+        font_key: [1, 2],
+        color: [0, 0, 0, 1]
+      }, glyphs]
+    }
+  })
 
-  return node*/
+  node.yogaNode.setMeasureFunc((...args) => {
+    console.log('measure', args)
+
+    return { width: (str.length * 16) + 5, height: 30 }
+  })
+
+  return node
 }
 
 function appendChild(parent, child) {
-  console.log('append', parent, child)
-
   parent.yogaNode.insertChild(child.yogaNode, parent.children.length)
   parent.children.push(child)
 }
 
 function removeChild(parent, child) {
-  console.log('remove', parent, child)
-
   parent.children.splice(parent.children.indexOf(child), 1)
   parent.yogaNode.removeChild(child)
 }
 
 function insertBefore(parent, child, before) {
-  console.log('insertBefore', parent, child, before)
-
   const index = parent.children.indexOf(before)
 
   parent.children.splice(index, 0, child)
   parent.yogaNode.insertChild(child, index)
 }
 
-function commitUpdate(node, payload, type, oldProps, { layout, background, border }, handle) {
-  try {
-    updateYogaNode(node.yogaNode, layout)
+function updateNode(node, { stackingContext, layout, background, text, border }) {
+  updateYogaNode(node.yogaNode, layout)
 
-    node.background = bucket(background)
-    node.border = bucket(border)
-  } catch (e) {
-    // one's gotta love react - it's soooo easy to debug reconcillers
-    console.log(e)
-    console.error('err')
-    throw e
-  }
+  node.stackingContext = bucket(stackingContext)
+  node.background = bucket(background)
+  node.text = bucket(text)
+  node.border = bucket(border)
 }
 
 function resetAfterCommit() {
-  console.log('reset')
-
   const rootNode = currentWindow._rootNode
 
   rootNode.yogaNode.calculateLayout(800, 600)
@@ -143,25 +148,45 @@ function resetAfterCommit() {
 
   console.log('render', bucketIds, layouts)
 
+  // TODO: we convert back and forth from f32 (yoga-cpp, webrender) to f64 (js)
   currentWindow.render({ bucket_ids: bucketIds, layouts })
 }
 
 function writeNode(bucketIds, layouts, node, x, y) {
   const { left, top, width, height } = node.yogaNode.getComputedLayout()
-  const layout = [left + x, top + y, width, height]
+  const layout = [left, top, width, height]
 
-  console.log('write', node)
+  if (node.stackingContext !== undefined) {
+    bucketIds.push(node.stackingContext)
+    layouts.push([layout[0] + x, layout[1] + y, layout[2], layout[3]])
 
-  // TODO: push
+    // now everything is at [0, 0]
+    layout[0] = 0
+    layout[1] = 0
+  } else {
+    layout[0] += x
+    layout[1] += y
+  }
 
   if (node.background !== undefined) {
     bucketIds.push(node.background)
     layouts.push(layout)
   }
 
+  if (node.text !== undefined) {
+    bucketIds.push(node.text)
+    // pozor, pushnout s 0, 0 pozici
+    layouts.push(layout)
+  }
+
   node.children.forEach(c => writeNode(bucketIds, layouts, c, layout[0], layout[1]))
 
   // TODO: clip
+
+  if (node.stackingContext !== undefined) {
+    bucketIds.push(currentWindow.POP_STACKING_CONTEXT)
+    layouts.push(LAYOUT_EMPTY)
+  }
 
   if (node.border !== undefined) {
     bucketIds.push(node.border)

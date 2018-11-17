@@ -1,12 +1,17 @@
 import * as yoga from 'yoga-layout'
 import * as React from 'react'
 
-// it probably should be inside View, because Text.style extends View.style
-// and it can help with stacking too
-export const Text = ({ children = [] }) =>
-  <React.Fragment>{children}</React.Fragment>
+// TODO: style, clicking
+export const Button = ({ title }) =>
+  <View style={{ padding: 10, borderWidth: 1, borderColor: '#000000' }}>
+    <Text>{title}</Text>
+  </View>
 
-export const View = ({ style, children }) =>
+// TODO: style (extends View.style)
+export const Text = ({ children }) =>
+  children
+
+export const View = ({ style = {}, children }) =>
   <view layout={resolveLayout(style)} {...resolveAppearance(style)}>
     {children}
   </view>
@@ -75,6 +80,17 @@ function resolveAppearance({
   } = rest
 
   return {
+    // TODO
+    /*stackingContext: ((opacity !== 1.0) || undefined) && {
+      PushStackingContext: {
+        stacking_context: {
+          transform_style: 'Flat',
+          mix_blend_mode: 'Normal',
+          //clip_node_id: None,
+          raster_space: 'Screen'
+        }
+      }
+    },*/
     background: backgroundColor && { Rectangle: { color: color(backgroundColor) } },
     border: (borderTopWidth || borderRightWidth || borderBottomWidth || borderLeftWidth || undefined) && {
       Border: {
