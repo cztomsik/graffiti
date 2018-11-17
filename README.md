@@ -12,6 +12,12 @@ npm install
 npm run example
 ```
 
+you can run other [examples](./tree/master/examples) with
+
+```
+npx ts-node -T example/<file>
+```
+
 
 ## TODO
 
