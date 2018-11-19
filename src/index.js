@@ -1,7 +1,6 @@
 const native = require('../native')
 
-// there is a bug somehow related to garbage collection
-// if a Window goes out of scope, the whole process will crash
+// see https://github.com/cztomsik/node-webrender/issues/2
 const __gcBug = []
 
 class Window extends native.Window {
@@ -9,7 +8,7 @@ class Window extends native.Window {
     super(title)
     __gcBug.push(this)
 
-    // keep process up
+    // keep the process up
     setInterval(() => {}, Math.pow(2, 17))
   }
 

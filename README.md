@@ -39,9 +39,9 @@ npx ts-node -T example/<file>
 - [ ] more fonts
 
 ## Notes
-- release build is ~10MB (including debugs) but takes a while to build
-- dev build is ~40MB (`npm run build`)
 - negative dimensions will block forever (WR will not generate a frame)
+- mem usage is around 50M with `ts-node` and 25M if you precompile first
+- release build is ~10MB on disk (including debugs) but takes a while to build, dev build is ~40MB (`npm run build`)
 
 ## How does it work (internally)
 - overview

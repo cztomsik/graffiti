@@ -12,9 +12,9 @@ export const Text = ({ children }) =>
   children
 
 export const View = ({ style = {}, children }) =>
-  <view layout={resolveLayout(style)} {...resolveAppearance(style)}>
+  <node layout={resolveLayout(style)} {...resolveAppearance(style)}>
     {children}
-  </view>
+  </node>
 
 function resolveLayout({
   width = 'auto',
@@ -50,7 +50,7 @@ function resolveLayout({
 }
 
 function resolveAppearance({
-  backgroundColor,
+  backgroundColor = undefined,
 
   // borderStyle
 
