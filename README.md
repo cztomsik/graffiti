@@ -10,7 +10,7 @@
 npm i node-webrender
 ```
 
-Low-level api is very simple and follows `serde-json` format particular `*DisplayItem`s from `webrender::api`. There is no object model, just buckets, representing particular display items, excluding their layout info. Updates are done with `updateBucket(bucket, payload)`. To render, you need to pass buckets along with layout infos. This is mostly because of speed - you can read more on the bottom.
+Low-level api is very simple and follows `serde-json` format for particular `*DisplayItem`s from `webrender::api`. There is no object model, just buckets, representing particular display items, excluding their layout info. Updates are done with `updateBucket(bucket, payload)`. To render, you need to pass buckets along with layout infos. This is mostly because of speed - you can read more on the bottom.
 
 There is also experimental **react binding** which is much more suited for any real UI development. Vue bindings will be added as soon as Vue3 will get published.
 
