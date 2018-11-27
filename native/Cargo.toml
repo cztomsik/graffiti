@@ -15,7 +15,7 @@ neon-build = "0.2.0"
 
 [dependencies]
 neon = "0.2.0"
-webrender = { path = "../webrender/webrender" }
+webrender = { git = "https://github.com/servo/webrender.git", rev = "5f88090" }
 glutin = "0.18.0"
 gleam = "0.6.4"
 font-loader = "0.7.0"
@@ -23,6 +23,6 @@ app_units = "0.7"
 serde = "1.0.66"
 serde_derive = "1.0.66"
 serde_json = "1.0.32"
-euclid = "0.19.2"
+euclid = "0.19.3"
 log = "0.4.6"
 env_logger = "0.6.0"
