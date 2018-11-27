@@ -5,6 +5,10 @@
   "main": "src/index.js",
   "author": "Kamil Tomšík <info@tomsik.cz>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cztomsik/node-webrender.git"
+  },
   "dependencies": {
     "neon-cli": "^0.2.0"
   },
