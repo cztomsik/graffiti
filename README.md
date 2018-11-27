@@ -24,7 +24,7 @@ const b = w.createBucket({ Rectangle: { color: RED } })
 
 w.render({
   bucket_ids: [b],
-  layouts: [0, 0, 100, 100]
+  layouts: [[0, 0, 100, 100]]
 })
 ```
 
@@ -35,7 +35,7 @@ You will need typescript if you want to play with this.
 mkdir hello-app
 cd hello-app
 npm init -y
-npm i node-webrender 
+npm i node-webrender react@next react-reconciler@next yoga-layout
 npm i ts-node typescript --save-dev 
 ```
 
@@ -54,7 +54,7 @@ const App = () =>
 render(<App />, new Window("Hello"))
 ```
 
-and it should show some text if you run it with `npx ts-node -T main.tsx`
+and it should show some text if you run it with `npx ts-node -I '//' -O '{"jsx": "react"}' -T main.tsx`. All of this is a bit hairy for now.
 
 ## Running examples
 ```bash
