@@ -1,50 +1,97 @@
-! WIP, do not use
+:bulb: You must have rust installed locally on your machine if you want to use this dependency :bulb:
 
 ![screenshot](https://pbs.twimg.com/media/DsMyYURXgAA64Xi.jpg:large)
 
 # node-webrender
-use [webrender](https://github.com/servo/webrender) from node.js
+[webrender](https://github.com/servo/webrender) bindings for node.js & react
 
-:bulb: You must have rust installed locally on your machine if you want to use this dependency :bulb:
+## Getting started
+```
+npm i node-webrender
+```
 
+Low-level api is very simple and follows `serde-json` format particular `*DisplayItem`s from `webrender::api`. There is no object model, just buckets, representing particular display items, excluding their layout info. Updates are done with `updateBucket(bucket, payload)`. To render, you need to pass buckets along with layout infos. This is mostly because of speed - you can read more on the bottom.
+
+There is also experimental **react binding** which is much more suited for any real UI development. Vue bindings will be added as soon as Vue3 will get published.
+
+```
+const { Window } = require('node-webrender')
+const RED = [1, 0, 0, 1]
+
+// create window and bucket with red rectangle
+const w = new Window()
+const b = w.createBucket({ Rectangle: { color: RED } })
+
+w.render({
+  bucket_ids: [b],
+  layouts: [0, 0, 100, 100]
+})
+```
+
+## React bindings
+You will need typescript if you want to play with this.
+
+```
+mkdir hello-app
+cd hello-app
+npm init -y
+npm i node-webrender 
+npm i ts-node typescript --save-dev 
+```
+
+Then you can create `main.tsx` with:
+
+```
+import * as React from 'react'
+import { Window } from 'node-webrender'
+import { render, View, Text } from 'node-webrender/src/react'
+
+const App = () =>
+  <View>
+    <Text>Hello</Text>
+  </View>
+
+render(<App />, new Window("Hello"))
+```
+
+and it should show some text if you run it with `npx ts-node -T main.tsx`
+
+## Running examples
 ```bash
-git clone https://github.com/cztomsik/node-webrender --recursive
+git clone https://github.com/cztomsik/node-webrender
 cd node-webrender
 npm install
-npm run example
-```
-
-you can run other [examples](./example) with
-
-```
 npx ts-node -T example/<file>
 ```
 
+## Things to note
+- this is very early preview and things will change
+- negative dimensions will block forever (WR will not generate a frame)
+- mem usage (including node) is ~20M + additional libs you use
+- release build is ~10MB on disk
+
+## Out of scope
+- **cascading** stylesheets
+- accessibility
+- RTL and vertical languages
+- inline layout for components
+- word-break, white-space (pre, pre-line, pre-wrap, nowrap)
 
 ## TODO
-
-- [x] call rust from node
-- [x] show window
-- [x] init webrender
-- [x] clear screen
-- [x] show rect
-- [x] react example
+- [x] call rust, show window, init webrender
+- [x] clear screen, show rect
 - [x] load font
+- [x] react example
 - [x] yoga
-- [x] text
-- [ ] honor glyph dimensions
-- [ ] word-wrap
+- [ ] text, word-wrap, linebreak, spaces, nbsp
 - [ ] scrolling
 - [ ] window resize
 - [ ] click
 - [ ] input
 - [ ] hover
 - [ ] more fonts
-
-## Notes
-- negative dimensions will block forever (WR will not generate a frame)
-- mem usage is around 50M with `ts-node` and 25M if you precompile first
-- release build is ~10MB on disk (including debugs) but takes a while to build, dev build is ~40MB (`npm run build`)
+- [ ] better error-reporting
+- [ ] send binary buffers (flatbuffer/bincode/?)
 
 ## How does it work (internally)
 - overview
