@@ -104,7 +104,7 @@ function resetAfterCommit(window) {
     return
   }
 
-  root.yogaNode.calculateLayout(800, 600)
+  root.yogaNode.calculateLayout(window.width, window.height)
 
   const bucketIds = []
   const layouts = []

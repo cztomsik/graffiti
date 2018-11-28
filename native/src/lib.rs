@@ -19,8 +19,10 @@ declare_types! {
     pub class JsWindow for Window {
         init(mut ctx) {
             let title = ctx.argument::<JsString>(0)?.value();
+            let width = ctx.argument::<JsNumber>(1)?.value();
+            let height = ctx.argument::<JsNumber>(2)?.value();
 
-            let w = Window::new(title);
+            let w = Window::new(title, width, height);
 
             Ok(w)
         }

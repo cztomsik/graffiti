@@ -40,8 +40,8 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(title: String) -> Self {
-        let (gl_window, events_loop) = Window::create_gl_window(title);
+    pub fn new(title: String, width: f64, height: f64) -> Self {
+        let (gl_window, events_loop) = Window::create_gl_window(title, width, height);
         let (tx, rx) = channel();
         let (mut api, renderer) = Window::create_api(&gl_window, events_loop, tx);
         let (document_id, pipeline_id, epoch) = Window::create_document(&mut api, &gl_window);
@@ -139,8 +139,8 @@ impl Window {
         self.api.get_glyph_dimensions(self.font_instance_key, glyph_indices).iter().filter_map(|dims| *dims).collect()
     }
 
-    fn create_gl_window(title: String) -> (GlWindow, EventsLoop){
-        let window_builder = glutin::WindowBuilder::new().with_title(title).with_dimensions(glutin::dpi::LogicalSize::new(800., 600.));
+    fn create_gl_window(title: String, width: f64, height: f64) -> (GlWindow, EventsLoop){
+        let window_builder = glutin::WindowBuilder::new().with_title(title).with_dimensions(glutin::dpi::LogicalSize::new(width, height));
         let context_builder = glutin::ContextBuilder::new().with_gl(glutin::GlRequest::GlThenGles {
             opengl_version: (3, 2),
             opengles_version: (3, 0)

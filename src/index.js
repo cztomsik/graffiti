@@ -4,9 +4,13 @@ const native = require('../native')
 const __gcBug = []
 
 class Window extends native.Window {
-  constructor(title) {
-    super(title)
+  constructor(title, width = 800, height = 600) {
+    super(title, width, height)
     __gcBug.push(this)
+
+    // TODO: listen for changes
+    this.width = width
+    this.height = height
 
     this._freeBuckets = []
 
