@@ -8,8 +8,44 @@ class Window extends native.Window {
     super(title)
     __gcBug.push(this)
 
+    this._freeBuckets = []
+
+    // experimental
+    this._consts = {
+      TEXT_STACKING_CONTEXT: this.createBucket({
+        PushStackingContext: {
+          stacking_context: {
+            transform_style: 'Flat',
+            mix_blend_mode: 'Normal',
+            raster_space: 'Screen'
+          }
+        }
+      }),
+      POP_STACKING_CONTEXT: this.createBucket({ PopStackingContext: null })
+    }
+
     // keep the process up
     setInterval(() => {}, Math.pow(2, 17))
+  }
+
+  // experimental
+  _setBucket(bucketId, item) {
+    if (bucketId === undefined) {
+      if (item === undefined) {
+        return undefined
+      }
+
+      bucketId = this._freeBuckets.pop() || this.createBucket(item)
+      return bucketId
+    }
+
+    if (item === undefined) {
+      this._freeBuckets.push(bucketId)
+      return undefined
+    }
+
+    this.updateBucket(bucketId, item)
+    return bucketId
   }
 
   createBucket(item) {
