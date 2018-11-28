@@ -28,6 +28,10 @@ function resolveLayout({
   flexDirection = FLEX_DIRECTIONS[0],
   padding = 0,
   margin = 0,
+  alignContent = 'flex-start',
+  alignItems = 'strech',
+  alignSelf = 'auto',
+  justifyContent = 'flex-start',
   ...rest
 }) {
   const {
@@ -50,7 +54,11 @@ function resolveLayout({
 
     marginTop, marginRight, marginBottom, marginLeft,
 
-    paddingTop, paddingRight, paddingBottom, paddingLeft
+    paddingTop, paddingRight, paddingBottom, paddingLeft,
+
+    ALIGN.indexOf(alignContent), ALIGN.indexOf(alignItems), ALIGN.indexOf(alignSelf),
+
+    JUSTIFY.indexOf(justifyContent)
   ]
 }
 
@@ -135,3 +143,5 @@ function hex(str) {
 }
 
 const FLEX_DIRECTIONS = ['column', 'column-reverse', 'row', 'row-reverse']
+const ALIGN = ['auto', 'flex-start', 'center', 'flex-end', 'strech', 'baseline', 'space-between', 'space-around']
+const JUSTIFY = ['flex-start', 'center', 'flex-end', 'space-between', 'space-around', 'space-evenly']

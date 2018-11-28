@@ -180,4 +180,9 @@ function updateYogaNode(n: yoga.YogaNode, values) {
   n.setPadding(yoga.EDGE_RIGHT, v[i++])
   n.setPadding(yoga.EDGE_BOTTOM, v[i++])
   n.setPadding(yoga.EDGE_LEFT, v[i++])
+
+  n.setAlignContent(v[i++])
+  n.setAlignItems(v[i++])
+  n.setAlignSelf(v[i++])
+  n.setJustifyContent(v[i++])
 }
