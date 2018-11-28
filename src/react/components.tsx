@@ -8,13 +8,18 @@ export const Button = ({ title }) =>
   </View>
 
 // TODO: style (extends View.style)
-export const Text = ({ children }) =>
-  children
+export const Text = ({ style = {}, children }) => {
+  const {
+    color = '#000000'
+  } = style
+
+  return <wr-text color={parseColor(color)}>{children}</wr-text>
+}
 
 export const View = ({ style = {}, children }) =>
-  <node layout={resolveLayout(style)} {...resolveAppearance(style)}>
+  <wr-view layout={resolveLayout(style)} {...resolveAppearance(style)}>
     {children}
-  </node>
+  </wr-view>
 
 function resolveLayout({
   width = 'auto',
@@ -91,16 +96,16 @@ function resolveAppearance({
         }
       }
     },*/
-    background: backgroundColor && { Rectangle: { color: color(backgroundColor) } },
+    background: backgroundColor && { Rectangle: { color: parseColor(backgroundColor) } },
     border: (borderTopWidth || borderRightWidth || borderBottomWidth || borderLeftWidth || undefined) && {
       Border: {
         widths: [borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth],
         details: {
           Normal: {
-            top: { color: color(borderTopColor), style: 'Solid' },
-            right: { color: color(borderRightColor), style: 'Solid' },
-            bottom: { color: color(borderBottomColor), style: 'Solid' },
-            left: { color: color(borderLeftColor), style: 'Solid' },
+            top: { color: parseColor(borderTopColor), style: 'Solid' },
+            right: { color: parseColor(borderRightColor), style: 'Solid' },
+            bottom: { color: parseColor(borderBottomColor), style: 'Solid' },
+            left: { color: parseColor(borderLeftColor), style: 'Solid' },
             radius: {
               top_left: [0, 0],
               top_right: [0, 0],
@@ -116,7 +121,7 @@ function resolveAppearance({
 }
 
 // TODO
-function color(str: string) {
+function parseColor(str: string) {
   return [
     hex(str.slice(1, 3)) / 255,
     hex(str.slice(3, 5)) / 255,
