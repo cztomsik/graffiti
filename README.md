@@ -67,6 +67,7 @@ npx ts-node -T example/<file>
 ## Things to note
 - this is very early preview and things will change
 - negative dimensions will block forever (WR will not generate a frame)
+- <Text> cannot be root (bug)
 - mem usage (including node) is ~20M + additional libs you use
 - release build is ~10MB on disk
 
@@ -90,7 +91,6 @@ npx ts-node -T example/<file>
 - [ ] input
 - [ ] hover
 - [ ] more fonts
-- [ ] better error-reporting
 - [ ] send binary buffers (flatbuffer/bincode/?)
 
 ## How does it work (internally)
