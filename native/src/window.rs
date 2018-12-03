@@ -131,12 +131,38 @@ impl Window {
         self.redraw();
     }
 
-    pub fn get_glyph_indices(&self, str: &str) -> Vec<u32> {
-        self.api.get_glyph_indices(self.font_key, str).iter().filter_map(|i| *i).collect()
-    }
+    pub fn get_glyph_infos(&self, text: &str) -> Vec<GlyphInfo> {
+        // we could also return a string of what we actually found
+        // but it's **much** easier to just insert a space
+        const SPACE_INDEX: u32 = 1;
 
-    pub fn get_glyph_dimensions(&self, glyph_indices: Vec<GlyphIndex>) -> Vec<GlyphDimensions> {
-        self.api.get_glyph_dimensions(self.font_instance_key, glyph_indices).iter().filter_map(|dims| *dims).collect()
+        // TODO: should not happen?
+        const EMPTY_DIMENSIONS: GlyphDimensions = GlyphDimensions {
+            left: 0,
+            top: 0,
+            width: 0,
+            height: 0,
+            advance: 0.
+        };
+
+        let glyph_indices: Vec<u32> = self.api.get_glyph_indices(self.font_key, text)
+            .iter()
+            .map(|glyph_index| glyph_index.unwrap_or(SPACE_INDEX))
+            .collect();
+
+        let res = self.api.get_glyph_dimensions(self.font_instance_key, glyph_indices.clone())
+            .iter()
+            .enumerate()
+            .map(|(i, dims)| {
+                let dims = dims.unwrap_or(EMPTY_DIMENSIONS);
+
+                // TODO: zip?
+                // TODO: not sure what dims.{left,top} are but it looks much better without them
+                GlyphInfo(glyph_indices[i], dims.advance)
+            })
+            .collect();
+
+        res
     }
 
     fn create_gl_window(title: String, width: f64, height: f64) -> (GlWindow, EventsLoop){
@@ -278,3 +304,5 @@ pub enum DisplayItem {
     PopStackingContext,
     PushStackingContext(PushStackingContextDisplayItem)
 }
+
+pub struct GlyphInfo(pub GlyphIndex, pub f32);

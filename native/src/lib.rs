@@ -13,7 +13,7 @@ extern crate env_logger;
 mod window;
 
 use neon::prelude::*;
-use window::{Window};
+use window::{Window, GlyphInfo};
 
 declare_types! {
     pub class JsWindow for Window {
@@ -66,33 +66,24 @@ declare_types! {
             Ok(ctx.undefined().upcast())
         }
 
-        method getGlyphIndices(mut ctx) {
+        // TODO: array buffer?
+        method getGlyphInfos(mut ctx) {
             let str = ctx.argument::<JsString>(0)?.value();
             let mut this = ctx.this();
 
-            let indices = ctx.borrow(&mut this, |w| w.get_glyph_indices(&str));
+            let glyph_infos = ctx.borrow(&mut this, |w| w.get_glyph_infos(&str));
 
-            let js_array = JsArray::new(&mut ctx, indices.len() as u32);
+            let js_array = JsArray::new(&mut ctx, (glyph_infos.len() * 2) as u32);
 
-            for (i, glyph_i) in indices.iter().enumerate() {
-                let js_num = ctx.number(*glyph_i as f64);
-                let _ = js_array.set(&mut ctx, i as u32, js_num);
-            }
+            // flat buffer of index + advance pairs
+            for (i, GlyphInfo(glyph_index, advance)) in glyph_infos.iter().enumerate() {
+                let j = i * 2;
 
-            Ok(js_array.upcast())
-        }
+                let js_num = ctx.number(*glyph_index);
+                let _ = js_array.set(&mut ctx, j as u32, js_num);
 
-        method getGlyphDimensions(mut ctx) {
-            let str = ctx.argument::<JsString>(0)?.value();
-            let mut this = ctx.this();
-
-            let indices = ctx.borrow(&mut this, |w| w.get_glyph_indices(&str));
-
-            let js_array = JsArray::new(&mut ctx, indices.len() as u32);
-
-            for (i, glyph_i) in indices.iter().enumerate() {
-                let js_num = ctx.number(*glyph_i as f64);
-                let _ = js_array.set(&mut ctx, i as u32, js_num);
+                let js_num = ctx.number(*advance);
+                let _ = js_array.set(&mut ctx, (j + 1) as u32, js_num);
             }
 
             Ok(js_array.upcast())

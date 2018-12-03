@@ -78,6 +78,7 @@ export class Text extends Base<TextNode> {
   color
   bucketId
   glyphs = []
+  width
 
   constructor(private window) {
     super()
@@ -85,7 +86,7 @@ export class Text extends Base<TextNode> {
     this.yogaNode.setMeasureFunc(() => {
       this.updateGlyphs()
 
-      return { width: 100, height: 30 }
+      return { width: this.width, height: 30 }
     })
   }
 
@@ -119,9 +120,25 @@ export class Text extends Base<TextNode> {
 
   updateGlyphs() {
     const wholeStr = this.children.map(c => c.value).join('')
-    const indices = this.window.getGlyphIndices(wholeStr)
+    const glyphInfos = this.window.getGlyphInfos(wholeStr)
 
-    this.glyphs = indices.map((glyphIndex, i) => [glyphIndex, [i * 24, 30]])
+    const glyphs = []
+
+    let x = 0
+    const y = 20
+
+    const len = glyphInfos.length
+    for (let i = 0; i < len; i += 2) {
+      const glyphIndex = glyphInfos[i]
+      const advance = glyphInfos[i + 1]
+
+      glyphs.push([glyphIndex, [x, y]])
+
+      x += advance
+    }
+
+    this.glyphs = glyphs
+    this.width = x
 
     this.updateBucket()
   }
