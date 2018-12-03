@@ -3,8 +3,8 @@ import * as React from 'react'
 
 // TODO: style, clicking
 export const Button = ({ title }) =>
-  <View style={{ padding: 10, borderWidth: 1, borderColor: '#000000' }}>
-    <Text>{title}</Text>
+  <View style={{ padding: 10, backgroundColor: '#2196F3' }}>
+    <Text style={{ color: '#ffffff' }}>{title.toUpperCase()}</Text>
   </View>
 
 // TODO: style (extends View.style)
