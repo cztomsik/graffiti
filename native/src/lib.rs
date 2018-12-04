@@ -13,7 +13,8 @@ extern crate env_logger;
 mod window;
 
 use neon::prelude::*;
-use window::{Window, GlyphInfo};
+use window::{Window};
+use std::mem::size_of;
 
 declare_types! {
     pub class JsWindow for Window {
@@ -66,25 +67,30 @@ declare_types! {
             Ok(ctx.undefined().upcast())
         }
 
-        // TODO: array buffer?
-        method getGlyphInfos(mut ctx) {
+        method getGlyphIndicesAndAdvances(mut ctx) {
             let str = ctx.argument::<JsString>(0)?.value();
             let mut this = ctx.this();
 
-            let glyph_infos = ctx.borrow(&mut this, |w| w.get_glyph_infos(&str));
+            let (glyph_indices, advances) = ctx.borrow(&mut this, |w| w.get_glyph_indices_and_advances(&str));
+            let len = glyph_indices.len() as u32;
 
-            let js_array = JsArray::new(&mut ctx, (glyph_infos.len() * 2) as u32);
+            let js_array = JsArray::new(&mut ctx, 2);
 
-            // flat buffer of index + advance pairs
-            for (i, GlyphInfo(glyph_index, advance)) in glyph_infos.iter().enumerate() {
-                let j = i * 2;
+            let mut b1 = JsArrayBuffer::new(&mut ctx, len * (size_of::<u32>() as u32)).unwrap();
+            let mut b2 = JsArrayBuffer::new(&mut ctx, len * (size_of::<f32>() as u32)).unwrap();
 
-                let js_num = ctx.number(*glyph_index);
-                let _ = js_array.set(&mut ctx, j as u32, js_num);
+            {
+                let guard = ctx.lock();
 
-                let js_num = ctx.number(*advance);
-                let _ = js_array.set(&mut ctx, (j + 1) as u32, js_num);
+                let slice = b1.borrow_mut(&guard).as_mut_slice::<u32>();
+                slice.copy_from_slice(&glyph_indices[..]);
+
+                let slice = b2.borrow_mut(&guard).as_mut_slice::<f32>();
+                slice.copy_from_slice(&advances[..]);
             }
+
+            js_array.set(&mut ctx, 0, b1).unwrap();
+            js_array.set(&mut ctx, 1, b2).unwrap();
 
             Ok(js_array.upcast())
         }

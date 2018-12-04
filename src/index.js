@@ -63,6 +63,12 @@ class Window extends native.Window {
   render(request) {
     super.render(JSON.stringify(request))
   }
+
+  getGlyphIndicesAndAdvances(str) {
+    const [indicesBuffer, advancesBuffer] = super.getGlyphIndicesAndAdvances(str)
+
+    return [new Uint32Array(indicesBuffer), new Float32Array(advancesBuffer)]
+  }
 }
 
 exports.Window = Window

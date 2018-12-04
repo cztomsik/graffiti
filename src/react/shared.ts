@@ -74,39 +74,50 @@ export class View extends Base<View | Text> {
 }
 
 export class Text extends Base<TextNode> {
+  content
+  breaks
   fontInstanceKey
+  lineHeight
   color
   bucketId
   glyphs = []
-  width
+  contentWidth
+  contentHeight
 
   constructor(private window) {
     super()
 
-    this.yogaNode.setMeasureFunc(() => {
-      this.updateGlyphs()
+    this.yogaNode.setMeasureFunc(((width) => {
+      this.updateGlyphs(width)
 
-      return { width: this.width, height: 30 }
-    })
+      return { width: this.contentWidth, height: this.contentHeight }
+    }) as any)
   }
 
   insertAt(c, index) {
     super.insertAt(c, index)
     c.text = this
-    this.yogaNode.markDirty()
+    this.updateContent()
   }
 
   removeChild(c) {
     super.appendChild(c)
     c.text = undefined
-    this.yogaNode.markDirty()
+    this.updateContent()
   }
 
-  update({ fontInstanceKey = [1, 2], color }, window) {
+  update({ fontInstanceKey = [1, 2], color, lineHeight }, window) {
     this.fontInstanceKey = fontInstanceKey
     this.color = color
+    this.lineHeight = lineHeight
 
     this.updateBucket()
+  }
+
+  updateContent() {
+    this.content = this.children.map(c => c.value).join('')
+    this.breaks = parseBreaks(this.content)
+    this.yogaNode.markDirty()
   }
 
   updateBucket() {
@@ -118,33 +129,81 @@ export class Text extends Base<TextNode> {
     })
   }
 
-  updateGlyphs() {
-    const wholeStr = this.children.map(c => c.value).join('')
-    const glyphInfos = this.window.getGlyphInfos(wholeStr)
+  updateGlyphs(maxWidth) {
+    const [indices, advances] = this.window.getGlyphIndicesAndAdvances(this.content)
+    let x = 0
+    const xs = [0, ...advances.map(a => x += a)]
+
+    const lines = []
+
+    // do the word-wrap and figure out "line slices"
+    {
+      let tokenStart = 0
+      let lineStart = tokenStart
+      let nextBreak = maxWidth
+
+      for (const tokenEnd of this.breaks) {
+        const ch = this.content[tokenStart]
+
+        if (ch === ' ') {
+          tokenStart = tokenEnd
+          continue
+        }
+
+        if (ch === '\n') {
+          lines.push([lineStart, tokenStart])
+          lineStart = tokenEnd
+          tokenStart = tokenEnd
+          nextBreak = xs[tokenEnd] + maxWidth
+          continue
+        }
+
+        // not exactly (glyph can be shorter than its advance) but it's probably not worth memory and cpu
+        if (xs[tokenEnd] > nextBreak) {
+          lines.push([lineStart, tokenStart])
+          lineStart = tokenStart
+          nextBreak = xs[tokenStart] + maxWidth
+        }
+
+        // after last wrap check
+        if (tokenEnd === this.content.length) {
+          lines.push([lineStart, this.content.length])
+          break;
+        }
+
+        tokenStart = tokenEnd
+      }
+    }
 
     const glyphs = []
 
-    let x = 0
-    const y = 20
+    // layout lines
+    for (const [lineIndex, [start, end]] of lines.entries()) {
+      // TODO: text-align
+      let x = 0
 
-    const len = glyphInfos.length
-    for (let i = 0; i < len; i += 2) {
-      const glyphIndex = glyphInfos[i]
-      const advance = glyphInfos[i + 1]
+      // TODO: font metrics
+      let y = this.lineHeight * (lineIndex + 0.7)
 
-      glyphs.push([glyphIndex, [x, y]])
-
-      x += advance
+      for (let i = start; i < end; i++) {
+        glyphs.push([indices[i], [x, y]])
+        x += advances[i]
+      }
     }
 
+    // finish
     this.glyphs = glyphs
-    this.width = x
+    this.contentWidth = lines.length ?xs[lines[0][1]] :200
+    this.contentHeight = lines.length * this.lineHeight
 
     this.updateBucket()
   }
 
   write(bucketIds, layouts, x, y) {
     const layout = this.getLayout(x, y)
+
+    // TODO: we don't have proper font-metrics yet so we need to extend the box for now
+    layout[3] += this.lineHeight
 
     bucketIds.push(this.window._consts.TEXT_STACKING_CONTEXT)
     layouts.push(layout)
@@ -169,7 +228,7 @@ export class TextNode {
     this.value = value
 
     if (this.text !== undefined) {
-      this.text.yogaNode.markDirty()
+      this.text.updateContent()
     }
   }
 }
@@ -202,4 +261,13 @@ function updateYogaNode(n: yoga.YogaNode, values) {
   n.setAlignItems(v[i++])
   n.setAlignSelf(v[i++])
   n.setJustifyContent(v[i++])
+}
+
+
+const TOKEN_REGEX = /[^\n ]+|\n| +/g
+
+const parseBreaks = str => {
+  let i = 0
+
+  return str.match(TOKEN_REGEX).map(t => i += t.length)
 }

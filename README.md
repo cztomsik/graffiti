@@ -67,7 +67,7 @@ npx ts-node -T example/<file>
 ## Things to note
 - this is very early preview and things will change
 - negative dimensions will block forever (WR will not generate a frame)
-- <Text> cannot be root (bug)
+- &lt;Text&gt; cannot be root (bug)
 - mem usage (including node) is ~20M + additional libs you use
 - release build is ~10MB on disk
 
