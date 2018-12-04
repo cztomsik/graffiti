@@ -34,7 +34,7 @@ const b2 = w.createBucket({
   }
 })
 
-const [aGlyph] = w.getGlyphIndices("A")
+const [[aGlyph]] = w.getGlyphIndicesAndAdvances('A')
 const b3 = w.createBucket({
   Text: [
     { font_key: [1, 2], color: RED },
