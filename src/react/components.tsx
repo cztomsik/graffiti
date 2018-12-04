@@ -2,22 +2,22 @@ import * as yoga from 'yoga-layout'
 import * as React from 'react'
 
 // TODO: style, clicking
-export const Button = ({ title }) =>
+export const Button = ({ title, onPress = undefined }) =>
   <View style={{ padding: 10, backgroundColor: '#2196F3' }}>
     <Text style={{ color: '#ffffff', textAlign: 'center' }}>{title.toUpperCase()}</Text>
   </View>
 
 // TODO: style (extends View.style)
-export const Text = ({ style = {}, children }) => {
+export const Text = ({ style = {}, children = undefined }) => {
   const {
     color = '#000000',
     lineHeight = 30
-  } = style
+  } = (style as any)
 
   return <wr-text color={parseColor(color)} lineHeight={lineHeight}>{children}</wr-text>
 }
 
-export const View = ({ style = {}, children }) =>
+export const View = ({ style = {}, children = undefined }) =>
   <wr-view layout={resolveLayout(style)} {...resolveAppearance(style)}>
     {children}
   </wr-view>

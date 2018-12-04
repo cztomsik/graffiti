@@ -63,7 +63,7 @@ export function render(vnode, window, cb?) {
 function createInstance(type, props, window) {
   const inst = createEmpty(type, window)
 
-  inst.update(props, window)
+  ;(inst as any).update(props, window)
 
   return inst
 }
