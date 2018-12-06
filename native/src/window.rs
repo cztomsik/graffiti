@@ -15,7 +15,8 @@ extern crate log;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc::channel;
 use glutin::{GlWindow, EventsLoop, GlContext};
-use webrender::api::{RenderApi, RenderNotifier, Transaction, DisplayListBuilder, ColorF, DocumentId, PipelineId, Epoch, FontKey, FontInstanceKey, GlyphIndex, GlyphDimensions, GlyphInstance, LayoutRect, LayoutPoint, LayoutSize, LayoutPrimitiveInfo, RectangleDisplayItem, BorderDisplayItem, TextDisplayItem, PushStackingContextDisplayItem, StackingContext};
+use glutin::dpi::LogicalPosition;
+use webrender::api::{RenderApi, RenderNotifier, Transaction, DisplayListBuilder, ColorF, DocumentId, PipelineId, Epoch, FontKey, FontInstanceKey, GlyphIndex, GlyphDimensions, GlyphInstance, LayoutRect, LayoutPoint, LayoutSize, LayoutPrimitiveInfo, RectangleDisplayItem, BorderDisplayItem, TextDisplayItem, PushStackingContextDisplayItem, StackingContext, HitTestFlags, WorldPoint};
 use webrender::{Renderer};
 use std::os::raw::c_int;
 
@@ -23,6 +24,8 @@ pub struct Window {
     items: Vec<DisplayItem>,
 
     gl_window: GlWindow,
+    events_loop: EventsLoop,
+    mouse_position: LogicalPosition,
 
     api: RenderApi,
     renderer: Renderer,
@@ -43,14 +46,14 @@ impl Window {
     pub fn new(title: String, width: f64, height: f64) -> Self {
         let (gl_window, events_loop) = Window::create_gl_window(title, width, height);
         let (tx, rx) = channel();
-        let (mut api, renderer) = Window::create_api(&gl_window, events_loop, tx);
+        let (mut api, renderer) = Window::create_api(&gl_window, &events_loop, tx);
         let (document_id, pipeline_id, epoch) = Window::create_document(&mut api, &gl_window);
         let (font, font_index, font_key, font_instance_key) = Window::load_font(&mut api);
 
         let mut w = Window {
             items: Vec::new(),
 
-            gl_window,
+            gl_window, events_loop, mouse_position: LogicalPosition::new(0., 0.),
             api, renderer,
             document_id, pipeline_id, epoch,
 
@@ -62,6 +65,66 @@ impl Window {
         w.send_initial_frame();
 
         w
+    }
+
+    // TODO: thread
+    // TODO: one thread for many windows
+    // this will be big change, and it's mostly needed because EventsLoop cannot be moved to thread
+    // and so the thread will need to hold everything and we will probably just send messages to it
+    // for now, it's enough to call window.handleEvents() from js setInterval()
+    pub fn handle_events(&mut self) -> Vec<u32> {
+        let mut callback_ids = Vec::new();
+
+        let mut should_redraw = false;
+
+        // all of this is because of borrowing vs. mutable mouse_position
+        {
+            let document_id = self.document_id;
+            let events_loop = &mut self.events_loop;
+            let api = &self.api;
+            let mouse_position = &mut self.mouse_position;
+
+
+            events_loop.poll_events(|glutin_event| {
+                match glutin_event {
+                    glutin::Event::WindowEvent { event, .. } => {
+                        debug!("Event {:?}", event);
+
+                        match event {
+                            // TODO
+                            glutin::WindowEvent::Resized(_) => { should_redraw = true },
+
+                            glutin::WindowEvent::CursorMoved { position, .. } => { *mouse_position = position },
+
+                            glutin::WindowEvent::MouseInput { state, .. } => {
+                                match state {
+                                    glutin::ElementState::Released => {
+                                        let LogicalPosition { x, y } = *mouse_position;
+                                        let point = WorldPoint::new(x as f32, y as f32);
+                                        let res = api.hit_test(document_id, None, point, HitTestFlags::FIND_ALL);
+
+                                        for it in res.items {
+                                            callback_ids.push(it.tag.0 as u32)
+                                        }
+                                    },
+
+                                    _ => {}
+                                }
+                            },
+
+                            _ => {}
+                        }
+                    },
+                    _ => {}
+                }
+            });
+        }
+
+        if should_redraw {
+            self.redraw();
+        }
+        
+        callback_ids
     }
 
     pub fn create_bucket(&mut self, item: DisplayItem) -> BucketId {
@@ -92,12 +155,16 @@ impl Window {
         let mut b = DisplayListBuilder::new(self.pipeline_id, content_size);
 
         for (layout, i) in layouts.iter().zip(bucket_ids.iter()) {
-            let info = layout.to_info();
+            let mut info = layout.to_info();
 
             match self.items.get(*i) {
                 None => panic!("item not found"),
                 Some(item) => {
                     match item {
+                        DisplayItem::HitTest(tag) => {
+                            info.tag = Some((*tag as u64, 0 as u16));
+                            b.push_rect(&info, ColorF::TRANSPARENT);
+                        },
                         DisplayItem::Text(TextDisplayItem { font_key, color, glyph_options }, glyphs) => b.push_text(&info, glyphs, *font_key, *color, *glyph_options),
                         DisplayItem::Rectangle(RectangleDisplayItem { color }) => b.push_rect(&info, *color),
                         DisplayItem::Border(BorderDisplayItem { widths, details }) => b.push_border(&info, *widths, *details),
@@ -173,7 +240,7 @@ impl Window {
         (gl_window, events_loop)
     }
 
-    fn create_api(gl_window: &GlWindow, events_loop: EventsLoop, tx: Sender<Msg>) -> (RenderApi, Renderer) {
+    fn create_api(gl_window: &GlWindow, events_loop: &EventsLoop, tx: Sender<Msg>) -> (RenderApi, Renderer) {
         let gl = match gl_window.get_api() {
             glutin::Api::OpenGl => unsafe { gleam::gl::GlFns::load_with(|s| gl_window.get_proc_address(s) as *const _) },
             glutin::Api::OpenGlEs => unsafe { gleam::gl::GlesFns::load_with(|s| gl_window.get_proc_address(s) as *const _) },
@@ -291,6 +358,7 @@ impl Layout {
 // like SpecificDisplayItem::* but the Text actually holds glyphs
 #[derive(Deserialize)]
 pub enum DisplayItem {
+    HitTest(u32),
     Rectangle(RectangleDisplayItem),
     Border(BorderDisplayItem),
     Text(TextDisplayItem, Vec<GlyphInstance>),

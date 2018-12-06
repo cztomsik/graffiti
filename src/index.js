@@ -15,6 +15,10 @@ class Window extends native.Window {
     this._freeBuckets = []
 
     // experimental
+    // TODO: do not leak
+    this.callbacks = []
+
+    // experimental
     this._consts = {
       TEXT_STACKING_CONTEXT: this.createBucket({
         PushStackingContext: {
@@ -29,7 +33,10 @@ class Window extends native.Window {
     }
 
     // keep the process up
-    setInterval(() => {}, Math.pow(2, 17))
+    // setInterval(() => {}, Math.pow(2, 17))
+
+    // this is needed just because there is no proper threading now
+    setInterval(() => this.handleEvents(), 1000 / 30)
   }
 
   // experimental
@@ -62,6 +69,14 @@ class Window extends native.Window {
 
   render(request) {
     super.render(JSON.stringify(request))
+  }
+
+  handleEvents() {
+    const callbackIds = new Uint32Array(super.handleEvents())
+
+    for (const i of callbackIds) {
+      this.callbacks[i]()
+    }
   }
 
   getGlyphIndicesAndAdvances(str) {

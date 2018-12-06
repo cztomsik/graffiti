@@ -67,6 +67,23 @@ declare_types! {
             Ok(ctx.undefined().upcast())
         }
 
+        method handleEvents(mut ctx) {
+            let mut this = ctx.this();
+            // TODO: for some reason, we can't lock just once (JsArrayBuffer requires mutable ctx, ctx.lock does immutable)
+            let callback_ids = ctx.borrow_mut(&mut this, |mut w| w.handle_events());
+
+            let mut b = JsArrayBuffer::new(&mut ctx, (callback_ids.len() * size_of::<u32>()) as u32).unwrap();
+
+            {
+                let guard = ctx.lock();
+                let slice = b.borrow_mut(&guard).as_mut_slice::<u32>();
+
+                slice.copy_from_slice(&callback_ids[..]);
+            }
+
+            Ok(b.upcast())
+        }
+
         method getGlyphIndicesAndAdvances(mut ctx) {
             let str = ctx.argument::<JsString>(0)?.value();
             let mut this = ctx.this();

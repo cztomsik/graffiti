@@ -36,6 +36,7 @@ abstract class Base<T> {
 }
 
 export class View extends Base<View | Text> {
+  hitTestBucketId
   backgroundBucketId
   borderBucketId
 
@@ -49,15 +50,23 @@ export class View extends Base<View | Text> {
     this.yogaNode.removeChild(c.yogaNode)
   }
 
-  update({ layout, background, border }, window) {
+  update({ layout, background, border, onPress }, window) {
     updateYogaNode(this.yogaNode, layout)
 
+    const hitTest = onPress && { HitTest: window.callbacks.push(onPress) - 1 }
+
+    this.hitTestBucketId = window._setBucket(this.hitTestBucketId, hitTest)
     this.backgroundBucketId = window._setBucket(this.backgroundBucketId, background)
     this.borderBucketId = window._setBucket(this.borderBucketId, border)
   }
 
   write(bucketIds, layouts, x, y) {
     const layout = this.getLayout(x, y)
+
+    if (this.hitTestBucketId !== undefined) {
+      bucketIds.push(this.hitTestBucketId)
+      layouts.push(layout)
+    }
 
     if (this.backgroundBucketId !== undefined) {
       bucketIds.push(this.backgroundBucketId)
