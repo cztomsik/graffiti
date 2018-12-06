@@ -1,9 +1,11 @@
-:bulb: You must have rust installed locally on your machine if you want to use this dependency :bulb:
-
 ![screenshot](https://pbs.twimg.com/media/DsMyYURXgAA64Xi.jpg:large)
 
 # node-webrender
 [webrender](https://github.com/servo/webrender) bindings for node.js & react
+
+## Requirements
+- [rust & cargo](https://rustup.rs/)
+- (debian/ubuntu) `sudo apt install g++ cmake pkg-config python libfreetype6 libfreetype6-dev expat libexpat-dev`
 
 ## Getting started
 ```
