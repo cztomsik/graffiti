@@ -42,9 +42,9 @@ const reconciler = Reconciler({
   commitMount: NOOP,
   commitUpdate: (instance, payload, type, oldProps, newProps, handle) => instance.update(newProps, payload),
   insertBefore,
-  insertInContainerBefore: (window, child, before) => window._root.insertBefore(child, before),
+  insertInContainerBefore,
   removeChild,
-  removeChildFromContainer: (window, child) => window._root.removeChild(child),
+  removeChildFromContainer,
   resetTextContent: NOOP,
   hideInstance: NOOP,
   hideTextInstance: NOOP,
@@ -83,12 +83,22 @@ function appendChildToContainer(window, child) {
   child.yogaNode.setHeight('100%')
 }
 
+function removeChildFromContainer(window, child) {
+  assert(window._root === child)
+  window._root = undefined
+}
+
+function insertInContainerBefore(window, child, before) {
+  throw new Error('unsupported')
+}
+
 function appendChild(parent, child) {
   parent.appendChild(child)
 }
 
 function removeChild(parent, child) {
   parent.removeChild(child)
+  child.yogaNode.freeRecursive()
 }
 
 function insertBefore(parent, child, before) {

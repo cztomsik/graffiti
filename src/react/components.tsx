@@ -33,6 +33,7 @@ function resolveLayout({
   alignItems = 'strech',
   alignSelf = 'auto',
   justifyContent = 'flex-start',
+  flexWrap = 'no-wrap',
   ...rest
 }) {
   const {
@@ -59,7 +60,9 @@ function resolveLayout({
 
     ALIGN.indexOf(alignContent), ALIGN.indexOf(alignItems), ALIGN.indexOf(alignSelf),
 
-    JUSTIFY.indexOf(justifyContent)
+    JUSTIFY.indexOf(justifyContent),
+
+    FLEX_WRAP.indexOf(flexWrap)
   ]
 }
 
@@ -146,3 +149,4 @@ function hex(str) {
 const FLEX_DIRECTIONS = ['column', 'column-reverse', 'row', 'row-reverse']
 const ALIGN = ['auto', 'flex-start', 'center', 'flex-end', 'strech', 'baseline', 'space-between', 'space-around']
 const JUSTIFY = ['flex-start', 'center', 'flex-end', 'space-between', 'space-around', 'space-evenly']
+const FLEX_WRAP = ['no-wrap', 'wrap', 'wrap-reverse']

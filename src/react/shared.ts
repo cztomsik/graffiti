@@ -46,7 +46,7 @@ export class View extends Base<View | Text> {
   }
 
   removeChild(c) {
-    remove(this.children, c)
+    super.removeChild(c)
     this.yogaNode.removeChild(c.yogaNode)
   }
 
@@ -110,7 +110,7 @@ export class Text extends Base<TextNode> {
   }
 
   removeChild(c) {
-    super.appendChild(c)
+    super.removeChild(c)
     c.text = undefined
     this.updateContent()
   }
@@ -270,12 +270,18 @@ function updateYogaNode(n: yoga.YogaNode, values) {
   n.setAlignItems(v[i++])
   n.setAlignSelf(v[i++])
   n.setJustifyContent(v[i++])
+
+  n.setFlexWrap(v[i++])
 }
 
 
 const TOKEN_REGEX = /[^\n ]+|\n| +/g
 
 const parseBreaks = str => {
+  if (str === '') {
+    return []
+  }
+
   let i = 0
 
   return str.match(TOKEN_REGEX).map(t => i += t.length)
