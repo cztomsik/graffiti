@@ -98,6 +98,8 @@ function appendChild(parent, child) {
 
 function removeChild(parent, child) {
   parent.removeChild(child)
+
+  // react calls removeChild only for the root of removed subtree
   child.yogaNode.freeRecursive()
 }
 
