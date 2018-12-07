@@ -1,4 +1,5 @@
-![screenshot](https://pbs.twimg.com/media/DsMyYURXgAA64Xi.jpg:large)
+![react-calculator](https://user-images.githubusercontent.com/3526922/49677338-99535a00-fa7e-11e8-8e4d-ff77319645aa.png)
+![example](https://user-images.githubusercontent.com/3526922/49677441-24345480-fa7f-11e8-8748-7f1a46eae9ba.png)
 
 # node-webrender
 [webrender](https://github.com/servo/webrender) bindings for node.js & react
@@ -87,10 +88,10 @@ npx ts-node -T example/<file>
 - [x] load font
 - [x] react example
 - [x] yoga
-- [ ] text, word-wrap, linebreak, spaces, nbsp
+- [x] text, word-wrap, linebreak, spaces, nbsp
+- [x] click
 - [ ] scrolling
 - [ ] window resize
-- [ ] click
 - [ ] input
 - [ ] hover
 - [ ] more fonts
