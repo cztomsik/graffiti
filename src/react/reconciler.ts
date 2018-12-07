@@ -84,7 +84,7 @@ function appendChildToContainer(window, child) {
 }
 
 function removeChildFromContainer(window, child) {
-  assert(window._root === child)
+  //assert(window._root === child)
   window._root = undefined
 }
 
