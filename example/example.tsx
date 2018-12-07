@@ -12,7 +12,7 @@ const App = () =>
     <View style={styles.main}>
       <Text>Main content</Text>
 
-      <Button title="Click me" />
+      <Button title="Click to exit" onPress={() => process.exit()} />
     </View>
   </View>
 
