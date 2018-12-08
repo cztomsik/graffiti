@@ -1,3 +1,6 @@
+// TODO: HDPI support
+process.env.WINIT_HIDPI_FACTOR = 1
+
 const native = require('../native')
 
 // see https://github.com/cztomsik/node-webrender/issues/2
