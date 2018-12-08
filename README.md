@@ -59,7 +59,7 @@ const App = () =>
 render(<App />, new Window("Hello"))
 ```
 
-and it should show some text if you run it with `npx ts-node -I '//' -O '{"jsx": "react"}' -T main.tsx`. All of this is a bit hairy for now.
+and it should show some text if you run it with `npx ts-node -I '//' -O '{"jsx": "react", "target": "es2017"}' -T main.tsx`. Note that es2017 is really important here - otherwise no text will be shown. All of this is a bit hairy for now.
 
 ## Running examples
 ```bash
