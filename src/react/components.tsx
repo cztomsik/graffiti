@@ -2,13 +2,13 @@ import * as yoga from 'yoga-layout'
 import * as React from 'react'
 
 // TODO: style
-export const Button = ({ title, onPress = undefined }) =>
+const Button = ({ title, onPress = undefined }) =>
   <View style={{ padding: 10, backgroundColor: '#2196F3' }} onPress={onPress}>
     <Text style={{ color: '#ffffff', textAlign: 'center' }}>{title.toUpperCase()}</Text>
   </View>
 
 // TODO: style (extends View.style)
-export const Text = ({ style = {}, children = undefined }) => {
+const Text = ({ style = {}, children = undefined }) => {
   const {
     color = '#000000',
     lineHeight = 30
@@ -17,10 +17,13 @@ export const Text = ({ style = {}, children = undefined }) => {
   return <wr-text color={parseColor(color)} lineHeight={lineHeight}>{children}</wr-text>
 }
 
-export const View = ({ style = {}, children = undefined, onPress = undefined }) =>
+const View = ({ style = {}, children = undefined, onPress = undefined }) =>
   <wr-view layout={resolveLayout(style)} {...resolveAppearance(style)} onPress={onPress}>
     {children}
   </wr-view>
+
+// otherwise it would be Unknown in devtools
+export { Button, Text, View }
 
 function resolveLayout({
   width = 'auto',

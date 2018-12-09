@@ -75,6 +75,7 @@ npx ts-node -T example/<file>
 - &lt;Text&gt; cannot be root (bug)
 - mem usage (including node) is ~20M + additional libs you use
 - release build is ~10MB on disk
+- for `react-devtools` you need to add `react-devtools-core` and `ws` to your project
 
 ## Out of scope
 - **cascading** stylesheets
