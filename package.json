@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@types/node": "^10.12.1",
+    "@types/react-native": "^0.57.18",
     "@types/yoga-layout": "^1.9.0",
     "react": "^16.7.0-alpha.2",
     "react-reconciler": "^0.18.0-alpha.2",

@@ -1,6 +1,8 @@
 import * as yoga from 'yoga-layout'
 import * as React from 'react'
 
+import { ViewProps, TextProps } from '@types/react-native'
+
 // TODO: style
 const Button = ({ title, onPress = undefined }) =>
   <View style={{ padding: 10, backgroundColor: '#2196F3' }} onPress={onPress}>
@@ -8,7 +10,7 @@ const Button = ({ title, onPress = undefined }) =>
   </View>
 
 // TODO: style (extends View.style)
-const Text = ({ style = {}, children = undefined }) => {
+const Text = ({ style = {}, children = undefined }: TextProps & { children? }) => {
   const {
     color = '#000000',
     lineHeight = 30
@@ -17,7 +19,7 @@ const Text = ({ style = {}, children = undefined }) => {
   return <wr-text color={parseColor(color)} lineHeight={lineHeight}>{children}</wr-text>
 }
 
-const View = ({ style = {}, children = undefined, onPress = undefined }) =>
+const View = ({ style = {}, children = undefined, onPress = undefined }: ViewProps) =>
   <wr-view layout={resolveLayout(style)} {...resolveAppearance(style)} onPress={onPress}>
     {children}
   </wr-view>
