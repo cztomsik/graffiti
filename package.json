@@ -15,7 +15,8 @@
   "scripts": {
     "install": "neon build --release",
     "build": "neon build",
-    "example": "RUST_LOG=debug ts-node -T example/example.tsx"
+    "example": "RUST_LOG=debug ts-node -T example/example.tsx",
+    "example-calc": "RUST_LOG=debug ts-node -T example/react-calculator.tsx"
   },
   "devDependencies": {
     "@types/node": "^10.12.1",
