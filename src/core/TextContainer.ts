@@ -69,7 +69,7 @@ export class TextContainer implements Container<TextPart> {
   updateGlyphs(maxWidth) {
     const [indices, advances] = ResourceManager.getGlyphIndicesAndAdvances(this.content)
     let x = 0
-    const xs = [0, ...advances.map(a => x += a)]
+    const xs = [0, ...(advances as Float32Array).map(a => x += a)]
 
     const lines = []
 
@@ -140,7 +140,8 @@ export class TextContainer implements Container<TextPart> {
     const { left, top, width, height } = this.yogaNode.getComputedLayout()
     const rect = [left + x, top + y, width, height]
 
-    // TODO: we don't have proper font-metrics yet so we need to extend the box for now
+    // extend clip box to avoid some glyphs getting cut
+    // TODO: we don't have proper font-metrics so it's lineHeight for now
     rect[3] += this.lineHeight
 
     drawBrush(TEXT_STACKING_CONTEXT, rect)
