@@ -116,9 +116,9 @@ const resolveLayoutDefaults = (layout) => {
   } = layout
 
   const {
-    flexBasis = flex,
     flexGrow = flex,
     flexShrink = flex,
+    flexBasis = 'auto',
 
     marginTop = margin,
     marginRight = margin,
@@ -139,7 +139,7 @@ const resolveLayoutDefaults = (layout) => {
     alignSelf: ALIGN.indexOf(alignSelf),
     justifyContent: JUSTIFY.indexOf(justifyContent),
     flexDirection: DIRECTION.indexOf(flexDirection),
-    flexBasis,
+    flexBasis: (flexBasis === 'auto') ?NaN :flexBasis,
     flexGrow,
     flexShrink,
     flexWrap: FLEX_WRAP.indexOf(flexWrap),
