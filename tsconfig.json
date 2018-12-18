@@ -4,6 +4,6 @@
     "target": "es2017",
     "module": "commonjs",
     "jsx": "react",
-    "experimentalDecorators": true
+    "skipLibCheck": true
   }
 }

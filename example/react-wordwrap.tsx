@@ -6,7 +6,7 @@ const NBHY = '\u2011'
 const NBSP = '\u00A0'
 
 const App = () =>
-  <View style={{ padding: 20 }}>
+  <View style={{ flex: 1, padding: 20 }}>
     <Text>One line</Text>
     <Text>
       Two{'\n'}

@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Window } from '..'
-import { View, Button, Text, render } from '../src/react'
+import { View, Button, Text, StyleSheet, render } from '../src/react'
 
 const App = () =>
   <View style={styles.container}>
@@ -16,8 +16,9 @@ const App = () =>
     </View>
   </View>
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
+    flex: 1,
     flexDirection: 'row'
   },
 
@@ -32,6 +33,6 @@ const styles = {
     flex: 2,
     padding: 20
   }
-}
+})
 
 render(<App />, new Window("Example"))
