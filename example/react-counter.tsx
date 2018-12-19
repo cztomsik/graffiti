@@ -9,7 +9,7 @@ const App = () => {
   const inc = () => setCount(count + 1)
 
   return (
-    <View style={{ padding: 20, justifyContent: 'space-between' }}>
+    <View style={{ flex: 1, padding: 20, justifyContent: 'space-between' }}>
       <Text>{count}</Text>
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>

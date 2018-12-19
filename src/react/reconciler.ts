@@ -5,7 +5,8 @@ import {
   unstable_shouldYield as shouldYield,
   unstable_cancelCallback as cancelDeferredCallback,
 } from 'scheduler'
-import { View, Text, TextNode } from './shared'
+import { Surface, TextContainer, TextPart } from '../core'
+import initDevtools from './devtools'
 
 const NOOP = () => undefined
 const IDENTITY = v => v
@@ -19,10 +20,10 @@ const reconciler = Reconciler({
   createInstance,
   appendInitialChild: appendChild,
   finalizeInitialChildren: NOOP,
-  prepareUpdate: (instance, type, oldProps, newProps, window) => window,
+  prepareUpdate: () => true,
   shouldSetTextContent: () => false,
   shouldDeprioritizeSubtree: () => false,
-  createTextInstance: str => new TextNode(str),
+  createTextInstance: str => new TextPart(str),
   scheduleDeferredCallback,
   cancelDeferredCallback,
   shouldYield,
@@ -37,20 +38,22 @@ const reconciler = Reconciler({
 
   // mutation
   appendChild,
-  appendChildToContainer,
+  appendChildToContainer: appendChild,
   commitTextUpdate: (textInstance, oldText, newText) => textInstance.setValue(newText),
   commitMount: NOOP,
-  commitUpdate: (instance, payload, type, oldProps, newProps, handle) => instance.update(newProps, payload),
+  commitUpdate: (instance, payload, type, oldProps, newProps, handle) => instance.update(newProps),
   insertBefore,
-  insertInContainerBefore,
+  insertInContainerBefore: insertBefore,
   removeChild,
-  removeChildFromContainer,
+  removeChildFromContainer: removeChild,
   resetTextContent: NOOP,
   hideInstance: NOOP,
   hideTextInstance: NOOP,
   unhideInstance: NOOP,
   unhideTextInstance: NOOP,
 })
+
+initDevtools(reconciler)
 
 export function render(vnode, window, cb?) {
   if (window._reactRoot === undefined) {
@@ -60,57 +63,21 @@ export function render(vnode, window, cb?) {
   return reconciler.updateContainer(vnode, window._reactRoot, null, cb)
 }
 
-// react-devtools
-let WebSocket, devtools
-try {
-  WebSocket = require('ws')
-  global['window'] = global
-  devtools = require('react-devtools-core')
-} catch (e) {}
+function createInstance(type, props) {
+  const inst = createEmpty(type)
 
-if (devtools) {
-  require('react-devtools-core').connectToDevTools({
-    websocket: new WebSocket('ws://localhost:8097')
-  })
-
-  reconciler.injectIntoDevTools({
-    bundleType: 1,
-    version: '0.0.0',
-    rendererPackageName: 'node-webrender',
-    //findFiberByHostInstance: reconciler.findHostInstance
-  })
-}
-
-function createInstance(type, props, window) {
-  const inst = createEmpty(type, window)
-
-  ;(inst as any).update(props, window)
+  ;(inst as any).update(props)
 
   return inst
 }
 
-function createEmpty(type, window) {
+function createEmpty(type) {
   switch (type) {
-    case 'wr-text': return new Text(window)
-    case 'wr-view': return new View()
+    case 'host-surface': return new Surface()
+    case 'host-text-container': return new TextContainer()
   }
 
   throw new Error('unknown type')
-}
-
-function appendChildToContainer(window, child) {
-  window._root = child
-  child.yogaNode.setWidth('100%')
-  child.yogaNode.setHeight('100%')
-}
-
-function removeChildFromContainer(window, child) {
-  //assert(window._root === child)
-  window._root = undefined
-}
-
-function insertInContainerBefore(window, child, before) {
-  throw new Error('unsupported')
 }
 
 function appendChild(parent, child) {
@@ -121,7 +88,9 @@ function removeChild(parent, child) {
   parent.removeChild(child)
 
   // react calls removeChild only for the root of removed subtree
-  child.yogaNode.freeRecursive()
+  if (child.yogaNode !== undefined) {
+    child.yogaNode.freeRecursive()
+  }
 }
 
 function insertBefore(parent, child, before) {
@@ -129,31 +98,18 @@ function insertBefore(parent, child, before) {
 }
 
 function resetAfterCommit(window) {
-  const root = window._root
-
-  if (root === undefined) {
-    // TODO: do something about it
-    console.error('no root found, this is likely because react caught some err but insists on rendering, if nothing helps, try to debug with "break on all exceptions"')
-    return
-  }
-
-  root.yogaNode.calculateLayout(window.width, window.height)
-
-  const bucketIds = []
-  const layouts = []
-
-  root.write(bucketIds, layouts, 0, 0)
-
-  // TODO: we convert back and forth from f32 (yoga-cpp, webrender) to f64 (js)
-  window.render({ bucket_ids: bucketIds, layouts })
+  window.render()
 }
 
-// TODO: types
 declare global {
   namespace JSX {
+    interface IntrinsicAttributes {
+      children?: any
+    }
+
     interface IntrinsicElements {
-      "wr-view": any;
-      "wr-text": any;
+      'host-surface': { brush?, layout? };
+      'host-text-container': { color?, lineHeight? };
     }
   }
 }

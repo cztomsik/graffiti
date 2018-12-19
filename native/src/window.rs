@@ -448,6 +448,7 @@ impl Layout {
 // like SpecificDisplayItem::* but the Text actually holds glyphs
 #[derive(Deserialize)]
 pub enum DisplayItem {
+    // this was hack at first but it could be useful for hitSlop (hitBox can be bigger than clipBox)
     HitTest(u32),
     Rectangle(RectangleDisplayItem),
     Border(BorderDisplayItem),

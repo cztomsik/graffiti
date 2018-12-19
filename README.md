@@ -76,6 +76,7 @@ npx ts-node -T example/<file>
 - mem usage (including node) is ~20M + additional libs you use
 - release build is ~10MB on disk
 - for `react-devtools` you need to add `react-devtools-core` and `ws` to your project
+- there is a bug in typescript so you may need to wrap styles in StyleSheet.create()
 
 ## Out of scope
 - **cascading** stylesheets

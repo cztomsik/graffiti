@@ -2,7 +2,7 @@
   "name": "node-webrender",
   "version": "0.1.2",
   "description": "",
-  "main": "src/index.js",
+  "main": "src",
   "author": "Kamil Tomšík <info@tomsik.cz>",
   "license": "MIT",
   "repository": {
@@ -23,10 +23,12 @@
     "@types/react-native": "^0.57.18",
     "@types/yoga-layout": "^1.9.0",
     "react": "^16.7.0-alpha.2",
+    "react-devtools-core": "^3.4.3",
     "react-reconciler": "^0.18.0-alpha.2",
     "scheduler": "^0.12.0-alpha.2",
     "ts-node": "^7.0.1",
-    "typescript": "^3.2.1",
+    "typescript": "^3.2.2",
+    "ws": "^6.1.2",
     "yoga-layout": "^1.9.3"
   }
 }

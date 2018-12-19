@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useState } from 'react'
 import { Window } from '..'
-import { render, View, Text, Button } from '../src/react'
+import { render, View, Text, Button, StyleSheet } from '../src/react'
 
 const App = () => {
   const [expr, setExpr] = useState('0')
@@ -12,7 +12,7 @@ const App = () => {
     </View>
 
   return (
-    <View>
+    <View style={{ flex: 1 }}>
       <Display value={expr} />
 
       <View style={styles.buttons}>
@@ -45,7 +45,7 @@ const Display = ({ value }) =>
     <Text style={styles.displayText}>{value}</Text>
   </View>
 
-const styles = {
+const styles = StyleSheet.create({
   display: {
     height: 100,
     padding: 10,
@@ -66,6 +66,6 @@ const styles = {
   caButton: {
     width: '25%'
   }
-}
+})
 
 render(<App />, new Window("Calculator", 400, 300))
