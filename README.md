@@ -1,3 +1,4 @@
+![hmr](./docs/hmr.gif)
 ![react-calculator](https://user-images.githubusercontent.com/3526922/49677338-99535a00-fa7e-11e8-8e4d-ff77319645aa.png)
 ![example](https://user-images.githubusercontent.com/3526922/49677441-24345480-fa7f-11e8-8748-7f1a46eae9ba.png)
 

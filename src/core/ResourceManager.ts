@@ -116,20 +116,28 @@ const resolveLayoutDefaults = (layout) => {
   } = layout
 
   const {
+    marginHorizontal = margin,
+    marginVertical = margin,
+    paddingHorizontal = padding,
+    paddingVertical = padding,
+    ...rest2
+  } = rest
+
+  const {
     flexGrow = flex,
     flexShrink = flex,
     flexBasis = 'auto',
 
-    marginTop = margin,
-    marginRight = margin,
-    marginBottom = margin,
-    marginLeft = margin,
+    marginTop = marginVertical,
+    marginBottom = marginVertical,
+    marginLeft = marginHorizontal,
+    marginRight = marginHorizontal,
 
-    paddingTop = padding,
-    paddingRight = padding,
-    paddingBottom = padding,
-    paddingLeft = padding
-  } = rest
+    paddingTop = paddingVertical,
+    paddingBottom = paddingVertical,
+    paddingLeft = paddingHorizontal,
+    paddingRight = paddingHorizontal
+  } = rest2
 
   return {
     width,
