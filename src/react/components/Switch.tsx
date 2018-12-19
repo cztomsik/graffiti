@@ -1,14 +1,16 @@
 import * as React from 'react'
 import { SwitchProps } from '../react-native-types'
-import { View, Text, StyleSheet } from '..'
+import { View, Text, StyleSheet, TouchableWithoutFeedback } from '..'
 
 const Switch = (props: SwitchProps) => {
-  const { disabled, value } = props
+  const { disabled, value, onValueChange } = props
 
   return (
-    <View style={[styles.track, value && styles.trackActive, disabled && styles.trackDisabled]}>
-      <View style={[styles.thumb, value && styles.thumbActive]} />
-    </View>
+    <TouchableWithoutFeedback onPress={onValueChange as any}>
+      <View style={[styles.track, value && styles.trackActive, disabled && styles.trackDisabled]}>
+        <View style={[styles.thumb, value && styles.thumbActive]} />
+      </View>
+    </TouchableWithoutFeedback>
   )
 }
 
