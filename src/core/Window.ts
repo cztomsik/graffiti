@@ -29,6 +29,15 @@ class Window extends native.Window implements Container<Surface | TextContainer>
     setInterval(() => this.handleEvents(), 1000 / 30)
   }
 
+  // TODO
+  handleEvents() {
+    const callbackIds = new Uint32Array(super.handleEvents())
+
+    for (const i of callbackIds) {
+      __callbacks[i]()
+    }
+  }
+
   appendChild(child) {
     this.root.appendChild(child)
   }
@@ -81,5 +90,7 @@ function ResourceManagerHack(window) {
 export let WINDOW_HACK = null
 export let TEXT_STACKING_CONTEXT = null
 export let POP_STACKING_CONTEXT = null
+
+export const __callbacks = []
 
 export default Window
