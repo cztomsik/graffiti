@@ -1,6 +1,8 @@
 import { parseColor } from './utils'
 import { WINDOW_HACK } from './Window'
 
+const native = require('../../native')
+
 // TODO: maybe we could somehow find resource duplicates during startup
 // there is going to be a lot of similar layouts, brushes, ...
 
@@ -15,11 +17,11 @@ const ResourceManager = {
 
   // TODO: not sure if buckets should be public at all
   createBucket(item) {
-    return WINDOW_HACK.createBucket(JSON.stringify(item))
+    return native.createBucket(JSON.stringify(item))
   },
 
   updateBucket(bucketId, item) {
-    WINDOW_HACK.updateBucket(bucketId, JSON.stringify(item))
+    native.updateBucket(bucketId, JSON.stringify(item))
   },
 
   getGlyphIndicesAndAdvances(str) {

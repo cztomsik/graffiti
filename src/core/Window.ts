@@ -72,24 +72,11 @@ class Window extends native.Window implements Container<Surface | TextContainer>
 }
 
 // TODO: refactor rust so ResourceManager is separate from Window
+// (almost done, we just need to get glyph indices & advances)
 function ResourceManagerHack(window) {
   WINDOW_HACK = window
-
-  TEXT_STACKING_CONTEXT = [ResourceManager.createBucket({
-    PushStackingContext: {
-      stacking_context: {
-        transform_style: 'Flat',
-        mix_blend_mode: 'Normal',
-        raster_space: 'Screen'
-      }
-    }
-  })]
-  POP_STACKING_CONTEXT = [ResourceManager.createBucket({ PopStackingContext: null })]
 }
-
 export let WINDOW_HACK = null
-export let TEXT_STACKING_CONTEXT = null
-export let POP_STACKING_CONTEXT = null
 
 export const __callbacks = []
 

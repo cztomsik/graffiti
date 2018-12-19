@@ -19,15 +19,14 @@ use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
 use webrender::api::{
     BorderDisplayItem, ColorF, DisplayListBuilder, DocumentId, Epoch, FontInstanceKey, FontKey,
-    GlyphDimensions, GlyphIndex, GlyphInstance, HitTestFlags, LayoutPoint, LayoutPrimitiveInfo,
+    GlyphDimensions, GlyphIndex, HitTestFlags, LayoutPoint, LayoutPrimitiveInfo,
     LayoutRect, LayoutSize, PipelineId, PushStackingContextDisplayItem, RectangleDisplayItem,
     RenderApi, RenderNotifier, StackingContext, TextDisplayItem, Transaction, WorldPoint,
 };
 use webrender::Renderer;
+use resources::{DisplayItem, BucketId};
 
 pub struct Window {
-    items: Vec<DisplayItem>,
-
     gl_window: GlWindow,
     events_loop: EventsLoop,
     mouse_position: LogicalPosition,
@@ -61,8 +60,6 @@ impl Window {
         let (font, font_index, font_key, font_instance_key) = Window::load_font(&mut api);
 
         let mut w = Window {
-            items: Vec::new(),
-
             gl_window,
             events_loop,
             mouse_position: LogicalPosition::new(0., 0.),
@@ -151,22 +148,7 @@ impl Window {
         callback_ids
     }
 
-    pub fn create_bucket(&mut self, item: DisplayItem) -> BucketId {
-        let index = self.items.len();
-
-        self.items.push(item);
-
-        index
-    }
-
-    pub fn update_bucket(&mut self, bucket_id: BucketId, item: DisplayItem) {
-        match self.items.get_mut(bucket_id) {
-            None => panic!("bucket not found"),
-            Some(bucket) => *bucket = item,
-        }
-    }
-
-    pub fn render(&mut self, request: RenderRequest) {
+    pub fn render(&mut self, items: &Vec<DisplayItem>, request: RenderRequest) {
         let RenderRequest {
             bucket_ids,
             layouts,
@@ -184,7 +166,7 @@ impl Window {
         for (layout, i) in layouts.iter().zip(bucket_ids.iter()) {
             let mut info = layout.to_info();
 
-            match self.items.get(*i) {
+            match items.get(*i as usize) {
                 None => panic!("item not found"),
                 Some(item) => {
                     match item {
@@ -431,8 +413,6 @@ pub struct RenderRequest {
 
 pub struct Msg {}
 
-pub type BucketId = usize;
-
 #[derive(Deserialize)]
 struct Layout(f32, f32, f32, f32);
 
@@ -443,16 +423,4 @@ impl Layout {
 
         LayoutPrimitiveInfo::new(layout_rect)
     }
-}
-
-// like SpecificDisplayItem::* but the Text actually holds glyphs
-#[derive(Deserialize)]
-pub enum DisplayItem {
-    // this was hack at first but it could be useful for hitSlop (hitBox can be bigger than clipBox)
-    HitTest(u32),
-    Rectangle(RectangleDisplayItem),
-    Border(BorderDisplayItem),
-    Text(TextDisplayItem, Vec<GlyphInstance>),
-    PopStackingContext,
-    PushStackingContext(PushStackingContextDisplayItem),
 }
