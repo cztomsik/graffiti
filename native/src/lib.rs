@@ -11,10 +11,12 @@ extern crate serde_json;
 extern crate env_logger;
 
 mod window;
+mod resources;
 
 use neon::prelude::*;
 use window::{Window};
 use std::mem::size_of;
+use resources::ResourceManager;
 
 declare_types! {
     pub class JsWindow for Window {
@@ -28,41 +30,16 @@ declare_types! {
             Ok(w)
         }
 
-        method createBucket(mut ctx) {
-            let data = ctx.argument::<JsString>(0)?.value();
-            let item = serde_json::from_str(&data).unwrap();
-
-            let index = {
-                let mut this = ctx.this();
-                let guard = ctx.lock();
-                let mut w = this.borrow_mut(&guard);
-
-                w.create_bucket(item)
-            };
-
-            // TODO: maybe we can restrict vector size?
-            Ok(ctx.number(index as f64).upcast())
-        }
-
-        method updateBucket(mut ctx) {
-            let bucket = ctx.argument::<JsNumber>(0)?.value() as usize;
-
-            let data = ctx.argument::<JsString>(1)?.value();
-            let item = serde_json::from_str(&data).unwrap();
-
-            let mut this = ctx.this();
-
-            ctx.borrow_mut(&mut this, |mut w| w.update_bucket(bucket, item));
-
-            Ok(ctx.undefined().upcast())
-        }
-
         method render(mut ctx) {
             let data = ctx.argument::<JsString>(0)?.value();
             let request = serde_json::from_str(&data).unwrap();
             let mut this = ctx.this();
 
-            ctx.borrow_mut(&mut this, |mut w| w.render(request));
+            ctx.borrow_mut(&mut this, |mut w| {
+                ResourceManager::with(|rm| {
+                    w.render(&rm.display_items, request)
+                })
+            });
 
             Ok(ctx.undefined().upcast())
         }
@@ -114,8 +91,28 @@ declare_types! {
     }
 }
 
+fn js_create_bucket(mut ctx: FunctionContext) -> JsResult<JsNumber> {
+    let data = ctx.argument::<JsString>(0)?.value();
+    let item = serde_json::from_str(&data).unwrap();
+    let bucket_id = ResourceManager::with(|rm| rm.create_bucket(item));
+
+    Ok(ctx.number(bucket_id as f64))
+}
+
+fn js_update_bucket(mut ctx: FunctionContext) -> JsResult<JsUndefined> {
+    let bucket_id = ctx.argument::<JsNumber>(0)?.value() as u32;
+    let data = ctx.argument::<JsString>(1)?.value();
+    let item = serde_json::from_str(&data).unwrap();
+
+    ResourceManager::with(|rm| rm.update_bucket(bucket_id, item));
+
+    Ok(ctx.undefined())
+}
+
 register_module!(mut ctx, {
     env_logger::init();
 
-    ctx.export_class::<JsWindow>("Window")
+    ctx.export_class::<JsWindow>("Window")?;
+    ctx.export_function("createBucket", js_create_bucket)?;
+    ctx.export_function("updateBucket", js_update_bucket)
 });

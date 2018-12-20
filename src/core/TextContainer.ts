@@ -2,7 +2,6 @@ import * as yoga from 'yoga-layout'
 import { Container } from './types'
 import { remove } from './utils'
 import { TextPart, ResourceManager } from '.'
-import { TEXT_STACKING_CONTEXT, POP_STACKING_CONTEXT } from './Window'
 
 export class TextContainer implements Container<TextPart> {
   yogaNode = yoga.Node.create()
@@ -161,5 +160,17 @@ const parseBreaks = (str) => {
 
   return str.match(TOKEN_REGEX).map(t => i += t.length)
 }
+
+const TEXT_STACKING_CONTEXT = [ResourceManager.createBucket({
+  PushStackingContext: {
+    stacking_context: {
+      transform_style: 'Flat',
+      mix_blend_mode: 'Normal',
+      raster_space: 'Screen'
+    }
+  }
+})]
+
+const POP_STACKING_CONTEXT = [ResourceManager.createBucket({ PopStackingContext: null })]
 
 export default TextContainer
