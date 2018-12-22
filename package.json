@@ -14,10 +14,11 @@
     "neon-cli": "^0.2.0"
   },
   "files": [
-    "LICENSE",
-    "src/**/*",
-    "native/**/*",
-    "lib/**/*"
+    "src",
+    "lib",
+    "native/Cargo.*",
+    "native/*.rs",
+    "native/src"
   ],
   "scripts": {
     "install": "neon build",
