@@ -5,6 +5,10 @@
 # node-webrender
 [webrender](https://github.com/servo/webrender) bindings for node.js & react
 
+## Samples
+Easiest way to start is to just clone of these apps:
+- https://github.com/cztomsik/brew-cleaner
+
 ## Requirements
 - node.js 10.14.1
 - [rustc 1.31.1 & cargo 1.31.0](https://rustup.rs/)
