@@ -2,7 +2,8 @@
   "name": "node-webrender",
   "version": "0.1.2",
   "description": "",
-  "main": "src",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
   "author": "Kamil Tomšík <info@tomsik.cz>",
   "license": "MIT",
   "repository": {
@@ -13,8 +14,8 @@
     "neon-cli": "^0.2.0"
   },
   "scripts": {
-    "install": "neon build --release",
-    "build": "neon build",
+    "install": "neon build",
+    "prepublishOnly": "neon build && tsc -d",
     "example": "RUST_LOG=debug ts-node -T example/example.tsx",
     "example-calc": "RUST_LOG=debug ts-node -T example/react-calculator.tsx"
   },

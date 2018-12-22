@@ -7,3 +7,4 @@ native/artifacts.json
 .idea
 *.iml
 .vscode
+lib
