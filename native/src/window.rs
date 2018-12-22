@@ -14,21 +14,25 @@ extern crate webrender;
 
 use glutin::dpi::LogicalPosition;
 use glutin::{EventsLoop, GlContext, GlWindow};
+use resources::{BucketId, DisplayItem};
+use std::cell::RefCell;
 use std::os::raw::c_int;
+use std::rc::Rc;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
+use webrender::api::euclid::{TypedPoint2D, TypedSize2D};
 use webrender::api::{
     BorderDisplayItem, ColorF, DisplayListBuilder, DocumentId, Epoch, FontInstanceKey, FontKey,
-    GlyphDimensions, GlyphIndex, HitTestFlags, LayoutPoint, LayoutPrimitiveInfo,
-    LayoutRect, LayoutSize, PipelineId, PushStackingContextDisplayItem, RectangleDisplayItem,
-    RenderApi, RenderNotifier, StackingContext, TextDisplayItem, Transaction, WorldPoint,
+    GlyphDimensions, GlyphIndex, HitTestFlags, HitTestResult, LayoutPoint, LayoutPrimitiveInfo,
+    LayoutRect, LayoutSize, LayoutVector2D, PipelineId, PushStackingContextDisplayItem,
+    RectangleDisplayItem, RenderApi, RenderNotifier, ScrollLocation, ScrollSensitivity,
+    StackingContext, TextDisplayItem, Transaction, WorldPoint,
 };
 use webrender::Renderer;
-use resources::{DisplayItem, BucketId};
 
 pub struct Window {
     gl_window: GlWindow,
-    events_loop: EventsLoop,
+    events_loop: Rc<RefCell<EventsLoop>>,
     mouse_position: LogicalPosition,
 
     api: RenderApi,
@@ -61,7 +65,7 @@ impl Window {
 
         let mut w = Window {
             gl_window,
-            events_loop,
+            events_loop: Rc::new(RefCell::new(events_loop)),
             mouse_position: LogicalPosition::new(0., 0.),
             api,
             renderer,
@@ -94,13 +98,12 @@ impl Window {
 
         let mut should_redraw = false;
 
-        // all of this is because of borrowing vs. mutable mouse_position
+        // this is easier than rethinking/rewriting everything just because of unique access needed in closure
         {
-            let document_id = self.document_id;
-            let events_loop = &mut self.events_loop;
-            let api = &self.api;
-            let mouse_position = &mut self.mouse_position;
+            let evl_rc = self.events_loop.clone();
+            let mut events_loop = evl_rc.borrow_mut();
 
+            // should not panic unless we have some thread issues
             events_loop.poll_events(|glutin_event| {
                 match glutin_event {
                     glutin::Event::WindowEvent { event, .. } => {
@@ -111,19 +114,13 @@ impl Window {
                             glutin::WindowEvent::Resized(_) => should_redraw = true,
 
                             glutin::WindowEvent::CursorMoved { position, .. } => {
-                                *mouse_position = position
+                                self.mouse_position = position
                             }
 
                             glutin::WindowEvent::MouseInput { state, .. } => match state {
                                 glutin::ElementState::Released => {
-                                    let LogicalPosition { x, y } = *mouse_position;
-                                    let point = WorldPoint::new(x as f32, y as f32);
-                                    let res = api.hit_test(
-                                        document_id,
-                                        None,
-                                        point,
-                                        HitTestFlags::FIND_ALL,
-                                    );
+                                    let cursor = self.get_cursor();
+                                    let res = self.hit_test(cursor);
 
                                     for it in res.items {
                                         callback_ids.push(it.tag.0 as u32)
@@ -132,6 +129,15 @@ impl Window {
 
                                 _ => {}
                             },
+
+                            glutin::WindowEvent::MouseWheel { delta, .. } => {
+                                let y = match delta {
+                                    glutin::MouseScrollDelta::PixelDelta(point) => (point.y as f32),
+                                    glutin::MouseScrollDelta::LineDelta(_, dy) => 30. * dy,
+                                };
+
+                                self.scroll(y);
+                            }
 
                             _ => {}
                         }
@@ -163,6 +169,8 @@ impl Window {
 
         let mut b = DisplayListBuilder::new(self.pipeline_id, content_size);
 
+        let mut saved_rect = Layout(0., 0., 0., 0.).to_layout_rect();
+
         for (layout, i) in layouts.iter().zip(bucket_ids.iter()) {
             let mut info = layout.to_info();
 
@@ -174,6 +182,29 @@ impl Window {
                             info.tag = Some((*tag as u64, 0 as u16));
                             b.push_rect(&info, ColorF::TRANSPARENT);
                         }
+                        DisplayItem::SaveRect => {
+                            saved_rect = layout.to_layout_rect();
+                            debug!("saved rect {:?}", saved_rect);
+                        }
+                        DisplayItem::PushScrollClip => {
+                            let clip_id = b.define_scroll_frame(
+                                None,
+                                layout.to_layout_rect(),
+                                saved_rect,
+                                vec![],
+                                None,
+                                ScrollSensitivity::ScriptAndInputEvents,
+                            );
+
+                            debug!(
+                                "push scroll clip clip = {:?} content = {:?}",
+                                saved_rect,
+                                layout.to_layout_rect()
+                            );
+
+                            b.push_clip_id(clip_id);
+                        }
+                        DisplayItem::PopClip => b.pop_clip_id(),
                         DisplayItem::Text(
                             TextDisplayItem {
                                 font_key,
@@ -220,6 +251,25 @@ impl Window {
         tx.set_root_pipeline(self.pipeline_id);
         tx.generate_frame();
 
+        self.send_tx(tx);
+    }
+
+    pub fn hit_test(&mut self, point: WorldPoint) -> HitTestResult {
+        // pipeline_id is not needed
+        self.api
+            .hit_test(self.document_id, None, point, HitTestFlags::FIND_ALL)
+    }
+
+    pub fn scroll(&mut self, y: f32) {
+        let mut tx = Transaction::new();
+        let scroll_location = ScrollLocation::Delta(LayoutVector2D::new(0., y));
+        tx.scroll(scroll_location, self.get_cursor());
+        debug!("scroll {:?} {:?}", scroll_location, self.get_cursor());
+        tx.generate_frame();
+        self.send_tx(tx);
+    }
+
+    pub fn send_tx(&mut self, tx: Transaction) {
         self.api.send_transaction(self.document_id, tx);
 
         self.epoch.0 += 1;
@@ -230,6 +280,12 @@ impl Window {
         let _msg = self.rx.recv();
 
         self.redraw();
+    }
+
+    pub fn get_cursor(&self) -> WorldPoint {
+        let LogicalPosition { x, y } = self.mouse_position;
+
+        WorldPoint::new(x as f32, y as f32)
     }
 
     pub fn get_glyph_indices_and_advances(&self, text: &str) -> (Vec<GlyphIndex>, Vec<f32>) {
@@ -413,10 +469,18 @@ pub struct RenderRequest {
 
 pub struct Msg {}
 
+// TODO: rename (LayoutRect - but there is already one in webrender)
 #[derive(Deserialize)]
 struct Layout(f32, f32, f32, f32);
 
 impl Layout {
+    fn to_layout_rect(&self) -> LayoutRect {
+        LayoutRect::new(
+            TypedPoint2D::new(self.0, self.1),
+            TypedSize2D::new(self.2, self.3),
+        )
+    }
+
     fn to_info(&self) -> LayoutPrimitiveInfo {
         let Layout(x, y, width, height) = *self;
         let layout_rect = LayoutRect::new(LayoutPoint::new(x, y), LayoutSize::new(width, height));

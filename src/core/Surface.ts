@@ -9,6 +9,7 @@ class Surface implements Container<HasLayout>, HasLayout {
   yogaNode = yoga.Node.create()
   children = []
   brush?
+  clip?
 
   appendChild(child) {
     this.insertAt(child, this.children.length)
@@ -28,8 +29,9 @@ class Surface implements Container<HasLayout>, HasLayout {
     this.yogaNode.removeChild(child.yogaNode)
   }
 
-  update({ brush, layout = DEFAULT_LAYOUT() }) {
+  update({ brush = undefined, clip = undefined, layout = DEFAULT_LAYOUT }) {
     this.brush = brush
+    this.clip = clip
     updateYogaNode(this.yogaNode, layout)
   }
 
@@ -40,6 +42,10 @@ class Surface implements Container<HasLayout>, HasLayout {
     // TODO: translate stacking context
     // updating layout[0] a layout[1] should be enough
 
+    if (this.clip !== undefined) {
+      drawBrush(this.clip, rect)
+    }
+
     if (this.brush !== undefined) {
       drawBrush(this.brush, rect)
     }
@@ -47,6 +53,10 @@ class Surface implements Container<HasLayout>, HasLayout {
     this.children.forEach(c => c.write(drawBrush, rect[0], rect[1]))
 
     // TODO: pop stacking context
+
+    if (this.clip !== undefined) {
+      drawBrush(POP_CLIP, [0, 0, 0, 0])
+    }
   }
 }
 
@@ -77,10 +87,12 @@ const updateYogaNode = (n: yoga.YogaNode, props: any) => {
   n.setPadding(yoga.EDGE_RIGHT, p.paddingRight)
   n.setPadding(yoga.EDGE_BOTTOM, p.paddingBottom)
   n.setPadding(yoga.EDGE_LEFT, p.paddingLeft)
+
+  n.setOverflow(p.overflow)
 }
 
 // TODO: this should be just value (it's a function until ResourceManager gets really separated)
-const DEFAULT_LAYOUT = () =>
-  ResourceManager.getLayout({})
+const DEFAULT_LAYOUT = ResourceManager.getLayout({})
+const POP_CLIP = [ResourceManager.createBucket({ PopClip: null })]
 
 export default Surface

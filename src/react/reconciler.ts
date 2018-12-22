@@ -108,7 +108,7 @@ declare global {
     }
 
     interface IntrinsicElements {
-      'host-surface': { brush?, layout? };
+      'host-surface': { brush?, layout?, clip? };
       'host-text-container': { color?, lineHeight? };
     }
   }
