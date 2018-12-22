@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useState } from 'react'
-import { Window } from '..'
+import { Window } from '../src'
 import { render, View, Text, Button, StyleSheet } from '../src/react'
 
 const App = () => {
