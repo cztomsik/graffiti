@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Window } from '..'
+import { Window } from '../src'
 import { render, View, Text } from '../src/react'
 
 const NBHY = '\u2011'
