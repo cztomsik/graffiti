@@ -10,12 +10,13 @@ const Text = (props: TextProps & { children? }) => {
   } = props
 
   const {
+    fontSize,
     color = '#000000',
     lineHeight = 30
   } = StyleSheet.flatten(style)
 
   return (
-    <host-text-container color={parseColor(color)} lineHeight={lineHeight}>
+    <host-text-container fontSize={fontSize} color={parseColor(color)} lineHeight={lineHeight}>
       {children}
     </host-text-container>
   )

@@ -29,4 +29,4 @@ const App = () =>
     </Text>
   </View>
 
-render(<App />, new Window("Hello", 400, 600))
+render(<App />, new Window("Hello", 300, 500))

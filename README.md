@@ -73,7 +73,7 @@ npx ts-node -T example/<file>
 ## Things to note
 - this is very early preview and things will change
 - negative dimensions will block forever (WR will not generate a frame)
-- &lt;Text&gt; cannot be root (bug)
+- fontSize can now be only one of [10, 12, 14, 16, 20, 24, 34, 40, 48]
 - mem usage (including node) is ~20M + additional libs you use
 - release build is ~10MB on disk
 - for `react-devtools` you need to add `react-devtools-core` and `ws` to your project

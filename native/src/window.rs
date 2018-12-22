@@ -48,7 +48,6 @@ pub struct Window {
     font: Vec<u8>,
     font_index: c_int,
     font_key: FontKey,
-    font_instance_key: FontInstanceKey,
 
     rx: Receiver<Msg>,
 }
@@ -61,7 +60,7 @@ impl Window {
         let (tx, rx) = channel();
         let (mut api, renderer) = Window::create_api(&gl_window, &events_loop, tx, dpi);
         let (document_id, pipeline_id, epoch) = Window::create_document(&mut api, &gl_window, dpi);
-        let (font, font_index, font_key, font_instance_key) = Window::load_font(&mut api);
+        let (font, font_index, font_key) = Window::load_font(&mut api);
 
         let mut w = Window {
             gl_window,
@@ -78,7 +77,6 @@ impl Window {
             font,
             font_index,
             font_key,
-            font_instance_key,
 
             rx,
         };
@@ -288,7 +286,11 @@ impl Window {
         WorldPoint::new(x as f32, y as f32)
     }
 
-    pub fn get_glyph_indices_and_advances(&self, text: &str) -> (Vec<GlyphIndex>, Vec<f32>) {
+    pub fn get_glyph_indices_and_advances(
+        &self,
+        font_size: u32,
+        text: &str,
+    ) -> (Vec<GlyphIndex>, Vec<f32>) {
         // we could also return a string of what we actually found
         // but it's **much** easier to just insert a space
         const SPACE_INDEX: u32 = 1;
@@ -311,7 +313,10 @@ impl Window {
 
         let advances: Vec<f32> = self
             .api
-            .get_glyph_dimensions(self.font_instance_key, glyph_indices.clone())
+            .get_glyph_dimensions(
+                FontInstanceKey(self.font_key.0, font_size),
+                glyph_indices.clone(),
+            )
             .iter()
             .map(|dims| dims.unwrap_or(EMPTY_DIMENSIONS).advance)
             .collect();
@@ -379,20 +384,16 @@ impl Window {
         (document_id, pipeline_id, epoch)
     }
 
-    fn load_font(api: &mut RenderApi) -> (Vec<u8>, c_int, FontKey, FontInstanceKey) {
+    fn load_font(api: &mut RenderApi) -> (Vec<u8>, c_int, FontKey) {
         let property = font_loader::system_fonts::FontPropertyBuilder::new()
             .family("Arial")
             .build();
         let (font, font_index) = font_loader::system_fonts::get(&property).unwrap();
         let font_key = api.generate_font_key();
-        let font_instance_key = api.generate_font_instance_key();
 
-        debug!(
-            "(font_key, font_instance_key) = {}",
-            serde_json::to_string_pretty(&(font_key, font_instance_key)).unwrap()
-        );
+        debug!("font_key = {:?}", font_key);
 
-        (font, font_index, font_key, font_instance_key)
+        (font, font_index, font_key)
     }
 
     fn send_initial_frame(&mut self) {
@@ -405,14 +406,18 @@ impl Window {
         let b = webrender::api::DisplayListBuilder::new(self.pipeline_id, size);
 
         tx.add_raw_font(self.font_key, self.font.clone(), self.font_index as u32);
-        tx.add_font_instance(
-            self.font_instance_key,
-            self.font_key,
-            app_units::Au::from_px(24),
-            None,
-            None,
-            Vec::new(),
-        );
+
+        // TODO: support any size
+        for font_size in [10, 12, 14, 16, 20, 24, 34, 40, 48].iter() {
+            tx.add_font_instance(
+                FontInstanceKey(self.font_key.0, *font_size),
+                self.font_key,
+                app_units::Au::from_px(*font_size as i32),
+                None,
+                None,
+                Vec::new(),
+            );
+        }
 
         tx.set_display_list(self.epoch, background, size, b.finalize(), true);
         tx.set_root_pipeline(self.pipeline_id);

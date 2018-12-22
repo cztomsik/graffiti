@@ -4,6 +4,8 @@
     "target": "es2017",
     "module": "commonjs",
     "jsx": "react",
-    "skipLibCheck": true
-  }
+    "skipLibCheck": true,
+    "outDir": "lib"
+  },
+  "include": ["src", "src/react"]
 }

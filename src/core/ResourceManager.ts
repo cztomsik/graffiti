@@ -24,8 +24,8 @@ const ResourceManager = {
     native.updateBucket(bucketId, JSON.stringify(item))
   },
 
-  getGlyphIndicesAndAdvances(str) {
-    const [indicesBuffer, advancesBuffer] = WINDOW_HACK.getGlyphIndicesAndAdvances(str)
+  getGlyphIndicesAndAdvances(fontSize, str) {
+    const [indicesBuffer, advancesBuffer] = WINDOW_HACK.getGlyphIndicesAndAdvances(fontSize, str)
 
     return [new Uint32Array(indicesBuffer), new Float32Array(advancesBuffer)]
   }

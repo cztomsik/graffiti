@@ -62,10 +62,11 @@ declare_types! {
         }
 
         method getGlyphIndicesAndAdvances(mut ctx) {
-            let str = ctx.argument::<JsString>(0)?.value();
+            let font_size = ctx.argument::<JsNumber>(0)?.value() as u32;
+            let str = ctx.argument::<JsString>(1)?.value();
             let mut this = ctx.this();
 
-            let (glyph_indices, advances) = ctx.borrow(&mut this, |w| w.get_glyph_indices_and_advances(&str));
+            let (glyph_indices, advances) = ctx.borrow(&mut this, |w| w.get_glyph_indices_and_advances(font_size, &str));
             let len = glyph_indices.len() as u32;
 
             let js_array = JsArray::new(&mut ctx, 2);

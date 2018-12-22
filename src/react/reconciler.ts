@@ -104,12 +104,13 @@ function resetAfterCommit(window) {
 declare global {
   namespace JSX {
     interface IntrinsicAttributes {
-      children?: any
+      children?: any,
+      key?: any
     }
 
     interface IntrinsicElements {
       'host-surface': { brush?, layout?, clip? };
-      'host-text-container': { color?, lineHeight? };
+      'host-text-container': { color?, fontSize?, lineHeight? };
     }
   }
 }
