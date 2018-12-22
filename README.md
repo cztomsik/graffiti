@@ -7,7 +7,7 @@
 
 ## Requirements
 - node.js 10.14.1
-- [rustc 1.29.2 & cargo 1.29.0](https://rustup.rs/)
+- [rustc 1.31.1 & cargo 1.31.0](https://rustup.rs/)
 - (debian/ubuntu) `sudo apt install g++ cmake pkg-config python libfreetype6 libfreetype6-dev expat libexpat-dev`
 - (osx) should work without any deps (but if you need something it should be just one `brew install` away)
 
