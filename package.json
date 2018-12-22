@@ -13,6 +13,12 @@
   "dependencies": {
     "neon-cli": "^0.2.0"
   },
+  "files": [
+    "LICENSE",
+    "src/**/*",
+    "native/**/*",
+    "lib/**/*"
+  ],
   "scripts": {
     "install": "neon build",
     "prepublishOnly": "neon build && tsc -d",
