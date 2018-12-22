@@ -42,8 +42,9 @@ export class TextContainer implements Container<TextPart> {
     this.updateContent()
   }
 
-  update({ fontInstanceKey = [1, 2], color, lineHeight }) {
-    this.fontInstanceKey = fontInstanceKey
+  update({ fontSize = 16, color, lineHeight }) {
+    // TODO: support any size
+    this.fontInstanceKey = [1, fontSize]
     this.color = color
     this.lineHeight = lineHeight
 
@@ -66,7 +67,7 @@ export class TextContainer implements Container<TextPart> {
   }
 
   updateGlyphs(maxWidth) {
-    const [indices, advances] = ResourceManager.getGlyphIndicesAndAdvances(this.content)
+    const [indices, advances] = ResourceManager.getGlyphIndicesAndAdvances(this.fontInstanceKey[1], this.content)
     let x = 0
     const xs = [0, ...(advances as Float32Array).map(a => x += a)]
 
