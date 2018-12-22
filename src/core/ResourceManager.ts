@@ -37,13 +37,10 @@ const resolveViewDefaults = (style) => {
 
     // borderStyle
 
-    // borderRadius
-    // borderBottomLeftRadius
-    // borderBottomRightRadius
-    // borderTopLeftRadius
-    // borderTopRightRadius
+    // TODO: clip
+    borderRadius = 0,
 
-    borderColor = [0, 0, 0, 0], // TODO
+    borderColor,
     borderWidth = 0,
 
     ...rest
@@ -53,14 +50,17 @@ const resolveViewDefaults = (style) => {
     borderTopWidth = borderWidth,
     borderRightWidth = borderWidth,
     borderBottomWidth = borderWidth,
-    borderLeftWidth = borderWidth
-  } = rest
+    borderLeftWidth = borderWidth,
 
-  const {
     borderTopColor = borderColor,
     borderRightColor = borderColor,
     borderBottomColor = borderColor,
-    borderLeftColor = borderColor
+    borderLeftColor = borderColor,
+
+    borderBottomLeftRadius = borderRadius,
+    borderBottomRightRadius = borderRadius,
+    borderTopLeftRadius = borderRadius,
+    borderTopRightRadius = borderRadius
   } = rest
 
   const res = []
@@ -71,7 +71,7 @@ const resolveViewDefaults = (style) => {
     })
   }
 
-  if (borderTopWidth || borderRightWidth || borderBottomWidth || borderLeftWidth) {
+  if (borderColor && (borderTopWidth || borderRightWidth || borderBottomWidth || borderLeftWidth)) {
     res.push({
       Border: {
         widths: [borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth],
@@ -82,12 +82,12 @@ const resolveViewDefaults = (style) => {
             bottom: { color: parseColor(borderBottomColor), style: 'Solid' },
             left: { color: parseColor(borderLeftColor), style: 'Solid' },
             radius: {
-              top_left: [0, 0],
-              top_right: [0, 0],
-              bottom_left: [0, 0],
-              bottom_right: [0, 0]
+              top_left: [borderTopLeftRadius, borderTopLeftRadius],
+              top_right: [borderTopRightRadius, borderTopRightRadius],
+              bottom_left: [borderBottomLeftRadius, borderBottomLeftRadius],
+              bottom_right: [borderBottomRightRadius, borderBottomRightRadius]
             },
-            do_aa: false // !! borderRadius
+            do_aa: true//!! (borderTopLeftRadius || borderBottomLeftRadius || borderBottomRightRadius || borderTopRightRadius)
           }
         }
       }
@@ -114,6 +114,7 @@ const resolveLayoutDefaults = (layout) => {
     alignSelf = 'auto',
     justifyContent = 'flex-start',
     flexWrap = 'no-wrap',
+    overflow = 'visible',
     ...rest
   } = layout
 
@@ -160,7 +161,8 @@ const resolveLayoutDefaults = (layout) => {
     paddingTop,
     paddingRight,
     paddingBottom,
-    paddingLeft
+    paddingLeft,
+    overflow: OVERFLOW.indexOf(overflow),
   }
 }
 
@@ -168,5 +170,6 @@ const DIRECTION = ['column', 'column-reverse', 'row', 'row-reverse']
 const ALIGN = ['auto', 'flex-start', 'center', 'flex-end', 'strech', 'baseline', 'space-between', 'space-around']
 const JUSTIFY = ['flex-start', 'center', 'flex-end', 'space-between', 'space-around', 'space-evenly']
 const FLEX_WRAP = ['no-wrap', 'wrap', 'wrap-reverse']
+const OVERFLOW = ['hidden', 'scroll', 'visible']
 
 export default ResourceManager

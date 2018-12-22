@@ -51,6 +51,9 @@ pub type BucketId = u32;
 pub enum DisplayItem {
     // this was hack at first but it could be useful for hitSlop (hitBox can be bigger than clipBox)
     HitTest(u32),
+    SaveRect,
+    PushScrollClip,
+    PopClip,
     Rectangle(RectangleDisplayItem),
     Border(BorderDisplayItem),
     Text(TextDisplayItem, Vec<GlyphInstance>),

@@ -8,5 +8,6 @@ export {
   SwitchProps,
   TextProps,
   ButtonProps,
-  TouchableWithoutFeedbackProps
+  TouchableWithoutFeedbackProps,
+  ScrollViewProps,
 } from 'react-native'
