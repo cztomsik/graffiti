@@ -12,9 +12,10 @@ const View = (props: ViewProps) => {
 
   const brush = ResourceManager.getBrush(style)
   const layout = ResourceManager.getLayout(style)
+  const clip = ResourceManager.getClip(style)
 
   return (
-    <host-surface {...({ brush, layout })}>
+    <host-surface {...({ brush, layout, clip })}>
       {(props as any).children}
     </host-surface>
   )
