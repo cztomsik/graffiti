@@ -12,7 +12,7 @@ const App = () => {
     </View>
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.container}>
       <Display value={expr} />
 
       <View style={styles.buttons}>
@@ -46,26 +46,35 @@ const Display = ({ value }) =>
   </View>
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#444466'
+  },
+
   display: {
-    height: 100,
+    height: 80,
     padding: 10,
     justifyContent: 'flex-end',
     backgroundColor: '#000000'
   },
 
   displayText: {
+    fontSize: 20,
     color: '#ffffff'
   },
 
   buttons: {
+    padding: 10,
+    paddingHorizontal: 5,
     flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap'
   },
 
   caButton: {
-    width: '25%'
+    width: '25%',
+    padding: 3
   }
 })
 
-render(<App />, new Window("Calculator", 400, 300))
+render(<App />, new Window("Calculator", 230, 350))

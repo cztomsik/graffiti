@@ -22,11 +22,11 @@ use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
 use webrender::api::euclid::{TypedPoint2D, TypedSize2D};
 use webrender::api::{
-    BorderDisplayItem, ColorF, DisplayListBuilder, DocumentId, Epoch, FontInstanceKey, FontKey,
-    GlyphDimensions, GlyphIndex, HitTestFlags, HitTestResult, LayoutPoint, LayoutPrimitiveInfo,
-    LayoutRect, LayoutSize, LayoutVector2D, PipelineId, PushStackingContextDisplayItem,
-    RectangleDisplayItem, RenderApi, RenderNotifier, ScrollLocation, ScrollSensitivity,
-    StackingContext, TextDisplayItem, Transaction, WorldPoint,
+    BorderDisplayItem, BorderRadius, ClipMode, ColorF, ComplexClipRegion, DisplayListBuilder,
+    DocumentId, Epoch, FontInstanceKey, FontKey, GlyphDimensions, GlyphIndex, HitTestFlags,
+    HitTestResult, LayoutPoint, LayoutPrimitiveInfo, LayoutRect, LayoutSize, LayoutVector2D,
+    PipelineId, PushStackingContextDisplayItem, RectangleDisplayItem, RenderApi, RenderNotifier,
+    ScrollLocation, ScrollSensitivity, StackingContext, TextDisplayItem, Transaction, WorldPoint,
 };
 use webrender::Renderer;
 
@@ -175,6 +175,8 @@ impl Window {
             match items.get(*i as usize) {
                 None => panic!("item not found"),
                 Some(item) => {
+                    debug!("item {:?}", item);
+
                     match item {
                         DisplayItem::HitTest(tag) => {
                             info.tag = Some((*tag as u64, 0 as u16));
@@ -183,6 +185,20 @@ impl Window {
                         DisplayItem::SaveRect => {
                             saved_rect = layout.to_layout_rect();
                             debug!("saved rect {:?}", saved_rect);
+                        }
+                        DisplayItem::PushBorderRadiusClip(radius) => {
+                            let radii = BorderRadius::uniform(*radius);
+
+                            let complex_clip = ComplexClipRegion::new(
+                                layout.to_layout_rect(),
+                                radii,
+                                ClipMode::Clip,
+                            );
+
+                            let clip_id =
+                                b.define_clip(layout.to_layout_rect(), vec![complex_clip], None);
+
+                            b.push_clip_id(clip_id);
                         }
                         DisplayItem::PushScrollClip => {
                             let clip_id = b.define_scroll_frame(

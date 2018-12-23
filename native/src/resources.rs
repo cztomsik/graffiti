@@ -47,12 +47,13 @@ impl ResourceManager {
 pub type BucketId = u32;
 
 // like SpecificDisplayItem::* but the Text actually holds glyphs
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub enum DisplayItem {
     // this was hack at first but it could be useful for hitSlop (hitBox can be bigger than clipBox)
     HitTest(u32),
     SaveRect,
     PushScrollClip,
+    PushBorderRadiusClip(f32),
     PopClip,
     Rectangle(RectangleDisplayItem),
     Border(BorderDisplayItem),

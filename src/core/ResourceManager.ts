@@ -1,5 +1,6 @@
 import { parseColor } from './utils'
 import { WINDOW_HACK } from './Window'
+import { resolveCname } from 'dns';
 
 const native = require('../../native')
 
@@ -13,6 +14,10 @@ const ResourceManager = {
 
   getLayout(flatFlexStyle) {
     return resolveLayoutDefaults(flatFlexStyle)
+  },
+
+  getClip(flatClipStyle) {
+    return resolveClipDefaults(flatClipStyle)
   },
 
   // TODO: not sure if buckets should be public at all
@@ -165,6 +170,25 @@ const resolveLayoutDefaults = (layout) => {
     overflow: OVERFLOW.indexOf(overflow),
   }
 }
+
+const resolveClipDefaults = (style) => {
+  const {
+    borderRadius = 0
+  } = style
+
+  const res = []
+
+  if (borderRadius !== 0) {
+    res.push({ PushBorderRadiusClip: style.borderRadius })
+  }
+
+  return (
+    res.length !== 0
+      ?res.map(it => ResourceManager.createBucket(it))
+      :undefined
+  )
+}
+
 
 const DIRECTION = ['column', 'column-reverse', 'row', 'row-reverse']
 const ALIGN = ['auto', 'flex-start', 'center', 'flex-end', 'strech', 'baseline', 'space-between', 'space-around']
