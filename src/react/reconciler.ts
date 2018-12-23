@@ -1,3 +1,4 @@
+import * as React from 'react'
 import * as Reconciler from 'react-reconciler'
 import {
   unstable_now as now,
@@ -7,6 +8,7 @@ import {
 } from 'scheduler'
 import { Surface, TextContainer, TextPart } from '../core'
 import initDevtools from './devtools'
+import ErrorBoundary from './ErrorBoundary'
 
 const NOOP = () => undefined
 const IDENTITY = v => v
@@ -56,6 +58,8 @@ const reconciler = Reconciler({
 initDevtools(reconciler)
 
 export function render(vnode, window, cb?) {
+  vnode = React.createElement(ErrorBoundary, null, vnode)
+
   if (window._reactRoot === undefined) {
     window._reactRoot = reconciler.createContainer(window, false, false)
   }
