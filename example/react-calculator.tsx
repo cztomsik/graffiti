@@ -6,10 +6,11 @@ import { render, View, Text, Button, StyleSheet } from '../src/react'
 const App = () => {
   const [expr, setExpr] = useState('0')
 
-  const CaButton = ({ ch }) =>
+  const CaButton = ({ ch }) => (
     <View style={styles.caButton}>
       <Button title={ch} onPress={() => setExpr(expr + ch)} />
     </View>
+  )
 
   return (
     <View style={styles.container}>
@@ -40,10 +41,11 @@ const App = () => {
   )
 }
 
-const Display = ({ value }) =>
+const Display = ({ value }) => (
   <View style={styles.display}>
     <Text style={styles.displayText}>{value}</Text>
   </View>
+)
 
 const styles = StyleSheet.create({
   container: {
@@ -77,4 +79,4 @@ const styles = StyleSheet.create({
   }
 })
 
-render(<App />, new Window("Calculator", 230, 350))
+render(<App />, new Window('Calculator', 230, 350))
