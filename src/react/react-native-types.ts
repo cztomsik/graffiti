@@ -10,4 +10,6 @@ export {
   ButtonProps,
   TouchableWithoutFeedbackProps,
   ScrollViewProps,
+  StyleSheet as RNStyleSheet,
+  FlatListProps
 } from 'react-native'
