@@ -82,11 +82,6 @@ export class TextContainer implements Container<TextPart> {
       for (const tokenEnd of this.breaks) {
         const ch = this.content[tokenStart]
 
-        if (ch === ' ') {
-          tokenStart = tokenEnd
-          continue
-        }
-
         if (ch === '\n') {
           lines.push([lineStart, tokenStart])
           lineStart = tokenEnd
@@ -106,6 +101,11 @@ export class TextContainer implements Container<TextPart> {
         if (tokenEnd === this.content.length) {
           lines.push([lineStart, this.content.length])
           break;
+        }
+
+        if (ch === ' ') {
+          tokenStart = tokenEnd
+          continue
         }
 
         tokenStart = tokenEnd
