@@ -11,5 +11,6 @@ export {
   TouchableWithoutFeedbackProps,
   ScrollViewProps,
   StyleSheet as RNStyleSheet,
-  FlatListProps
+  FlatListProps,
+  TextInputProps
 } from 'react-native'

@@ -9,6 +9,7 @@ import {
 import { Surface, TextContainer, TextPart } from '../core'
 import initDevtools from './devtools'
 import ErrorBoundary from './ErrorBoundary'
+import ControlManager, { ControlManagerContext } from './ControlManager'
 
 const NOOP = () => undefined
 const IDENTITY = v => v
@@ -58,6 +59,12 @@ const reconciler = Reconciler({
 initDevtools(reconciler)
 
 export function render(vnode, window, cb?) {
+  // add default control manager
+  const rootControlManager = new ControlManager()
+  vnode = React.createElement(ControlManagerContext.Provider, { value: rootControlManager }, vnode)
+  window.onKeyPress = (e) => rootControlManager.keyPress(e)
+
+  // add default error boundary
   vnode = React.createElement(ErrorBoundary, null, vnode)
 
   if (window._reactRoot === undefined) {
