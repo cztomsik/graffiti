@@ -14,9 +14,11 @@ mod window;
 mod resources;
 
 use neon::prelude::*;
-use window::{Window};
+use window::{Window, WindowEvent, EventSender};
 use std::mem::size_of;
 use resources::ResourceManager;
+use std::os::unix::net::UnixStream;
+use std::io::Write;
 
 declare_types! {
     pub class JsWindow for Window {
@@ -24,8 +26,9 @@ declare_types! {
             let title = ctx.argument::<JsString>(0)?.value();
             let width = ctx.argument::<JsNumber>(1)?.value();
             let height = ctx.argument::<JsNumber>(2)?.value();
+            let socket_path = ctx.argument::<JsString>(3)?.value();
 
-            let w = Window::new(title, width, height);
+            let w = Window::new(title, width, height, get_event_sender(&socket_path));
 
             Ok(w)
         }
@@ -37,28 +40,19 @@ declare_types! {
 
             ctx.borrow_mut(&mut this, |mut w| {
                 ResourceManager::with(|rm| {
-                    w.render(&rm.display_items, request)
+                    w.render(&rm.buckets, request)
                 })
             });
 
             Ok(ctx.undefined().upcast())
         }
 
+        // TODO: remove this once we have UI thread
         method handleEvents(mut ctx) {
             let mut this = ctx.this();
-            // TODO: for some reason, we can't lock just once (JsArrayBuffer requires mutable ctx, ctx.lock does immutable)
-            let callback_ids = ctx.borrow_mut(&mut this, |mut w| w.handle_events());
+            ctx.borrow_mut(&mut this, |mut w| w.handle_events());
 
-            let mut b = JsArrayBuffer::new(&mut ctx, (callback_ids.len() * size_of::<u32>()) as u32).unwrap();
-
-            {
-                let guard = ctx.lock();
-                let slice = b.borrow_mut(&guard).as_mut_slice::<u32>();
-
-                slice.copy_from_slice(&callback_ids[..]);
-            }
-
-            Ok(b.upcast())
+            Ok(ctx.undefined().upcast())
         }
 
         method getGlyphIndicesAndAdvances(mut ctx) {
@@ -110,6 +104,13 @@ fn js_update_bucket(mut ctx: FunctionContext) -> JsResult<JsUndefined> {
     Ok(ctx.undefined())
 }
 
+fn get_event_sender(socket_path: &str) -> Box<EventSender> {
+    let socket_path = std::path::Path::new(socket_path);
+    let socket = UnixStream::connect(&socket_path).unwrap();
+
+    Box::new(SocketEventSender { socket })
+}
+
 register_module!(mut ctx, {
     env_logger::init();
 
@@ -117,3 +118,17 @@ register_module!(mut ctx, {
     ctx.export_function("createBucket", js_create_bucket)?;
     ctx.export_function("updateBucket", js_update_bucket)
 });
+
+struct SocketEventSender {
+    socket: UnixStream
+}
+
+// TODO: either share memory or at least support windows (NamedPipes)
+impl EventSender for SocketEventSender {
+    fn send(&mut self, event: WindowEvent) {
+        debug!("sending {:?}", event);
+        let buf: [u8; 12] = unsafe { std::mem::transmute(event) };
+
+        self.socket.write_all(&buf).unwrap();
+    }
+}
