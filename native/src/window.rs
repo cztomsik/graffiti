@@ -12,14 +12,13 @@ extern crate serde;
 extern crate serde_json;
 extern crate webrender;
 
-use glutin::dpi::LogicalPosition;
+use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::{EventsLoop, GlContext, GlWindow};
-use resources::{BucketId, DisplayItem};
+use resources::{BucketId, RenderOperation};
 use std::cell::RefCell;
 use std::os::raw::c_int;
 use std::rc::Rc;
-use std::sync::mpsc::channel;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use webrender::api::euclid::{TypedPoint2D, TypedSize2D};
 use webrender::api::{
     BorderDisplayItem, BorderRadius, ClipMode, ColorF, ComplexClipRegion, DisplayListBuilder,
@@ -30,30 +29,33 @@ use webrender::api::{
 };
 use webrender::Renderer;
 
+// TODO: split
 pub struct Window {
+    // win
     gl_window: GlWindow,
     events_loop: Rc<RefCell<EventsLoop>>,
-    mouse_position: LogicalPosition,
-
-    api: RenderApi,
-    renderer: Renderer,
-
-    // TODO subscribe to event
     dpi: f64,
 
+    // rendering
+    api: RenderApi,
+    renderer: Renderer,
     document_id: DocumentId,
     pipeline_id: PipelineId,
     epoch: Epoch,
+    rx: Receiver<Msg>,
 
+    // font
     font: Vec<u8>,
     font_index: c_int,
     font_key: FontKey,
 
-    rx: Receiver<Msg>,
+    // events
+    mouse_position: LogicalPosition,
+    event_sender: Box<EventSender>,
 }
 
 impl Window {
-    pub fn new(title: String, width: f64, height: f64) -> Self {
+    pub fn new(title: String, width: f64, height: f64, event_sender: Box<EventSender>) -> Self {
         let (gl_window, events_loop) = Window::create_gl_window(title, width, height);
 
         let dpi = gl_window.get_hidpi_factor();
@@ -65,20 +67,21 @@ impl Window {
         let mut w = Window {
             gl_window,
             events_loop: Rc::new(RefCell::new(events_loop)),
-            mouse_position: LogicalPosition::new(0., 0.),
-            api,
-            renderer,
             dpi,
 
+            api,
+            renderer,
             document_id,
             pipeline_id,
             epoch,
+            rx,
 
             font,
             font_index,
             font_key,
 
-            rx,
+            mouse_position: LogicalPosition::new(0., 0.),
+            event_sender,
         };
 
         w.send_initial_frame();
@@ -86,14 +89,7 @@ impl Window {
         w
     }
 
-    // TODO: thread
-    // TODO: one thread for many windows
-    // this will be big change, and it's mostly needed because EventsLoop cannot be moved to thread
-    // and so the thread will need to hold everything and we will probably just send messages to it
-    // for now, it's enough to call window.handleEvents() from js setInterval()
-    pub fn handle_events(&mut self) -> Vec<u32> {
-        let mut callback_ids = Vec::new();
-
+    pub fn handle_events(&mut self) {
         let mut should_redraw = false;
 
         // this is easier than rethinking/rewriting everything just because of unique access needed in closure
@@ -101,33 +97,31 @@ impl Window {
             let evl_rc = self.events_loop.clone();
             let mut events_loop = evl_rc.borrow_mut();
 
-            // should not panic unless we have some thread issues
             events_loop.poll_events(|glutin_event| {
                 match glutin_event {
                     glutin::Event::WindowEvent { event, .. } => {
                         debug!("Event {:?}", event);
 
                         match event {
-                            // TODO
-                            glutin::WindowEvent::Resized(_) => should_redraw = true,
+                            // TODO: resize
+                            glutin::WindowEvent::HiDpiFactorChanged(dpi) => self.dpi = dpi,
+
+                            glutin::WindowEvent::CloseRequested => self.handle_close(),
+
+                            glutin::WindowEvent::Resized(size) => {
+                                self.handle_resize(size);
+                                should_redraw = true
+                            }
 
                             glutin::WindowEvent::CursorMoved { position, .. } => {
                                 self.mouse_position = position
                             }
 
-                            glutin::WindowEvent::MouseInput { state, .. } => match state {
-                                glutin::ElementState::Released => {
-                                    let cursor = self.get_cursor();
-                                    let res = self.hit_test(cursor);
+                            glutin::WindowEvent::MouseInput { state, .. } => {
+                                self.handle_mouse(state)
+                            }
 
-                                    for it in res.items {
-                                        callback_ids.push(it.tag.0 as u32)
-                                    }
-                                }
-
-                                _ => {}
-                            },
-
+                            // TODO: scroll x
                             glutin::WindowEvent::MouseWheel { delta, .. } => {
                                 let y = match delta {
                                     glutin::MouseScrollDelta::PixelDelta(point) => (point.y as f32),
@@ -137,9 +131,12 @@ impl Window {
                                 self.scroll(y);
                             }
 
+                            glutin::WindowEvent::ReceivedCharacter(ch) => self.handle_char(ch),
+
                             _ => {}
                         }
                     }
+
                     _ => {}
                 }
             });
@@ -148,11 +145,9 @@ impl Window {
         if should_redraw {
             self.redraw();
         }
-
-        callback_ids
     }
 
-    pub fn render(&mut self, items: &Vec<DisplayItem>, request: RenderRequest) {
+    pub fn render(&mut self, items: &Vec<RenderOperation>, request: RenderRequest) {
         let RenderRequest {
             bucket_ids,
             layouts,
@@ -178,15 +173,15 @@ impl Window {
                     debug!("item {:?}", item);
 
                     match item {
-                        DisplayItem::HitTest(tag) => {
+                        RenderOperation::HitTest(tag) => {
                             info.tag = Some((*tag as u64, 0 as u16));
                             b.push_rect(&info, ColorF::TRANSPARENT);
                         }
-                        DisplayItem::SaveRect => {
+                        RenderOperation::SaveRect => {
                             saved_rect = layout.to_layout_rect();
                             debug!("saved rect {:?}", saved_rect);
                         }
-                        DisplayItem::PushBorderRadiusClip(radius) => {
+                        RenderOperation::PushBorderRadiusClip(radius) => {
                             let radii = BorderRadius::uniform(*radius);
 
                             let complex_clip = ComplexClipRegion::new(
@@ -200,7 +195,7 @@ impl Window {
 
                             b.push_clip_id(clip_id);
                         }
-                        DisplayItem::PushScrollClip => {
+                        RenderOperation::PushScrollClip => {
                             let clip_id = b.define_scroll_frame(
                                 None,
                                 layout.to_layout_rect(),
@@ -218,8 +213,8 @@ impl Window {
 
                             b.push_clip_id(clip_id);
                         }
-                        DisplayItem::PopClip => b.pop_clip_id(),
-                        DisplayItem::Text(
+                        RenderOperation::PopClip => b.pop_clip_id(),
+                        RenderOperation::Text(
                             TextDisplayItem {
                                 font_key,
                                 color,
@@ -227,16 +222,16 @@ impl Window {
                             },
                             glyphs,
                         ) => b.push_text(&info, glyphs, *font_key, *color, *glyph_options),
-                        DisplayItem::Rectangle(RectangleDisplayItem { color }) => {
+                        RenderOperation::Rectangle(RectangleDisplayItem { color }) => {
                             b.push_rect(&info, *color)
                         }
-                        DisplayItem::Border(BorderDisplayItem { widths, details }) => {
+                        RenderOperation::Border(BorderDisplayItem { widths, details }) => {
                             b.push_border(&info, *widths, *details)
                         }
-                        DisplayItem::PopStackingContext => b.pop_stacking_context(),
+                        RenderOperation::PopStackingContext => b.pop_stacking_context(),
 
                         // TODO: filters
-                        DisplayItem::PushStackingContext(PushStackingContextDisplayItem {
+                        RenderOperation::PushStackingContext(PushStackingContextDisplayItem {
                             stacking_context,
                         }) => {
                             let StackingContext {
@@ -266,6 +261,45 @@ impl Window {
         tx.generate_frame();
 
         self.send_tx(tx);
+    }
+
+    fn handle_close(&mut self) {
+        self.event_sender.send(WindowEvent::Close);
+    }
+
+    fn handle_resize(&mut self, size: LogicalSize) {
+        self.event_sender
+            .send(WindowEvent::Resize(size.width as f32, size.height as f32));
+
+        // TODO: doesn't work, not sure what's wrong (will take some time to investigate)
+        //let mut tx = Transaction::new();
+        //let fb_size = get_frame_buffer_size(&self.gl_window, self.dpi as f64);
+        //let inner_rect = DeviceIntRect::new(DeviceIntPoint::new(0, 0), fb_size.clone());
+        //tx.set_window_parameters(fb_size, inner_rect, self.dpi as f32);
+        //self.send_tx(tx)
+    }
+
+    fn handle_char(&mut self, ch: char) {
+        self.event_sender.send(WindowEvent::KeyPress(ch))
+    }
+
+    fn handle_mouse(&mut self, state: glutin::ElementState) {
+        /*self.event_sender.send(WindowEvent::MouseInput(
+            self.mouse_position.x,
+            self.mouse_position.y,
+        ))*/
+        match state {
+            glutin::ElementState::Released => {
+                let cursor = self.get_cursor();
+                let res = self.hit_test(cursor);
+
+                for it in res.items {
+                    self.event_sender.send(WindowEvent::Click(it.tag.0 as u32))
+                }
+            }
+
+            _ => {}
+        }
     }
 
     pub fn hit_test(&mut self, point: WorldPoint) -> HitTestResult {
@@ -508,4 +542,24 @@ impl Layout {
 
         LayoutPrimitiveInfo::new(layout_rect)
     }
+}
+
+#[derive(Debug)]
+pub enum WindowEvent {
+    Close,
+
+    // yoga is f32 so we are too
+    Resize(f32, f32),
+
+    // TODO not yet sure what should be supported
+    // KeyUp(u32), KeyDown(u32),
+
+    // "repeatable" press: characters, including accents, upper-case, backspace, etc.
+    KeyPress(char),
+
+    Click(u32),
+}
+
+pub trait EventSender {
+    fn send(&mut self, event: WindowEvent);
 }

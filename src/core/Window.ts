@@ -1,3 +1,4 @@
+import * as net from 'net'
 import { Container } from './types'
 import { Surface, TextContainer } from '.'
 import ResourceManager from './ResourceManager'
@@ -10,9 +11,13 @@ class Window extends native.Window implements Container<Surface | TextContainer>
   root = new Surface()
   width
   height
+  onClose = DEFAULT_CLOSE
+  onKeyPress = (e) => {}
 
   constructor(title, width = 800, height = 600) {
-    super(title, width, height)
+    super(title, width, height, readEvents((e) => this.handleEvent(e)))
+
+    windowCount++
 
     ResourceManagerHack(this)
 
@@ -30,11 +35,22 @@ class Window extends native.Window implements Container<Surface | TextContainer>
   }
 
   // TODO
-  handleEvents() {
-    const callbackIds = new Uint32Array(super.handleEvents())
-
-    for (const i of callbackIds) {
-      __callbacks[i]()
+  handleEvent(event) {
+    switch (event.type) {
+      case 'Close':
+        return this.onClose()
+      case 'KeyPress':
+        return this.onKeyPress(event)
+      case 'Resize':
+        this.width = event.width
+        this.height = event.height
+        this.render()
+        return
+      case 'Click':
+        __callbacks[event.callbackIndex]()
+        return
+      default:
+        throw new Error('unknown event')
     }
   }
 
@@ -68,6 +84,61 @@ class Window extends native.Window implements Container<Surface | TextContainer>
     // TODO: binary
     // TODO: we convert back and forth from f32 (yoga-cpp, webrender) to f64 (js)
     super.render(JSON.stringify({ bucket_ids: bucketIds, layouts: rects }))
+  }
+}
+
+let windowCount = 0
+
+const DEFAULT_CLOSE = () => {
+  // TODO: open/close()?
+  if ( ! --windowCount) {
+    process.exit()
+  }
+}
+
+// TODO: optimize
+const readEvents = (handler) => {
+  const EVENT_SIZE = 12
+  const socketPath = `/tmp/nwr-${Date.now()}`
+
+  const server = net.createServer((socket) => {
+    let rest = Buffer.alloc(0)
+
+    socket.on('data', b => {
+      b = Buffer.concat([rest, b])
+
+      let i = 0
+
+      while ((i + EVENT_SIZE) <= b.length) {
+        handler(decodeEvent(b))
+        i += EVENT_SIZE
+      }
+
+      rest = b.slice(i)
+    })
+
+    console.debug('listening for events')
+  })
+  server.listen(socketPath)
+  return socketPath
+}
+
+const decodeEvent = (b: Buffer) => {
+  const TYPES = ['Close', 'Resize', 'KeyPress', 'Click']
+
+  const type = TYPES[b.readInt8(0)]
+
+  switch (type) {
+    case 'Close':
+      return { type }
+    case 'Resize':
+      return { type, width: b.readFloatLE(4), height: b.readFloatLE(8) }
+    case 'KeyPress':
+      return { type, ch: String.fromCharCode(b.readInt32LE(4)) }
+    case 'Click':
+      return { type, callbackIndex: b.readUInt32LE(4) }
+    default:
+      throw new Error(`unknown event ${type} ${b}`)
   }
 }
 

@@ -6,13 +6,13 @@ use webrender::api::{
 };
 
 pub struct ResourceManager {
-    pub display_items: Vec<DisplayItem>,
+    pub buckets: Vec<RenderOperation>,
 }
 
 impl ResourceManager {
     pub fn new() -> Self {
         ResourceManager {
-            display_items: Vec::with_capacity(100),
+            buckets: Vec::with_capacity(100),
         }
     }
 
@@ -27,28 +27,29 @@ impl ResourceManager {
         })
     }
 
-    pub fn create_bucket(&mut self, item: DisplayItem) -> BucketId {
+    pub fn create_bucket(&mut self, op: RenderOperation) -> BucketId {
         // TODO: panic if not u32
-        let index = self.display_items.len() as u32;
+        let index = self.buckets.len() as u32;
 
-        self.display_items.push(item);
+        self.buckets.push(op);
 
         index
     }
 
-    pub fn update_bucket(&mut self, bucket_id: BucketId, item: DisplayItem) {
-        match self.display_items.get_mut(bucket_id as usize) {
+    pub fn update_bucket(&mut self, bucket_id: BucketId, op: RenderOperation) {
+        match self.buckets.get_mut(bucket_id as usize) {
             None => panic!("bucket not found"),
-            Some(bucket) => *bucket = item,
+            Some(bucket) => *bucket = op,
         }
     }
 }
 
 pub type BucketId = u32;
 
-// like SpecificDisplayItem::* but the Text actually holds glyphs
+// a bit like opcode
+// mostly follows SpecificDisplayItem::* but the Text actually holds glyphs
 #[derive(Deserialize, Debug)]
-pub enum DisplayItem {
+pub enum RenderOperation {
     // this was hack at first but it could be useful for hitSlop (hitBox can be bigger than clipBox)
     HitTest(u32),
     SaveRect,
