@@ -1,4 +1,4 @@
-import { Window, ResourceManager, TextContainer, TextPart, Surface } from '..'
+import { Window, ResourceManager, TextContainer, TextPart, Surface } from '../src'
 
 const w = new Window("Hello")
 
