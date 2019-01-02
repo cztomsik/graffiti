@@ -1,11 +1,11 @@
-import { RNStyleSheet } from './react-native-types'
+import { RNStyleSheet, StyleProp, ViewStyle, TextStyle } from './react-native-types'
 
-// should auto-complete rules inside Stylesheet.create()
-// type Styles = {
-//   [key: string]: StyleProp<ViewStyle | TextStyle>;
-// };
+// needed for Stylesheet.create() autocompletion
+type Styles = {
+  [key: string]: StyleProp<ViewStyle | TextStyle>;
+}
 
-const create: typeof RNStyleSheet.create = obj => {
+const create = (obj: Styles): Styles => {
   for (const k in obj) {
     Object.freeze(obj[k])
   }
