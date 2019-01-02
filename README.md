@@ -99,9 +99,11 @@ npx ts-node -T example/<file>
 - [x] yoga
 - [x] text, word-wrap, linebreak, spaces, nbsp
 - [x] click
-- [ ] scrolling
+- [x] scrolling
+- [x] input
+- [ ] more example apps
+- [ ] docs
 - [ ] window resize
-- [ ] input
 - [ ] hover
 - [ ] more fonts
 - [ ] send binary buffers (flatbuffer/bincode/?)
