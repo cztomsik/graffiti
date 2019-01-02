@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Window } from '..'
+import { Window } from '../src'
 import { View, Button, Text, StyleSheet, render } from '../src/react'
 
 const App = () =>
@@ -31,6 +31,7 @@ const styles = StyleSheet.create({
 
   main: {
     flex: 2,
+    alignItems: 'flex-start',
     padding: 20
   }
 })
