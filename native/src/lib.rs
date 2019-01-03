@@ -1,22 +1,17 @@
 // node-bindings
 #[macro_use] extern crate neon;
-extern crate glutin;
-extern crate gleam;
-extern crate webrender;
-extern crate app_units;
-extern crate serde;
-extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate log;
-extern crate env_logger;
+use serde_json;
+use env_logger;
 
 mod window;
 mod resources;
 
 use neon::prelude::*;
-use window::{Window, WindowEvent, EventSender};
+use crate::window::{Window, WindowEvent, EventSender};
 use std::mem::size_of;
-use resources::ResourceManager;
+use crate::resources::ResourceManager;
 use std::os::unix::net::UnixStream;
 use std::io::Write;
 

@@ -1,4 +1,5 @@
 [package]
+edition = "2018"
 name = "node-webrender"
 version = "0.1.0"
 authors = ["Kamil Tomšík <info@tomsik.cz>"]
@@ -15,7 +16,7 @@ neon-build = "0.2.0"
 
 [dependencies]
 neon = "0.2.0"
-webrender = { git = "https://github.com/servo/webrender.git", rev = "8476ed5" }
+webrender = { git = "https://github.com/servo/webrender.git", rev = "477d395" }
 glutin = "0.18.0"
 gleam = "0.6.8"
 font-loader = "0.7.0"
