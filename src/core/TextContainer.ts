@@ -6,8 +6,8 @@ import { TextPart, ResourceManager } from '.'
 export class TextContainer implements Container<TextPart> {
   yogaNode = yoga.Node.create()
   children = []
-  content
-  breaks
+  content = ''
+  breaks = []
   fontInstanceKey
   lineHeight
   color
