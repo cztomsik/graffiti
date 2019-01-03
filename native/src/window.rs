@@ -2,19 +2,16 @@
     ? tx priorities (scroll)
 */
 
-extern crate app_units;
-extern crate euclid;
-extern crate font_loader;
-extern crate gleam;
-extern crate glutin;
-extern crate log;
-extern crate serde;
-extern crate serde_json;
-extern crate webrender;
+use app_units;
+use euclid;
+use font_loader;
+use gleam;
+use glutin;
+use webrender;
 
 use glutin::dpi::{LogicalPosition, LogicalSize};
 use glutin::{EventsLoop, GlContext, GlWindow};
-use resources::{BucketId, RenderOperation};
+use crate::resources::{BucketId, RenderOperation};
 use std::cell::RefCell;
 use std::os::raw::c_int;
 use std::rc::Rc;
