@@ -9,20 +9,21 @@ use gleam;
 use glutin;
 use webrender;
 
-use glutin::dpi::{LogicalPosition, LogicalSize};
-use glutin::{EventsLoop, GlContext, GlWindow};
 use crate::resources::{BucketId, RenderOperation};
+use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
+use glutin::{EventsLoop, GlContext, GlWindow};
 use std::cell::RefCell;
 use std::os::raw::c_int;
 use std::rc::Rc;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use webrender::api::euclid::{TypedPoint2D, TypedSize2D};
 use webrender::api::{
-    BorderDisplayItem, BorderRadius, ClipMode, ColorF, ComplexClipRegion, DisplayListBuilder,
-    DocumentId, Epoch, FontInstanceKey, FontKey, GlyphDimensions, GlyphIndex, HitTestFlags,
-    HitTestResult, LayoutPoint, LayoutPrimitiveInfo, LayoutRect, LayoutSize, LayoutVector2D,
-    PipelineId, PushStackingContextDisplayItem, RectangleDisplayItem, RenderApi, RenderNotifier,
-    ScrollLocation, ScrollSensitivity, StackingContext, TextDisplayItem, Transaction, WorldPoint,
+    BorderDisplayItem, BorderRadius, ClipMode, ColorF, ComplexClipRegion, DeviceIntPoint,
+    DeviceIntRect, DisplayListBuilder, DocumentId, Epoch, FontInstanceKey, FontKey,
+    GlyphDimensions, GlyphIndex, HitTestFlags, HitTestResult, LayoutPoint, LayoutPrimitiveInfo,
+    LayoutRect, LayoutSize, LayoutVector2D, PipelineId, PushStackingContextDisplayItem,
+    RectangleDisplayItem, RenderApi, RenderNotifier, ScrollLocation, ScrollSensitivity,
+    StackingContext, TextDisplayItem, Transaction, WorldPoint,
 };
 use webrender::Renderer;
 
@@ -100,7 +101,6 @@ impl Window {
                         debug!("Event {:?}", event);
 
                         match event {
-                            // TODO: resize
                             glutin::WindowEvent::HiDpiFactorChanged(dpi) => self.dpi = dpi,
 
                             glutin::WindowEvent::CloseRequested => self.handle_close(),
@@ -265,15 +265,17 @@ impl Window {
     }
 
     fn handle_resize(&mut self, size: LogicalSize) {
+        let fb_size = get_frame_buffer_size(&self.gl_window, self.dpi as f64);
+        let inner_rect = DeviceIntRect::new(DeviceIntPoint::new(0, 0), fb_size.clone());
+
+        self.api
+            .set_window_parameters(self.document_id, fb_size, inner_rect, self.dpi as f32);
+        self.gl_window
+            .context()
+            .resize(PhysicalSize::from_logical(size, self.dpi));
+
         self.event_sender
             .send(WindowEvent::Resize(size.width as f32, size.height as f32));
-
-        // TODO: doesn't work, not sure what's wrong (will take some time to investigate)
-        //let mut tx = Transaction::new();
-        //let fb_size = get_frame_buffer_size(&self.gl_window, self.dpi as f64);
-        //let inner_rect = DeviceIntRect::new(DeviceIntPoint::new(0, 0), fb_size.clone());
-        //tx.set_window_parameters(fb_size, inner_rect, self.dpi as f32);
-        //self.send_tx(tx)
     }
 
     fn handle_char(&mut self, ch: char) {
