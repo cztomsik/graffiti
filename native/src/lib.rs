@@ -1,19 +1,22 @@
 // node-bindings
-#[macro_use] extern crate neon;
-#[macro_use] extern crate serde_derive;
-#[macro_use] extern crate log;
-use serde_json;
+#[macro_use]
+extern crate neon;
+#[macro_use]
+extern crate serde_derive;
+#[macro_use]
+extern crate log;
 use env_logger;
+use serde_json;
 
-mod window;
 mod resources;
+mod window;
 
-use neon::prelude::*;
-use crate::window::{Window, WindowEvent, EventSender};
-use std::mem::size_of;
 use crate::resources::ResourceManager;
-use std::os::unix::net::UnixStream;
+use crate::window::{EventSender, Window, WindowEvent};
+use neon::prelude::*;
 use std::io::Write;
+use std::mem::size_of;
+use std::os::unix::net::UnixStream;
 
 declare_types! {
     pub class JsWindow for Window {
@@ -115,7 +118,7 @@ register_module!(mut ctx, {
 });
 
 struct SocketEventSender {
-    socket: UnixStream
+    socket: UnixStream,
 }
 
 // TODO: either share memory or at least support windows (NamedPipes)

@@ -110,7 +110,7 @@ const readEvents = (handler) => {
       let i = 0
 
       while ((i + EVENT_SIZE) <= b.length) {
-        handler(decodeEvent(b))
+        handler(decodeEvent(b.slice(i, i + EVENT_SIZE)))
         i += EVENT_SIZE
       }
 
