@@ -103,9 +103,9 @@ npx ts-node -T example/<file>
 - [x] click
 - [x] scrolling
 - [x] input
+- [x] window resize
 - [ ] more example apps
 - [ ] docs
-- [ ] window resize
 - [ ] hover
 - [ ] more fonts
 - [ ] send binary buffers (flatbuffer/bincode/?)
