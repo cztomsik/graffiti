@@ -6,12 +6,15 @@ import { ResourceManager } from '../..'
 
 // TODO: reconsider if layout should be coupled to Surface, drawing custom shapes (caret) would have been much easier
 
+// empty text would collapse (consider minWidth)
+const HOLDER = ' '
+
 const TextInput = (props: TextInputProps) => {
   const textInput = useTextInput(props.value, props.onChangeText)
 
   return (
     <TouchableWithoutFeedback style={styles.input} onPress={textInput.focus}>
-      <Text>{props.value}</Text>
+      <Text>{props.value || HOLDER}</Text>
     </TouchableWithoutFeedback>
   )
 }
