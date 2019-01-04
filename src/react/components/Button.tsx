@@ -14,11 +14,13 @@ const Button = (props: ButtonProps) =>
 const styles = StyleSheet.create({
   button: {
     backgroundColor: '#2196F3',
-    padding: 10,
+    paddingHorizontal: 10,
     borderRadius: 2
   },
 
   text: {
+    fontSize: 14,
+    lineHeight: 32,
     color: '#ffffff',
     textAlign: 'center'
   },
