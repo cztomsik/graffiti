@@ -18,7 +18,7 @@ Easiest way to start is to just clone of these apps:
 - (osx) should work without any deps (but if you need something it should be just one `brew install` away)
 
 ## Getting started
-```
+```bash
 npm i node-webrender
 ```
 
@@ -26,7 +26,7 @@ Low-level api is very simple and follows `serde-json` format for particular `*Di
 
 There is also experimental **react binding** which is much more suited for any real UI development. Vue bindings will be added as soon as Vue3 will get published.
 
-```
+```js
 const { Window } = require('node-webrender')
 const RED = [1, 0, 0, 1]
 
@@ -43,7 +43,7 @@ w.render({
 ## React bindings
 You will need typescript if you want to play with this.
 
-```
+```bash
 mkdir hello-app
 cd hello-app
 npm init -y
@@ -53,7 +53,7 @@ npm i ts-node typescript --save-dev
 
 Then you can create `main.tsx` with:
 
-```
+```js
 import * as React from 'react'
 import { Window } from 'node-webrender'
 import { render, View, Text } from 'node-webrender/src/react'
