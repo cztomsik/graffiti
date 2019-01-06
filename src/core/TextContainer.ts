@@ -16,7 +16,7 @@ export class TextContainer implements Container<TextPart> {
   children = []
   content = ''
   breaks = []
-  fontInstanceKey: [number, number]
+  fontInstanceKey: [number, number] = [1, 0]
   lineHeight
   color: BridgeColor
   brush?: BucketId[]
@@ -51,6 +51,10 @@ export class TextContainer implements Container<TextPart> {
   }
 
   update({ fontSize = 16, color, lineHeight }) {
+    if ((fontSize === this.fontInstanceKey[1]) && (color === this.color) && (lineHeight === this.lineHeight)) {
+      return
+    }
+
     // TODO: support any size
     this.fontInstanceKey = [1, fontSize]
     this.color = color
@@ -66,6 +70,7 @@ export class TextContainer implements Container<TextPart> {
   }
 
   updateBrush() {
+    // TODO: updateBucket or freeBrush & get new one
     this.brush = [
       ResourceManager.createBucket(
         RenderOp.Text(
