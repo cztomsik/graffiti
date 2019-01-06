@@ -1,23 +1,31 @@
 import * as yoga from 'yoga-layout'
-import { Container } from './types'
+import { Container, DrawBrushFunction } from './types'
 import { remove } from './utils'
 import { TextPart, ResourceManager } from '.'
+import {
+  RenderOp,
+  TransformStyle,
+  MixBlendMode,
+  BridgeColor,
+  GlyphInstance
+} from './RenderOperation'
+import { BucketId, BridgeRect } from './ResourceManager'
 
 export class TextContainer implements Container<TextPart> {
   yogaNode = yoga.Node.create()
   children = []
   content = ''
   breaks = []
-  fontInstanceKey
+  fontInstanceKey: [number, number]
   lineHeight
-  color
-  brush
-  glyphs = []
+  color: BridgeColor
+  brush?: BucketId[]
+  glyphs: GlyphInstance[] = []
   contentWidth
   contentHeight
 
   constructor() {
-    this.yogaNode.setMeasureFunc(((width) => {
+    this.yogaNode.setMeasureFunc((width => {
       this.updateGlyphs(width)
 
       return { width: this.contentWidth, height: this.contentHeight }
@@ -58,18 +66,23 @@ export class TextContainer implements Container<TextPart> {
   }
 
   updateBrush() {
-    this.brush = [ResourceManager.createBucket({
-      Text: [{
-        font_key: this.fontInstanceKey,
-        color: this.color
-      }, this.glyphs]
-    })]
+    this.brush = [
+      ResourceManager.createBucket(
+        RenderOp.Text(
+          { color: this.color, font_key: this.fontInstanceKey },
+          this.glyphs
+        )
+      )
+    ]
   }
 
   updateGlyphs(maxWidth) {
-    const [indices, advances] = ResourceManager.getGlyphIndicesAndAdvances(this.fontInstanceKey[1], this.content)
+    const [indices, advances] = ResourceManager.getGlyphIndicesAndAdvances(
+      this.fontInstanceKey[1],
+      this.content
+    )
     let x = 0
-    const xs = [0, ...(advances as Float32Array).map(a => x += a)]
+    const xs = [0, ...(advances as Float32Array).map(a => (x += a))]
 
     const lines = []
 
@@ -100,7 +113,7 @@ export class TextContainer implements Container<TextPart> {
         // after last wrap check
         if (tokenEnd === this.content.length) {
           lines.push([lineStart, this.content.length])
-          break;
+          break
         }
 
         if (ch === ' ') {
@@ -130,15 +143,15 @@ export class TextContainer implements Container<TextPart> {
 
     // finish
     this.glyphs = glyphs
-    this.contentWidth = lines.length ?xs[lines[0][1]] :200
+    this.contentWidth = lines.length ? xs[lines[0][1]] : 200
     this.contentHeight = lines.length * this.lineHeight
 
     this.updateBrush()
   }
 
-  write(drawBrush, x, y) {
+  write(drawBrush: DrawBrushFunction, x, y) {
     const { left, top, width, height } = this.yogaNode.getComputedLayout()
-    const rect = [left + x, top + y, width, height]
+    const rect: BridgeRect = [left + x, top + y, width, height]
 
     // extend clip box to avoid some glyphs getting cut
     // TODO: we don't have proper font-metrics so it's lineHeight for now
@@ -152,26 +165,28 @@ export class TextContainer implements Container<TextPart> {
 
 const TOKEN_REGEX = /[^\n ]+|\n| +/g
 
-const parseBreaks = (str) => {
+const parseBreaks = str => {
   if (str === '') {
     return []
   }
 
   let i = 0
 
-  return str.match(TOKEN_REGEX).map(t => i += t.length)
+  return str.match(TOKEN_REGEX).map(t => (i += t.length))
 }
 
-const TEXT_STACKING_CONTEXT = [ResourceManager.createBucket({
-  PushStackingContext: {
-    stacking_context: {
-      transform_style: 'Flat',
-      mix_blend_mode: 'Normal',
+const TEXT_STACKING_CONTEXT = [
+  ResourceManager.createBucket(
+    RenderOp.PushStackingContext({
+      transform_style: TransformStyle.Flat,
+      mix_blend_mode: MixBlendMode.Normal,
       raster_space: 'Screen'
-    }
-  }
-})]
+    })
+  )
+]
 
-const POP_STACKING_CONTEXT = [ResourceManager.createBucket({ PopStackingContext: null })]
+const POP_STACKING_CONTEXT = [
+  ResourceManager.createBucket(RenderOp.PopStackingContext())
+]
 
 export default TextContainer

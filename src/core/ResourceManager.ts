@@ -1,6 +1,12 @@
 import { parseColor } from './utils'
 import { WINDOW_HACK } from './Window'
-import { resolveCname } from 'dns';
+import { RenderOperation, RenderOp, BorderStyle } from './RenderOperation'
+
+// x, y, width, height
+export type BridgeRect = [number, number, number, number]
+
+// that basically means that you cannot create a bucket outside of ResourceManager.createBucket
+export type BucketId = number & { 'opaque type': 'of bucket' }
 
 const native = require('../../native')
 
@@ -21,22 +27,25 @@ const ResourceManager = {
   },
 
   // TODO: not sure if buckets should be public at all
-  createBucket(item) {
+  createBucket(item: RenderOperation): BucketId {
     return native.createBucket(JSON.stringify(item))
   },
 
-  updateBucket(bucketId, item) {
+  updateBucket(bucketId: BucketId, item) {
     native.updateBucket(bucketId, JSON.stringify(item))
   },
 
   getGlyphIndicesAndAdvances(fontSize, str) {
-    const [indicesBuffer, advancesBuffer] = WINDOW_HACK.getGlyphIndicesAndAdvances(fontSize, str)
+    const [
+      indicesBuffer,
+      advancesBuffer
+    ] = WINDOW_HACK.getGlyphIndicesAndAdvances(fontSize, str)
 
     return [new Uint32Array(indicesBuffer), new Float32Array(advancesBuffer)]
   }
 }
 
-const resolveViewDefaults = (style) => {
+const resolveViewDefaults = (style): BucketId[] | undefined => {
   const {
     backgroundColor = undefined,
 
@@ -68,45 +77,62 @@ const resolveViewDefaults = (style) => {
     borderTopRightRadius = borderRadius
   } = rest
 
-  const res = []
+  const res: RenderOperation[] = []
 
   if (backgroundColor !== undefined) {
-    res.push({
-      Rectangle: { color: parseColor(backgroundColor) }
-    })
+    res.push(RenderOp.Rectangle(parseColor(backgroundColor)))
   }
 
-  if (borderColor && (borderTopWidth || borderRightWidth || borderBottomWidth || borderLeftWidth)) {
-    res.push({
-      Border: {
-        widths: [borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth],
+  if (
+    borderColor &&
+    (borderTopWidth || borderRightWidth || borderBottomWidth || borderLeftWidth)
+  ) {
+    res.push(
+      RenderOp.Border({
+        widths: [
+          borderTopWidth,
+          borderRightWidth,
+          borderBottomWidth,
+          borderLeftWidth
+        ],
+
         details: {
           Normal: {
-            top: { color: parseColor(borderTopColor), style: 'Solid' },
-            right: { color: parseColor(borderRightColor), style: 'Solid' },
-            bottom: { color: parseColor(borderBottomColor), style: 'Solid' },
-            left: { color: parseColor(borderLeftColor), style: 'Solid' },
+            top: {
+              color: parseColor(borderTopColor),
+              style: BorderStyle.Solid
+            },
+            right: {
+              color: parseColor(borderRightColor),
+              style: BorderStyle.Solid
+            },
+            bottom: {
+              color: parseColor(borderBottomColor),
+              style: BorderStyle.Solid
+            },
+            left: {
+              color: parseColor(borderLeftColor),
+              style: BorderStyle.Solid
+            },
             radius: {
               top_left: [borderTopLeftRadius, borderTopLeftRadius],
               top_right: [borderTopRightRadius, borderTopRightRadius],
               bottom_left: [borderBottomLeftRadius, borderBottomLeftRadius],
               bottom_right: [borderBottomRightRadius, borderBottomRightRadius]
             },
-            do_aa: true//!! (borderTopLeftRadius || borderBottomLeftRadius || borderBottomRightRadius || borderTopRightRadius)
+            do_aa: true //!! (borderTopLeftRadius || borderBottomLeftRadius || borderBottomRightRadius || borderTopRightRadius)
           }
         }
-      }
-    })
+      })
+    )
   }
 
-  return (
-    res.length !== 0
-      ?res.map(it => ResourceManager.createBucket(it))
-      :undefined
-  )
+  return res.length !== 0
+    ? res.map(it => ResourceManager.createBucket(it))
+    : undefined
 }
 
-const resolveLayoutDefaults = (layout) => {
+const resolveLayoutDefaults = layout => {
   const {
     width = 'auto',
     height = 'auto',
@@ -155,7 +181,7 @@ const resolveLayoutDefaults = (layout) => {
     alignSelf: ALIGN.indexOf(alignSelf),
     justifyContent: JUSTIFY.indexOf(justifyContent),
     flexDirection: DIRECTION.indexOf(flexDirection),
-    flexBasis: (flexBasis === 'auto') ?NaN :flexBasis,
+    flexBasis: flexBasis === 'auto' ? NaN : flexBasis,
     flexGrow,
     flexShrink,
     flexWrap: FLEX_WRAP.indexOf(flexWrap),
@@ -167,32 +193,41 @@ const resolveLayoutDefaults = (layout) => {
     paddingRight,
     paddingBottom,
     paddingLeft,
-    overflow: OVERFLOW.indexOf(overflow),
+    overflow: OVERFLOW.indexOf(overflow)
   }
 }
 
-const resolveClipDefaults = (style) => {
-  const {
-    borderRadius = 0
-  } = style
+const resolveClipDefaults = (style): BucketId[] => {
+  const { borderRadius = 0 } = style
 
-  const res = []
-
-  if (borderRadius !== 0) {
-    res.push({ PushBorderRadiusClip: style.borderRadius })
-  }
-
-  return (
-    res.length !== 0
-      ?res.map(it => ResourceManager.createBucket(it))
-      :undefined
-  )
+  return borderRadius !== 0
+    ? [
+        ResourceManager.createBucket(
+          RenderOp.PushBorderRadiusClip(borderRadius)
+        )
+      ]
+    : undefined
 }
-
 
 const DIRECTION = ['column', 'column-reverse', 'row', 'row-reverse']
-const ALIGN = ['auto', 'flex-start', 'center', 'flex-end', 'strech', 'baseline', 'space-between', 'space-around']
-const JUSTIFY = ['flex-start', 'center', 'flex-end', 'space-between', 'space-around', 'space-evenly']
+const ALIGN = [
+  'auto',
+  'flex-start',
+  'center',
+  'flex-end',
+  'strech',
+  'baseline',
+  'space-between',
+  'space-around'
+]
+const JUSTIFY = [
+  'flex-start',
+  'center',
+  'flex-end',
+  'space-between',
+  'space-around',
+  'space-evenly'
+]
 const FLEX_WRAP = ['no-wrap', 'wrap', 'wrap-reverse']
 const OVERFLOW = ['hidden', 'scroll', 'visible']
 

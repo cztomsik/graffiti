@@ -1,15 +1,17 @@
 import * as yoga from 'yoga-layout'
 import { remove } from './utils'
-import { HasLayout, Container } from './types'
+import { HasLayout, Container, DrawBrushFunction } from './types'
 import { ResourceManager } from '.'
+import { BridgeRect, BucketId } from './ResourceManager'
+import { RenderOp } from './RenderOperation'
 
 // container with a layout and an optional brush
 // children should have a layout too
 class Surface implements Container<HasLayout>, HasLayout {
   yogaNode = yoga.Node.create()
   children = []
-  brush?
-  clip?
+  brush?: BucketId[]
+  clip?: BucketId[]
 
   appendChild(child) {
     this.insertAt(child, this.children.length)
@@ -35,9 +37,9 @@ class Surface implements Container<HasLayout>, HasLayout {
     updateYogaNode(this.yogaNode, layout)
   }
 
-  write(drawBrush, x, y) {
+  write(drawBrush: DrawBrushFunction, x, y) {
     const { left, top, width, height } = this.yogaNode.getComputedLayout()
-    const rect = [left + x, top + y, width, height]
+    const rect: BridgeRect = [left + x, top + y, width, height]
 
     // TODO: translate stacking context
     // updating layout[0] a layout[1] should be enough
@@ -93,6 +95,6 @@ const updateYogaNode = (n: yoga.YogaNode, props: any) => {
 
 // TODO: this should be just value (it's a function until ResourceManager gets really separated)
 const DEFAULT_LAYOUT = ResourceManager.getLayout({})
-const POP_CLIP = [ResourceManager.createBucket({ PopClip: null })]
+const POP_CLIP = [ResourceManager.createBucket(RenderOp.PopClip())]
 
 export default Surface

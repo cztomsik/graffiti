@@ -3,10 +3,14 @@ import { ResourceManager } from '../..'
 import { __callbacks } from '../../core/Window'
 import { View } from '..'
 import { TouchableWithoutFeedbackProps } from '../react-native-types'
+import { RenderOp } from '../../core/RenderOperation'
+import { BucketId } from '../../core/ResourceManager'
 
-class TouchableWithoutFeedback extends React.Component<TouchableWithoutFeedbackProps> {
+class TouchableWithoutFeedback extends React.Component<
+  TouchableWithoutFeedbackProps
+> {
   callbackId
-  bucketId
+  bucketId: BucketId
 
   static defaultProps = {
     onPress: () => {}
@@ -17,9 +21,9 @@ class TouchableWithoutFeedback extends React.Component<TouchableWithoutFeedbackP
 
     this.callbackId = __callbacks.push(() => this.props.onPress(null)) - 1
 
-    this.bucketId = ResourceManager.createBucket({
-      HitTest: this.callbackId
-    })
+    this.bucketId = ResourceManager.createBucket(
+      RenderOp.HitTest(this.callbackId)
+    )
   }
 
   render() {
