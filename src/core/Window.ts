@@ -1,21 +1,22 @@
 import * as net from 'net'
-import { Container } from './types'
+import { Container, DrawBrushFunction } from './types'
 import { Surface, TextContainer } from '.'
-import ResourceManager from './ResourceManager'
+import ResourceManager, { BucketId, BridgeRect } from './ResourceManager'
 const native = require('../../native')
 
-// TODO: HDPI support
+  // TODO: HDPI support
 ;(process as any).env.WINIT_HIDPI_FACTOR = 1
 
-class Window extends native.Window implements Container<Surface | TextContainer> {
+class Window extends native.Window
+  implements Container<Surface | TextContainer> {
   root = new Surface()
   width
   height
   onClose = DEFAULT_CLOSE
-  onKeyPress = (e) => {}
+  onKeyPress = e => {}
 
   constructor(title, width = 800, height = 600) {
-    super(title, width, height, readEvents((e) => this.handleEvent(e)))
+    super(title, width, height, readEvents(e => this.handleEvent(e)))
 
     windowCount++
 
@@ -69,10 +70,12 @@ class Window extends native.Window implements Container<Surface | TextContainer>
   render() {
     this.root.yogaNode.calculateLayout(this.width, this.height)
 
-    const bucketIds = []
-    const rects = []
+    const bucketIds: BucketId[] = []
+    const rects: BridgeRect[] = []
 
-    const drawBrush = (brush, rect) => {
+    // TODO it seems there is a potential bug here
+    // rust side requires both bucketIds and rects be the same size. Which is might not be the case
+    const drawBrush: DrawBrushFunction = (brush, rect) => {
       for (const b of brush) {
         bucketIds.push(b)
         rects.push(rect)
@@ -91,17 +94,17 @@ let windowCount = 0
 
 const DEFAULT_CLOSE = () => {
   // TODO: open/close()?
-  if ( ! --windowCount) {
+  if (!--windowCount) {
     process.exit()
   }
 }
 
 // TODO: optimize
-const readEvents = (handler) => {
+const readEvents = handler => {
   const EVENT_SIZE = 12
   const socketPath = `/tmp/nwr-${Date.now()}`
 
-  const server = net.createServer((socket) => {
+  const server = net.createServer(socket => {
     let rest = Buffer.alloc(0)
 
     socket.on('data', b => {
@@ -109,7 +112,7 @@ const readEvents = (handler) => {
 
       let i = 0
 
-      while ((i + EVENT_SIZE) <= b.length) {
+      while (i + EVENT_SIZE <= b.length) {
         handler(decodeEvent(b.slice(i, i + EVENT_SIZE)))
         i += EVENT_SIZE
       }
