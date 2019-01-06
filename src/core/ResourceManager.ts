@@ -120,7 +120,12 @@ const resolveViewDefaults = (style): BucketId[] | undefined => {
               bottom_left: [borderBottomLeftRadius, borderBottomLeftRadius],
               bottom_right: [borderBottomRightRadius, borderBottomRightRadius]
             },
-            do_aa: true //!! (borderTopLeftRadius || borderBottomLeftRadius || borderBottomRightRadius || borderTopRightRadius)
+            do_aa: !!(
+              borderTopLeftRadius ||
+              borderBottomLeftRadius ||
+              borderBottomRightRadius ||
+              borderTopRightRadius
+            )
           }
         }
       })

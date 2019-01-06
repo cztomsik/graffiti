@@ -46,6 +46,12 @@ Quote from WR API roadmap:
 
 Which can be relevant for the project
 
+### Other projects/repos related to webrender
+[servo](https://github.com/servo/servo)
+[azul](https://github.com/maps4print/azul)
+[limn](https://github.com/christolliday/limn)
+[stylish](https://github.com/Thinkofname/stylish)
+
 ## ReactNative
 
 There is an effort within the react native community that aims to achieve several goals:

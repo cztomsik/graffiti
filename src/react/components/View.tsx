@@ -1,21 +1,17 @@
 import * as React from 'react'
 import { StyleSheet } from '..'
 import { ViewProps } from '../react-native-types'
-import { ResourceManager } from '../..';
+import { ResourceManager } from '../..'
 
 const View = (props: ViewProps) => {
-  let {
-    style = {}
-  } = props
+  let { style = {} } = props
 
-  style = StyleSheet.flatten(style)
-
-  const brush = ResourceManager.getBrush(style)
-  const layout = ResourceManager.getLayout(style)
-  const clip = ResourceManager.getClip(style)
+  const { _brush: brush, _layout: layout, _clip: clip } = StyleSheet.flatten(
+    style
+  ) as any
 
   return (
-    <host-surface {...({ brush, layout, clip })}>
+    <host-surface {...{ brush, layout, clip }}>
       {(props as any).children}
     </host-surface>
   )
