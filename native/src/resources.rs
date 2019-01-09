@@ -53,7 +53,7 @@ pub enum RenderOperation {
     // this was hack at first but it could be useful for hitSlop (hitBox can be bigger than clipBox)
     HitTest(u32),
     SaveRect,
-    PushScrollClip,
+    PushScrollClip(u64),
     PushBorderRadiusClip(f32),
     PopClip,
     Rectangle(RectangleDisplayItem),

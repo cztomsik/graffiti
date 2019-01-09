@@ -17,7 +17,7 @@ export type BridgeColor = [number, number, number, number]
 
 type HitTest = { HitTest: number }
 type SaveRect = { SaveRect: null }
-type PushScrollClip = { PushScrollClip: null }
+type PushScrollClip = { PushScrollClip: number }
 type PushBorderRadiusClip = { PushBorderRadiusClip: number }
 type PopClip = { PopClip: null }
 type Rectangle = { Rectangle: RectangleDisplayItem }
@@ -43,7 +43,7 @@ export type RenderOperation =
 export const RenderOp = {
   HitTest: (id: number): HitTest => ({ HitTest: id }),
   SaveRect: (): SaveRect => ({ SaveRect: null }),
-  PushScrollClip: (): PushScrollClip => ({ PushScrollClip: null }),
+  PushScrollClip: (id: number): PushScrollClip => ({ PushScrollClip: id }),
   PushBorderRadiusClip: (radius: number): PushBorderRadiusClip => ({
     PushBorderRadiusClip: radius
   }),
