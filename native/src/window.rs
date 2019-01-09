@@ -19,11 +19,11 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use webrender::api::euclid::{TypedPoint2D, TypedSize2D};
 use webrender::api::{
     BorderDisplayItem, BorderRadius, ClipMode, ColorF, ComplexClipRegion, DeviceIntPoint,
-    DeviceIntRect, DisplayListBuilder, DocumentId, Epoch, FontInstanceKey, FontKey,
-    GlyphDimensions, GlyphIndex, HitTestFlags, HitTestResult, LayoutPoint, LayoutPrimitiveInfo,
-    LayoutRect, LayoutSize, LayoutVector2D, PipelineId, PushStackingContextDisplayItem,
-    RectangleDisplayItem, RenderApi, RenderNotifier, ScrollLocation, ScrollSensitivity,
-    StackingContext, TextDisplayItem, Transaction, WorldPoint,
+    DeviceIntRect, DisplayListBuilder, DocumentId, Epoch, ExternalScrollId, FontInstanceKey,
+    FontKey, GlyphDimensions, GlyphIndex, HitTestFlags, HitTestResult, LayoutPoint,
+    LayoutPrimitiveInfo, LayoutRect, LayoutSize, LayoutVector2D, PipelineId,
+    PushStackingContextDisplayItem, RectangleDisplayItem, RenderApi, RenderNotifier,
+    ScrollLocation, ScrollSensitivity, StackingContext, TextDisplayItem, Transaction, WorldPoint,
 };
 use webrender::Renderer;
 
@@ -192,9 +192,9 @@ impl Window {
 
                             b.push_clip_id(clip_id);
                         }
-                        RenderOperation::PushScrollClip => {
+                        RenderOperation::PushScrollClip(id) => {
                             let clip_id = b.define_scroll_frame(
-                                None,
+                                Some(ExternalScrollId(*id, self.pipeline_id)),
                                 layout.to_layout_rect(),
                                 saved_rect,
                                 vec![],
