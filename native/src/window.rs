@@ -9,7 +9,8 @@ use gleam;
 use glutin;
 use webrender;
 
-use crate::resources::{BucketId, RenderOperation};
+use crate::resources::{OpResource};
+use crate::rendering::{RenderOperation};
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 use glutin::{EventsLoop, GlContext, GlWindow};
 use std::cell::RefCell;
@@ -144,13 +145,13 @@ impl Window {
         }
     }
 
-    pub fn render(&mut self, items: &Vec<RenderOperation>, request: RenderRequest) {
+    pub fn render(&mut self, ops: &Vec<RenderOperation>, request: RenderRequest) {
         let RenderRequest {
-            bucket_ids,
+            op_resources,
             layouts,
         } = request;
 
-        if layouts.len() != bucket_ids.len() {
+        if layouts.len() != op_resources.len() {
             panic!("missing/extra layouts")
         }
 
@@ -161,96 +162,99 @@ impl Window {
 
         let mut saved_rect = Layout(0., 0., 0., 0.).to_layout_rect();
 
-        for (layout, i) in layouts.iter().zip(bucket_ids.iter()) {
+        for (layout, or) in layouts.iter().zip(op_resources.iter()) {
             let mut info = layout.to_info();
 
-            match items.get(*i as usize) {
-                None => panic!("item not found"),
-                Some(item) => {
-                    debug!("item {:?}", item);
+            for i in or.0..(or.0 + or.1) {
+                match ops.get(i as usize) {
+                    None => panic!("item not found"),
+                    Some(item) => {
+                        debug!("item {:?}", item);
 
-                    match item {
-                        RenderOperation::HitTest(tag) => {
-                            info.tag = Some((*tag as u64, 0 as u16));
-                            b.push_rect(&info, ColorF::TRANSPARENT);
-                        }
-                        RenderOperation::SaveRect => {
-                            saved_rect = layout.to_layout_rect();
-                            debug!("saved rect {:?}", saved_rect);
-                        }
-                        RenderOperation::PushBorderRadiusClip(radius) => {
-                            let radii = BorderRadius::uniform(*radius);
+                        match item {
+                            RenderOperation::HitTest(tag) => {
+                                info.tag = Some((*tag as u64, 0 as u16));
+                                b.push_rect(&info, ColorF::TRANSPARENT);
+                            }
+                            RenderOperation::SaveRect => {
+                                saved_rect = layout.to_layout_rect();
+                                debug!("saved rect {:?}", saved_rect);
+                            }
+                            RenderOperation::PushBorderRadiusClip(radius) => {
+                                let radii = BorderRadius::uniform(*radius);
 
-                            let complex_clip = ComplexClipRegion::new(
-                                layout.to_layout_rect(),
-                                radii,
-                                ClipMode::Clip,
-                            );
+                                let complex_clip = ComplexClipRegion::new(
+                                    layout.to_layout_rect(),
+                                    radii,
+                                    ClipMode::Clip,
+                                );
 
-                            let clip_id =
-                                b.define_clip(layout.to_layout_rect(), vec![complex_clip], None);
+                                let clip_id =
+                                    b.define_clip(layout.to_layout_rect(), vec![complex_clip], None);
 
-                            b.push_clip_id(clip_id);
-                        }
-                        RenderOperation::PushScrollClip(id) => {
-                            let clip_id = b.define_scroll_frame(
-                                Some(ExternalScrollId(*id, self.pipeline_id)),
-                                layout.to_layout_rect(),
-                                saved_rect,
-                                vec![],
-                                None,
-                                ScrollSensitivity::ScriptAndInputEvents,
-                            );
+                                b.push_clip_id(clip_id);
+                            }
+                            RenderOperation::PushScrollClip(id) => {
+                                let clip_id = b.define_scroll_frame(
+                                    Some(ExternalScrollId(*id, self.pipeline_id)),
+                                    layout.to_layout_rect(),
+                                    saved_rect,
+                                    vec![],
+                                    None,
+                                    ScrollSensitivity::ScriptAndInputEvents,
+                                );
 
-                            debug!(
-                                "push scroll clip clip = {:?} content = {:?}",
-                                saved_rect,
-                                layout.to_layout_rect()
-                            );
+                                debug!(
+                                    "push scroll clip clip = {:?} content = {:?}",
+                                    saved_rect,
+                                    layout.to_layout_rect()
+                                );
 
-                            b.push_clip_id(clip_id);
-                        }
-                        RenderOperation::PopClip => b.pop_clip_id(),
-                        RenderOperation::Text(
-                            TextDisplayItem {
-                                font_key,
-                                color,
-                                glyph_options,
-                            },
-                            glyphs,
-                        ) => b.push_text(&info, glyphs, *font_key, *color, *glyph_options),
-                        RenderOperation::Rectangle(RectangleDisplayItem { color }) => {
-                            b.push_rect(&info, *color)
-                        }
-                        RenderOperation::Border(BorderDisplayItem { widths, details }) => {
-                            b.push_border(&info, *widths, *details)
-                        }
-                        RenderOperation::PopStackingContext => b.pop_stacking_context(),
+                                b.push_clip_id(clip_id);
+                            }
+                            RenderOperation::PopClip => b.pop_clip_id(),
+                            RenderOperation::Text(
+                                TextDisplayItem {
+                                    font_key,
+                                    color,
+                                    glyph_options,
+                                },
+                                glyphs,
+                            ) => b.push_text(&info, glyphs, *font_key, *color, *glyph_options),
+                            RenderOperation::Rectangle(RectangleDisplayItem { color }) => {
+                                b.push_rect(&info, *color)
+                            }
+                            RenderOperation::Border(BorderDisplayItem { widths, details }) => {
+                                b.push_border(&info, *widths, *details)
+                            }
+                            RenderOperation::PopStackingContext => b.pop_stacking_context(),
 
-                        // TODO: filters
-                        RenderOperation::PushStackingContext(PushStackingContextDisplayItem {
-                            stacking_context,
-                        }) => {
-                            let StackingContext {
-                                transform_style,
-                                mix_blend_mode,
-                                clip_node_id,
-                                raster_space,
-                            } = stacking_context;
+                            // TODO: filters
+                            RenderOperation::PushStackingContext(PushStackingContextDisplayItem {
+                                                                     stacking_context,
+                                                                 }) => {
+                                let StackingContext {
+                                    transform_style,
+                                    mix_blend_mode,
+                                    clip_node_id,
+                                    raster_space,
+                                } = stacking_context;
 
-                            b.push_stacking_context(
-                                &info,
-                                *clip_node_id,
-                                *transform_style,
-                                *mix_blend_mode,
-                                &Vec::new(),
-                                *raster_space,
-                            )
+                                b.push_stacking_context(
+                                    &info,
+                                    *clip_node_id,
+                                    *transform_style,
+                                    *mix_blend_mode,
+                                    &Vec::new(),
+                                    *raster_space,
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+
 
         let mut tx = Transaction::new();
         tx.set_display_list(self.epoch, None, content_size, b.finalize(), true);
@@ -517,7 +521,7 @@ impl RenderNotifier for Notifier {
 
 #[derive(Deserialize)]
 pub struct RenderRequest {
-    bucket_ids: Vec<BucketId>,
+    op_resources: Vec<OpResource>,
     layouts: Vec<Layout>,
 }
 

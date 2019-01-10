@@ -1,18 +1,16 @@
 use std::sync::Mutex;
-
-use webrender::api::{
-    BorderDisplayItem, GlyphInstance, PushStackingContextDisplayItem, RectangleDisplayItem,
-    TextDisplayItem,
-};
+use crate::rendering::{RenderOperation};
 
 pub struct ResourceManager {
-    pub buckets: Vec<RenderOperation>,
+    pub render_ops: Vec<RenderOperation>,
+    free_bucket_ids: Vec<BucketId>
 }
 
 impl ResourceManager {
     pub fn new() -> Self {
         ResourceManager {
-            buckets: Vec::with_capacity(100),
+            render_ops: Vec::with_capacity(200),
+            free_bucket_ids: vec![]
         }
     }
 
@@ -27,40 +25,56 @@ impl ResourceManager {
         })
     }
 
+    pub fn create_op_resource(&mut self, ops: Vec<RenderOperation>) -> OpResource {
+        // reuse buckets for 1-size resources
+        if ops.len() == 1 {
+            if let Some(bucket_id) = self.free_bucket_ids.pop() {
+                self.update_bucket(bucket_id, ops[0].clone());
+                return OpResource(bucket_id, 1)
+            }
+        }
+
+        let bucket_ids: Vec<BucketId> = ops.iter().map(|op| self.create_bucket((*op).clone())).collect();
+
+        OpResource(bucket_ids[0], bucket_ids.len() as u32)
+    }
+
     pub fn create_bucket(&mut self, op: RenderOperation) -> BucketId {
         // TODO: panic if not u32
-        let index = self.buckets.len() as u32;
+        let index = self.render_ops.len() as u32;
 
-        self.buckets.push(op);
+        self.render_ops.push(op);
 
         index
     }
 
     pub fn update_bucket(&mut self, bucket_id: BucketId, op: RenderOperation) {
-        match self.buckets.get_mut(bucket_id as usize) {
+        match self.render_ops.get_mut(bucket_id as usize) {
             None => panic!("bucket not found"),
             Some(bucket) => *bucket = op,
         }
+    }
+
+    pub fn release_bucket(&mut self, bucket_id: BucketId) {
+        self.free_bucket_ids.push(bucket_id)
     }
 }
 
 pub type BucketId = u32;
 
-// a bit like opcode
-// mostly follows SpecificDisplayItem::* but the Text actually holds glyphs
-#[derive(Deserialize, Debug)]
-pub enum RenderOperation {
-    // this was hack at first but it could be useful for hitSlop (hitBox can be bigger than clipBox)
-    HitTest(u32),
-    SaveRect,
-    PushScrollClip(u64),
-    PushBorderRadiusClip(f32),
-    PopClip,
-    Rectangle(RectangleDisplayItem),
-    Border(BorderDisplayItem),
-    Text(TextDisplayItem, Vec<GlyphInstance>),
-    PopStackingContext,
-    PushStackingContext(PushStackingContextDisplayItem),
+// slice in global render_ops
+#[derive(Deserialize)]
+pub struct OpResource(pub BucketId, pub u32);
+
+impl Drop for OpResource {
+    fn drop(&mut self) {
+        ResourceManager::with(|rm| {
+            for i in 1..self.1 {
+                debug!("release bucket");
+                rm.release_bucket(i)
+            }
+        })
+    }
 }
 
 thread_local! {

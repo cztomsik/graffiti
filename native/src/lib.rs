@@ -8,10 +8,11 @@ extern crate log;
 use env_logger;
 use serde_json;
 
+mod rendering;
 mod resources;
 mod window;
 
-use crate::resources::ResourceManager;
+use crate::resources::{ResourceManager, OpResource};
 use crate::window::{EventSender, Window, WindowEvent};
 use neon::prelude::*;
 use std::io::Write;
@@ -38,7 +39,7 @@ declare_types! {
 
             ctx.borrow_mut(&mut this, |mut w| {
                 ResourceManager::with(|rm| {
-                    w.render(&rm.buckets, request)
+                    w.render(&rm.render_ops, request)
                 })
             });
 
@@ -82,24 +83,31 @@ declare_types! {
             Ok(js_array.upcast())
         }
     }
-}
 
-fn js_create_bucket(mut ctx: FunctionContext) -> JsResult<JsNumber> {
-    let data = ctx.argument::<JsString>(0)?.value();
-    let item = serde_json::from_str(&data).unwrap();
-    let bucket_id = ResourceManager::with(|rm| rm.create_bucket(item));
+    pub class JsOpResource for OpResource {
+        init(mut ctx) {
+            let data = ctx.argument::<JsString>(0)?.value();
+            let ops = serde_json::from_str(&data).unwrap();
+            let r = ResourceManager::with(|rm| rm.create_op_resource(ops));
 
-    Ok(ctx.number(bucket_id as f64))
-}
+            Ok(r)
+        }
 
-fn js_update_bucket(mut ctx: FunctionContext) -> JsResult<JsUndefined> {
-    let bucket_id = ctx.argument::<JsNumber>(0)?.value() as u32;
-    let data = ctx.argument::<JsString>(1)?.value();
-    let item = serde_json::from_str(&data).unwrap();
+        method getId(mut ctx) {
+            let mut this = ctx.this();
 
-    ResourceManager::with(|rm| rm.update_bucket(bucket_id, item));
+            let (start, length) = ctx.borrow(&mut this, |r| (r.0, r.1));
 
-    Ok(ctx.undefined())
+            let js_arr = JsArray::new(&mut ctx, 2);
+            let js_start = ctx.number(start);
+            let js_len = ctx.number(length);
+
+            js_arr.set(&mut ctx, 0, js_start)?;
+            js_arr.set(&mut ctx, 1, js_len)?;
+
+            Ok(js_arr.upcast())
+        }
+    }
 }
 
 fn get_event_sender(socket_path: &str) -> Box<EventSender> {
@@ -113,8 +121,7 @@ register_module!(mut ctx, {
     env_logger::init();
 
     ctx.export_class::<JsWindow>("Window")?;
-    ctx.export_function("createBucket", js_create_bucket)?;
-    ctx.export_function("updateBucket", js_update_bucket)
+    ctx.export_class::<JsOpResource>("OpResource")
 });
 
 struct SocketEventSender {

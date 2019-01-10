@@ -1,5 +1,5 @@
 import * as yoga from 'yoga-layout'
-import { BucketId, BridgeRect } from './ResourceManager'
+import { BridgeBrush, BridgeClip, BridgeRect } from './ResourceManager'
 
 export interface Container<T> {
   appendChild(child: T): void
@@ -11,4 +11,7 @@ export interface HasLayout {
   yogaNode: yoga.YogaNode
 }
 
-export type DrawBrushFunction = (buckets: BucketId[], rect: BridgeRect) => void
+export type DrawBrushFunction = (
+  item: BridgeBrush | BridgeClip,
+  rect: BridgeRect
+) => void

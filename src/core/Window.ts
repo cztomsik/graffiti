@@ -1,7 +1,11 @@
 import * as net from 'net'
 import { Container, DrawBrushFunction } from './types'
 import { Surface, TextContainer } from '.'
-import ResourceManager, { BucketId, BridgeRect } from './ResourceManager'
+import ResourceManager, {
+  BridgeBrush,
+  BridgeClip,
+  BridgeRect
+} from './ResourceManager'
 const native = require('../../native')
 
   // TODO: HDPI support
@@ -70,23 +74,22 @@ class Window extends native.Window
   render() {
     this.root.yogaNode.calculateLayout(this.width, this.height)
 
-    const bucketIds: BucketId[] = []
+    const opResources: (BridgeBrush | BridgeClip)[] = []
     const rects: BridgeRect[] = []
 
     // TODO it seems there is a potential bug here
     // rust side requires both bucketIds and rects be the same size. Which is might not be the case
+    // (it's checked in rust before render)
     const drawBrush: DrawBrushFunction = (brush, rect) => {
-      for (const b of brush) {
-        bucketIds.push(b)
-        rects.push(rect)
-      }
+      opResources.push(brush)
+      rects.push(rect)
     }
 
     this.root.write(drawBrush, 0, 0)
 
     // TODO: binary
     // TODO: we convert back and forth from f32 (yoga-cpp, webrender) to f64 (js)
-    super.render(JSON.stringify({ bucket_ids: bucketIds, layouts: rects }))
+    super.render(JSON.stringify({ op_resources: opResources, layouts: rects }))
   }
 }
 
