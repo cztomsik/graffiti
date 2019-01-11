@@ -5,8 +5,9 @@ import { RenderOperation, RenderOp, BorderStyle } from './RenderOperation'
 // x, y, width, height
 export type BridgeRect = [number, number, number, number]
 
-// that basically means that you cannot create a bucket outside of ResourceManager.createBucket
-export type BucketId = number & { 'opaque type': 'of bucket' }
+// cannot create outside of ResourceManager.create*
+export type BridgeBrush = [number, number] & { 'opaque type': 'of brush' }
+export type BridgeClip = [number, number] & { 'opaque type': 'of clip' }
 
 const native = require('../../native')
 
@@ -14,6 +15,14 @@ const native = require('../../native')
 // there is going to be a lot of similar layouts, brushes, ...
 
 const ResourceManager = {
+  createBrush(ops: RenderOperation[]): BridgeBrush {
+    return createOpResource(ops) as BridgeBrush
+  },
+
+  createClip(ops: RenderOperation[]): BridgeClip {
+    return createOpResource(ops) as BridgeClip
+  },
+
   getBrush(flatViewStyle) {
     return resolveViewDefaults(flatViewStyle)
   },
@@ -26,15 +35,6 @@ const ResourceManager = {
     return resolveClipDefaults(flatClipStyle)
   },
 
-  // TODO: not sure if buckets should be public at all
-  createBucket(item: RenderOperation): BucketId {
-    return native.createBucket(JSON.stringify(item))
-  },
-
-  updateBucket(bucketId: BucketId, item) {
-    native.updateBucket(bucketId, JSON.stringify(item))
-  },
-
   getGlyphIndicesAndAdvances(fontSize, str) {
     const [
       indicesBuffer,
@@ -45,7 +45,7 @@ const ResourceManager = {
   }
 }
 
-const resolveViewDefaults = (style): BucketId[] | undefined => {
+const resolveViewDefaults = (style): BridgeBrush | undefined => {
   const {
     backgroundColor = undefined,
 
@@ -132,9 +132,7 @@ const resolveViewDefaults = (style): BucketId[] | undefined => {
     )
   }
 
-  return res.length !== 0
-    ? res.map(it => ResourceManager.createBucket(it))
-    : undefined
+  return res.length !== 0 ? ResourceManager.createBrush(res) : undefined
 }
 
 const resolveLayoutDefaults = layout => {
@@ -202,17 +200,24 @@ const resolveLayoutDefaults = layout => {
   }
 }
 
-const resolveClipDefaults = (style): BucketId[] => {
+const resolveClipDefaults = (style): BridgeClip | undefined => {
   const { borderRadius = 0 } = style
 
   return borderRadius !== 0
-    ? [
-        ResourceManager.createBucket(
-          RenderOp.PushBorderRadiusClip(borderRadius)
-        )
-      ]
+    ? ResourceManager.createClip([RenderOp.PushBorderRadiusClip(borderRadius)])
     : undefined
 }
+
+// we only need id but we also need to prevent premature GC
+const createOpResource = (ops: RenderOperation[]) => {
+  const resource = new native.OpResource(JSON.stringify(ops))
+  const id: [number, number] = resource.getId()
+  PREVENT_GC.set(id, resource)
+
+  return id
+}
+
+const PREVENT_GC = new WeakMap()
 
 const DIRECTION = ['column', 'column-reverse', 'row', 'row-reverse']
 const ALIGN = [

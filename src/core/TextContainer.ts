@@ -9,7 +9,7 @@ import {
   BridgeColor,
   GlyphInstance
 } from './RenderOperation'
-import { BucketId, BridgeRect } from './ResourceManager'
+import { BridgeBrush, BridgeRect } from './ResourceManager'
 
 export class TextContainer implements Container<TextPart> {
   yogaNode = yoga.Node.create()
@@ -19,7 +19,7 @@ export class TextContainer implements Container<TextPart> {
   fontInstanceKey: [number, number] = [1, 0]
   lineHeight
   color: BridgeColor
-  brush?: BucketId[]
+  brush?: BridgeBrush
   glyphs: GlyphInstance[] = []
   contentWidth
   contentHeight
@@ -51,7 +51,11 @@ export class TextContainer implements Container<TextPart> {
   }
 
   update({ fontSize = 16, color, lineHeight }) {
-    if ((fontSize === this.fontInstanceKey[1]) && (color === this.color) && (lineHeight === this.lineHeight)) {
+    if (
+      fontSize === this.fontInstanceKey[1] &&
+      color === this.color &&
+      lineHeight === this.lineHeight
+    ) {
       return
     }
 
@@ -71,14 +75,12 @@ export class TextContainer implements Container<TextPart> {
 
   updateBrush() {
     // TODO: updateBucket or freeBrush & get new one
-    this.brush = [
-      ResourceManager.createBucket(
-        RenderOp.Text(
-          { color: this.color, font_key: this.fontInstanceKey },
-          this.glyphs
-        )
+    this.brush = ResourceManager.createBrush([
+      RenderOp.Text(
+        { color: this.color, font_key: this.fontInstanceKey },
+        this.glyphs
       )
-    ]
+    ])
   }
 
   updateGlyphs(maxWidth) {
@@ -180,18 +182,16 @@ const parseBreaks = str => {
   return str.match(TOKEN_REGEX).map(t => (i += t.length))
 }
 
-const TEXT_STACKING_CONTEXT = [
-  ResourceManager.createBucket(
-    RenderOp.PushStackingContext({
-      transform_style: TransformStyle.Flat,
-      mix_blend_mode: MixBlendMode.Normal,
-      raster_space: 'Screen'
-    })
-  )
-]
+const TEXT_STACKING_CONTEXT = ResourceManager.createBrush([
+  RenderOp.PushStackingContext({
+    transform_style: TransformStyle.Flat,
+    mix_blend_mode: MixBlendMode.Normal,
+    raster_space: 'Screen'
+  })
+])
 
-const POP_STACKING_CONTEXT = [
-  ResourceManager.createBucket(RenderOp.PopStackingContext())
-]
+const POP_STACKING_CONTEXT = ResourceManager.createBrush([
+  RenderOp.PopStackingContext()
+])
 
 export default TextContainer

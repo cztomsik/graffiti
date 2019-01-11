@@ -2,7 +2,7 @@ import * as yoga from 'yoga-layout'
 import { remove } from './utils'
 import { HasLayout, Container, DrawBrushFunction } from './types'
 import { ResourceManager } from '.'
-import { BridgeRect, BucketId } from './ResourceManager'
+import { BridgeRect, BridgeBrush, BridgeClip } from './ResourceManager'
 import { RenderOp } from './RenderOperation'
 
 // container with a layout and an optional brush
@@ -10,8 +10,8 @@ import { RenderOp } from './RenderOperation'
 class Surface implements Container<HasLayout>, HasLayout {
   yogaNode = yoga.Node.create()
   children = []
-  brush?: BucketId[]
-  clip?: BucketId[]
+  brush?: BridgeBrush
+  clip?: BridgeClip
 
   appendChild(child) {
     this.insertAt(child, this.children.length)
@@ -95,6 +95,6 @@ const updateYogaNode = (n: yoga.YogaNode, props: any) => {
 
 // TODO: this should be just value (it's a function until ResourceManager gets really separated)
 const DEFAULT_LAYOUT = ResourceManager.getLayout({})
-const POP_CLIP = [ResourceManager.createBucket(RenderOp.PopClip())]
+const POP_CLIP = ResourceManager.createClip([RenderOp.PopClip()])
 
 export default Surface
