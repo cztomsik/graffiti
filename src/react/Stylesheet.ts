@@ -52,9 +52,34 @@ const compile = (style, id: string) => {
   CACHE.set((style._id = id), Object.freeze(style))
 }
 
-// TODO: LeakingCache
 const CACHE = new Map<String, any>()
+let cleanThreshold = 100
 let lastId = 0
+
+const cleanCache = () => {
+  if (CACHE.size < cleanThreshold) {
+    return
+  }
+
+  let removed = 0
+
+  for (const k of CACHE.keys()) {
+    // is this anonymous style?
+    if (k.startsWith('{')) {
+      CACHE.delete(k)
+
+      // remove at most 10 items
+      if (++removed >= 10) {
+        break
+      }
+    }
+  }
+
+  // be more generous next time
+  cleanThreshold += 5
+}
+
+setInterval(cleanCache, 5000)
 
 const StyleSheet = {
   compose: (left, right) => (left && right ? [left, right] : left || right),

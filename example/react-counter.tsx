@@ -12,6 +12,8 @@ const App = () => {
     <View style={{ flex: 1, padding: 20, justifyContent: 'space-between' }}>
       <Text>{count}</Text>
 
+      <View style={{ backgroundColor: '#ff0000', height: 20, width: count }} />
+
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         <Button title="--" onPress={dec} />
         <Button title="++" onPress={inc} />
