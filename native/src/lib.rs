@@ -12,7 +12,7 @@ mod rendering;
 mod resources;
 mod window;
 
-use crate::resources::{ResourceManager, OpResource};
+use crate::resources::{OpResource, ResourceManager};
 use crate::window::{EventSender, Window, WindowEvent};
 use neon::prelude::*;
 use std::io::Write;
@@ -96,7 +96,7 @@ declare_types! {
         method getId(mut ctx) {
             let mut this = ctx.this();
 
-            let (start, length) = ctx.borrow(&mut this, |r| (r.0, r.1));
+            let (start, length) = ctx.borrow(&mut this, |r| (r.start, r.length));
 
             let js_arr = JsArray::new(&mut ctx, 2);
             let js_start = ctx.number(start);

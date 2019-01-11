@@ -89,7 +89,7 @@ class Window extends native.Window
 
     // TODO: binary
     // TODO: we convert back and forth from f32 (yoga-cpp, webrender) to f64 (js)
-    super.render(JSON.stringify({ op_resources: opResources, layouts: rects }))
+    super.render(JSON.stringify({ op_slices: opResources, layouts: rects }))
   }
 }
 

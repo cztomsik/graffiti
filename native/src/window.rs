@@ -9,8 +9,8 @@ use gleam;
 use glutin;
 use webrender;
 
-use crate::resources::{OpResource};
-use crate::rendering::{RenderOperation};
+use crate::rendering::RenderOperation;
+use crate::resources::BucketId;
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 use glutin::{EventsLoop, GlContext, GlWindow};
 use std::cell::RefCell;
@@ -146,12 +146,9 @@ impl Window {
     }
 
     pub fn render(&mut self, ops: &Vec<RenderOperation>, request: RenderRequest) {
-        let RenderRequest {
-            op_resources,
-            layouts,
-        } = request;
+        let RenderRequest { op_slices, layouts } = request;
 
-        if layouts.len() != op_resources.len() {
+        if layouts.len() != op_slices.len() {
             panic!("missing/extra layouts")
         }
 
@@ -162,10 +159,10 @@ impl Window {
 
         let mut saved_rect = Layout(0., 0., 0., 0.).to_layout_rect();
 
-        for (layout, or) in layouts.iter().zip(op_resources.iter()) {
+        for (layout, (start, length)) in layouts.iter().zip(op_slices.iter()) {
             let mut info = layout.to_info();
 
-            for i in or.0..(or.0 + or.1) {
+            for i in *start..(*start + *length) {
                 match ops.get(i as usize) {
                     None => panic!("item not found"),
                     Some(item) => {
@@ -189,8 +186,11 @@ impl Window {
                                     ClipMode::Clip,
                                 );
 
-                                let clip_id =
-                                    b.define_clip(layout.to_layout_rect(), vec![complex_clip], None);
+                                let clip_id = b.define_clip(
+                                    layout.to_layout_rect(),
+                                    vec![complex_clip],
+                                    None,
+                                );
 
                                 b.push_clip_id(clip_id);
                             }
@@ -230,9 +230,9 @@ impl Window {
                             RenderOperation::PopStackingContext => b.pop_stacking_context(),
 
                             // TODO: filters
-                            RenderOperation::PushStackingContext(PushStackingContextDisplayItem {
-                                                                     stacking_context,
-                                                                 }) => {
+                            RenderOperation::PushStackingContext(
+                                PushStackingContextDisplayItem { stacking_context },
+                            ) => {
                                 let StackingContext {
                                     transform_style,
                                     mix_blend_mode,
@@ -254,7 +254,6 @@ impl Window {
                 }
             }
         }
-
 
         let mut tx = Transaction::new();
         tx.set_display_list(self.epoch, None, content_size, b.finalize(), true);
@@ -521,7 +520,7 @@ impl RenderNotifier for Notifier {
 
 #[derive(Deserialize)]
 pub struct RenderRequest {
-    op_resources: Vec<OpResource>,
+    op_slices: Vec<(BucketId, u32)>,
     layouts: Vec<Layout>,
 }
 

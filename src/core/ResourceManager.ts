@@ -211,7 +211,6 @@ const resolveClipDefaults = (style): BridgeClip | undefined => {
 // we only need id but we also need to prevent premature GC
 const createOpResource = (ops: RenderOperation[]) => {
   const resource = new native.OpResource(JSON.stringify(ops))
-  console.log(resource)
   const id: [number, number] = resource.getId()
   PREVENT_GC.set(id, resource)
 

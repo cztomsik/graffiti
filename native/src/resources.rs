@@ -1,16 +1,16 @@
+use crate::rendering::RenderOperation;
 use std::sync::Mutex;
-use crate::rendering::{RenderOperation};
 
 pub struct ResourceManager {
     pub render_ops: Vec<RenderOperation>,
-    free_bucket_ids: Vec<BucketId>
+    free_bucket_ids: Vec<BucketId>,
 }
 
 impl ResourceManager {
     pub fn new() -> Self {
         ResourceManager {
             render_ops: Vec::with_capacity(200),
-            free_bucket_ids: vec![]
+            free_bucket_ids: vec![],
         }
     }
 
@@ -30,13 +30,16 @@ impl ResourceManager {
         if ops.len() == 1 {
             if let Some(bucket_id) = self.free_bucket_ids.pop() {
                 self.update_bucket(bucket_id, ops[0].clone());
-                return OpResource(bucket_id, 1)
+                return OpResource::new(bucket_id, 1);
             }
         }
 
-        let bucket_ids: Vec<BucketId> = ops.iter().map(|op| self.create_bucket((*op).clone())).collect();
+        let bucket_ids: Vec<BucketId> = ops
+            .iter()
+            .map(|op| self.create_bucket((*op).clone()))
+            .collect();
 
-        OpResource(bucket_ids[0], bucket_ids.len() as u32)
+        OpResource::new(bucket_ids[0], bucket_ids.len() as u32)
     }
 
     pub fn create_bucket(&mut self, op: RenderOperation) -> BucketId {
@@ -63,14 +66,24 @@ impl ResourceManager {
 pub type BucketId = u32;
 
 // slice in global render_ops
-#[derive(Deserialize)]
-pub struct OpResource(pub BucketId, pub u32);
+// must not be serialized/deserialized
+pub struct OpResource {
+    pub start: BucketId,
+    pub length: u32,
+}
+
+impl OpResource {
+    pub fn new(start: BucketId, length: u32) -> Self {
+        OpResource { start, length }
+    }
+}
 
 impl Drop for OpResource {
     fn drop(&mut self) {
+        debug!("drop resource {:?} {:?}", self.start, self.length);
+
         ResourceManager::with(|rm| {
-            for i in 1..self.1 {
-                debug!("release bucket");
+            for i in self.start..(self.start + self.length) {
                 rm.release_bucket(i)
             }
         })
