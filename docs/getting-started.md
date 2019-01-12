@@ -20,20 +20,27 @@ Easiest way to start is to just clone of these apps:
 npm i node-webrender
 ```
 
-Low-level api is very simple and follows `serde-json` format for particular `*DisplayItem`s from `webrender::api`. There is no object model, just buckets, representing particular display items, excluding their layout info. Updates are done with `updateBucket(bucket, payload)`. To render, you need to pass buckets along with layout infos. This is mostly because of speed - you can read more on the bottom.
+Note that, there is also experimental **react binding** which is much more suited for any real UI development. Vue bindings will be added as soon as Vue3 will get published.
 
-There is also experimental **react binding** which is much more suited for any real UI development. Vue bindings will be added as soon as Vue3 will get published.
+Low-level api is mostly about `ResourceManager` and `Surface` classes. Surface is a container with optional `brush`, `clip` and `layout`.
 
 ```js
-const { Window } = require('node-webrender')
-const RED = [1, 0, 0, 1]
+import { Window, ResourceManager, Surface } from '../src'
 
-// create window and bucket with red rectangle
-const w = new Window()
-const b = w.createBucket({ Rectangle: { color: RED } })
+const w = new Window("Hello")
 
-w.render({
-  bucket_ids: [b],
-  layouts: [[0, 0, 100, 100]]
+const brush = ResourceManager.getBrush({
+  backgroundColor: '#ff0000'
 })
+
+const layout = ResourceManager.getLayout({
+  flex: 1,
+  margin: 20
+})
+
+const rect = new Surface()
+rect.update({ brush, layout })
+
+w.appendChild(rect)
+w.render()
 ```
