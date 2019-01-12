@@ -4,6 +4,8 @@ nav_order: 32
 
 # Hot reload
 
+![hmr](./images/hmr.gif)
+
 - `npm install hot-module-replacement`
 - have your `./main.tsx` file [like this](https://github.com/cztomsik/slack-app/blob/master/src/main.tsx#L13)
 - create a `./hmr.js` file [like this](https://github.com/cztomsik/slack-app/blob/master/hmr.js)
