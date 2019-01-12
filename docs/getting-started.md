@@ -20,7 +20,7 @@ Easiest way to start is to just clone of these apps:
 npm i node-webrender
 ```
 
-Note that, there is also experimental **react binding** which is much more suited for any real UI development. Vue bindings will be added as soon as Vue3 will get published.
+Note that, there is also experimental **[react binding](./react.md)** which is much more suited for any real UI development. Vue bindings will be added as soon as Vue3 will get published.
 
 Low-level api is mostly about `ResourceManager` and `Surface` classes. Surface is a container with optional `brush`, `clip` and `layout`.
 
