@@ -1,2 +1,6 @@
 remote_theme: pmarsceill/just-the-docs
 markdown: gfm
+
+aux_links:
+  "GitHub":
+    - "//github.com/cztomsik/node-webrender"
