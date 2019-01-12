@@ -1,3 +1,7 @@
+---
+nav_order: 100
+---
+
 # Compilation of tech articles, videos and links
 
 For internal development purposes.

@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useState } from 'react'
 import { Window } from '../src'
-import { render, View, Text, Button } from '../src/react'
+import { render, View, Text, Button, StyleSheet } from '../src/react'
 
 const App = () => {
   const [count, setCount] = useState(0)
@@ -9,12 +9,12 @@ const App = () => {
   const inc = () => setCount(count + 1)
 
   return (
-    <View style={{ flex: 1, padding: 20, justifyContent: 'space-between' }}>
+    <View style={styles.counter}>
       <Text>{count}</Text>
 
-      <View style={{ backgroundColor: '#ff0000', height: 20, width: count }} />
+      <View style={[styles.bar, { width: count * 5 }]} />
 
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+      <View style={styles.buttons}>
         <Button title="--" onPress={dec} />
         <Button title="++" onPress={inc} />
       </View>
@@ -22,4 +22,22 @@ const App = () => {
   )
 }
 
-render(<App />, new Window("Counter", 250, 150))
+const styles = StyleSheet.create({
+  counter: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'space-between'
+  },
+
+  bar: {
+    backgroundColor: '#ff0000',
+    height: 20
+  },
+
+  buttons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  }
+})
+
+render(<App />, new Window("Counter", 200, 150))
