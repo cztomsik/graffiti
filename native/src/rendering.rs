@@ -50,7 +50,7 @@ pub fn render_surface(ctx: &mut RenderContext, surface: &Surface) {
         render_op_resource(ctx, brush, &layout);
     }
 
-    if let Some(clip) = brush {
+    if let Some(clip) = clip {
         render_op_resource(ctx, clip, &layout);
     }
 
@@ -77,6 +77,8 @@ fn render_op_resource(ctx: &mut RenderContext, op_resource: &OpResource, layout:
 fn render_op(ctx: &mut RenderContext, op: &RenderOperation, layout: &Layout) {
     let b = &mut ctx.builder;
     let mut info = layout.to_layout_info(ctx.offset_x, ctx.offset_y);
+
+    debug!("render {:?} {:?}", op, &info);
 
     match op {
         RenderOperation::HitTest(tag) => {
