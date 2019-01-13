@@ -33,6 +33,8 @@ pub struct RenderContext<'a> {
     pub ops: &'a Vec<RenderOperation>,
     pub builder: &'a mut DisplayListBuilder,
     pub saved_rect: TypedRect<f32, LayoutPixel>,
+    pub offset_x: f32,
+    pub offset_y: f32,
 }
 
 pub fn render_surface(ctx: &mut RenderContext, surface: &Surface) {
@@ -51,6 +53,9 @@ pub fn render_surface(ctx: &mut RenderContext, surface: &Surface) {
     if let Some(clip) = brush {
         render_op_resource(ctx, clip, &layout);
     }
+
+    ctx.offset_x += layout.left();
+    ctx.offset_y += layout.top();
 
     for ch in children {
         render_surface(ctx, &ch.borrow());
@@ -71,7 +76,7 @@ fn render_op_resource(ctx: &mut RenderContext, op_resource: &OpResource, layout:
 
 fn render_op(ctx: &mut RenderContext, op: &RenderOperation, layout: &Layout) {
     let b = &mut ctx.builder;
-    let mut info = layout.to_layout_info();
+    let mut info = layout.to_layout_info(ctx.offset_x, ctx.offset_y);
 
     match op {
         RenderOperation::HitTest(tag) => {
@@ -150,7 +155,7 @@ fn render_op(ctx: &mut RenderContext, op: &RenderOperation, layout: &Layout) {
 
 pub trait LayoutHelpers {
     fn to_layout_rect(&self) -> LayoutRect;
-    fn to_layout_info(&self) -> LayoutPrimitiveInfo;
+    fn to_layout_info(&self, x: f32, y: f32) -> LayoutPrimitiveInfo;
 }
 
 impl LayoutHelpers for Layout {
@@ -161,8 +166,9 @@ impl LayoutHelpers for Layout {
         )
     }
 
-    fn to_layout_info(&self) -> LayoutPrimitiveInfo {
-        let (left, top, width, height) = (self.left(), self.top(), self.width(), self.height());
+    fn to_layout_info(&self, x: f32, y: f32) -> LayoutPrimitiveInfo {
+        let (left, top, width, height) =
+            (x + self.left(), y + self.top(), self.width(), self.height());
         let layout_rect =
             LayoutRect::new(LayoutPoint::new(left, top), LayoutSize::new(width, height));
 
