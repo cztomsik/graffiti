@@ -10,14 +10,19 @@ use serde_json;
 
 mod rendering;
 mod resources;
+mod surface;
 mod window;
 
 use crate::resources::{OpResource, ResourceManager};
+use crate::surface::Surface;
 use crate::window::{EventSender, Window, WindowEvent};
 use neon::prelude::*;
+use std::cell::RefCell;
 use std::io::Write;
 use std::mem::size_of;
 use std::os::unix::net::UnixStream;
+use std::rc::Rc;
+use yoga::FlexStyle;
 
 declare_types! {
     pub class JsWindow for Window {
@@ -33,15 +38,18 @@ declare_types! {
         }
 
         method render(mut ctx) {
-            let data = ctx.argument::<JsString>(0)?.value();
-            let request = serde_json::from_str(&data).unwrap();
             let mut this = ctx.this();
+            let surface = ctx.argument::<JsSurface>(0)?;
 
-            ctx.borrow_mut(&mut this, |mut w| {
+            {
+                let guard = ctx.lock();
+                let mut window = this.borrow_mut(&guard);
+                let surface = surface.borrow(&guard);
+
                 ResourceManager::with(|rm| {
-                    w.render(&rm.render_ops, request)
+                    window.render(&rm.render_ops, &(surface.borrow()))
                 })
-            });
+            }
 
             Ok(ctx.undefined().upcast())
         }
@@ -84,28 +92,88 @@ declare_types! {
         }
     }
 
-    pub class JsOpResource for OpResource {
+    pub class JsOpResource as RcOpResource for Rc<OpResource> {
         init(mut ctx) {
             let data = ctx.argument::<JsString>(0)?.value();
             let ops = serde_json::from_str(&data).unwrap();
-            let r = ResourceManager::with(|rm| rm.create_op_resource(ops));
+            let r = ResourceManager::with(|rm| Rc::new(rm.create_op_resource(ops)));
 
             Ok(r)
         }
+    }
 
-        method getId(mut ctx) {
+    pub class JsSurface as RcRefSurface for Rc<RefCell<Surface>> {
+        init(mut _ctx) {
+            let s = Surface::new();
+
+            Ok(Rc::new(RefCell::new(s)))
+        }
+
+        method appendChild(mut ctx) {
             let mut this = ctx.this();
+            let child: Handle<JsSurface> = ctx.argument(0)?;
 
-            let (start, length) = ctx.borrow(&mut this, |r| (r.start, r.length));
+            {
+                let guard = ctx.lock();
+                let surface = this.borrow_mut(&guard);
+                let child = child.borrow(&guard);
 
-            let js_arr = JsArray::new(&mut ctx, 2);
-            let js_start = ctx.number(start);
-            let js_len = ctx.number(length);
+                {
+                    let mut surface = surface.borrow_mut();
+                    let child = (**child).clone();
+                    surface.append_child(child)
+                }
+            }
 
-            js_arr.set(&mut ctx, 0, js_start)?;
-            js_arr.set(&mut ctx, 1, js_len)?;
+            Ok(ctx.undefined().upcast())
+        }
 
-            Ok(js_arr.upcast())
+        method update(mut ctx) {
+            let mut this = ctx.this();
+            let brush: Option<Handle<JsOpResource>> = ctx.argument(0).ok();
+            let clip: Option<Handle<JsOpResource>> = ctx.argument(1).ok();
+            let flex_style: Handle<JsFlexStyle> = ctx.argument(2)?;
+
+            {
+                let guard = ctx.lock();
+                let surface = this.borrow_mut(&guard);
+
+
+                {
+                    let mut surface = surface.borrow_mut();
+
+                    let brush = brush.map(|b| b.borrow(&guard).clone());
+                    let clip = clip.map(|c| c.borrow(&guard).clone());
+                    let flex_style = flex_style.borrow(&guard).clone();
+
+                    surface.set_brush(brush);
+                    surface.set_clip(clip);
+                    surface.apply_flex_style(flex_style);
+                }
+            }
+
+            Ok(ctx.undefined().upcast())
+        }
+
+        method calculateLayout(mut ctx) {
+            let mut this = ctx.this();
+            let available_width = ctx.argument::<JsNumber>(0)?.value() as f32;
+            let available_height = ctx.argument::<JsNumber>(1)?.value() as f32;
+
+            ctx.borrow_mut(&mut this, |s| s.borrow_mut().calculate_layout(available_width, available_height));
+
+            Ok(ctx.undefined().upcast())
+        }
+    }
+
+    pub class JsFlexStyle as RcFlexStyle for Rc<Vec<FlexStyle>> {
+        init(mut ctx) {
+            let data = ctx.argument::<JsString>(0)?.value();
+            let s = serde_json::from_str(&data).unwrap();
+
+            debug!("style {:?}", s);
+
+            Ok(Rc::new(s))
         }
     }
 }
@@ -121,7 +189,9 @@ register_module!(mut ctx, {
     env_logger::init();
 
     ctx.export_class::<JsWindow>("Window")?;
-    ctx.export_class::<JsOpResource>("OpResource")
+    ctx.export_class::<JsOpResource>("OpResource")?;
+    ctx.export_class::<JsSurface>("Surface")?;
+    ctx.export_class::<JsFlexStyle>("FlexLayout")
 });
 
 struct SocketEventSender {
