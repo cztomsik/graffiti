@@ -2,12 +2,9 @@ import { parseColor } from './utils'
 import { WINDOW_HACK } from './Window'
 import { RenderOperation, RenderOp, BorderStyle } from './RenderOperation'
 
-// x, y, width, height
-export type BridgeRect = [number, number, number, number]
-
 // cannot create outside of ResourceManager.create*
-export type BridgeBrush = [number, number] & { 'opaque type': 'of brush' }
-export type BridgeClip = [number, number] & { 'opaque type': 'of clip' }
+export type BridgeBrush = Object & { 'opaque type': 'of brush' }
+export type BridgeClip = Object & { 'opaque type': 'of clip' }
 
 const native = require('../../native')
 
