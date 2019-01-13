@@ -2,6 +2,7 @@ import * as React from 'react'
 import { StyleSheet, View } from '..'
 import { TextProps } from '../react-native-types'
 import { parseColor } from '../../core/utils'
+import { TEXT_STACKING_CONTEXT, POP_STACKING_CONTEXT } from '../../core/TextContainer'
 
 const Text = (props: TextProps & { children? }) => {
   const { style = {}, children } = props
@@ -14,13 +15,16 @@ const Text = (props: TextProps & { children? }) => {
 
   return (
     <View style={flatStyle}>
-      <host-text-container
-        fontSize={fontSize}
-        color={parseColor(color)}
-        lineHeight={lineHeight}
-      >
-        {children}
-      </host-text-container>
+      <host-surface brush={TEXT_STACKING_CONTEXT}>
+        <host-text-container
+          fontSize={fontSize}
+          color={parseColor(color)}
+          lineHeight={lineHeight}
+        >
+          {children}
+        </host-text-container>
+      </host-surface>
+      <host-surface brush={POP_STACKING_CONTEXT} />
     </View>
   )
 }
