@@ -33,8 +33,7 @@ pub struct RenderContext<'a> {
     pub ops: &'a Vec<RenderOperation>,
     pub builder: &'a mut DisplayListBuilder,
     pub saved_rect: TypedRect<f32, LayoutPixel>,
-    pub offset_x: f32,
-    pub offset_y: f32,
+    pub offset: (f32, f32),
 }
 
 pub fn render_surface(ctx: &mut RenderContext, surface: &Surface) {
@@ -54,11 +53,17 @@ pub fn render_surface(ctx: &mut RenderContext, surface: &Surface) {
         render_op_resource(ctx, clip, &layout);
     }
 
-    ctx.offset_x += layout.left();
-    ctx.offset_y += layout.top();
+    if ! children.is_empty() {
+        let (x, y) = (layout.left(), layout.top());
 
-    for ch in children {
-        render_surface(ctx, &ch.borrow());
+        let parent_offset = ctx.offset;
+        ctx.offset = (parent_offset.0 + x, parent_offset.1 + y);
+
+        for ch in children {
+            render_surface(ctx, &ch.borrow());
+        }
+
+        ctx.offset = parent_offset;
     }
 
     if clip.is_some() {
@@ -76,7 +81,7 @@ fn render_op_resource(ctx: &mut RenderContext, op_resource: &OpResource, layout:
 
 fn render_op(ctx: &mut RenderContext, op: &RenderOperation, layout: &Layout) {
     let b = &mut ctx.builder;
-    let mut info = layout.to_layout_info(ctx.offset_x, ctx.offset_y);
+    let mut info = layout.to_layout_info(ctx.offset);
 
     debug!("render {:?} {:?}", op, &info);
 
@@ -157,7 +162,7 @@ fn render_op(ctx: &mut RenderContext, op: &RenderOperation, layout: &Layout) {
 
 pub trait LayoutHelpers {
     fn to_layout_rect(&self) -> LayoutRect;
-    fn to_layout_info(&self, x: f32, y: f32) -> LayoutPrimitiveInfo;
+    fn to_layout_info(&self, offset: (f32, f32)) -> LayoutPrimitiveInfo;
 }
 
 impl LayoutHelpers for Layout {
@@ -168,9 +173,9 @@ impl LayoutHelpers for Layout {
         )
     }
 
-    fn to_layout_info(&self, x: f32, y: f32) -> LayoutPrimitiveInfo {
+    fn to_layout_info(&self, offset: (f32, f32)) -> LayoutPrimitiveInfo {
         let (left, top, width, height) =
-            (x + self.left(), y + self.top(), self.width(), self.height());
+            (offset.0 + self.left(), offset.0 + self.top(), self.width(), self.height());
         let layout_rect =
             LayoutRect::new(LayoutPoint::new(left, top), LayoutSize::new(width, height));
 

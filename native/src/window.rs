@@ -149,8 +149,7 @@ impl Window {
         let res = {
             let mut builder = DisplayListBuilder::new(self.pipeline_id, content_size);
             let mut ctx = RenderContext {
-                offset_x: 0.,
-                offset_y: 0.,
+                offset: (0., 0.),
                 ops: &ops,
                 builder: &mut builder,
                 pipeline_id: self.pipeline_id,
