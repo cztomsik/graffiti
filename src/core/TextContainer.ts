@@ -14,7 +14,8 @@ const native = require('../../native')
 
 // TODO: extend native.Surface and find a way to hook into onMeasure
 // or move this to rust (or some part of it)
-export class TextContainer extends native.Surface {
+export class TextContainer {
+  ref
   children = []
   content = ''
   breaks = []
@@ -26,13 +27,17 @@ export class TextContainer extends native.Surface {
   contentWidth
   contentHeight
 
-  /*constructor() {
-    this.yogaNode.setMeasureFunc((width => {
-      this.updateGlyphs(width)
+  constructor() {
+    this.ref = native.surface_create()
 
-      return { width: this.contentWidth, height: this.contentHeight }
-    }) as any)
-  }*/
+    native.surface_set_measure_func(this.ref, width => {
+      console.log('measure called')
+
+      this.updateGlyphs(width || 100)
+
+      return [this.contentWidth, this.contentHeight]
+    })
+  }
 
   appendChild(child) {
     this.children.push(child)
@@ -72,8 +77,7 @@ export class TextContainer extends native.Surface {
   updateContent() {
     this.content = this.children.map(c => c.value).join('')
     this.breaks = parseBreaks(this.content)
-    //this.yogaNode.markDirty()
-    this.updateGlyphs(200)
+    native.surface_mark_dirty(this.ref)
   }
 
   updateBrush() {

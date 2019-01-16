@@ -25,7 +25,9 @@ const ResourceManager = {
   },
 
   getLayout(flatFlexStyle) {
-    return new native.FlexLayout(JSON.stringify(resolveLayoutDefaults(flatFlexStyle)))
+    return new native.flex_style_create(
+      JSON.stringify(resolveLayoutDefaults(flatFlexStyle))
+    )
   },
 
   getClip(flatClipStyle) {
@@ -34,11 +36,11 @@ const ResourceManager = {
 
   getGlyphIndicesAndAdvances(fontSize, str) {
     const [
-      indicesBuffer,
-      advancesBuffer
-    ] = WINDOW_HACK.getGlyphIndicesAndAdvances(fontSize, str)
+      indices,
+      advances
+    ] = native.window_get_glyph_indices_and_advances(WINDOW_HACK.ref, fontSize, str)
 
-    return [new Uint32Array(indicesBuffer), new Float32Array(advancesBuffer)]
+    return [Uint32Array.from(indices), Float32Array.from(advances)]
   }
 }
 
@@ -201,7 +203,7 @@ const resolveLayoutDefaults = layout => {
   ]
 }
 
-const StyleUnit = (value) => {
+const StyleUnit = value => {
   if (value === 'auto') {
     return { Auto: null }
   }
@@ -214,7 +216,7 @@ const StyleUnit = (value) => {
     return { Percent: parseFloat(value) }
   }
 
-  if ( ! value) {
+  if (!value) {
     return { UndefinedValue: null }
   }
 }
@@ -228,13 +230,13 @@ const resolveClipDefaults = (style): BridgeClip | undefined => {
 }
 
 const createOpResource = (ops: RenderOperation[]) => {
-  return new native.OpResource(JSON.stringify(ops))
+  return native.op_resource_create(JSON.stringify(ops))
 }
 
 const DIRECTION = {
-  'column': 'Column',
+  column: 'Column',
   'column-reverse': 'ColumnReverse',
-  'row': 'Row',
+  row: 'Row',
   'row-reverse': 'RowReverse'
 }
 
@@ -251,7 +253,7 @@ const ALIGN = {
 
 const JUSTIFY = {
   'flex-start': 'FlexStart',
-  'center': 'Center',
+  center: 'Center',
   'flex-end': 'FlexEnd',
   'space-between': 'SpaceBetween',
   'space-around': 'SpaceAround',
@@ -260,7 +262,7 @@ const JUSTIFY = {
 
 const FLEX_WRAP = {
   'no-wrap': 'NoWrap',
-  'wrap': 'Wrap',
+  wrap: 'Wrap',
   'wrap-reverse': 'WrapReverse'
 }
 

@@ -15,7 +15,6 @@ crate-type = ["dylib"]
 neon-build = "0.2.0"
 
 [dependencies]
-neon = "0.2.0"
 webrender = { git = "https://github.com/servo/webrender.git", rev = "477d395" }
 glutin = "0.18.0"
 gleam = "0.6.8"
@@ -27,4 +26,5 @@ serde_json = "1.0.32"
 euclid = "0.19.4"
 log = "0.4.6"
 env_logger = "0.6.0"
-yoga = { version = "0.3.0", features = ["serde_support"] }
+yoga = { path = "../../yoga-rs", features = ["serde_support"] }
+napi-rs = { path = "../../napi-rs" }

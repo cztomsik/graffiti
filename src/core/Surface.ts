@@ -1,28 +1,48 @@
 import * as yoga from 'yoga-layout'
 import { remove } from './utils'
-import { HasLayout, Container, DrawBrushFunction } from './types'
+import { Container } from './types'
 import { ResourceManager } from '.'
-import { BridgeRect, BridgeBrush, BridgeClip } from './ResourceManager'
+import { BridgeBrush, BridgeClip } from './ResourceManager'
 import { RenderOp } from './RenderOperation'
 
 const native = require('../../native')
 
 // container with a layout and an optional brush
 // children should have a layout too
-class Surface extends native.Surface {
-  update({ brush = undefined, clip = undefined, layout = DEFAULT_LAYOUT }) {
-    // TODO: not sure why it raises TypeError for undefined values
-    // TypeError: failed downcast to RcOpResource
-    // it's weird because everything went fine (false negative)
-    try {
-      super.update(brush, clip, layout)
-    } catch (e) {
-      if ( ! (e instanceof TypeError)) {
-        throw e
-      }
-    }
+class Surface implements Container<Surface> {
+  ref
+
+  constructor() {
+    this.ref = native.surface_create()
   }
 
+  appendChild(child) {
+    native.surface_append_child(this.ref, child.ref)
+  }
+
+  insertBefore(child, before) {
+    native.surface_append_child(this.ref, child.ref, before.ref)
+  }
+
+  removeChild(child) {
+    native.surface_remove_child(this.ref, child.ref)
+  }
+
+  setMeasureFunc(f) {
+    native.surface_set_measure_func(this.ref, f)
+  }
+
+  markDirty() {
+    native.surface_mark_dirty(this.ref)
+  }
+
+  calculateLayout(availableWidth, availableHeight) {
+    native.surface_calculate_layout(this.ref, availableWidth, availableHeight)
+  }
+
+  update({ brush = undefined, clip = undefined, layout = DEFAULT_LAYOUT }) {
+    native.surface_update(this.ref, brush, clip, layout)
+  }
 }
 
 // TODO: this should be just value (it's a function until ResourceManager gets really separated)

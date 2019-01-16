@@ -1,7 +1,7 @@
 use crate::resources::OpResource;
 use std::cell::RefCell;
 use std::rc::Rc;
-use yoga::{Direction, FlexStyle, Node as YogaNode};
+use yoga::{Context, Direction, FlexStyle, MeasureMode, Node as YogaNode, NodeRef, Size};
 
 pub struct Surface {
     pub yoga_node: YogaNode,
@@ -58,8 +58,39 @@ impl Surface {
         style.iter().for_each(|s| self.yoga_node.apply_style(s));
     }
 
-    pub fn calculate_layout(&mut self, width: f32, height: f32) {
-        self.yoga_node
-            .calculate_layout(width, height, Direction::LTR);
+    pub fn set_measure(&mut self, measure: Box<Measure>) {
+        self.yoga_node.set_context(Some(Context::new(measure)));
+        self.yoga_node.set_measure_func(Some(call_measure));
+        self.mark_dirty();
     }
+
+    pub fn mark_dirty(&mut self) {
+        self.yoga_node.mark_dirty();
+    }
+
+    pub fn calculate_layout(&mut self, available_width: f32, available_height: f32) {
+        self.yoga_node
+            .calculate_layout(available_width, available_height, Direction::LTR);
+    }
+}
+
+pub trait Measure {
+    fn measure(&self) -> Size;
+}
+
+extern "C" fn call_measure(
+    node_ref: NodeRef,
+    _w: f32,
+    _wm: MeasureMode,
+    _h: f32,
+    _hm: MeasureMode,
+) -> Size {
+    info!("measure");
+
+    let measure: &Box<Measure> = YogaNode::get_context(&node_ref)
+        .unwrap()
+        .downcast_ref::<Box<Measure>>()
+        .unwrap();
+
+    measure.measure()
 }

@@ -1,18 +1,14 @@
 import * as net from 'net'
-import { Container, DrawBrushFunction } from './types'
+import { Container } from './types'
 import { Surface, TextContainer } from '.'
-import ResourceManager, {
-  BridgeBrush,
-  BridgeClip,
-  BridgeRect
-} from './ResourceManager'
+import ResourceManager, { BridgeBrush, BridgeClip } from './ResourceManager'
 const native = require('../../native')
 
   // TODO: HDPI support
 ;(process as any).env.WINIT_HIDPI_FACTOR = 1
 
-class Window extends native.Window
-  implements Container<Surface | TextContainer> {
+class Window implements Container<Surface | TextContainer> {
+  ref
   root = new Surface()
   width
   height
@@ -20,7 +16,12 @@ class Window extends native.Window
   onKeyPress = e => {}
 
   constructor(title, width = 800, height = 600) {
-    super(title, width, height, readEvents(e => this.handleEvent(e)))
+    this.ref = native.window_create(
+      title,
+      width,
+      height,
+      readEvents(e => this.handleEvent(e))
+    )
 
     windowCount++
 
@@ -33,7 +34,7 @@ class Window extends native.Window
     this.root.update({ layout: FILL_LAYOUT })
 
     // needed because there is no proper threading yet
-    setInterval(() => this.handleEvents(), 1000 / 30)
+    setInterval(() => native.window_handle_events(this.ref), 1000 / 30)
   }
 
   // TODO
@@ -69,8 +70,12 @@ class Window extends native.Window
   }
 
   render() {
-    this.root.calculateLayout(this.width, this.height)
-    return super.render(this.root)
+    return native.window_render_surface(
+      this.ref,
+      this.root.ref,
+      this.width,
+      this.height
+    )
   }
 }
 
