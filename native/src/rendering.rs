@@ -4,8 +4,8 @@ use webrender::api::euclid::{TypedPoint2D, TypedRect, TypedSize2D};
 use webrender::api::{
     BorderDisplayItem, BorderRadius, ClipMode, ColorF, ComplexClipRegion, DisplayListBuilder,
     ExternalScrollId, GlyphInstance, LayoutPixel, LayoutPoint, LayoutPrimitiveInfo, LayoutRect,
-    LayoutSize, PipelineId, PushStackingContextDisplayItem, RectangleDisplayItem,
-    ScrollSensitivity, StackingContext, TextDisplayItem,
+    MixBlendMode, PipelineId, PushStackingContextDisplayItem, RasterSpace, RectangleDisplayItem,
+    ScrollSensitivity, StackingContext, TextDisplayItem, TransformStyle,
 };
 use yoga::Layout;
 
@@ -34,135 +34,175 @@ pub struct RenderContext<'a> {
     pub builder: &'a mut DisplayListBuilder,
     pub saved_rect: TypedRect<f32, LayoutPixel>,
     pub offset: (f32, f32),
+
+    // for debugging purposes only
+    pub depth: usize,
 }
 
-pub fn render_surface(ctx: &mut RenderContext, surface: &Surface) {
-    let Surface {
-        brush,
-        clip,
-        yoga_node,
-        children,
-    } = surface;
-    let layout = yoga_node.get_layout();
+impl<'a> RenderContext<'a> {
+    pub fn render_surface(&mut self, surface: &Surface) {
+        let Surface {
+            brush,
+            clip,
+            yoga_node,
+            children,
+        } = surface;
+        let mut layout_rect = yoga_node.get_layout().to_layout_rect();
+        layout_rect.origin.x += self.offset.0;
+        layout_rect.origin.y += self.offset.1;
 
-    if let Some(brush) = brush {
-        render_op_resource(ctx, brush, &layout);
+        debug!(
+            "{}+ {:?} {:?} {:?}",
+            String::from_utf8(vec![b' '; self.depth]).unwrap(),
+            &brush,
+            &clip,
+            &layout_rect
+        );
+
+        if let Some(clip) = clip {
+            self.render_op_resource(clip, &layout_rect);
+        }
+
+        if let Some(brush) = brush {
+            self.render_op_resource(brush, &layout_rect);
+        }
+
+        if !children.is_empty() {
+            let parent_offset = self.offset;
+
+            self.depth += 1;
+            self.offset = (layout_rect.origin.x, layout_rect.origin.y);
+
+            for ch in children {
+                self.render_surface(&ch.borrow());
+            }
+
+            self.offset = parent_offset;
+            self.depth -= 1;
+        }
+
+        if clip.is_some() {
+            self.render_op(&RenderOperation::PopClip, &layout_rect);
+        }
     }
 
-    if let Some(clip) = clip {
-        render_op_resource(ctx, clip, &layout);
+    fn render_op_resource(&mut self, op_resource: &OpResource, layout_rect: &LayoutRect) {
+        let OpResource { start, length } = op_resource;
+
+        for i in *start..(*start + *length) {
+            self.render_op(&self.ops[i as usize], layout_rect)
+        }
     }
 
-    if ! children.is_empty() {
-        let (x, y) = (layout.left(), layout.top());
+    fn render_op(&mut self, op: &RenderOperation, layout_rect: &LayoutRect) {
+        debug!(
+            "{} - {:?}",
+            String::from_utf8(vec![b' '; self.depth]).unwrap(),
+            op
+        );
 
-        let parent_offset = ctx.offset;
-        ctx.offset = (parent_offset.0 + x, parent_offset.1 + y);
+        let mut info = LayoutPrimitiveInfo::new(layout_rect.clone());
 
-        for ch in children {
-            render_surface(ctx, &ch.borrow());
-        }
+        match op {
+            RenderOperation::HitTest(tag) => {
+                info.tag = Some((*tag as u64, 0 as u16));
+                self.builder.push_rect(&info, ColorF::TRANSPARENT);
+            }
+            RenderOperation::SaveRect => {
+                self.saved_rect = layout_rect.clone();
+                debug!("saved rect {:?}", self.saved_rect);
+            }
+            RenderOperation::PushBorderRadiusClip(radius) => {
+                let radii = BorderRadius::uniform(*radius);
 
-        ctx.offset = parent_offset;
-    }
+                let complex_clip =
+                    ComplexClipRegion::new(layout_rect.clone(), radii, ClipMode::Clip);
 
-    if clip.is_some() {
-        render_op(ctx, &RenderOperation::PopClip, &layout);
-    }
-}
+                let clip_id =
+                    self.builder
+                        .define_clip(layout_rect.clone(), vec![complex_clip], None);
 
-fn render_op_resource(ctx: &mut RenderContext, op_resource: &OpResource, layout: &Layout) {
-    let OpResource { start, length } = op_resource;
+                self.builder.push_clip_id(clip_id);
+            }
+            RenderOperation::PushScrollClip(id) => {
+                let clip_id = self.builder.define_scroll_frame(
+                    Some(ExternalScrollId(*id, self.pipeline_id)),
+                    layout_rect.clone(),
+                    self.saved_rect,
+                    vec![],
+                    None,
+                    ScrollSensitivity::ScriptAndInputEvents,
+                );
 
-    for i in *start..(*start + *length) {
-        render_op(ctx, &ctx.ops[i as usize], layout)
-    }
-}
+                debug!(
+                    "push scroll clip clip = {:?} content = {:?}",
+                    self.saved_rect, layout_rect
+                );
 
-fn render_op(ctx: &mut RenderContext, op: &RenderOperation, layout: &Layout) {
-    let b = &mut ctx.builder;
-    let mut info = layout.to_layout_info(ctx.offset);
+                self.builder.push_clip_id(clip_id);
+            }
+            RenderOperation::PopClip => self.builder.pop_clip_id(),
+            RenderOperation::Text(
+                TextDisplayItem {
+                    font_key,
+                    color,
+                    glyph_options,
+                },
+                glyphs,
+            ) => {
+                self.builder.push_stacking_context(
+                    &info,
+                    None,
+                    TransformStyle::Flat,
+                    MixBlendMode::Normal,
+                    &vec![],
+                    RasterSpace::Screen,
+                );
 
-    debug!("render {:?} {:?}", op, &info);
+                let text_info = LayoutPrimitiveInfo::new(LayoutRect::new(
+                    LayoutPoint::new(0., 0.),
+                    layout_rect.size.clone(),
+                ));
+                self.builder
+                    .push_text(&text_info, glyphs, *font_key, *color, *glyph_options);
 
-    match op {
-        RenderOperation::HitTest(tag) => {
-            info.tag = Some((*tag as u64, 0 as u16));
-            b.push_rect(&info, ColorF::TRANSPARENT);
-        }
-        RenderOperation::SaveRect => {
-            ctx.saved_rect = layout.to_layout_rect();
-            debug!("saved rect {:?}", ctx.saved_rect);
-        }
-        RenderOperation::PushBorderRadiusClip(radius) => {
-            let radii = BorderRadius::uniform(*radius);
+                self.builder.pop_stacking_context();
+            }
+            RenderOperation::Rectangle(RectangleDisplayItem { color }) => {
+                self.builder.push_rect(&info, *color)
+            }
+            RenderOperation::Border(BorderDisplayItem { widths, details }) => {
+                self.builder.push_border(&info, *widths, *details)
+            }
+            RenderOperation::PopStackingContext => self.builder.pop_stacking_context(),
 
-            let complex_clip =
-                ComplexClipRegion::new(layout.to_layout_rect(), radii, ClipMode::Clip);
+            // TODO: filters
+            RenderOperation::PushStackingContext(PushStackingContextDisplayItem {
+                stacking_context,
+            }) => {
+                let StackingContext {
+                    transform_style,
+                    mix_blend_mode,
+                    clip_node_id,
+                    raster_space,
+                } = stacking_context;
 
-            let clip_id = b.define_clip(layout.to_layout_rect(), vec![complex_clip], None);
-
-            b.push_clip_id(clip_id);
-        }
-        RenderOperation::PushScrollClip(id) => {
-            let clip_id = b.define_scroll_frame(
-                Some(ExternalScrollId(*id, ctx.pipeline_id)),
-                layout.to_layout_rect(),
-                ctx.saved_rect,
-                vec![],
-                None,
-                ScrollSensitivity::ScriptAndInputEvents,
-            );
-
-            debug!(
-                "push scroll clip clip = {:?} content = {:?}",
-                ctx.saved_rect,
-                layout.to_layout_rect()
-            );
-
-            b.push_clip_id(clip_id);
-        }
-        RenderOperation::PopClip => b.pop_clip_id(),
-        RenderOperation::Text(
-            TextDisplayItem {
-                font_key,
-                color,
-                glyph_options,
-            },
-            glyphs,
-        ) => b.push_text(&info, glyphs, *font_key, *color, *glyph_options),
-        RenderOperation::Rectangle(RectangleDisplayItem { color }) => b.push_rect(&info, *color),
-        RenderOperation::Border(BorderDisplayItem { widths, details }) => {
-            b.push_border(&info, *widths, *details)
-        }
-        RenderOperation::PopStackingContext => b.pop_stacking_context(),
-
-        // TODO: filters
-        RenderOperation::PushStackingContext(PushStackingContextDisplayItem {
-            stacking_context,
-        }) => {
-            let StackingContext {
-                transform_style,
-                mix_blend_mode,
-                clip_node_id,
-                raster_space,
-            } = stacking_context;
-
-            b.push_stacking_context(
-                &info,
-                *clip_node_id,
-                *transform_style,
-                *mix_blend_mode,
-                &Vec::new(),
-                *raster_space,
-            )
+                self.builder.push_stacking_context(
+                    &info,
+                    *clip_node_id,
+                    *transform_style,
+                    *mix_blend_mode,
+                    &Vec::new(),
+                    *raster_space,
+                );
+                self.offset = (0., 0.);
+            }
         }
     }
 }
 
 pub trait LayoutHelpers {
     fn to_layout_rect(&self) -> LayoutRect;
-    fn to_layout_info(&self, offset: (f32, f32)) -> LayoutPrimitiveInfo;
 }
 
 impl LayoutHelpers for Layout {
@@ -171,14 +211,5 @@ impl LayoutHelpers for Layout {
             TypedPoint2D::new(self.left(), self.top()),
             TypedSize2D::new(self.width(), self.height()),
         )
-    }
-
-    fn to_layout_info(&self, offset: (f32, f32)) -> LayoutPrimitiveInfo {
-        let (left, top, width, height) =
-            (offset.0 + self.left(), offset.0 + self.top(), self.width(), self.height());
-        let layout_rect =
-            LayoutRect::new(LayoutPoint::new(left, top), LayoutSize::new(width, height));
-
-        LayoutPrimitiveInfo::new(layout_rect)
     }
 }

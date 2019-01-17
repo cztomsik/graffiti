@@ -12,8 +12,7 @@ import { BridgeBrush } from './ResourceManager'
 
 const native = require('../../native')
 
-// TODO: extend native.Surface and find a way to hook into onMeasure
-// or move this to rust (or some part of it)
+// TODO: this should be (at least partially) in rust
 export class TextContainer {
   ref
   children = []
@@ -30,12 +29,11 @@ export class TextContainer {
   constructor() {
     this.ref = native.surface_create()
 
+    // note that yoga will not call this if width & height is fixed!
     native.surface_set_measure_func(this.ref, width => {
-      console.log('measure called')
+      this.updateGlyphs(width)
 
-      this.updateGlyphs(width || 100)
-
-      return [this.contentWidth, this.contentHeight]
+      return { width: this.contentWidth, height: this.contentHeight }
     })
   }
 
@@ -81,8 +79,6 @@ export class TextContainer {
   }
 
   updateBrush() {
-    console.log('update brush', this.content)
-
     const brush = ResourceManager.createBrush([
       RenderOp.Text(
         { color: this.color, font_key: this.fontInstanceKey },
@@ -90,12 +86,7 @@ export class TextContainer {
       )
     ])
 
-    const layout = ResourceManager.getLayout({
-      width: 200,
-      height: 60
-    })
-
-    Surface.prototype.update.call(this, { brush, layout })
+    Surface.prototype.update.call(this, { brush })
   }
 
   updateGlyphs(maxWidth) {
@@ -184,18 +175,4 @@ const parseBreaks = str => {
   return str.match(TOKEN_REGEX).map(t => (i += t.length))
 }
 
-const TEXT_STACKING_CONTEXT = ResourceManager.createBrush([
-  RenderOp.PushStackingContext({
-    transform_style: TransformStyle.Flat,
-    mix_blend_mode: MixBlendMode.Normal,
-    raster_space: 'Screen'
-  })
-])
-
-const POP_STACKING_CONTEXT = ResourceManager.createBrush([
-  RenderOp.PopStackingContext()
-])
-
 export default TextContainer
-
-export { TEXT_STACKING_CONTEXT, POP_STACKING_CONTEXT }

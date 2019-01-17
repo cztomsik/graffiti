@@ -9,7 +9,7 @@ use gleam;
 use glutin;
 use webrender;
 
-use crate::rendering::{render_surface, LayoutHelpers, RenderContext, RenderOperation};
+use crate::rendering::{LayoutHelpers, RenderContext, RenderOperation};
 use crate::surface::Surface;
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 use glutin::{EventsLoop, GlContext, GlWindow};
@@ -149,6 +149,7 @@ impl Window {
         let res = {
             let mut builder = DisplayListBuilder::new(self.pipeline_id, content_size);
             let mut ctx = RenderContext {
+                depth: 0,
                 offset: (0., 0.),
                 ops: &ops,
                 builder: &mut builder,
@@ -156,7 +157,7 @@ impl Window {
                 saved_rect: Layout::new(0., 0., 0., 0., 0., 0.).to_layout_rect(),
             };
 
-            render_surface(&mut ctx, surface);
+            ctx.render_surface(surface);
 
             builder.finalize()
         };

@@ -6,7 +6,6 @@ extern crate serde_derive;
 use napi_rs::*;
 use std::cell::RefCell;
 use std::io::Write;
-use std::mem::size_of;
 use std::os::unix::net::UnixStream;
 use std::rc::Rc;
 use yoga::{FlexStyle, Size};
@@ -76,16 +75,16 @@ fn window_get_glyph_indices_and_advances(ctx: CallContext) -> AnyResult {
 
     for (i, glyph_index) in glyph_indices.iter().enumerate() {
         let num = ctx.env.create_int64(*glyph_index as i64);
-        indices_arr.set_index(i, num);
+        indices_arr.set_index(i, num)?;
     }
 
     for (i, advance) in advances.iter().enumerate() {
         let num = ctx.env.create_double(*advance as f64);
-        advances_arr.set_index(i, num);
+        advances_arr.set_index(i, num)?;
     }
 
-    res_arr.set_index(0, indices_arr);
-    res_arr.set_index(1, advances_arr);
+    res_arr.set_index(0, indices_arr)?;
+    res_arr.set_index(1, advances_arr)?;
 
     res_arr.into_result()
 }
@@ -196,6 +195,9 @@ fn flex_style_create(ctx: CallContext) -> AnyResult {
     let data = ctx.args[0].to_string();
     let styles: Rc<Vec<FlexStyle>> = Rc::new(serde_json::from_str(&data).unwrap());
     let mut wrapper = ctx.env.create_object();
+
+    debug!("style {:?} -> {:?}", &data, &styles);
+
     ctx.env.wrap(&mut wrapper, styles)?;
 
     wrapper.into_result()
@@ -224,16 +226,17 @@ fn get_event_sender(socket_path: &str) -> Box<EventSender> {
 
 impl Measure for Ref<Function> {
     fn measure(&self) -> Size {
-        println!("cb start");
         let env = unsafe { RENDER_ENV.unwrap() };
         let f = env.get_reference_value(self);
 
-        f.call(None, &vec![]);
-        println!("cb end");
+        let res: Value<Object> = f.call(None, &vec![]).unwrap().try_into().unwrap();
+
+        let w: Value<Any> = res.get_named_property("width").unwrap();
+        let h: Value<Any> = res.get_named_property("height").unwrap();
 
         Size {
-            width: 100.,
-            height: 200.,
+            width: w.f32(),
+            height: h.f32(),
         }
     }
 }

@@ -43,7 +43,14 @@ impl Surface {
 
     pub fn remove_child(&mut self, child: Rc<RefCell<Surface>>) {
         self.yoga_node
-            .remove_child(&mut (child.borrow_mut().yoga_node))
+            .remove_child(&mut (child.borrow_mut().yoga_node));
+
+        let index = self
+            .children
+            .iter()
+            .position(|a| Rc::ptr_eq(a, &child))
+            .unwrap();
+        self.children.remove(index);
     }
 
     pub fn set_brush(&mut self, brush: Option<Rc<OpResource>>) {
