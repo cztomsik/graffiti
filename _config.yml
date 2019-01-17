@@ -5,4 +5,5 @@ aux_links:
   "GitHub":
     - "//github.com/cztomsik/node-webrender"
 
-url: //tomsik.cz/node-webrender/
+# actually, it's this + /project_name
+url: //tomsik.cz
