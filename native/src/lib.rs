@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::io::Write;
 use std::os::unix::net::UnixStream;
 use std::rc::Rc;
-use yoga::{FlexStyle, Size};
+use yoga::{FlexStyle, Size, MeasureMode};
 
 mod rendering;
 mod resources;
@@ -225,11 +225,18 @@ fn get_event_sender(socket_path: &str) -> Box<EventSender> {
 }
 
 impl Measure for Ref<Function> {
-    fn measure(&self) -> Size {
+    fn measure(&self, w: f32, wm: MeasureMode, h: f32, hm: MeasureMode) -> Size {
         let env = unsafe { RENDER_ENV.unwrap() };
         let f = env.get_reference_value(self);
 
-        let res: Value<Object> = f.call(None, &vec![]).unwrap().try_into().unwrap();
+        let w = env.create_double(w.into());
+        let wm = env.create_int64(wm as i64);
+        let h = env.create_double(h.into());
+        let hm = env.create_int64(hm as i64);
+
+        let args = vec![w, wm, h, hm];
+        let args: Vec<Value<Any>> = args.iter().map(|a| a.try_into().unwrap()).collect();
+        let res: Value<Object> = f.call(None, &args[..]).unwrap().try_into().unwrap();
 
         let w: Value<Any> = res.get_named_property("width").unwrap();
         let h: Value<Any> = res.get_named_property("height").unwrap();

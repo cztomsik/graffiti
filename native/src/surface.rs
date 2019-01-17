@@ -82,15 +82,15 @@ impl Surface {
 }
 
 pub trait Measure {
-    fn measure(&self) -> Size;
+    fn measure(&self, w: f32, wm: MeasureMode, h: f32, hm: MeasureMode) -> Size;
 }
 
 extern "C" fn call_measure(
     node_ref: NodeRef,
-    _w: f32,
-    _wm: MeasureMode,
-    _h: f32,
-    _hm: MeasureMode,
+    w: f32,
+    wm: MeasureMode,
+    h: f32,
+    hm: MeasureMode,
 ) -> Size {
     info!("measure");
 
@@ -99,5 +99,5 @@ extern "C" fn call_measure(
         .downcast_ref::<Box<Measure>>()
         .unwrap();
 
-    measure.measure()
+    measure.measure(w, wm, h, hm)
 }
