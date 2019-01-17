@@ -4,3 +4,5 @@ markdown: gfm
 aux_links:
   "GitHub":
     - "//github.com/cztomsik/node-webrender"
+
+url: //tomsik.cz/node-webrender
