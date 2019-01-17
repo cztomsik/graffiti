@@ -45,11 +45,23 @@ const cachingFlatten: typeof flatten = styles => {
 }
 
 const compile = (style, id: string) => {
+  // could happen if the same anonymous style was passed again but it was evicted from cache few moments ago
+  if (style._id !== undefined) {
+    CACHE.set(id, style)
+    return
+  }
+
   style._brush = ResourceManager.getBrush(style)
   style._layout = ResourceManager.getLayout(style)
   style._clip = ResourceManager.getClip(style)
 
-  CACHE.set((style._id = id), Object.freeze(style))
+  Object.defineProperty(style, '_id', {
+    // so it does not propagate through Object.assign
+    enumerable: false,
+    value: id
+  })
+
+  CACHE.set(id, Object.freeze(style))
 }
 
 const CACHE = new Map<String, any>()
