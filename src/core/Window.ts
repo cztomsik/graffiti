@@ -1,18 +1,14 @@
 import * as net from 'net'
-import { Container, DrawBrushFunction } from './types'
+import { Container } from './types'
 import { Surface, TextContainer } from '.'
-import ResourceManager, {
-  BridgeBrush,
-  BridgeClip,
-  BridgeRect
-} from './ResourceManager'
+import ResourceManager, { BridgeBrush, BridgeClip } from './ResourceManager'
 const native = require('../../native')
 
   // TODO: HDPI support
 ;(process as any).env.WINIT_HIDPI_FACTOR = 1
 
-class Window extends native.Window
-  implements Container<Surface | TextContainer> {
+class Window implements Container<Surface | TextContainer> {
+  ref
   root = new Surface()
   width
   height
@@ -20,7 +16,12 @@ class Window extends native.Window
   onKeyPress = e => {}
 
   constructor(title, width = 800, height = 600) {
-    super(title, width, height, readEvents(e => this.handleEvent(e)))
+    this.ref = native.window_create(
+      title,
+      width,
+      height,
+      readEvents(e => this.handleEvent(e))
+    )
 
     windowCount++
 
@@ -30,13 +31,10 @@ class Window extends native.Window
     this.width = width
     this.height = height
 
-    const yn = this.root.yogaNode
-
-    yn.setWidth('100%')
-    yn.setHeight('100%')
+    this.root.update({ layout: FILL_LAYOUT })
 
     // needed because there is no proper threading yet
-    setInterval(() => this.handleEvents(), 1000 / 30)
+    setInterval(() => native.window_handle_events(this.ref), 1000 / 30)
   }
 
   // TODO
@@ -72,24 +70,12 @@ class Window extends native.Window
   }
 
   render() {
-    this.root.yogaNode.calculateLayout(this.width, this.height)
-
-    const opResources: (BridgeBrush | BridgeClip)[] = []
-    const rects: BridgeRect[] = []
-
-    // TODO it seems there is a potential bug here
-    // rust side requires both bucketIds and rects be the same size. Which is might not be the case
-    // (it's checked in rust before render)
-    const drawBrush: DrawBrushFunction = (brush, rect) => {
-      opResources.push(brush)
-      rects.push(rect)
-    }
-
-    this.root.write(drawBrush, 0, 0)
-
-    // TODO: binary
-    // TODO: we convert back and forth from f32 (yoga-cpp, webrender) to f64 (js)
-    super.render(JSON.stringify({ op_slices: opResources, layouts: rects }))
+    return native.window_render_surface(
+      this.ref,
+      this.root.ref,
+      this.width,
+      this.height
+    )
   }
 }
 
@@ -156,5 +142,7 @@ function ResourceManagerHack(window) {
 export let WINDOW_HACK = null
 
 export const __callbacks = []
+
+const FILL_LAYOUT = ResourceManager.getLayout({ width: '100%', height: '100%' })
 
 export default Window

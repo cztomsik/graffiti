@@ -30,6 +30,8 @@ impl ResourceManager {
         if ops.len() == 1 {
             if let Some(bucket_id) = self.free_bucket_ids.pop() {
                 self.update_bucket(bucket_id, ops[0].clone());
+
+                debug!("OpRes {} {:?}", bucket_id, &ops);
                 return OpResource::new(bucket_id, 1);
             }
         }
@@ -39,6 +41,7 @@ impl ResourceManager {
             .map(|op| self.create_bucket((*op).clone()))
             .collect();
 
+        debug!("OpRes {} {:?}", bucket_ids[0], &ops);
         OpResource::new(bucket_ids[0], bucket_ids.len() as u32)
     }
 
@@ -80,13 +83,19 @@ impl OpResource {
 
 impl Drop for OpResource {
     fn drop(&mut self) {
-        debug!("drop resource {:?} {:?}", self.start, self.length);
+        debug!("drop op_res {:?} {:?}", self.start, self.length);
 
         ResourceManager::with(|rm| {
             for i in self.start..(self.start + self.length) {
                 rm.release_bucket(i)
             }
         })
+    }
+}
+
+impl std::fmt::Debug for OpResource {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "OpRes {}", self.start)
     }
 }
 

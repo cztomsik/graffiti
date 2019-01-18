@@ -9,24 +9,21 @@ use gleam;
 use glutin;
 use webrender;
 
-use crate::rendering::RenderOperation;
-use crate::resources::BucketId;
+use crate::rendering::{LayoutHelpers, RenderContext, RenderOperation};
+use crate::surface::Surface;
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 use glutin::{EventsLoop, GlContext, GlWindow};
 use std::cell::RefCell;
 use std::os::raw::c_int;
 use std::rc::Rc;
 use std::sync::mpsc::{channel, Receiver, Sender};
-use webrender::api::euclid::{TypedPoint2D, TypedSize2D};
 use webrender::api::{
-    BorderDisplayItem, BorderRadius, ClipMode, ColorF, ComplexClipRegion, DeviceIntPoint,
-    DeviceIntRect, DisplayListBuilder, DocumentId, Epoch, ExternalScrollId, FontInstanceKey,
-    FontKey, GlyphDimensions, GlyphIndex, HitTestFlags, HitTestResult, LayoutPoint,
-    LayoutPrimitiveInfo, LayoutRect, LayoutSize, LayoutVector2D, PipelineId,
-    PushStackingContextDisplayItem, RectangleDisplayItem, RenderApi, RenderNotifier,
-    ScrollLocation, ScrollSensitivity, StackingContext, TextDisplayItem, Transaction, WorldPoint,
+    ColorF, DeviceIntPoint, DeviceIntRect, DisplayListBuilder, DocumentId, Epoch, FontInstanceKey,
+    FontKey, GlyphDimensions, GlyphIndex, HitTestFlags, HitTestResult, LayoutVector2D, PipelineId,
+    RenderApi, RenderNotifier, ScrollLocation, Transaction, WorldPoint,
 };
 use webrender::Renderer;
+use yoga::Layout;
 
 // TODO: split
 pub struct Window {
@@ -145,118 +142,28 @@ impl Window {
         }
     }
 
-    pub fn render(&mut self, ops: &Vec<RenderOperation>, request: RenderRequest) {
-        let RenderRequest { op_slices, layouts } = request;
-
-        if layouts.len() != op_slices.len() {
-            panic!("missing/extra layouts")
-        }
-
+    pub fn render(&mut self, ops: &Vec<RenderOperation>, surface: &Surface) {
         let framebuffer_size = get_frame_buffer_size(&self.gl_window, self.dpi);
         let content_size = framebuffer_size.to_f32() / euclid::TypedScale::new(self.dpi as f32);
 
-        let mut b = DisplayListBuilder::new(self.pipeline_id, content_size);
+        let res = {
+            let mut builder = DisplayListBuilder::new(self.pipeline_id, content_size);
+            let mut ctx = RenderContext {
+                depth: 0,
+                offset: (0., 0.),
+                ops: &ops,
+                builder: &mut builder,
+                pipeline_id: self.pipeline_id,
+                saved_rect: Layout::new(0., 0., 0., 0., 0., 0.).to_layout_rect(),
+            };
 
-        let mut saved_rect = Layout(0., 0., 0., 0.).to_layout_rect();
+            ctx.render_surface(surface);
 
-        for (layout, (start, length)) in layouts.iter().zip(op_slices.iter()) {
-            let mut info = layout.to_info();
-
-            for i in *start..(*start + *length) {
-                match ops.get(i as usize) {
-                    None => panic!("item not found"),
-                    Some(item) => {
-                        debug!("item {:?}", item);
-
-                        match item {
-                            RenderOperation::HitTest(tag) => {
-                                info.tag = Some((*tag as u64, 0 as u16));
-                                b.push_rect(&info, ColorF::TRANSPARENT);
-                            }
-                            RenderOperation::SaveRect => {
-                                saved_rect = layout.to_layout_rect();
-                                debug!("saved rect {:?}", saved_rect);
-                            }
-                            RenderOperation::PushBorderRadiusClip(radius) => {
-                                let radii = BorderRadius::uniform(*radius);
-
-                                let complex_clip = ComplexClipRegion::new(
-                                    layout.to_layout_rect(),
-                                    radii,
-                                    ClipMode::Clip,
-                                );
-
-                                let clip_id = b.define_clip(
-                                    layout.to_layout_rect(),
-                                    vec![complex_clip],
-                                    None,
-                                );
-
-                                b.push_clip_id(clip_id);
-                            }
-                            RenderOperation::PushScrollClip(id) => {
-                                let clip_id = b.define_scroll_frame(
-                                    Some(ExternalScrollId(*id, self.pipeline_id)),
-                                    layout.to_layout_rect(),
-                                    saved_rect,
-                                    vec![],
-                                    None,
-                                    ScrollSensitivity::ScriptAndInputEvents,
-                                );
-
-                                debug!(
-                                    "push scroll clip clip = {:?} content = {:?}",
-                                    saved_rect,
-                                    layout.to_layout_rect()
-                                );
-
-                                b.push_clip_id(clip_id);
-                            }
-                            RenderOperation::PopClip => b.pop_clip_id(),
-                            RenderOperation::Text(
-                                TextDisplayItem {
-                                    font_key,
-                                    color,
-                                    glyph_options,
-                                },
-                                glyphs,
-                            ) => b.push_text(&info, glyphs, *font_key, *color, *glyph_options),
-                            RenderOperation::Rectangle(RectangleDisplayItem { color }) => {
-                                b.push_rect(&info, *color)
-                            }
-                            RenderOperation::Border(BorderDisplayItem { widths, details }) => {
-                                b.push_border(&info, *widths, *details)
-                            }
-                            RenderOperation::PopStackingContext => b.pop_stacking_context(),
-
-                            // TODO: filters
-                            RenderOperation::PushStackingContext(
-                                PushStackingContextDisplayItem { stacking_context },
-                            ) => {
-                                let StackingContext {
-                                    transform_style,
-                                    mix_blend_mode,
-                                    clip_node_id,
-                                    raster_space,
-                                } = stacking_context;
-
-                                b.push_stacking_context(
-                                    &info,
-                                    *clip_node_id,
-                                    *transform_style,
-                                    *mix_blend_mode,
-                                    &Vec::new(),
-                                    *raster_space,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+            builder.finalize()
+        };
 
         let mut tx = Transaction::new();
-        tx.set_display_list(self.epoch, None, content_size, b.finalize(), true);
+        tx.set_display_list(self.epoch, None, content_size, res, true);
         tx.set_root_pipeline(self.pipeline_id);
         tx.generate_frame();
 
@@ -518,33 +425,7 @@ impl RenderNotifier for Notifier {
     }
 }
 
-#[derive(Deserialize)]
-pub struct RenderRequest {
-    op_slices: Vec<(BucketId, u32)>,
-    layouts: Vec<Layout>,
-}
-
 pub struct Msg {}
-
-// TODO: rename (LayoutRect - but there is already one in webrender)
-#[derive(Deserialize)]
-struct Layout(f32, f32, f32, f32);
-
-impl Layout {
-    fn to_layout_rect(&self) -> LayoutRect {
-        LayoutRect::new(
-            TypedPoint2D::new(self.0, self.1),
-            TypedSize2D::new(self.2, self.3),
-        )
-    }
-
-    fn to_info(&self) -> LayoutPrimitiveInfo {
-        let Layout(x, y, width, height) = *self;
-        let layout_rect = LayoutRect::new(LayoutPoint::new(x, y), LayoutSize::new(width, height));
-
-        LayoutPrimitiveInfo::new(layout_rect)
-    }
-}
 
 #[derive(Debug)]
 pub enum WindowEvent {

@@ -1,7 +1,6 @@
-import * as yoga from 'yoga-layout'
-import { Container, DrawBrushFunction } from './types'
+import { Container } from './types'
 import { remove } from './utils'
-import { TextPart, ResourceManager } from '.'
+import { TextPart, ResourceManager, Surface } from '.'
 import {
   RenderOp,
   TransformStyle,
@@ -9,10 +8,13 @@ import {
   BridgeColor,
   GlyphInstance
 } from './RenderOperation'
-import { BridgeBrush, BridgeRect } from './ResourceManager'
+import { BridgeBrush } from './ResourceManager'
 
-export class TextContainer implements Container<TextPart> {
-  yogaNode = yoga.Node.create()
+const native = require('../../native')
+
+// TODO: this should be (at least partially) in rust
+export class TextContainer {
+  ref
   children = []
   content = ''
   breaks = []
@@ -25,11 +27,14 @@ export class TextContainer implements Container<TextPart> {
   contentHeight
 
   constructor() {
-    this.yogaNode.setMeasureFunc((width => {
+    this.ref = native.surface_create()
+
+    // note that yoga will not call this if width & height is fixed!
+    native.surface_set_measure_func(this.ref, width => {
       this.updateGlyphs(width)
 
       return { width: this.contentWidth, height: this.contentHeight }
-    }) as any)
+    })
   }
 
   appendChild(child) {
@@ -70,17 +75,18 @@ export class TextContainer implements Container<TextPart> {
   updateContent() {
     this.content = this.children.map(c => c.value).join('')
     this.breaks = parseBreaks(this.content)
-    this.yogaNode.markDirty()
+    native.surface_mark_dirty(this.ref)
   }
 
   updateBrush() {
-    // TODO: updateBucket or freeBrush & get new one
-    this.brush = ResourceManager.createBrush([
+    const brush = ResourceManager.createBrush([
       RenderOp.Text(
         { color: this.color, font_key: this.fontInstanceKey },
         this.glyphs
       )
     ])
+
+    Surface.prototype.update.call(this, { brush })
   }
 
   updateGlyphs(maxWidth) {
@@ -155,19 +161,6 @@ export class TextContainer implements Container<TextPart> {
 
     this.updateBrush()
   }
-
-  write(drawBrush: DrawBrushFunction, x, y) {
-    const { left, top, width, height } = this.yogaNode.getComputedLayout()
-    const rect: BridgeRect = [left + x, top + y, width, height]
-
-    // extend clip box to avoid some glyphs getting cut
-    // TODO: we don't have proper font-metrics so it's lineHeight for now
-    rect[3] += this.lineHeight
-
-    drawBrush(TEXT_STACKING_CONTEXT, rect)
-    drawBrush(this.brush, [0, 0, rect[2], rect[3]])
-    drawBrush(POP_STACKING_CONTEXT, [0, 0, rect[2], rect[3]])
-  }
 }
 
 const TOKEN_REGEX = /[^\n ]+|\n| +/g
@@ -181,17 +174,5 @@ const parseBreaks = str => {
 
   return str.match(TOKEN_REGEX).map(t => (i += t.length))
 }
-
-const TEXT_STACKING_CONTEXT = ResourceManager.createBrush([
-  RenderOp.PushStackingContext({
-    transform_style: TransformStyle.Flat,
-    mix_blend_mode: MixBlendMode.Normal,
-    raster_space: 'Screen'
-  })
-])
-
-const POP_STACKING_CONTEXT = ResourceManager.createBrush([
-  RenderOp.PopStackingContext()
-])
 
 export default TextContainer

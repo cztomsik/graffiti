@@ -2,12 +2,9 @@ import { parseColor } from './utils'
 import { WINDOW_HACK } from './Window'
 import { RenderOperation, RenderOp, BorderStyle } from './RenderOperation'
 
-// x, y, width, height
-export type BridgeRect = [number, number, number, number]
-
 // cannot create outside of ResourceManager.create*
-export type BridgeBrush = [number, number] & { 'opaque type': 'of brush' }
-export type BridgeClip = [number, number] & { 'opaque type': 'of clip' }
+export type BridgeBrush = Object & { 'opaque type': 'of brush' }
+export type BridgeClip = Object & { 'opaque type': 'of clip' }
 
 const native = require('../../native')
 
@@ -28,7 +25,9 @@ const ResourceManager = {
   },
 
   getLayout(flatFlexStyle) {
-    return resolveLayoutDefaults(flatFlexStyle)
+    return new native.flex_style_create(
+      JSON.stringify(resolveLayoutDefaults(flatFlexStyle))
+    )
   },
 
   getClip(flatClipStyle) {
@@ -37,11 +36,11 @@ const ResourceManager = {
 
   getGlyphIndicesAndAdvances(fontSize, str) {
     const [
-      indicesBuffer,
-      advancesBuffer
-    ] = WINDOW_HACK.getGlyphIndicesAndAdvances(fontSize, str)
+      indices,
+      advances
+    ] = native.window_get_glyph_indices_and_advances(WINDOW_HACK.ref, fontSize, str)
 
-    return [new Uint32Array(indicesBuffer), new Float32Array(advancesBuffer)]
+    return [Uint32Array.from(indices), Float32Array.from(advances)]
   }
 }
 
@@ -144,7 +143,7 @@ const resolveLayoutDefaults = layout => {
     padding = 0,
     margin = 0,
     alignContent = 'flex-start',
-    alignItems = 'strech',
+    alignItems = 'stretch',
     alignSelf = 'auto',
     justifyContent = 'flex-start',
     flexWrap = 'no-wrap',
@@ -176,27 +175,49 @@ const resolveLayoutDefaults = layout => {
     paddingRight = paddingHorizontal
   } = rest2
 
-  return {
-    width,
-    height,
-    alignContent: ALIGN.indexOf(alignContent),
-    alignItems: ALIGN.indexOf(alignItems),
-    alignSelf: ALIGN.indexOf(alignSelf),
-    justifyContent: JUSTIFY.indexOf(justifyContent),
-    flexDirection: DIRECTION.indexOf(flexDirection),
-    flexBasis: flexBasis === 'auto' ? NaN : flexBasis,
-    flexGrow,
-    flexShrink,
-    flexWrap: FLEX_WRAP.indexOf(flexWrap),
-    marginTop,
-    marginRight,
-    marginBottom,
-    marginLeft,
-    paddingTop,
-    paddingRight,
-    paddingBottom,
-    paddingLeft,
-    overflow: OVERFLOW.indexOf(overflow)
+  return [
+    { Width: StyleUnit(width) },
+    { Height: StyleUnit(height) },
+
+    { FlexDirection: { [DIRECTION[flexDirection]]: null } },
+    { FlexBasis: StyleUnit(flexBasis) },
+    { FlexGrow: flexGrow },
+    { FlexShrink: flexShrink },
+    { FlexWrap: { [FLEX_WRAP[flexWrap]]: null } },
+
+    { AlignContent: { [ALIGN[alignContent]]: null } },
+    { AlignItems: { [ALIGN[alignItems]]: null } },
+    { AlignSelf: { [ALIGN[alignSelf]]: null } },
+
+    { JustifyContent: { [JUSTIFY[justifyContent]]: null } },
+
+    { MarginTop: StyleUnit(marginTop) },
+    { MarginRight: StyleUnit(marginRight) },
+    { MarginBottom: StyleUnit(marginBottom) },
+    { MarginLeft: StyleUnit(marginLeft) },
+    { PaddingTop: StyleUnit(paddingTop) },
+    { PaddingRight: StyleUnit(paddingRight) },
+    { PaddingBottom: StyleUnit(paddingBottom) },
+    { PaddingLeft: StyleUnit(paddingLeft) },
+    { Overflow: { [OVERFLOW[overflow]]: null } }
+  ]
+}
+
+const StyleUnit = value => {
+  if (value === 'auto') {
+    return { Auto: null }
+  }
+
+  if (typeof value === 'number') {
+    return { Point: value }
+  }
+
+  if (('' + value).endsWith('%')) {
+    return { Percent: parseFloat(value) }
+  }
+
+  if (!value) {
+    return { UndefinedValue: null }
   }
 }
 
@@ -208,37 +229,47 @@ const resolveClipDefaults = (style): BridgeClip | undefined => {
     : undefined
 }
 
-// we only need id but we also need to prevent premature GC
 const createOpResource = (ops: RenderOperation[]) => {
-  const resource = new native.OpResource(JSON.stringify(ops))
-  const id: [number, number] = resource.getId()
-  PREVENT_GC.set(id, resource)
-
-  return id
+  return native.op_resource_create(JSON.stringify(ops))
 }
 
-const PREVENT_GC = new WeakMap()
+const DIRECTION = {
+  column: 'Column',
+  'column-reverse': 'ColumnReverse',
+  row: 'Row',
+  'row-reverse': 'RowReverse'
+}
 
-const DIRECTION = ['column', 'column-reverse', 'row', 'row-reverse']
-const ALIGN = [
-  'auto',
-  'flex-start',
-  'center',
-  'flex-end',
-  'strech',
-  'baseline',
-  'space-between',
-  'space-around'
-]
-const JUSTIFY = [
-  'flex-start',
-  'center',
-  'flex-end',
-  'space-between',
-  'space-around',
-  'space-evenly'
-]
-const FLEX_WRAP = ['no-wrap', 'wrap', 'wrap-reverse']
-const OVERFLOW = ['hidden', 'scroll', 'visible']
+const ALIGN = {
+  auto: 'Auto',
+  'flex-start': 'FlexStart',
+  center: 'Center',
+  'flex-end': 'FlexEnd',
+  stretch: 'Stretch',
+  baseline: 'Baseline',
+  'space-between': 'SpaceBetween',
+  'space-around': 'SpaceAround'
+}
+
+const JUSTIFY = {
+  'flex-start': 'FlexStart',
+  center: 'Center',
+  'flex-end': 'FlexEnd',
+  'space-between': 'SpaceBetween',
+  'space-around': 'SpaceAround',
+  'space-evenly': 'SpaceEvenly'
+}
+
+const FLEX_WRAP = {
+  'no-wrap': 'NoWrap',
+  wrap: 'Wrap',
+  'wrap-reverse': 'WrapReverse'
+}
+
+const OVERFLOW = {
+  hidden: 'Hidden',
+  scroll: 'Scroll',
+  visible: 'Visible'
+}
 
 export default ResourceManager
