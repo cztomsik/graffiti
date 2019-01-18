@@ -21,7 +21,7 @@ class Surface implements Container<Surface> {
   }
 
   insertBefore(child, before) {
-    native.surface_append_child(this.ref, child.ref, before.ref)
+    native.surface_insert_before(this.ref, child.ref, before.ref)
   }
 
   removeChild(child) {
