@@ -6,26 +6,32 @@ const Switch = (props: SwitchProps) => {
   const { disabled, value, onValueChange } = props
 
   return (
-    <TouchableWithoutFeedback onPress={onValueChange as any}>
+    <TouchableWithoutFeedback style={styles.ct} onPress={onValueChange as any}>
       <View style={[styles.track, value && styles.trackActive, disabled && styles.trackDisabled]}>
         <View style={[styles.thumb, value && styles.thumbActive]} />
+        <Text style={styles.mark}>{value ?'ON' :'OFF'}</Text>
       </View>
     </TouchableWithoutFeedback>
   )
 }
 
 const styles = StyleSheet.create({
-  // TODO: disabling might be done using opacity and/or color filter
+  // TODO: consider using opacity and/or color filter for disabled state
+  ct: {
+    alignSelf: 'center'
+  },
 
   track: {
-    width: 80,
-    height: 28,
+    flexDirection: 'row',
+    width: 65,
+    height: 25,
     padding: 3,
-
+    borderRadius: 2,
     backgroundColor: '#bdbdbd'
   },
 
   trackActive: {
+    flexDirection: 'row-reverse',
     backgroundColor: '#2196f3'
   },
 
@@ -35,12 +41,21 @@ const styles = StyleSheet.create({
 
   thumb: {
     height: '100%',
-    width: 35,
+    width: 22,
+    borderRadius: 2,
     backgroundColor: '#ffffff'
   },
 
   thumbActive: {
-    marginLeft: 39
+  },
+
+  mark: {
+    alignSelf: 'center',
+    marginLeft: 7,
+    width: 27,
+    color: '#ffffff',
+    fontSize: 12,
+    lineHeight: 20
   }
 })
 

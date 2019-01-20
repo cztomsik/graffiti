@@ -48,6 +48,6 @@ class TouchableWithoutFeedback extends React.Component<
   }
 }
 
-const TOUCHABLE_INSIDE = ResourceManager.getLayout({ flex: 1 })
+const TOUCHABLE_INSIDE = ResourceManager.getLayout({ flex: 1, flexBasis: 'auto' })
 
 export default TouchableWithoutFeedback
