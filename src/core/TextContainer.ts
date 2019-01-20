@@ -155,7 +155,7 @@ export class TextContainer {
 
     // finish
     this.glyphs = glyphs
-    this.contentWidth = lines.length ? xs[lines[0][1]] : 200
+    this.contentWidth = lines.length ? xs[lines[0][1]] : 0
     this.contentHeight = lines.length * this.lineHeight
 
     this.updateBrush()
