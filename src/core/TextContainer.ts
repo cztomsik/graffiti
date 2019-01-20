@@ -30,10 +30,9 @@ export class TextContainer {
     this.ref = native.surface_create()
 
     // note that yoga will not call this if width & height is fixed!
-    native.surface_set_measure_func(this.ref, width => {
+    native.surface_set_measure_func(this.ref, (width, wm) => {
       this.updateGlyphs(width)
-
-      return { width: this.contentWidth, height: this.contentHeight }
+      return { width: wm === 1 ?width :this.contentWidth, height: this.contentHeight }
     })
   }
 

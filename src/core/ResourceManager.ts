@@ -162,7 +162,8 @@ const resolveLayoutDefaults = layout => {
   const {
     flexGrow = flex,
     flexShrink = flex,
-    flexBasis = 'auto',
+    // should be just 0 but chrome does percents too
+    flexBasis = flex ?'0%' :'auto',
 
     marginTop = marginVertical,
     marginBottom = marginVertical,
