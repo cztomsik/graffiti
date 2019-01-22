@@ -4,31 +4,32 @@ import { Container } from './types'
 import { ResourceManager } from '.'
 import { BridgeBrush, BridgeClip } from './ResourceManager'
 import { RenderOp } from './RenderOperation'
+import { NativeApi, N } from './nativeApi'
 
-const native = require('../../native')
+const native: NativeApi = require('../../native')
 
 // container with a layout and an optional brush
 // children should have a layout too
 class Surface implements Container<Surface> {
-  ref
+  ref: N.Surface
 
   constructor() {
     this.ref = native.surface_create()
   }
 
-  appendChild(child) {
+  appendChild(child: Surface) {
     native.surface_append_child(this.ref, child.ref)
   }
 
-  insertBefore(child, before) {
+  insertBefore(child: Surface, before: Surface) {
     native.surface_insert_before(this.ref, child.ref, before.ref)
   }
 
-  removeChild(child) {
+  removeChild(child: Surface) {
     native.surface_remove_child(this.ref, child.ref)
   }
 
-  setMeasureFunc(f) {
+  setMeasureFunc(f: N.MeasureCallback) {
     native.surface_set_measure_func(this.ref, f)
   }
 
@@ -36,7 +37,7 @@ class Surface implements Container<Surface> {
     native.surface_mark_dirty(this.ref)
   }
 
-  calculateLayout(availableWidth, availableHeight) {
+  calculateLayout(availableWidth: number, availableHeight: number) {
     native.surface_calculate_layout(this.ref, availableWidth, availableHeight)
   }
 

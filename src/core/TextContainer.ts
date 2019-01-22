@@ -9,8 +9,9 @@ import {
   GlyphInstance
 } from './RenderOperation'
 import { BridgeBrush } from './ResourceManager'
+import { NativeApi, N } from './nativeApi'
 
-const native = require('../../native')
+const native: NativeApi = require('../../native')
 
 // TODO: this should be (at least partially) in rust
 export class TextContainer {
@@ -32,7 +33,10 @@ export class TextContainer {
     // note that yoga will not call this if width & height is fixed!
     native.surface_set_measure_func(this.ref, (width, wm) => {
       this.updateGlyphs(width)
-      return { width: wm === 1 ?width :this.contentWidth, height: this.contentHeight }
+      return {
+        width: wm === N.MeasureMode.Exactly ? width : this.contentWidth,
+        height: this.contentHeight
+      }
     })
   }
 
