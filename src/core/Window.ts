@@ -1,14 +1,15 @@
 import * as net from 'net'
 import { Container } from './types'
 import { Surface, TextContainer } from '.'
+import { NativeApi, N } from './nativeApi'
 import ResourceManager, { BridgeBrush, BridgeClip } from './ResourceManager'
-const native = require('../../native')
+const native: NativeApi = require('../../native')
 
   // TODO: HDPI support
 ;(process as any).env.WINIT_HIDPI_FACTOR = 1
 
 class Window implements Container<Surface | TextContainer> {
-  ref
+  ref: N.Window
   root = new Surface()
   width
   height

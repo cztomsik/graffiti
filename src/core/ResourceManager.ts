@@ -1,31 +1,34 @@
 import { parseColor } from './utils'
 import { WINDOW_HACK } from './Window'
 import { RenderOperation, RenderOp, BorderStyle } from './RenderOperation'
+import { NativeApi, N } from './nativeApi'
 
 // cannot create outside of ResourceManager.create*
 export type BridgeBrush = Object & { 'opaque type': 'of brush' }
 export type BridgeClip = Object & { 'opaque type': 'of clip' }
 
-const native = require('../../native')
+const native: NativeApi = require('../../native')
 
 // TODO: maybe we could somehow find resource duplicates during startup
 // there is going to be a lot of similar layouts, brushes, ...
 
 const ResourceManager = {
   createBrush(ops: RenderOperation[]): BridgeBrush {
-    return createOpResource(ops) as BridgeBrush
+    // TODO correct types
+    return (createOpResource(ops) as any) as BridgeBrush
   },
 
   createClip(ops: RenderOperation[]): BridgeClip {
-    return createOpResource(ops) as BridgeClip
+    // TODO correct types
+    return (createOpResource(ops) as any) as BridgeClip
   },
 
   getBrush(flatViewStyle) {
     return resolveViewDefaults(flatViewStyle)
   },
 
-  getLayout(flatFlexStyle) {
-    return new native.flex_style_create(
+  getLayout(flatFlexStyle): N.FlexStyle {
+    return native.flex_style_create(
       JSON.stringify(resolveLayoutDefaults(flatFlexStyle))
     )
   },
@@ -35,10 +38,11 @@ const ResourceManager = {
   },
 
   getGlyphIndicesAndAdvances(fontSize, str) {
-    const [
-      indices,
-      advances
-    ] = native.window_get_glyph_indices_and_advances(WINDOW_HACK.ref, fontSize, str)
+    const [indices, advances] = native.window_get_glyph_indices_and_advances(
+      WINDOW_HACK.ref,
+      fontSize,
+      str
+    )
 
     return [Uint32Array.from(indices), Float32Array.from(advances)]
   }
@@ -163,7 +167,7 @@ const resolveLayoutDefaults = layout => {
     flexGrow = flex,
     flexShrink = flex,
     // should be just 0 but chrome does percents too
-    flexBasis = flex ?'0%' :'auto',
+    flexBasis = flex ? '0%' : 'auto',
 
     marginTop = marginVertical,
     marginBottom = marginVertical,
