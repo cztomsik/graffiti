@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::io::Write;
 use std::os::unix::net::UnixStream;
 use std::rc::Rc;
-use yoga::{FlexStyle, Size, MeasureMode};
+use yoga::{FlexStyle, MeasureMode, Size};
 
 mod rendering;
 mod resources;
@@ -17,16 +17,23 @@ mod window;
 
 use crate::resources::{OpResource, ResourceManager};
 use crate::surface::{Measure, Surface};
-use crate::window::{EventSender, Window, WindowEvent};
+use crate::window::{Application, EventSender, Window, WindowEvent};
 
 register_module!(node_webrender, init);
+
+thread_local! {
+    static APP: RefCell<Application> = RefCell::new(Application::new());
+}
 
 fn init<'env>(mut ctx: ModuleInitContext) -> Result<Option<Value<'env, Object>>> {
     env_logger::init();
 
+    ctx.export("app_loop_a_bit", callback!(app_loop_a_bit));
     ctx.export("window_create", callback!(window_create));
-    ctx.export("window_handle_events", callback!(window_handle_events));
-    ctx.export("window_get_glyph_indices_and_advances", callback!(window_get_glyph_indices_and_advances));
+    ctx.export(
+        "window_get_glyph_indices_and_advances",
+        callback!(window_get_glyph_indices_and_advances),
+    );
     ctx.export("window_render_surface", callback!(window_render_surface));
     ctx.export("surface_create", callback!(surface_create));
     ctx.export("surface_update", callback!(surface_update));
@@ -49,25 +56,33 @@ fn window_create(ctx: CallContext) -> AnyResult {
     let width = ctx.args[1].f64();
     let height = ctx.args[2].f64();
     let socket_path = ctx.args[3].to_string();
-    let window = Window::new(title, width, height, get_event_sender(&socket_path));
+
+    let window = APP.with(|app| {
+        app.borrow_mut()
+            .create_window(title, width, height, get_event_sender(&socket_path))
+    });
+
     let mut wrapper = ctx.env.create_object();
     ctx.env.wrap(&mut wrapper, window)?;
 
     wrapper.into_result()
 }
 
-fn window_handle_events(ctx: CallContext) -> AnyResult {
-    let window: &mut Window = ctx.args[0].unwrap(ctx.env);
-
-    window.handle_events().into_result()
+fn app_loop_a_bit(_ctx: CallContext) -> AnyResult {
+    APP.with(|app| {
+        app.borrow_mut().loop_a_bit();
+    })
+    .into_result()
 }
 
 fn window_get_glyph_indices_and_advances(ctx: CallContext) -> AnyResult {
-    let window: &mut Window = ctx.args[0].unwrap(ctx.env);
+    let window: &mut Rc<RefCell<Window>> = ctx.args[0].unwrap(ctx.env);
     let font_size = ctx.args[1].i32() as u32;
     let str = ctx.args[2].to_string();
 
-    let (glyph_indices, advances) = window.get_glyph_indices_and_advances(font_size, &str);
+    let (glyph_indices, advances) = window
+        .borrow()
+        .get_glyph_indices_and_advances(font_size, &str);
 
     let mut res_arr = ctx.env.create_array_with_length(2);
     let mut indices_arr = ctx.env.create_array_with_length(glyph_indices.len());
@@ -89,11 +104,10 @@ fn window_get_glyph_indices_and_advances(ctx: CallContext) -> AnyResult {
     res_arr.into_result()
 }
 
-
 fn window_render_surface(ctx: CallContext) -> AnyResult {
     unsafe { RENDER_ENV = Some(ctx.env.borrow_forever()) };
 
-    let window: &mut Window = ctx.args[0].unwrap(ctx.env);
+    let window: &mut Rc<RefCell<Window>> = ctx.args[0].unwrap(ctx.env);
     let surface: &mut Rc<RefCell<Surface>> = ctx.args[1].unwrap(ctx.env);
     let available_width = ctx.args[2].f32();
     let available_height = ctx.args[3].f32();
@@ -103,7 +117,9 @@ fn window_render_surface(ctx: CallContext) -> AnyResult {
         .calculate_layout(available_width, available_height);
 
     ResourceManager::with(|rm| {
-        window.render(&rm.render_ops, &(surface.borrow()));
+        window
+            .borrow_mut()
+            .render(&rm.render_ops, &(surface.borrow()));
     });
 
     unsafe { RENDER_ENV = None };

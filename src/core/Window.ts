@@ -33,9 +33,6 @@ class Window implements Container<Surface | TextContainer> {
     this.height = height
 
     this.root.update({ layout: FILL_LAYOUT })
-
-    // needed because there is no proper threading yet
-    setInterval(() => native.window_handle_events(this.ref), 1000 / 30)
   }
 
   // TODO
@@ -134,6 +131,14 @@ const decodeEvent = (b: Buffer) => {
       throw new Error(`unknown event ${type} ${b}`)
   }
 }
+
+const handleEvents = () => {
+  native.app_loop_a_bit()
+
+  setImmediate(handleEvents)
+}
+
+handleEvents()
 
 // TODO: refactor rust so ResourceManager is separate from Window
 // (almost done, we just need to get glyph indices & advances)
