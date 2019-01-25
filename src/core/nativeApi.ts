@@ -38,7 +38,7 @@ export interface NativeApi {
     title: string,
     width: number,
     hieght: number,
-    socketPath: string
+    event_handler: (evStr: string) => void
   ) => N.Window
 
   window_render_surface: (

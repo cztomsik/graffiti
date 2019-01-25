@@ -104,7 +104,7 @@ function insertBefore(parent, child, before) {
 }
 
 function resetAfterCommit(window) {
-  window.render()
+  window.renderLater()
 }
 
 declare global {

@@ -5,8 +5,6 @@ extern crate serde_derive;
 
 use napi_rs::*;
 use std::cell::RefCell;
-use std::io::Write;
-use std::os::unix::net::UnixStream;
 use std::rc::Rc;
 use yoga::{FlexStyle, MeasureMode, Size};
 
@@ -17,7 +15,7 @@ mod window;
 
 use crate::resources::{OpResource, ResourceManager};
 use crate::surface::{Measure, Surface};
-use crate::window::{Application, EventSender, Window, WindowEvent};
+use crate::window::{Application, EventHandler, Window, WindowEvent};
 
 register_module!(node_webrender, init);
 
@@ -55,11 +53,11 @@ fn window_create(ctx: CallContext) -> AnyResult {
     let title = ctx.args[0].to_string();
     let width = ctx.args[1].f64();
     let height = ctx.args[2].f64();
-    let socket_path = ctx.args[3].to_string();
+    let event_handler = ctx.args[3].cb(ctx.env);
 
     let window = APP.with(|app| {
         app.borrow_mut()
-            .create_window(title, width, height, get_event_sender(&socket_path))
+            .create_window(title, width, height, Box::new(event_handler))
     });
 
     let mut wrapper = ctx.env.create_object();
@@ -68,7 +66,9 @@ fn window_create(ctx: CallContext) -> AnyResult {
     wrapper.into_result()
 }
 
-fn app_loop_a_bit(_ctx: CallContext) -> AnyResult {
+fn app_loop_a_bit(ctx: CallContext) -> AnyResult {
+    unsafe { CURRENT_ENV = Some(ctx.env.borrow_forever()) };
+
     APP.with(|app| {
         app.borrow_mut().loop_a_bit();
     })
@@ -105,7 +105,7 @@ fn window_get_glyph_indices_and_advances(ctx: CallContext) -> AnyResult {
 }
 
 fn window_render_surface(ctx: CallContext) -> AnyResult {
-    unsafe { RENDER_ENV = Some(ctx.env.borrow_forever()) };
+    unsafe { CURRENT_ENV = Some(ctx.env.borrow_forever()) };
 
     let window: &mut Rc<RefCell<Window>> = ctx.args[0].unwrap(ctx.env);
     let surface: &mut Rc<RefCell<Surface>> = ctx.args[1].unwrap(ctx.env);
@@ -121,8 +121,6 @@ fn window_render_surface(ctx: CallContext) -> AnyResult {
             .borrow_mut()
             .render(&rm.render_ops, &(surface.borrow()));
     });
-
-    unsafe { RENDER_ENV = None };
 
     Ok(None)
 }
@@ -209,7 +207,7 @@ fn op_resource_create(ctx: CallContext) -> AnyResult {
 
 fn flex_style_create(ctx: CallContext) -> AnyResult {
     let data = ctx.args[0].to_string();
-    let styles: Rc<Vec<FlexStyle>> = Rc::new(serde_json::from_str(&data).unwrap());
+    let styles: Rc<Vec<FlexStyle>> = Rc::new(serde_json::from_str(&data).expect("invalid style"));
     let mut wrapper = ctx.env.create_object();
 
     debug!("style {:?} -> {:?}", &data, &styles);
@@ -219,30 +217,19 @@ fn flex_style_create(ctx: CallContext) -> AnyResult {
     wrapper.into_result()
 }
 
-struct SocketEventSender {
-    socket: UnixStream,
-}
+impl EventHandler for Ref<Function> {
+    fn handle_event(&mut self, e: WindowEvent) {
+        let env = get_env();
+        let f = env.get_reference_value(self);
+        let payload = env.create_string(&(serde_json::to_string(&e).expect("could not serialize"))).try_into().unwrap();
 
-// TODO: use napi_threadsafe_callback()
-impl EventSender for SocketEventSender {
-    fn send(&mut self, event: WindowEvent) {
-        debug!("sending {:?}", event);
-        let buf: [u8; 12] = unsafe { std::mem::transmute(event) };
-
-        self.socket.write_all(&buf).unwrap();
+        let _ = f.call(None, &[payload]).unwrap();
     }
-}
-
-fn get_event_sender(socket_path: &str) -> Box<EventSender> {
-    let socket_path = std::path::Path::new(socket_path);
-    let socket = UnixStream::connect(&socket_path).unwrap();
-
-    Box::new(SocketEventSender { socket })
 }
 
 impl Measure for Ref<Function> {
     fn measure(&self, w: f32, wm: MeasureMode, h: f32, hm: MeasureMode) -> Size {
-        let env = unsafe { RENDER_ENV.unwrap() };
+        let env = get_env();
         let f = env.get_reference_value(self);
 
         let w = env.create_double(w.into());
@@ -264,7 +251,11 @@ impl Measure for Ref<Function> {
     }
 }
 
-static mut RENDER_ENV: Option<&Env> = None;
+static mut CURRENT_ENV: Option<&Env> = None;
+
+fn get_env<'a>() -> &'a Env {
+    unsafe { CURRENT_ENV.expect("no env available") }
+}
 
 // ---
 // utils bellow
@@ -306,7 +297,7 @@ impl<'env> Helper<'env> for Value<'env, Any> {
     }
 
     fn f64(&self) -> f64 {
-        self.coerce_to_number().unwrap().into()
+        self.coerce_to_number().expect("not a number").into()
     }
 
     fn f32(&self) -> f32 {
@@ -314,7 +305,7 @@ impl<'env> Helper<'env> for Value<'env, Any> {
     }
 
     fn i64(&self) -> i64 {
-        self.coerce_to_number().unwrap().into()
+        self.coerce_to_number().expect("not a number").into()
     }
 
     fn i32(&self) -> i32 {

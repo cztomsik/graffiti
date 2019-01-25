@@ -24,6 +24,7 @@ use webrender::api::{
 };
 use webrender::Renderer;
 use yoga::Layout;
+use serde::Serialize;
 
 pub struct Application {
     events_loop: EventsLoop,
@@ -34,9 +35,9 @@ impl Application {
     pub fn new() -> Self {
         let el = EventsLoop::new();
         let proxy = el.create_proxy();
-        let duration = std::time::Duration::from_millis(200);
+        let duration = std::time::Duration::from_millis(30);
 
-        std::thread::spawn(move || loop {
+        std::thread::spawn(move ||loop {
             std::thread::sleep(duration);
             let _ = proxy.wakeup();
         });
@@ -52,9 +53,9 @@ impl Application {
         title: String,
         w: f64,
         h: f64,
-        event_sender: Box<EventSender>,
+        event_handler: Box<EventHandler>,
     ) -> Rc<RefCell<Window>> {
-        let w = Window::new(title, w, h, &self.events_loop, event_sender);
+        let w = Window::new(title, w, h, &self.events_loop, event_handler);
         let c = Rc::new(RefCell::new(w));
 
         self.windows.push(c.clone());
@@ -105,7 +106,7 @@ pub struct Window {
 
     // events
     mouse_position: LogicalPosition,
-    event_sender: Box<EventSender>,
+    event_handler: Box<EventHandler>,
 }
 
 impl Window {
@@ -114,7 +115,7 @@ impl Window {
         width: f64,
         height: f64,
         events_loop: &EventsLoop,
-        event_sender: Box<EventSender>,
+        event_handler: Box<EventHandler>,
     ) -> Self {
         let gl_window = Window::create_gl_window(title, width, height, events_loop);
 
@@ -141,7 +142,7 @@ impl Window {
             font_key,
 
             mouse_position: LogicalPosition::new(0., 0.),
-            event_sender,
+            event_handler,
         };
 
         w.send_initial_frame();
@@ -215,7 +216,7 @@ impl Window {
     }
 
     fn handle_close(&mut self) {
-        self.event_sender.send(WindowEvent::Close);
+        self.event_handler.handle_event(WindowEvent::Close);
     }
 
     fn handle_resize(&mut self, size: LogicalSize) {
@@ -228,16 +229,16 @@ impl Window {
             .context()
             .resize(PhysicalSize::from_logical(size, self.dpi));
 
-        self.event_sender
-            .send(WindowEvent::Resize(size.width as f32, size.height as f32));
+        self.event_handler
+            .handle_event(WindowEvent::Resize(size.width as f32, size.height as f32));
     }
 
     fn handle_char(&mut self, ch: char) {
-        self.event_sender.send(WindowEvent::KeyPress(ch))
+        self.event_handler.handle_event(WindowEvent::KeyPress(ch))
     }
 
     fn handle_mouse(&mut self, state: glutin::ElementState) {
-        /*self.event_sender.send(WindowEvent::MouseInput(
+        /*self.event_handler.send(WindowEvent::MouseInput(
             self.mouse_position.x,
             self.mouse_position.y,
         ))*/
@@ -247,7 +248,7 @@ impl Window {
                 let res = self.hit_test(cursor);
 
                 for it in res.items {
-                    self.event_sender.send(WindowEvent::Click(it.tag.0 as u32))
+                    self.event_handler.handle_event(WindowEvent::Click(it.tag.0 as u32))
                 }
             }
 
@@ -475,7 +476,7 @@ impl RenderNotifier for Notifier {
 
 pub struct Msg {}
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum WindowEvent {
     Close,
 
@@ -491,6 +492,6 @@ pub enum WindowEvent {
     Click(u32),
 }
 
-pub trait EventSender {
-    fn send(&mut self, event: WindowEvent);
+pub trait EventHandler {
+    fn handle_event(&mut self, event: WindowEvent);
 }
