@@ -16,6 +16,9 @@ nav_order: 1
 ### OSX/MacOs
 `xcode-select --install`
 
+### Win
+- [track here](https://github.com/cztomsik/node-webrender/issues/37) but it's a bit like never-ending story so any help would be very welcome.
+
 ## Samples
 Easiest way to start is to clone one of these apps. Note that you will need to build native extension too so the steps above still apply.
 - https://github.com/cztomsik/slack-app
