@@ -1,7 +1,6 @@
-extern crate neon_build;
-
 fn main() {
-    neon_build::setup(); // must be called in build.rs
-
-    // add project-specific build logic here...
+    if cfg!(windows) {
+        println!("cargo:rustc-link-search={}", "C:\\Program Files\\nodejs");
+        println!("cargo:rustc-link-lib={}", "node");
+    }
 }
