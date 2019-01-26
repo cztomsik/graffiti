@@ -6,12 +6,18 @@ nav_order: 1
 
 ## Requirements
 - node.js 10.14.1
-- [rustc 1.31.1 & cargo 1.31.0](https://rustup.rs/)
-- (debian/ubuntu) `sudo apt install g++ cmake pkg-config python libfreetype6 libfreetype6-dev expat libexpat-dev`
-- (osx) should work without any deps (but if you need something it should be just one `brew install` away)
+- there are no prebuilt binaries yet so you might need additional tooling in order to build native extension (see below)
+- install rustc 1.31.1 & cargo 1.31.0 [with rustup](https://rustup.rs/)
+  - check you have `rustfmt` installed (or do `rustup component add rustfmt`)
+
+### Debian/Ubuntu
+`sudo apt install g++ cmake pkg-config python libfreetype6 libfreetype6-dev expat libexpat-dev`
+
+### OSX/MacOs
+`xcode-select --install`
 
 ## Samples
-Easiest way to start is to just clone of these apps:
+Easiest way to start is to clone one of these apps. Note that you will need to build native extension too so the steps above still apply.
 - https://github.com/cztomsik/slack-app
 - https://github.com/cztomsik/brew-cleaner
 
