@@ -32,14 +32,14 @@ export module N {
 }
 
 export interface NativeApi {
+  app_loop_a_bit: () => void
+
   window_create: (
     title: string,
     width: number,
     hieght: number,
-    socketPath: string
+    event_handler: (evStr: string) => void
   ) => N.Window
-
-  window_handle_events: (win: N.Window) => void
 
   window_render_surface: (
     win: N.Window,

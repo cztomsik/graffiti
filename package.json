@@ -21,7 +21,7 @@
     "native/src"
   ],
   "scripts": {
-    "install": "neon build",
+    "install": "neon build --release",
     "prepublishOnly": "neon build && tsc -d",
     "example": "RUST_LOG=debug ts-node -T example/example.tsx",
     "example-calc": "RUST_LOG=debug ts-node -T example/react-calculator.tsx"

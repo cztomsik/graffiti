@@ -14,6 +14,8 @@ import { NativeApi, N } from './nativeApi'
 const native: NativeApi = require('../../native')
 
 // TODO: this should be (at least partially) in rust
+// note that we expect updateGlyphs/Brush to be called only from measure func
+// (because of double borrow & and also because of skipping unnecessary updates)
 export class TextContainer {
   ref
   children = []
@@ -71,8 +73,6 @@ export class TextContainer {
     this.fontInstanceKey = [1, fontSize]
     this.color = color
     this.lineHeight = lineHeight
-
-    this.updateBrush()
   }
 
   updateContent() {

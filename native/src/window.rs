@@ -24,12 +24,71 @@ use webrender::api::{
 };
 use webrender::Renderer;
 use yoga::Layout;
+use serde::Serialize;
+
+pub struct Application {
+    events_loop: EventsLoop,
+    windows: Vec<Rc<RefCell<Window>>>,
+}
+
+impl Application {
+    pub fn new() -> Self {
+        let el = EventsLoop::new();
+        let proxy = el.create_proxy();
+        let duration = std::time::Duration::from_millis(30);
+
+        std::thread::spawn(move ||loop {
+            std::thread::sleep(duration);
+            let _ = proxy.wakeup();
+        });
+
+        Application {
+            events_loop: el,
+            windows: vec![],
+        }
+    }
+
+    pub fn create_window(
+        &mut self,
+        title: String,
+        w: f64,
+        h: f64,
+        event_handler: Box<EventHandler>,
+    ) -> Rc<RefCell<Window>> {
+        let w = Window::new(title, w, h, &self.events_loop, event_handler);
+        let c = Rc::new(RefCell::new(w));
+
+        self.windows.push(c.clone());
+
+        c
+    }
+
+    pub fn loop_a_bit(&mut self) {
+        let windows = &mut self.windows;
+
+        self.events_loop.run_forever(move |e| match e {
+            glutin::Event::Awakened => glutin::ControlFlow::Break,
+            glutin::Event::WindowEvent { window_id, event } => {
+                let w = windows
+                    .iter_mut()
+                    .find(|ref mut w| w.borrow().id == window_id)
+                    .expect("got event from unknown window");
+
+                w.borrow_mut().handle_event(&event);
+
+                glutin::ControlFlow::Continue
+            }
+            _ => glutin::ControlFlow::Continue,
+        });
+    }
+}
 
 // TODO: split
+// TODO: drop (from app)
 pub struct Window {
     // win
+    id: glutin::WindowId,
     gl_window: GlWindow,
-    events_loop: Rc<RefCell<EventsLoop>>,
     dpi: f64,
 
     // rendering
@@ -47,12 +106,18 @@ pub struct Window {
 
     // events
     mouse_position: LogicalPosition,
-    event_sender: Box<EventSender>,
+    event_handler: Box<EventHandler>,
 }
 
 impl Window {
-    pub fn new(title: String, width: f64, height: f64, event_sender: Box<EventSender>) -> Self {
-        let (gl_window, events_loop) = Window::create_gl_window(title, width, height);
+    pub fn new(
+        title: String,
+        width: f64,
+        height: f64,
+        events_loop: &EventsLoop,
+        event_handler: Box<EventHandler>,
+    ) -> Self {
+        let gl_window = Window::create_gl_window(title, width, height, events_loop);
 
         let dpi = gl_window.get_hidpi_factor();
         let (tx, rx) = channel();
@@ -61,8 +126,8 @@ impl Window {
         let (font, font_index, font_key) = Window::load_font(&mut api);
 
         let mut w = Window {
+            id: gl_window.id(),
             gl_window,
-            events_loop: Rc::new(RefCell::new(events_loop)),
             dpi,
 
             api,
@@ -77,7 +142,7 @@ impl Window {
             font_key,
 
             mouse_position: LogicalPosition::new(0., 0.),
-            event_sender,
+            event_handler,
         };
 
         w.send_initial_frame();
@@ -85,56 +150,36 @@ impl Window {
         w
     }
 
-    pub fn handle_events(&mut self) {
+    pub fn handle_event(&mut self, event: &glutin::WindowEvent) {
         let mut should_redraw = false;
 
-        // this is easier than rethinking/rewriting everything just because of unique access needed in closure
-        {
-            let evl_rc = self.events_loop.clone();
-            let mut events_loop = evl_rc.borrow_mut();
+        match *event {
+            glutin::WindowEvent::HiDpiFactorChanged(dpi) => self.dpi = dpi,
 
-            events_loop.poll_events(|glutin_event| {
-                match glutin_event {
-                    glutin::Event::WindowEvent { event, .. } => {
-                        debug!("Event {:?}", event);
+            glutin::WindowEvent::CloseRequested => self.handle_close(),
 
-                        match event {
-                            glutin::WindowEvent::HiDpiFactorChanged(dpi) => self.dpi = dpi,
+            glutin::WindowEvent::Resized(size) => {
+                self.handle_resize(size);
+                should_redraw = true
+            }
 
-                            glutin::WindowEvent::CloseRequested => self.handle_close(),
+            glutin::WindowEvent::CursorMoved { position, .. } => self.mouse_position = position,
 
-                            glutin::WindowEvent::Resized(size) => {
-                                self.handle_resize(size);
-                                should_redraw = true
-                            }
+            glutin::WindowEvent::MouseInput { state, .. } => self.handle_mouse(state),
 
-                            glutin::WindowEvent::CursorMoved { position, .. } => {
-                                self.mouse_position = position
-                            }
+            // TODO: scroll x
+            glutin::WindowEvent::MouseWheel { delta, .. } => {
+                let y = match delta {
+                    glutin::MouseScrollDelta::PixelDelta(point) => (point.y as f32),
+                    glutin::MouseScrollDelta::LineDelta(_, dy) => 30. * dy,
+                };
 
-                            glutin::WindowEvent::MouseInput { state, .. } => {
-                                self.handle_mouse(state)
-                            }
+                self.scroll(y);
+            }
 
-                            // TODO: scroll x
-                            glutin::WindowEvent::MouseWheel { delta, .. } => {
-                                let y = match delta {
-                                    glutin::MouseScrollDelta::PixelDelta(point) => (point.y as f32),
-                                    glutin::MouseScrollDelta::LineDelta(_, dy) => 30. * dy,
-                                };
+            glutin::WindowEvent::ReceivedCharacter(ch) => self.handle_char(ch),
 
-                                self.scroll(y);
-                            }
-
-                            glutin::WindowEvent::ReceivedCharacter(ch) => self.handle_char(ch),
-
-                            _ => {}
-                        }
-                    }
-
-                    _ => {}
-                }
-            });
+            _ => {}
         }
 
         if should_redraw {
@@ -171,7 +216,7 @@ impl Window {
     }
 
     fn handle_close(&mut self) {
-        self.event_sender.send(WindowEvent::Close);
+        self.event_handler.handle_event(WindowEvent::Close);
     }
 
     fn handle_resize(&mut self, size: LogicalSize) {
@@ -184,16 +229,16 @@ impl Window {
             .context()
             .resize(PhysicalSize::from_logical(size, self.dpi));
 
-        self.event_sender
-            .send(WindowEvent::Resize(size.width as f32, size.height as f32));
+        self.event_handler
+            .handle_event(WindowEvent::Resize(size.width as f32, size.height as f32));
     }
 
     fn handle_char(&mut self, ch: char) {
-        self.event_sender.send(WindowEvent::KeyPress(ch))
+        self.event_handler.handle_event(WindowEvent::KeyPress(ch))
     }
 
     fn handle_mouse(&mut self, state: glutin::ElementState) {
-        /*self.event_sender.send(WindowEvent::MouseInput(
+        /*self.event_handler.send(WindowEvent::MouseInput(
             self.mouse_position.x,
             self.mouse_position.y,
         ))*/
@@ -203,7 +248,7 @@ impl Window {
                 let res = self.hit_test(cursor);
 
                 for it in res.items {
-                    self.event_sender.send(WindowEvent::Click(it.tag.0 as u32))
+                    self.event_handler.handle_event(WindowEvent::Click(it.tag.0 as u32))
                 }
             }
 
@@ -283,7 +328,12 @@ impl Window {
         (glyph_indices, advances)
     }
 
-    fn create_gl_window(title: String, width: f64, height: f64) -> (GlWindow, EventsLoop) {
+    fn create_gl_window(
+        title: String,
+        width: f64,
+        height: f64,
+        events_loop: &EventsLoop,
+    ) -> GlWindow {
         let window_builder = glutin::WindowBuilder::new()
             .with_title(title)
             .with_dimensions(glutin::dpi::LogicalSize::new(width, height));
@@ -292,13 +342,12 @@ impl Window {
                 opengl_version: (3, 2),
                 opengles_version: (3, 0),
             });
-        let events_loop = EventsLoop::new();
-        let gl_window = GlWindow::new(window_builder, context_builder, &events_loop).unwrap();
+        let gl_window = GlWindow::new(window_builder, context_builder, events_loop).unwrap();
 
         unsafe { gl_window.make_current().ok() };
         gl_window.show();
 
-        (gl_window, events_loop)
+        gl_window
     }
 
     fn create_api(
@@ -427,7 +476,7 @@ impl RenderNotifier for Notifier {
 
 pub struct Msg {}
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum WindowEvent {
     Close,
 
@@ -443,6 +492,6 @@ pub enum WindowEvent {
     Click(u32),
 }
 
-pub trait EventSender {
-    fn send(&mut self, event: WindowEvent);
+pub trait EventHandler {
+    fn handle_event(&mut self, event: WindowEvent);
 }
