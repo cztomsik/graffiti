@@ -2,6 +2,8 @@ remote_theme: pmarsceill/just-the-docs
 markdown: gfm
 
 aux_links:
+  "Gitter":
+    - "https://gitter.im/node-webrender/community"
   "GitHub":
     - "//github.com/cztomsik/node-webrender"
 
