@@ -2,7 +2,6 @@ import * as React from 'react'
 import { useMemo } from 'react'
 import { ResourceManager } from '../..'
 import { ScrollViewProps } from '../react-native-types'
-import { View } from '..'
 import { __callbacks } from '../../core/Window'
 import { RenderOp } from '../../core/RenderOperation'
 

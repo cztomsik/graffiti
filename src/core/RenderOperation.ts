@@ -1,3 +1,5 @@
+import { N } from './nativeApi'
+
 // r g b a, all values are between (0,1)
 export type BridgeColor = [number, number, number, number]
 
@@ -23,6 +25,7 @@ type PopClip = { PopClip: null }
 type Rectangle = { Rectangle: RectangleDisplayItem }
 type Border = { Border: BorderDisplayItem }
 type Text = { Text: TextPayload }
+type Image = { Image: N.ImageId }
 type PopStackingContext = { PopStackingContext: null }
 type PushStackingContext = {
   PushStackingContext: PushStackingContextDisplayItem
@@ -37,6 +40,7 @@ export type RenderOperation =
   | Rectangle
   | Border
   | Text
+  | Image
   | PopStackingContext
   | PushStackingContext
 
@@ -56,7 +60,8 @@ export const RenderOp = {
   PopStackingContext: (): PopStackingContext => ({ PopStackingContext: null }),
   PushStackingContext: (ctx: StackingContext): PushStackingContext => ({
     PushStackingContext: { stacking_context: ctx }
-  })
+  }),
+  Image: (id: N.ImageId): Image => ({ Image: id })
 }
 
 // PushStackingContext-------

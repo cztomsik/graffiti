@@ -10,6 +10,7 @@ import {
 } from './RenderOperation'
 import { BridgeBrush } from './ResourceManager'
 import { NativeApi, N } from './nativeApi'
+import { HostTextContainerProps } from '../react/reconciler'
 
 const native: NativeApi = require('../../native')
 
@@ -17,17 +18,17 @@ const native: NativeApi = require('../../native')
 // note that we expect updateGlyphs/Brush to be called only from measure func
 // (because of double borrow & and also because of skipping unnecessary updates)
 export class TextContainer {
-  ref
+  ref: N.Surface
   children = []
   content = ''
   breaks = []
   fontInstanceKey: [number, number] = [1, 0]
-  lineHeight
+  lineHeight: number
   color: BridgeColor
   brush?: BridgeBrush
   glyphs: GlyphInstance[] = []
-  contentWidth
-  contentHeight
+  contentWidth: number
+  contentHeight: number
 
   constructor() {
     this.ref = native.surface_create()
@@ -60,7 +61,7 @@ export class TextContainer {
     this.updateContent()
   }
 
-  update({ fontSize = 16, color, lineHeight }) {
+  update({ fontSize = 16, color, lineHeight }: HostTextContainerProps) {
     if (
       fontSize === this.fontInstanceKey[1] &&
       color === this.color &&

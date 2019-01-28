@@ -2,6 +2,8 @@
     ? tx priorities (scroll)
 */
 
+use crate::images::convert_to_image_key;
+use crate::images::JsImageId;
 use app_units;
 use euclid;
 use font_loader;
@@ -13,6 +15,7 @@ use crate::rendering::{LayoutHelpers, RenderContext, RenderOperation};
 use crate::surface::Surface;
 use glutin::dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 use glutin::{EventsLoop, GlContext, GlWindow};
+use serde::Serialize;
 use std::cell::RefCell;
 use std::os::raw::c_int;
 use std::rc::Rc;
@@ -22,9 +25,9 @@ use webrender::api::{
     FontKey, GlyphDimensions, GlyphIndex, HitTestFlags, HitTestResult, LayoutVector2D, PipelineId,
     RenderApi, RenderNotifier, ScrollLocation, Transaction, WorldPoint,
 };
+use webrender::api::{ImageData, ImageDescriptor};
 use webrender::Renderer;
 use yoga::Layout;
-use serde::Serialize;
 
 pub struct Application {
     events_loop: EventsLoop,
@@ -37,7 +40,7 @@ impl Application {
         let proxy = el.create_proxy();
         let duration = std::time::Duration::from_millis(30);
 
-        std::thread::spawn(move ||loop {
+        std::thread::spawn(move || loop {
             std::thread::sleep(duration);
             let _ = proxy.wakeup();
         });
@@ -150,6 +153,13 @@ impl Window {
         w
     }
 
+    pub fn register_image(&mut self, id: JsImageId, desc: ImageDescriptor, img_data: ImageData) {
+        let mut tx = Transaction::new();
+        tx.add_image(convert_to_image_key(id), desc, img_data, None);
+
+        self.api.send_transaction(self.document_id, tx);
+    }
+
     pub fn handle_event(&mut self, event: &glutin::WindowEvent) {
         let mut should_redraw = false;
 
@@ -248,7 +258,8 @@ impl Window {
                 let res = self.hit_test(cursor);
 
                 for it in res.items {
-                    self.event_handler.handle_event(WindowEvent::Click(it.tag.0 as u32))
+                    self.event_handler
+                        .handle_event(WindowEvent::Click(it.tag.0 as u32))
                 }
             }
 

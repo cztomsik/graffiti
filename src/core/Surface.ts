@@ -5,6 +5,7 @@ import { ResourceManager } from '.'
 import { BridgeBrush, BridgeClip } from './ResourceManager'
 import { RenderOp } from './RenderOperation'
 import { NativeApi, N } from './nativeApi'
+import { HostSurfaceProps } from '../react/reconciler'
 
 const native: NativeApi = require('../../native')
 
@@ -41,7 +42,11 @@ class Surface implements Container<Surface> {
     native.surface_calculate_layout(this.ref, availableWidth, availableHeight)
   }
 
-  update({ brush = undefined, clip = undefined, layout = DEFAULT_LAYOUT }) {
+  update({
+    brush = undefined,
+    clip = undefined,
+    layout = DEFAULT_LAYOUT
+  }: HostSurfaceProps) {
     native.surface_update(this.ref, brush, clip, layout)
   }
 }

@@ -3,9 +3,7 @@ import { StyleSheet, View } from '..'
 import { TextProps } from '../react-native-types'
 import { parseColor } from '../../core/utils'
 
-const Text = (props: TextProps & { children? }) => {
-  const { style = {}, children } = props
-
+const Text: React.SFC<TextProps> = ({ style = {}, children }) => {
   const flatStyle = StyleSheet.flatten(style)
 
   // TODO: move defaults to TextContainer

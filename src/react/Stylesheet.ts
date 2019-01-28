@@ -2,7 +2,8 @@ import {
   RNStyleSheet,
   StyleProp,
   ViewStyle,
-  TextStyle
+  TextStyle,
+  ImageStyle
 } from './react-native-types'
 import { ResourceManager } from '../core'
 
@@ -11,7 +12,7 @@ type Styles = {
   [key: string]: FlatStyle
 }
 
-type FlatStyle = ViewStyle | TextStyle
+type FlatStyle = ViewStyle | TextStyle | ImageStyle
 
 const create = (obj: Styles): Styles => {
   for (const k in obj) {

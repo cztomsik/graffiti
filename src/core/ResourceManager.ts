@@ -4,8 +4,8 @@ import { RenderOperation, RenderOp, BorderStyle } from './RenderOperation'
 import { NativeApi, N } from './nativeApi'
 
 // cannot create outside of ResourceManager.create*
-export type BridgeBrush = Object & { 'opaque type': 'of brush' }
-export type BridgeClip = Object & { 'opaque type': 'of clip' }
+export type BridgeBrush = N.ResourceHandle
+export type BridgeClip = N.ResourceHandle
 
 const native: NativeApi = require('../../native')
 
