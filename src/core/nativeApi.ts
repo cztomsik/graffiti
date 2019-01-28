@@ -7,6 +7,8 @@ export module N {
     opaque: 'opaque surface reference'
   }
 
+  export type ImageId = number & { opaque: 'image id' }
+
   export interface FlexStyle {
     opaque: 'opaque compiled flex style object reference'
   }
@@ -96,4 +98,6 @@ export interface NativeApi {
     // -> Float32Array
     number[]
   ]
+
+  registerImage: (win: N.Window, payload: string) => void
 }

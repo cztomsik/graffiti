@@ -1,11 +1,14 @@
+use crate::images::convert_to_image_key;
+use crate::images::JsImageId;
 use crate::resources::OpResource;
 use crate::surface::Surface;
 use webrender::api::euclid::{TypedPoint2D, TypedRect, TypedSize2D};
 use webrender::api::{
-    BorderDisplayItem, BorderRadius, ClipMode, ColorF, ComplexClipRegion, DisplayListBuilder,
-    ExternalScrollId, GlyphInstance, LayoutPixel, LayoutPoint, LayoutPrimitiveInfo, LayoutRect,
-    MixBlendMode, PipelineId, PushStackingContextDisplayItem, RasterSpace, RectangleDisplayItem,
-    ScrollSensitivity, StackingContext, TextDisplayItem, TransformStyle,
+    AlphaType, BorderDisplayItem, BorderRadius, ClipMode, ColorF, ComplexClipRegion,
+    DisplayListBuilder, ExternalScrollId, GlyphInstance, ImageRendering, LayoutPixel, LayoutPoint,
+    LayoutPrimitiveInfo, LayoutRect, LayoutSize, MixBlendMode, PipelineId,
+    PushStackingContextDisplayItem, RasterSpace, RectangleDisplayItem, ScrollSensitivity,
+    StackingContext, TextDisplayItem, TransformStyle,
 };
 use yoga::Layout;
 
@@ -24,6 +27,7 @@ pub enum RenderOperation {
     Rectangle(RectangleDisplayItem),
     Border(BorderDisplayItem),
     Text(TextDisplayItem, Vec<GlyphInstance>),
+    Image(JsImageId),
     PopStackingContext,
     PushStackingContext(PushStackingContextDisplayItem),
 }
@@ -174,6 +178,24 @@ impl<'a> RenderContext<'a> {
             RenderOperation::Border(BorderDisplayItem { widths, details }) => {
                 self.builder.push_border(&info, *widths, *details)
             }
+            RenderOperation::Image(id) => {
+                debug!(
+                    "rendering id={:?} layout={:?} info = {:?} ",
+                    *id,
+                    layout_rect.size.clone(),
+                    info
+                );
+                self.builder.push_image(
+                    &info,
+                    layout_rect.size.clone(),
+                    LayoutSize::zero(),
+                    ImageRendering::Auto,
+                    AlphaType::PremultipliedAlpha,
+                    convert_to_image_key(*id),
+                    ColorF::WHITE,
+                )
+            }
+
             RenderOperation::PopStackingContext => self.builder.pop_stacking_context(),
 
             // TODO: filters

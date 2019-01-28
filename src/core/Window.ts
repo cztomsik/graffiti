@@ -4,9 +4,6 @@ import { NativeApi, N } from './nativeApi'
 import ResourceManager, { BridgeBrush, BridgeClip } from './ResourceManager'
 const native: NativeApi = require('../../native')
 
-  // TODO: HDPI support
-;(process as any).env.WINIT_HIDPI_FACTOR = 1
-
 class Window implements Container<Surface | TextContainer> {
   ref: N.Window
   root = new Surface()
@@ -17,11 +14,8 @@ class Window implements Container<Surface | TextContainer> {
   renderScheduled = false
 
   constructor(title, width = 800, height = 600) {
-    this.ref = native.window_create(
-      title,
-      width,
-      height,
-      (evStr => this.handleEvent(JSON.parse(evStr)))
+    this.ref = native.window_create(title, width, height, evStr =>
+      this.handleEvent(JSON.parse(evStr))
     )
 
     windowCount++
@@ -117,10 +111,10 @@ handleEvents()
 
 // TODO: refactor rust so ResourceManager is separate from Window
 // (almost done, we just need to get glyph indices & advances)
-function ResourceManagerHack(window) {
+function ResourceManagerHack(window: Window) {
   WINDOW_HACK = window
 }
-export let WINDOW_HACK = null
+export let WINDOW_HACK: Window = null
 
 export const __callbacks = []
 

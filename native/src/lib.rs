@@ -3,11 +3,14 @@ extern crate log;
 #[macro_use]
 extern crate serde_derive;
 
+use crate::images::make_checkerboard;
+use crate::images::ImgJsPayload;
 use napi_rs::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 use yoga::{FlexStyle, MeasureMode, Size};
 
+mod images;
 mod rendering;
 mod resources;
 mod surface;
@@ -45,6 +48,7 @@ fn init<'env>(mut ctx: ModuleInitContext) -> Result<Option<Value<'env, Object>>>
     ctx.export("surface_mark_dirty", callback!(surface_mark_dirty));
     ctx.export("op_resource_create", callback!(op_resource_create));
     ctx.export("flex_style_create", callback!(flex_style_create));
+    ctx.export("registerImage", callback!(register_image));
 
     Ok(None)
 }
@@ -217,11 +221,31 @@ fn flex_style_create(ctx: CallContext) -> AnyResult {
     wrapper.into_result()
 }
 
+fn register_image(ctx: CallContext) -> AnyResult {
+    debug!("register_image");
+    let window: &mut Rc<RefCell<Window>> = ctx.args[0].unwrap(ctx.env);
+    debug!("unwrapped window");
+    let data = ctx.args[1].to_string();
+
+    debug!("ImgJsPayload {:?}", &data);
+
+    let ImgJsPayload { id, size } = serde_json::from_str(&data).unwrap();
+
+    let (desc, img_data) = make_checkerboard(size, size);
+
+    window.borrow_mut().register_image(id, desc, img_data);
+
+    Ok(None)
+}
+
 impl EventHandler for Ref<Function> {
     fn handle_event(&mut self, e: WindowEvent) {
         let env = get_env();
         let f = env.get_reference_value(self);
-        let payload = env.create_string(&(serde_json::to_string(&e).expect("could not serialize"))).try_into().unwrap();
+        let payload = env
+            .create_string(&(serde_json::to_string(&e).expect("could not serialize")))
+            .try_into()
+            .unwrap();
 
         let _ = f.call(None, &[payload]).unwrap();
     }

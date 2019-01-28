@@ -12,5 +12,9 @@ export {
   ScrollViewProps,
   StyleSheet as RNStyleSheet,
   FlatListProps,
-  TextInputProps
+  TextInputProps,
+  ImageProps,
+  ImageStyle,
+  ImageURISource,
+  ImageSourcePropType
 } from 'react-native'
