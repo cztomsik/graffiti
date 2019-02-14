@@ -1,0 +1,16 @@
+[package]
+edition = "2018"
+name = "node-webrender"
+version = "0.1.0"
+authors = ["Kamil Tomšík <info@tomsik.cz>"]
+license = "MIT"
+
+[lib]
+name = "node_webrender"
+crate-type = ["cdylib"]
+
+[dependencies]
+libc = "0.2.48"
+serde = { version = "1.0.87", features = ["derive"] }
+bincode = "1.1.1"
+tscodegen = { path = "../tscodegen" }

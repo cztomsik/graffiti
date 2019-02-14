@@ -1,0 +1,16 @@
+[package]
+name = "tscodegen"
+version = "0.1.0"
+authors = ["Kamil Tomšík <info@tomsik.cz>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+serde_derive_internals = "0.23"
+syn = "=0.13"
+serde = "1"
+
+[dev-dependencies]
+serde_derive = "1"

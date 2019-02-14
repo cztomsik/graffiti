@@ -1,3 +1,6 @@
+native-new/target
+native-new/tscodegen
+tscodegen/target
 native/target
 native/index.node
 native/artifacts.json
