@@ -30,7 +30,7 @@ dependencies = [
  "bincode 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.87 (registry+https://github.com/rust-lang/crates.io-index)",
- "tsgen 0.1.0",
+ "tscodegen 0.1.0",
 ]
 
 [[package]]
@@ -113,7 +113,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tsgen"
+name = "tscodegen"
 version = "0.1.0"
 dependencies = [
  "serde 1.0.87 (registry+https://github.com/rust-lang/crates.io-index)",

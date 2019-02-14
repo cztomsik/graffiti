@@ -15,4 +15,5 @@ const helloMsg = Buffer.from([0x0, 0x0, 0x0, 0x0])
 const otherMsg = Buffer.from([0x1, 0x0, 0x0, 0x0])
 
 // send (sync)
-libnode_webrender.send(payload, payload.length);
+libnode_webrender.send(helloMsg, helloMsg.length);
+libnode_webrender.send(otherMsg, otherMsg.length);
