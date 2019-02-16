@@ -4,6 +4,7 @@ name = "node-webrender"
 version = "0.1.0"
 authors = ["Kamil Tomšík <info@tomsik.cz>"]
 license = "MIT"
+build = "build.rs"
 
 [lib]
 name = "node_webrender"

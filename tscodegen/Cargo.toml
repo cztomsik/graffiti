@@ -8,9 +8,4 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
-serde_derive_internals = "0.23"
-syn = "=0.13"
-serde = "1"
-
-[dev-dependencies]
-serde_derive = "1"
+syn = { version = "0.15.26", features = ["extra-traits"] }

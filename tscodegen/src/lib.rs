@@ -1,46 +1,106 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use syn::{parse, DeriveInput};
-use std::fs::File;
-use std::io::prelude::*;
-use serde_derive_internals::{ast, Ctxt};
+use std::fs::OpenOptions;
+use syn::{parse, DeriveInput, Ident, Path, Type, TypePath};
+//use std::io::prelude::*;
+use std::fmt;
 
 #[proc_macro_attribute]
 pub fn tscodegen(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    // so that we can return it untouched
-    let clone = item.clone();
+    let input: DeriveInput = parse(item.clone())
+        .expect("couldn't parse, attribute is probably not placed on enum/struct");
 
-    let input: DeriveInput = parse(clone).expect("couldnt parse, attribute is probably not placed on enum/struct");
+    let name = input.ident.to_string();
 
-    // parse it with serde
-    let context = Ctxt::new();
-    let container = ast::Container::from_ast(&context, &input);
+    let ts_type = match input.data {
+        syn::Data::Enum(syn::DataEnum { variants, .. }) => {
+            let members = variants.iter().map(|v| v.ident.to_string()).collect();
 
-    println!("TODO: generate code for {}", container.ident);
+            TsType::Enum { name, members }
+        }
 
-    match container.data {
-        ast::Data::Enum(variants) => {
-            println!("enum");
+        syn::Data::Struct(syn::DataStruct { fields, .. }) => {
+            let is_tuple = fields.iter().all(|f| f.ident.is_none());
 
-            for v in variants {
-                println!("variant {:?}", v.ident)
+            match is_tuple {
+                true => TsType::Tuple {
+                    name,
+                    types: fields
+                        .iter()
+                        .map(|f| match f.ty.clone() {
+                            Type::Path(TypePath {
+                                path: Path { segments, .. },
+                                ..
+                            }) => {
+                                let parts: Vec<String> =
+                                    segments.iter().map(|s| s.ident.to_string()).collect();
+                                parts.join(".")
+                            }
+
+                            _ => panic!("unsupported type {:#?}", f.ty),
+                        })
+                        .collect(),
+                },
+
+                false => TsType::Interface {
+                    name: name.clone(),
+                    properties: vec![(name.clone(), name.clone())],
+                },
             }
         }
-        ast::Data::Struct(_style, fields) => {
-            println!("struct");
 
-            for f in fields {
-                println!("variant {:?}", f.ident)
-            }
-        }
+        _ => panic!("unexpected data {:?}", input.data),
     };
 
-    // otherwise it would fail
-    context.check().unwrap();
+    let mut _file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(true)
+        .open("tscodegen.ts")
+        .expect("cannot open/create codegen file");
 
-    // don't forget to create directory
-    let mut file = File::create(format!("tscodegen/{}.ts", container.ident)).expect("cannot create file");
-    file.write_all(b"// TODO: generate something").expect("cannot write file");
+    match ts_type {
+        TsType::Enum { name, members } => {
+            println!("enum {} {{ ... }}", name);
+            println!("{:#?}", members);
+        }
+
+        TsType::Interface { name, properties } => {
+            println!("interface {} {{ ... }}", name);
+            println!("{:#?}", properties);
+        }
+
+        TsType::Tuple { name, types } => {
+            println!("type {} = [...]", name);
+            println!("{:#?}", types);
+        }
+    }
 
     item
+}
+
+#[derive(Debug)]
+enum TsType {
+    Enum {
+        name: String,
+        members: Vec<String>,
+    },
+
+    Interface {
+        name: String,
+        properties: Vec<(String, String)>,
+    },
+
+    Tuple {
+        name: String,
+        types: Vec<String>,
+    }, // TODO: discriminated union (hash with "type")
+}
+
+struct TsIdent(String);
+
+impl fmt::Debug for TsIdent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.0)
+    }
 }
