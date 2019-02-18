@@ -1,6 +1,6 @@
-import { unionize, ofType, UnionOf } from 'unionize'
+import { unionize, ofType as of, UnionOf } from 'unionize'
 
-export enum Scalar {
+export const enum Scalar {
   U32 = 'u32',
   F32 = 'f32',
   Str = 'str',
@@ -12,6 +12,11 @@ export type EnumDesc = {
   variants: string[]
 }
 
+export type UnionDesc = {
+  name: string
+  variants: VariantT[]
+}
+
 export type StructDesc = {
   name: string
   members: StructMember[]
@@ -19,33 +24,60 @@ export type StructDesc = {
 
 export type StructMember = {
   name: string
-  type: VarT
-  optional: boolean
+  type: Type
 }
 
 export type TupleDesc = {
   name: string
-  fields: VarT[]
+  fields: Type[]
 }
 
-const unionizeProps = { tag: 'tag' as 'tag', value: 'value' as 'value' }
+export type NewTypeDesc = {
+  name: string
+  type: Type
+}
+
+const withTagAndValueProps = { tag: 'tag' as 'tag', value: 'value' as 'value' }
 
 export const EntryType = unionize(
   {
-    Struct: ofType<StructDesc>(),
-    Enum: ofType<EnumDesc>(),
-    Tuple: ofType<TupleDesc>()
+    Struct: of<StructDesc>(),
+    Enum: of<EnumDesc>(),
+    Tuple: of<TupleDesc>(),
+    Union: of<UnionDesc>()
   },
-  unionizeProps
+  withTagAndValueProps
 )
 
-export const VarType = unionize(
+export const Variant = unionize(
   {
-    Scalar: ofType<Scalar>(),
-    RefToType: ofType<string>() // todo string is enough?
+    Unit: of<string>(),
+    Tuple: of<TupleDesc>(),
+    NewType: of<NewTypeDesc>(),
+    Struct: of<StructDesc>()
   },
-  unionizeProps
+  withTagAndValueProps
 )
 
-export type VarT = UnionOf<typeof VarType>
+export const enum TypeTag {
+  Scalar = 'Scalar',
+  Vec = 'Vec',
+  Option = 'Option',
+  RefTo = 'RefTo'
+}
+
+export type Type =
+  | { tag: TypeTag.Scalar; value: Scalar }
+  | { tag: TypeTag.Vec; value: Type }
+  | { tag: TypeTag.Option; value: Type }
+  | { tag: TypeTag.RefTo; value: string }
+
+export const T = {
+  Scalar: (value: Scalar): Type => ({ tag: TypeTag.Scalar, value }),
+  Vec: (value: Type): Type => ({ tag: TypeTag.Vec, value }),
+  Option: (value: Type): Type => ({ tag: TypeTag.Option, value }),
+  RefTo: (value: string): Type => ({ tag: TypeTag.RefTo, value })
+}
+
 export type EntryT = UnionOf<typeof EntryType>
+export type VariantT = UnionOf<typeof Variant>

@@ -3,16 +3,22 @@ import {
   InterfaceDeclarationStructure,
   PropertySignatureStructure,
   StatementedNodeStructure,
-  FunctionDeclarationStructure
+  FunctionDeclarationStructure,
+  TypeAliasDeclarationStructure,
+  CodeBlockWriter
 } from 'ts-morph'
 import {
   EnumDesc,
   StructDesc,
   Scalar,
-  VarType,
+  Type,
   EntryT,
   EntryType,
-  TupleDesc
+  TupleDesc,
+  TypeTag,
+  Variant,
+  UnionDesc,
+  VariantT
 } from './types'
 
 export const makeFileStructure = (entries: EntryT[]) =>
@@ -26,6 +32,16 @@ export const makeFileStructure = (entries: EntryT[]) =>
         Enum: desc => ({
           ...file,
           enums: (file.enums || []).concat(enumToEnum(desc))
+        }),
+        Union: desc => ({
+          ...file,
+          enums: (file.enums || []).concat(unionToTagEnum(desc)),
+          typeAliases: (file.typeAliases || []).concat(
+            unionToTaggedUnion(desc)
+          ),
+          interfaces: (file.interfaces || []).concat(
+            unionToPayloadInterfaces(desc)
+          )
         }),
         Tuple: desc => ({
           ...file,
@@ -45,7 +61,50 @@ const enumToEnum = ({
   members: variants.map(v => ({ name: v }))
 })
 
-// EnumDeclarationStructure;
+const unionToTagEnum = ({
+  name,
+  variants
+}: UnionDesc): EnumDeclarationStructure => ({
+  name: name + 'Tag',
+  isExported: true,
+  members: variants.map(variantName).map(name => ({ name }))
+})
+
+const unionToTaggedUnion = ({
+  name,
+  variants
+}: UnionDesc): TypeAliasDeclarationStructure => ({
+  name,
+  isExported: true,
+  type: (writer: CodeBlockWriter): void => {
+    variants.reduce((w, variant) => {
+      const valueStr = variantPayload(name, variant)
+      return w.writeLine(
+        `| { tag: ${name}Tag.${variantName(variant)}${
+          valueStr ? `, value: ${valueStr}` : ''
+        }}`
+      )
+    }, writer.newLine())
+  }
+})
+
+const unionToPayloadInterfaces = ({
+  name: unionName,
+  variants
+}: UnionDesc): InterfaceDeclarationStructure[] =>
+  variants
+    .filter(Variant.is.Struct)
+    .map(v => v.value)
+    .map(({ name, members }) => ({ name: unionName + name, members }))
+    .map(structToInterface)
+
+const variantPayload = (unionName: string, v: VariantT): string | undefined =>
+  Variant.match(v, {
+    Struct: ({ name }) => `${unionName + name}`,
+    Unit: () => undefined,
+    NewType: ({ type }) => typeToString(type),
+    Tuple: ({ fields }) => `[${fields.map(typeToString).join(', ')}]`
+  })
 
 const structToInterface = ({
   name,
@@ -54,10 +113,9 @@ const structToInterface = ({
   name,
   isExported: true,
   properties: members.map(
-    ({ name, optional, type }): PropertySignatureStructure => ({
+    ({ name, type }): PropertySignatureStructure => ({
       name,
-      hasQuestionToken: optional,
-      type: varTypeToString(type)
+      type: typeToString(type)
     })
   )
 })
@@ -72,10 +130,7 @@ const tupleToInterface = ({
     .map(
       (field, i): PropertySignatureStructure => ({
         name: i.toString(),
-        type: VarType.match(field, {
-          Scalar: scalarToString,
-          RefToType: s => s
-        })
+        type: typeToString(field)
       })
     )
     .concat({ name: 'length', type: fields.length.toString() })
@@ -89,7 +144,7 @@ const tupleToContsructor = ({
   isExported: true,
   parameters: fields.map((f, i) => ({
     name: 'p' + i.toString(),
-    type: varTypeToString(f)
+    type: typeToString(f)
   })),
   bodyText: `return [${fields.map((_, i) => 'p' + i.toString()).join(', ')}]`,
   returnType: name
@@ -108,7 +163,22 @@ const scalarToString = (scalar: Scalar): string => {
   }
 }
 
-const varTypeToString = VarType.match({
-  Scalar: scalarToString,
-  RefToType: s => s
+const typeToString = (type: Type): string => {
+  switch (type.tag) {
+    case TypeTag.Option:
+      return `(${typeToString(type.value)}) | undefined`
+    case TypeTag.Scalar:
+      return scalarToString(type.value)
+    case TypeTag.Vec:
+      return `Array<${typeToString(type.value)}>`
+    case TypeTag.RefTo:
+      return type.value
+  }
+}
+
+const variantName = Variant.match({
+  Struct: ({ name }) => name,
+  Unit: s => s,
+  Tuple: ({ name }) => name,
+  NewType: ({ name }) => name
 })

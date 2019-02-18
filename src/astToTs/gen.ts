@@ -1,6 +1,13 @@
 import { Project, ScriptTarget } from 'ts-morph'
 import { makeFileStructure } from './schema/transformers'
-import { EntryT, EntryType, VarType, Scalar } from './schema/types'
+import {
+  EntryT,
+  EntryType,
+  Type,
+  Scalar,
+  T,
+  Variant as V
+} from './schema/types'
 import * as fs from 'fs'
 
 const testFile = 'src/astToTs/generated/bla.ts'
@@ -12,25 +19,43 @@ const project = new Project({
   }
 })
 
-const { Tuple, Enum, Struct } = EntryType
+const { Tuple, Enum, Struct, Union } = EntryType
 
 const entries: EntryT[] = [
-  Enum({ name: 'MyEnum', variants: ['One, Two'] }),
-  Enum({ name: 'MyEnum2', variants: ['Tree, Four'] }),
+  Enum({ name: 'Enum', variants: ['One, Two'] }),
   Tuple({
     name: 'Color',
     fields: [
-      VarType.Scalar(Scalar.F32),
-      VarType.Scalar(Scalar.F32),
-      VarType.Scalar(Scalar.F32)
+      T.Option(T.Scalar(Scalar.F32)),
+      T.Scalar(Scalar.F32),
+      T.Scalar(Scalar.F32)
     ]
   }),
   Struct({
-    name: 'MyStruct',
+    name: 'Struct',
     members: [
-      { name: 'F32', type: VarType.Scalar(Scalar.F32), optional: false },
-      { name: 'Bool', type: VarType.Scalar(Scalar.Bool), optional: true },
-      { name: 'RefToEnum', type: VarType.RefToType('MyEnum'), optional: false }
+      { name: 'f32', type: T.Scalar(Scalar.F32) },
+      { name: 'bool', type: T.Scalar(Scalar.Bool) },
+      { name: 'ref', type: T.RefTo('Enum') },
+      { name: 'option', type: T.Option(T.Vec(T.Scalar(Scalar.F32))) }
+    ]
+  }),
+  Union({
+    name: 'Union',
+    variants: [
+      V.Unit('VariantUnit'),
+      V.NewType({ name: 'VariantNewType', type: T.Scalar(Scalar.F32) }),
+      V.Tuple({
+        name: 'VariantTuple',
+        fields: [T.Vec(T.Scalar(Scalar.Bool)), T.RefTo('Struct')]
+      }),
+      V.Struct({
+        name: 'VariantStruct',
+        members: [
+          { name: 'optBool', type: T.Option(T.Scalar(Scalar.Bool)) },
+          { name: 'color', type: T.RefTo('Color') }
+        ]
+      })
     ]
   })
 ]
