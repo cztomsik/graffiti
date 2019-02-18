@@ -9,6 +9,4 @@ proc-macro = true
 
 [dependencies]
 syn = { version = "0.15.26", features = ["extra-traits"] }
-serde = "1.0.88"
-serde_derive = "1.0.88"
-serde_json = "1.0.38"
+quote = "0.6.11"
