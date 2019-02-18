@@ -53,7 +53,7 @@ struct SurfaceCanHave {
 #[derive(Deserialize, Debug)]
 pub struct BoxShadow {
     color: Color,
-    offset: (f32, f32),
+    offset: Vector2f,
     blur: f32,
     spread: f32
 }
@@ -85,6 +85,10 @@ pub enum BorderStyle {
 #[tscodegen]
 #[derive(Deserialize, Debug)]
 pub struct Color(f32, f32, f32, f32);
+
+#[tscodegen]
+#[derive(Deserialize, Debug)]
+pub struct Vector2f(f32, f32);
 
 #[tscodegen]
 #[derive(Deserialize, Debug)]

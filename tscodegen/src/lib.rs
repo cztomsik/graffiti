@@ -1,9 +1,12 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use std::fs::OpenOptions;
-use syn::{parse, DeriveInput, Ident, Path, Type, TypePath};
+use syn::{parse, DeriveInput, Path, Type, TypePath};
 //use std::io::prelude::*;
 use std::fmt;
+use serde::Serialize;
+use serde_json;
+use std::io::prelude::*;
 
 #[proc_macro_attribute]
 pub fn tscodegen(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -23,28 +26,22 @@ pub fn tscodegen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let is_tuple = fields.iter().all(|f| f.ident.is_none());
 
             match is_tuple {
-                true => TsType::Tuple {
+                true => TsType::TupleStruct {
                     name,
                     types: fields
                         .iter()
-                        .map(|f| match f.ty.clone() {
-                            Type::Path(TypePath {
-                                path: Path { segments, .. },
-                                ..
-                            }) => {
-                                let parts: Vec<String> =
-                                    segments.iter().map(|s| s.ident.to_string()).collect();
-                                parts.join(".")
-                            }
-
-                            _ => panic!("unsupported type {:#?}", f.ty),
-                        })
+                        .map(|f| to_ts_type(&f.ty))
                         .collect(),
                 },
 
-                false => TsType::Interface {
+                false => TsType::Struct {
                     name: name.clone(),
-                    properties: vec![(name.clone(), name.clone())],
+                    properties: fields.iter().map(|f| {
+                        let key = f.ident.clone().unwrap().to_string();
+                        let ts_type = to_ts_type(&f.ty);
+
+                        (key, ts_type)
+                    }).collect(),
                 },
             }
         }
@@ -52,46 +49,46 @@ pub fn tscodegen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         _ => panic!("unexpected data {:?}", input.data),
     };
 
-    let mut _file = OpenOptions::new()
+    let mut file = OpenOptions::new()
         .create(true)
         .write(true)
-        .append(true)
-        .open("tscodegen.ts")
+        .truncate(true)
+        .open(format!("generated/{}.json", &input.ident))
         .expect("cannot open/create codegen file");
-
-    match ts_type {
-        TsType::Enum { name, members } => {
-            println!("enum {} {{ ... }}", name);
-            println!("{:#?}", members);
-        }
-
-        TsType::Interface { name, properties } => {
-            println!("interface {} {{ ... }}", name);
-            println!("{:#?}", properties);
-        }
-
-        TsType::Tuple { name, types } => {
-            println!("type {} = [...]", name);
-            println!("{:#?}", types);
-        }
-    }
+    
+    file.write_all(&serde_json::to_vec_pretty(&ts_type).unwrap());
 
     item
 }
 
-#[derive(Debug)]
+fn to_ts_type(ty: &syn::Type) -> String {
+    match ty {
+        Type::Path(TypePath {
+                       path: Path { segments, .. },
+                       ..
+                   }) => {
+            let parts: Vec<String> =
+                segments.iter().map(|s| s.ident.to_string()).collect();
+            parts.join(".")
+        }
+
+        _ => panic!("unsupported type {:#?}", ty),
+    }
+}
+
+#[derive(Serialize, Debug)]
 enum TsType {
     Enum {
         name: String,
         members: Vec<String>,
     },
 
-    Interface {
+    Struct {
         name: String,
         properties: Vec<(String, String)>,
     },
 
-    Tuple {
+    TupleStruct {
         name: String,
         types: Vec<String>,
     }, // TODO: discriminated union (hash with "type")
