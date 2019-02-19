@@ -50,6 +50,7 @@ ${members.map(m => `    ${m.name}: ${typeToString(m.type)},`).join('\n')}
 
 const unionToEnum = ({ name, variants }: UnionDesc): string => `
 #[derive(Deserialize, Debug)]
+#[serde(tag = "tag", content = "value")]
 pub enum ${name} {
 ${variants.map(v => `    ${variantStr(v)},`).join('\n')}
 }

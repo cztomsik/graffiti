@@ -5,7 +5,7 @@ import { exampleEntries } from './exampleAst'
 import * as fs from 'fs'
 
 const testFile = 'src/astToTs/generated/example.ts'
-const testRustFile = 'src/astToTs/generated/example.rs'
+const testRustFile = __dirname + '/../../native-new/src/generated.rs'
 fs.unlinkSync(testFile)
 
 const project = new Project({

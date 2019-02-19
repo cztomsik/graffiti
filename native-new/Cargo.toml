@@ -4,7 +4,6 @@ name = "node-webrender"
 version = "0.1.0"
 authors = ["Kamil Tomšík <info@tomsik.cz>"]
 license = "MIT"
-build = "build.rs"
 
 [lib]
 name = "node_webrender"
@@ -13,5 +12,5 @@ crate-type = ["cdylib"]
 [dependencies]
 libc = "0.2.48"
 serde = { version = "1.0.87", features = ["derive"] }
+serde_json = "1.0.38"
 bincode = "1.1.1"
-tscodegen = { path = "../tscodegen" }

@@ -1,37 +1,20 @@
+mod generated;
+
 use bincode;
+use serde_json;
 use serde::Deserialize;
 
-use tscodegen::tscodegen;
+use crate::generated::*;
 
 #[no_mangle]
 pub extern "C" fn send(data: *const u8, len: u32) {
     // get slice of bytes & try to deserialize
     let msg = unsafe { std::slice::from_raw_parts(data, len as usize) };
-    let msg: Msg = bincode::deserialize(msg).expect("invalid message");
+    //let msg: Msg = bincode::deserialize(msg).expect("invalid message");
+    let msg: Msg = serde_json::from_slice(msg).expect("invalid message");
 
     println!("Got {:?}", msg);
 }
-
-#[tscodegen]
-#[derive(Deserialize, Debug)]
-pub enum Msg {
-    Hello,
-    World,
-}
-
-//#[tscodegen]
-#[derive(Deserialize, Debug)]
-pub enum X {
-    AppendChild { parent: SurfaceId, child: SurfaceId },
-    RemoveChild { parent: SurfaceId, child: SurfaceId },
-}
-
-#[tscodegen]
-#[derive(Deserialize, Debug)]
-pub struct SurfaceId(u32);
-
-
-
 
 
 struct SurfaceCanHave {
@@ -47,57 +30,4 @@ struct SurfaceCanHave {
     background_image: Option<Image>,
     text: Option<Text>,
     border: Option<Border>
-}
-
-#[tscodegen]
-#[derive(Deserialize, Debug)]
-pub struct BoxShadow {
-    color: Color,
-    offset: Vector2f,
-    blur: f32,
-    spread: f32
-}
-
-#[tscodegen]
-#[derive(Deserialize, Debug)]
-pub struct Border {
-    top: BorderSide,
-    right: BorderSide,
-    bottom: BorderSide,
-    left: BorderSide
-}
-
-#[tscodegen]
-#[derive(Deserialize, Debug)]
-pub struct BorderSide {
-    width: f32,
-    color: Color,
-    style: BorderStyle
-}
-
-#[tscodegen]
-#[derive(Deserialize, Debug)]
-pub enum BorderStyle {
-    None,
-    Solid
-}
-
-#[tscodegen]
-#[derive(Deserialize, Debug)]
-pub struct Color(f32, f32, f32, f32);
-
-#[tscodegen]
-#[derive(Deserialize, Debug)]
-pub struct Vector2f(f32, f32);
-
-#[tscodegen]
-#[derive(Deserialize, Debug)]
-pub struct Image {
-    url: String
-}
-
-#[tscodegen]
-#[derive(Deserialize, Debug)]
-pub struct Text {
-    text: String
 }

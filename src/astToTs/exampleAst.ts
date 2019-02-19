@@ -7,10 +7,12 @@ const Msg = Union({
   variants: [
     V.Unit('Hello'),
     V.NewType({ name: 'World', type: T.Scalar(Scalar.Str) }),
+    /*
     V.Tuple({
       name: 'You',
       fields: [T.Scalar(Scalar.U32), T.Scalar(Scalar.Bool)]
     }),
+    */
     V.Struct({
       name: 'All',
       members: [{ name: 'people', type: T.Scalar(Scalar.Str) }]
