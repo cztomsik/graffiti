@@ -44,6 +44,7 @@ export const EntryType = unionize(
     Struct: of<StructDesc>(),
     Enum: of<EnumDesc>(),
     Tuple: of<TupleDesc>(),
+    Newtype: of<NewTypeDesc>(),
     Union: of<UnionDesc>()
   },
   withTagAndValueProps

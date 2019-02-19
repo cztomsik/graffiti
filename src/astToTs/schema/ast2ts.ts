@@ -18,8 +18,9 @@ import {
   TypeTag,
   Variant,
   UnionDesc,
-  VariantT
-} from './types'
+  VariantT,
+  NewTypeDesc
+} from './ast'
 
 export const makeFileStructure = (entries: EntryT[]) =>
   entries.reduce<StatementedNodeStructure>(
@@ -35,7 +36,7 @@ export const makeFileStructure = (entries: EntryT[]) =>
         }),
         Union: desc => ({
           ...file,
-          enums: (file.enums || []).concat(unionToTagEnum(desc)),
+          // enums: (file.enums || []).concat(unionToTagEnum(desc)),
           typeAliases: (file.typeAliases || []).concat(
             unionToTaggedUnion(desc)
           ),
@@ -47,6 +48,13 @@ export const makeFileStructure = (entries: EntryT[]) =>
           ...file,
           interfaces: (file.interfaces || []).concat(tupleToInterface(desc)),
           functions: (file.functions || []).concat(tupleToContsructor(desc))
+        }),
+        Newtype: desc => ({
+          ...file,
+          typeAliases: (file.typeAliases || []).concat(
+            newtypeToTypeAlias(desc)
+          ),
+          functions: (file.functions || []).concat(newtypeToContsructor(desc))
         })
       }),
     {}
@@ -61,14 +69,14 @@ const enumToEnum = ({
   members: variants.map(v => ({ name: v }))
 })
 
-const unionToTagEnum = ({
-  name,
-  variants
-}: UnionDesc): EnumDeclarationStructure => ({
-  name: name + 'Tag',
-  isExported: true,
-  members: variants.map(variantName).map(name => ({ name }))
-})
+// const unionToTagEnum = ({
+//   name,
+//   variants
+// }: UnionDesc): EnumDeclarationStructure => ({
+//   name: name + 'Tag',
+//   isExported: true,
+//   members: variants.map(variantName).map(name => ({ name }))
+// })
 
 const unionToTaggedUnion = ({
   name,
@@ -80,12 +88,37 @@ const unionToTaggedUnion = ({
     variants.reduce((w, variant) => {
       const valueStr = variantPayload(name, variant)
       return w.writeLine(
-        `| { tag: ${name}Tag.${variantName(variant)}${
+        `| { tag: "${variantName(variant)}"${
           valueStr ? `, value: ${valueStr}` : ''
         }}`
       )
     }, writer.newLine())
   }
+})
+
+const newtypeToTypeAlias = ({
+  name,
+  type
+}: NewTypeDesc): TypeAliasDeclarationStructure => ({
+  name,
+  isExported: true,
+  type: newtypeToStr(type, name)
+})
+
+const newtypeToContsructor = ({
+  name,
+  type
+}: NewTypeDesc): FunctionDeclarationStructure => ({
+  name: 'mk' + name,
+  isExported: true,
+  parameters: [
+    {
+      name: 'val',
+      type: typeToString(type)
+    }
+  ],
+  bodyText: `return val as any`,
+  returnType: newtypeToStr(type, name)
 })
 
 const unionToPayloadInterfaces = ({
@@ -182,3 +215,6 @@ const variantName = Variant.match({
   Tuple: ({ name }) => name,
   NewType: ({ name }) => name
 })
+
+const newtypeToStr = (type: Type, name: string): string =>
+  `${typeToString(type)} & { type: '${name}'}`
