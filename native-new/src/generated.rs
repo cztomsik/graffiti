@@ -26,10 +26,18 @@ pub struct SurfaceId(u32);
 
 #[derive(Deserialize, Debug)]
 pub struct SurfaceCanHave {
-    borderRadius: f32,
-    boxShadow: Option<BoxShadow>,
-    backgroundColor: Option<Color>,
-    backgroundImage: Option<Image>,
+    #[serde(rename = "borderRadius")]
+    border_radius: f32,
+
+    #[serde(rename = "boxShadow")]
+    box_shadow: Option<BoxShadow>,
+
+    #[serde(rename = "backgroundColor")]
+    background_color: Option<Color>,
+
+    #[serde(rename = "backgroundImage")]
+    background_image: Option<Image>,
+
     text: Option<Text>,
     border: Option<Border>,
 }

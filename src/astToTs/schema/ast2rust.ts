@@ -45,7 +45,13 @@ const structToStruct = ({ name, members }: StructDesc): string => `
 #[derive(Deserialize, Debug)]
 pub struct ${name} {
 ${Object.keys(members)
-  .map(n => `    ${n}: ${typeToString(members[n])},`)
+  .map(n => {
+    const snakeName = camelToSnakeCase(n)
+    const field = `${snakeName}: ${typeToString(members[n])}`
+    return snakeName === n
+      ? `    ${field},`
+      : `    #[serde(rename = "${n}")]\n    ${field},\n`
+  })
   .join('\n')}
 }
 `
@@ -65,7 +71,7 @@ const variantStr = Variant.match({
     `${name}(${fields.map(typeToString).join(', ')})`,
   Struct: ({ name, members }) =>
     `${name} { ${Object.keys(members)
-      .map(n => `${n}: ${typeToString(members[n])}`)
+      .map(n => `${camelToSnakeCase(n)}: ${typeToString(members[n])}`)
       .join(', ')} }`
 })
 
@@ -94,3 +100,6 @@ const typeToString = (type: Type): string => {
       return type.value
   }
 }
+
+const camelToSnakeCase = (str: string) =>
+  str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)
