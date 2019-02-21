@@ -44,7 +44,9 @@ pub struct ${name}(${fields.map(typeToString).join(', ')});
 const structToStruct = ({ name, members }: StructDesc): string => `
 #[derive(Deserialize, Debug)]
 pub struct ${name} {
-${members.map(m => `    ${m.name}: ${typeToString(m.type)},`).join('\n')}
+${Object.keys(members)
+  .map(n => `    ${n}: ${typeToString(members[n])},`)
+  .join('\n')}
 }
 `
 
@@ -62,8 +64,8 @@ const variantStr = Variant.match({
   Tuple: ({ name, fields }) =>
     `${name}(${fields.map(typeToString).join(', ')})`,
   Struct: ({ name, members }) =>
-    `${name} { ${members
-      .map(m => `${m.name}: ${typeToString(m.type)}`)
+    `${name} { ${Object.keys(members)
+      .map(n => `${n}: ${typeToString(members[n])}`)
       .join(', ')} }`
 })
 

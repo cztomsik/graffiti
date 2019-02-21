@@ -145,12 +145,14 @@ const structToInterface = ({
 }: StructDesc): InterfaceDeclarationStructure => ({
   name,
   isExported: true,
-  properties: members.map(
-    ({ name, type }): PropertySignatureStructure => ({
-      name,
-      type: typeToString(type)
-    })
-  )
+  properties: Object.keys(members)
+    .map(name => ({ name, type: members[name] }))
+    .map(
+      ({ name, type }): PropertySignatureStructure => ({
+        name,
+        type: typeToString(type)
+      })
+    )
 })
 
 const tupleToInterface = ({

@@ -19,12 +19,7 @@ export type UnionDesc = {
 
 export type StructDesc = {
   name: string
-  members: StructMember[]
-}
-
-export type StructMember = {
-  name: string
-  type: Type
+  members: { [prop: string]: Type }
 }
 
 export type TupleDesc = {

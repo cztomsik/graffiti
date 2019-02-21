@@ -1,4 +1,4 @@
-import { EntryT, EntryType, Type, Scalar, T, Variant as V } from './schema/ast'
+import { EntryT, EntryType, Scalar, T, Variant as V } from './schema/ast'
 
 const { Tuple, Enum, Struct, Union, Newtype } = EntryType
 
@@ -15,7 +15,7 @@ const Msg = Union({
     */
     V.Struct({
       name: 'All',
-      members: [{ name: 'people', type: T.Scalar(Scalar.Str) }]
+      members: { people: T.Scalar(Scalar.Str) }
     })
   ]
 })
@@ -27,17 +27,17 @@ const X = Union({
   variants: [
     V.Struct({
       name: 'AppendChild',
-      members: [
-        { name: 'parent', type: T.RefTo(SurfaceId.value.name) },
-        { name: 'child', type: T.RefTo(SurfaceId.value.name) }
-      ]
+      members: {
+        parent: T.RefTo(SurfaceId.value.name),
+        child: T.RefTo(SurfaceId.value.name)
+      }
     }),
     V.Struct({
       name: 'RemoveChild',
-      members: [
-        { name: 'parent', type: T.RefTo(SurfaceId.value.name) },
-        { name: 'child', type: T.RefTo(SurfaceId.value.name) }
-      ]
+      members: {
+        parent: T.RefTo(SurfaceId.value.name),
+        child: T.RefTo(SurfaceId.value.name)
+      }
     })
   ]
 })
@@ -54,53 +54,55 @@ const Vector2f = Tuple({
 
 const BoxShadow = Struct({
   name: 'BoxShadow',
-  members: [
-    { name: 'color', type: T.RefTo(Color.value.name) },
-    { name: 'offset', type: T.RefTo(Vector2f.value.name) },
-    { name: 'blur', type: T.Scalar(Scalar.F32) },
-    { name: 'spread', type: T.Scalar(Scalar.F32) }
-  ]
+  members: {
+    color: T.RefTo(Color.value.name),
+    offset: T.RefTo(Vector2f.value.name),
+    blur: T.Scalar(Scalar.F32),
+    spread: T.Scalar(Scalar.F32)
+  }
 })
 
 const BorderStyle = Enum({ name: 'BorderStyle', variants: ['None', 'Solid'] })
 
 const BorderSide = Struct({
   name: 'BorderSide',
-  members: [
-    { name: 'width', type: T.Scalar(Scalar.F32) },
-    { name: 'color', type: T.RefTo(Color.value.name) },
-    { name: 'style', type: T.RefTo(BorderStyle.value.name) }
-  ]
+  members: {
+    width: T.Scalar(Scalar.F32),
+    color: T.RefTo(Color.value.name),
+    style: T.RefTo(BorderStyle.value.name)
+  }
 })
 
 const Border = Struct({
   name: 'Border',
-  members: ['top', 'right', 'bottom', 'left'].map(edge => ({
-    name: edge,
-    type: T.RefTo(BorderSide.value.name)
-  }))
+  members: {
+    top: T.RefTo(BorderSide.value.name),
+    right: T.RefTo(BorderSide.value.name),
+    bottom: T.RefTo(BorderSide.value.name),
+    left: T.RefTo(BorderSide.value.name)
+  }
 })
 
 const Image = Struct({
   name: 'Image',
-  members: [{ name: 'url', type: T.Scalar(Scalar.Str) }]
+  members: { url: T.Scalar(Scalar.Str) }
 })
 
 const Text = Struct({
   name: 'Text',
-  members: [{ name: 'text', type: T.Scalar(Scalar.Str) }]
+  members: { text: T.Scalar(Scalar.Str) }
 })
 
 const SurfaceCanHave = Struct({
   name: 'SurfaceCanHave',
-  members: [
-    { name: 'borderRadius', type: T.Scalar(Scalar.F32) },
-    { name: 'boxShadow', type: T.Option(T.RefTo(BoxShadow.value.name)) },
-    { name: 'backgroundColor', type: T.Option(T.RefTo(Color.value.name)) },
-    { name: 'backgroundImage', type: T.Option(T.RefTo(Image.value.name)) },
-    { name: 'text', type: T.Option(T.RefTo(Text.value.name)) },
-    { name: 'border', type: T.Option(T.RefTo(Border.value.name)) }
-  ]
+  members: {
+    borderRadius: T.Scalar(Scalar.F32),
+    boxShadow: T.Option(T.RefTo(BoxShadow.value.name)),
+    backgroundColor: T.Option(T.RefTo(Color.value.name)),
+    backgroundImage: T.Option(T.RefTo(Image.value.name)),
+    text: T.Option(T.RefTo(Text.value.name)),
+    border: T.Option(T.RefTo(Border.value.name))
+  }
 })
 
 export const exampleEntries: EntryT[] = [

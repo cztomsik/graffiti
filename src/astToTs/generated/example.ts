@@ -1,7 +1,6 @@
 export type Msg =
   | { tag: 'Hello' }
   | { tag: 'World'; value: string }
-  | { tag: 'You'; value: [number, boolean] }
   | { tag: 'All'; value: MsgAll }
 export type X =
   | { tag: 'AppendChild'; value: XAppendChild }
