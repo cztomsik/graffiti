@@ -1,97 +1,104 @@
-
 use bincode;
 use serde::Deserialize;
-
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "tag", content = "value")]
 pub enum Msg {
-    Hello,
-    World(String),
-    All { people: String },
+    CreateSurface,
+    SurfaceMsg { surface: SurfaceId, msg: SurfaceMsg },
 }
-
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "tag", content = "value")]
-pub enum X {
-    AppendChild { parent: SurfaceId, child: SurfaceId },
-    RemoveChild { parent: SurfaceId, child: SurfaceId },
+pub enum SurfaceMsg {
+    AppendChild {
+        parent: SurfaceId,
+        child: SurfaceId,
+    },
+    InsertBefore {
+        parent: SurfaceId,
+        child: SurfaceId,
+        before: SurfaceId,
+    },
+    RemoveChild {
+        parent: SurfaceId,
+        child: SurfaceId,
+    },
+    SetSize(Size),
+    SetFlex(Flex),
+    SetPadding(Rect),
+    SetMargin(Rect),
+    SetBoxShadow(Option<BoxShadow>),
+    SetBackgroundColor(Option<Color>),
+    SetImage(Option<Image>),
+    SetText(Option<Text>),
+    SetBorder(Option<Border>),
 }
 
+#[derive(Deserialize, Debug)]
+pub struct SurfaceId(pub u32);
 
 #[derive(Deserialize, Debug)]
-pub struct SurfaceId(u32);
-
+pub struct Color(pub f32, pub f32, pub f32, pub f32);
 
 #[derive(Deserialize, Debug)]
-pub struct SurfaceCanHave {
-    #[serde(rename = "borderRadius")]
-    border_radius: f32,
-
-    #[serde(rename = "boxShadow")]
-    box_shadow: Option<BoxShadow>,
-
-    #[serde(rename = "backgroundColor")]
-    background_color: Option<Color>,
-
-    #[serde(rename = "backgroundImage")]
-    background_image: Option<Image>,
-
-    text: Option<Text>,
-    border: Option<Border>,
+pub struct Flex {
+    pub grow: f32,
+    pub shrink: f32,
+    pub basis: Dimension,
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(tag = "tag", content = "value")]
+pub enum Dimension {
+    Auto,
+    Point(f32),
+    Percent(f32),
+}
 
 #[derive(Deserialize, Debug)]
-pub struct Color(f32, f32, f32, f32);
-
+pub struct Size(pub Dimension, pub Dimension);
 
 #[derive(Deserialize, Debug)]
-pub struct Vector2f(f32, f32);
+pub struct Rect(pub Dimension, pub Dimension, pub Dimension, pub Dimension);
 
+#[derive(Deserialize, Debug)]
+pub struct Vector2f(pub f32, pub f32);
 
 #[derive(Deserialize, Debug)]
 pub struct BoxShadow {
-    color: Color,
-    offset: Vector2f,
-    blur: f32,
-    spread: f32,
+    pub color: Color,
+    pub offset: Vector2f,
+    pub blur: f32,
+    pub spread: f32,
 }
-
 
 #[derive(Deserialize, Debug)]
 pub struct Image {
-    url: String,
+    pub url: String,
 }
-
 
 #[derive(Deserialize, Debug)]
 pub struct Text {
-    text: String,
+    pub text: String,
 }
-
 
 #[derive(Deserialize, Debug)]
 pub struct Border {
-    top: BorderSide,
-    right: BorderSide,
-    bottom: BorderSide,
-    left: BorderSide,
+    pub top: BorderSide,
+    pub right: BorderSide,
+    pub bottom: BorderSide,
+    pub left: BorderSide,
 }
-
 
 #[derive(Deserialize, Debug)]
 pub struct BorderSide {
-    width: f32,
-    color: Color,
-    style: BorderStyle,
+    pub color: Color,
+    pub style: BorderStyle,
 }
-
 
 #[derive(Deserialize, Debug)]
 pub enum BorderStyle {
     None,
     Solid,
 }
-

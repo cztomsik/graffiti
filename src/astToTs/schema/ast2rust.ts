@@ -34,12 +34,12 @@ ${variants.map(v => `    ${v},`).join('\n')}
 
 const newtypeToStruct = ({ name, type }: NewTypeDesc): string => `
 #[derive(Deserialize, Debug)]
-pub struct ${name}(${typeToString(type)});
+pub struct ${name}(pub ${typeToString(type)});
 `
 
 const tupleToStruct = ({ name, fields }: TupleDesc): string => `
 #[derive(Deserialize, Debug)]
-pub struct ${name}(${fields.map(typeToString).join(', ')});
+pub struct ${name}(${fields.map(t => `pub ${typeToString(t)}`).join(', ')});
 `
 const structToStruct = ({ name, members }: StructDesc): string => `
 #[derive(Deserialize, Debug)]
@@ -47,7 +47,7 @@ pub struct ${name} {
 ${Object.keys(members)
   .map(n => {
     const snakeName = camelToSnakeCase(n)
-    const field = `${snakeName}: ${typeToString(members[n])}`
+    const field = `pub ${snakeName}: ${typeToString(members[n])}`
     return snakeName === n
       ? `    ${field},`
       : `    #[serde(rename = "${n}")]\n    ${field},\n`

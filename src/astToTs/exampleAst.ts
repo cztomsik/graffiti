@@ -2,44 +2,39 @@ import { EntryT, EntryType, Scalar, T, Variant as V } from './schema/ast'
 
 const { Tuple, Enum, Struct, Union, Newtype } = EntryType
 
-const Msg = Union({
-  name: 'Msg',
+const SurfaceId = Newtype({ name: 'SurfaceId', type: T.Scalar(Scalar.U32) })
+
+const Dimension = Union({
+  name: 'Dimension',
   variants: [
-    V.Unit('Hello'),
-    V.NewType({ name: 'World', type: T.Scalar(Scalar.Str) }),
-    /*
-    V.Tuple({
-      name: 'You',
-      fields: [T.Scalar(Scalar.U32), T.Scalar(Scalar.Bool)]
-    }),
-    */
-    V.Struct({
-      name: 'All',
-      members: { people: T.Scalar(Scalar.Str) }
-    })
+    V.Unit('Auto'),
+    V.NewType({ name: 'Point', type: T.Scalar(Scalar.F32) }),
+    V.NewType({ name: 'Percent', type: T.Scalar(Scalar.F32) })
   ]
 })
 
-const SurfaceId = Newtype({ name: 'SurfaceId', type: T.Scalar(Scalar.U32) })
+const Size = Tuple({
+  name: 'Size',
+  fields: [T.RefTo(Dimension.value.name), T.RefTo(Dimension.value.name)]
+})
 
-const X = Union({
-  name: 'X',
-  variants: [
-    V.Struct({
-      name: 'AppendChild',
-      members: {
-        parent: T.RefTo(SurfaceId.value.name),
-        child: T.RefTo(SurfaceId.value.name)
-      }
-    }),
-    V.Struct({
-      name: 'RemoveChild',
-      members: {
-        parent: T.RefTo(SurfaceId.value.name),
-        child: T.RefTo(SurfaceId.value.name)
-      }
-    })
+const Rect = Tuple({
+  name: 'Rect',
+  fields: [
+    T.RefTo(Dimension.value.name),
+    T.RefTo(Dimension.value.name),
+    T.RefTo(Dimension.value.name),
+    T.RefTo(Dimension.value.name)
   ]
+})
+
+const Flex = Struct({
+  name: 'Flex',
+  members: {
+    grow: T.Scalar(Scalar.F32),
+    shrink: T.Scalar(Scalar.F32),
+    basis: T.RefTo(Dimension.value.name)
+  }
 })
 
 const Color = Tuple({
@@ -67,7 +62,6 @@ const BorderStyle = Enum({ name: 'BorderStyle', variants: ['None', 'Solid'] })
 const BorderSide = Struct({
   name: 'BorderSide',
   members: {
-    width: T.Scalar(Scalar.F32),
     color: T.RefTo(Color.value.name),
     style: T.RefTo(BorderStyle.value.name)
   }
@@ -93,24 +87,93 @@ const Text = Struct({
   members: { text: T.Scalar(Scalar.Str) }
 })
 
-const SurfaceCanHave = Struct({
-  name: 'SurfaceCanHave',
-  members: {
-    borderRadius: T.Scalar(Scalar.F32),
-    boxShadow: T.Option(T.RefTo(BoxShadow.value.name)),
-    backgroundColor: T.Option(T.RefTo(Color.value.name)),
-    backgroundImage: T.Option(T.RefTo(Image.value.name)),
-    text: T.Option(T.RefTo(Text.value.name)),
-    border: T.Option(T.RefTo(Border.value.name))
-  }
+const SurfaceMsg = Union({
+  name: 'SurfaceMsg',
+  variants: [
+    V.Struct({
+      name: 'AppendChild',
+      members: {
+        parent: T.RefTo(SurfaceId.value.name),
+        child: T.RefTo(SurfaceId.value.name)
+      }
+    }),
+    V.Struct({
+      name: 'InsertBefore',
+      members: {
+        parent: T.RefTo(SurfaceId.value.name),
+        child: T.RefTo(SurfaceId.value.name),
+        before: T.RefTo(SurfaceId.value.name)
+      }
+    }),
+    V.Struct({
+      name: 'RemoveChild',
+      members: {
+        parent: T.RefTo(SurfaceId.value.name),
+        child: T.RefTo(SurfaceId.value.name)
+      }
+    }),
+    V.NewType({
+      name: 'SetSize',
+      type: T.RefTo(Size.value.name)
+    }),
+    V.NewType({
+      name: 'SetFlex',
+      type: T.RefTo(Flex.value.name)
+    }),
+    V.NewType({
+      name: 'SetPadding',
+      type: T.RefTo(Rect.value.name)
+    }),
+    V.NewType({
+      name: 'SetMargin',
+      type: T.RefTo(Rect.value.name)
+    }),
+    V.NewType({
+      name: 'SetBoxShadow',
+      type: T.Option(T.RefTo(BoxShadow.value.name))
+    }),
+    V.NewType({
+      name: 'SetBackgroundColor',
+      type: T.Option(T.RefTo(Color.value.name))
+    }),
+    V.NewType({
+      name: 'SetImage',
+      type: T.Option(T.RefTo(Image.value.name))
+    }),
+    V.NewType({
+      name: 'SetText',
+      type: T.Option(T.RefTo(Text.value.name))
+    }),
+    V.NewType({
+      name: 'SetBorder',
+      type: T.Option(T.RefTo(Border.value.name))
+    })
+  ]
+})
+
+const Msg = Union({
+  name: 'Msg',
+  variants: [
+    V.Unit('CreateSurface'),
+    V.Struct({
+      name: 'SurfaceMsg',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
+        msg: T.RefTo(SurfaceMsg.value.name)
+      }
+    })
+  ]
 })
 
 export const exampleEntries: EntryT[] = [
   Msg,
-  X,
+  SurfaceMsg,
   SurfaceId,
-  SurfaceCanHave,
   Color,
+  Flex,
+  Dimension,
+  Size,
+  Rect,
   Vector2f,
   BoxShadow,
   Image,
