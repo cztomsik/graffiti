@@ -9,52 +9,19 @@ const ffi = require('ffi');
 
 // define lib
 const libnode_webrender = ffi.Library('./target/debug/libnode_webrender', {
+  init: ['void', []],
   // pass a buffer (pointer to some memory + its length)
   'send': ['void', [ref.refType(ref.types.void), 'int']]
 });
 
-send({
-  tag: 'SurfaceMsg',
-  value: {
-    surface: mkSurfaceId(0),
-    msg: {
-      tag: 'SetSize',
-      value: [
-        { tag: 'Point', value: 100 },
-        { tag: 'Point', value: 100 }
-      ]
-   }
-  }
-})
+libnode_webrender.init()
 
-send({
-  tag: 'SurfaceMsg',
-  value: {
-    surface: mkSurfaceId(0),
-    msg: {
-      tag: 'SetBackgroundColor',
-      value: mkColor(0, 0, 0, 1)
-    }
-  }
-})
+send({ tag: 'Alloc' })
 
-send({
-  tag: 'SurfaceMsg',
-  value: {
-    surface: mkSurfaceId(0),
-    msg: {
-      tag: 'SetBoxShadow',
-      value: {
-        color: mkColor(0, 0, 0, 0.5),
-        offset: mkVector2f(2, 2),
-        blur: 10,
-        spread: -2
-      }
-    }
-  }
-})
+// necessary for window to stay responsive
+setInterval(() => send({ tag: 'HandleEvents' }), 30)
 
-function send(msg: Msg) {
+function send(msg) {
   // prepare buffer with msg
   let buf = Buffer.from(JSON.stringify(msg))
 

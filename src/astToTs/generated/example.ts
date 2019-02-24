@@ -11,7 +11,7 @@ export type SurfaceMsg =
     | { tag: "SetPadding", value: Rect}
     | { tag: "SetMargin", value: Rect}
     | { tag: "SetBoxShadow", value: (BoxShadow) | undefined}
-    | { tag: "SetBackgroundColor", value: (Color) | undefined}
+    | { tag: "SetBackgroundColor", value: (BackgroundColor) | undefined}
     | { tag: "SetImage", value: (Image) | undefined}
     | { tag: "SetText", value: (Text) | undefined}
     | { tag: "SetBorder", value: (Border) | undefined}
@@ -22,6 +22,7 @@ export type Dimension =
     | { tag: "Point", value: number}
     | { tag: "Percent", value: number}
 ;
+export type BackgroundColor = Color & { type: 'BackgroundColor'};
 
 export interface MsgSurfaceMsg {
     surface: SurfaceId;
@@ -150,7 +151,7 @@ export function mkSurfaceMsgSetBoxShadow(value: (BoxShadow) | undefined): Surfac
     return { tag: "SetBoxShadow", value};
 }
 
-export function mkSurfaceMsgSetBackgroundColor(value: (Color) | undefined): SurfaceMsg {
+export function mkSurfaceMsgSetBackgroundColor(value: (BackgroundColor) | undefined): SurfaceMsg {
     return { tag: "SetBackgroundColor", value};
 }
 
@@ -196,4 +197,8 @@ export function mkRect(p0: Dimension, p1: Dimension, p2: Dimension, p3: Dimensio
 
 export function mkVector2f(p0: number, p1: number): Vector2f {
     return [p0, p1]
+}
+
+export function mkBackgroundColor(val: Color): Color & { type: 'BackgroundColor'} {
+    return val as any
 }

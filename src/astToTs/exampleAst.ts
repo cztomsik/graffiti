@@ -57,6 +57,11 @@ const BoxShadow = Struct({
   }
 })
 
+const BackgroundColor = Newtype({
+  name: 'BackgroundColor',
+  type: T.RefTo(Color.value.name)
+})
+
 const BorderStyle = Enum({ name: 'BorderStyle', variants: ['None', 'Solid'] })
 
 const BorderSide = Struct({
@@ -134,7 +139,7 @@ const SurfaceMsg = Union({
     }),
     V.NewType({
       name: 'SetBackgroundColor',
-      type: T.Option(T.RefTo(Color.value.name))
+      type: T.Option(T.RefTo(BackgroundColor.value.name))
     }),
     V.NewType({
       name: 'SetImage',
@@ -176,6 +181,7 @@ export const exampleEntries: EntryT[] = [
   Rect,
   Vector2f,
   BoxShadow,
+  BackgroundColor,
   Image,
   Text,
   Border,

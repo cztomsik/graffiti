@@ -26,23 +26,23 @@ export const makeRustFile = (entries: EntryT[]): Entries =>
   )
 
 const enumToEnum = ({ name, variants }: EnumDesc): string => `
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub enum ${name} {
 ${variants.map(v => `    ${v},`).join('\n')}
 }
 `
 
 const newtypeToStruct = ({ name, type }: NewTypeDesc): string => `
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ${name}(pub ${typeToString(type)});
 `
 
 const tupleToStruct = ({ name, fields }: TupleDesc): string => `
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ${name}(${fields.map(t => `pub ${typeToString(t)}`).join(', ')});
 `
 const structToStruct = ({ name, members }: StructDesc): string => `
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ${name} {
 ${Object.keys(members)
   .map(n => {
@@ -57,7 +57,7 @@ ${Object.keys(members)
 `
 
 const unionToEnum = ({ name, variants }: UnionDesc): string => `
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "tag", content = "value")]
 pub enum ${name} {
 ${variants.map(v => `    ${variantStr(v)},`).join('\n')}
