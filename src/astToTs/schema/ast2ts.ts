@@ -5,7 +5,8 @@ import {
   StatementedNodeStructure,
   FunctionDeclarationStructure,
   TypeAliasDeclarationStructure,
-  CodeBlockWriter
+  CodeBlockWriter,
+  ParameterDeclarationStructure
 } from 'ts-morph'
 import {
   EnumDesc,
@@ -42,7 +43,8 @@ export const makeFileStructure = (entries: EntryT[]) =>
           ),
           interfaces: (file.interfaces || []).concat(
             unionToPayloadInterfaces(desc)
-          )
+          ),
+          functions: (file.functions || []).concat(unionToContstructors(desc))
         }),
         Tuple: desc => ({
           ...file,
@@ -131,13 +133,50 @@ const unionToPayloadInterfaces = ({
     .map(({ name, members }) => ({ name: unionName + name, members }))
     .map(structToInterface)
 
+const unionToContstructors = ({
+  name: unionName,
+  variants
+}: UnionDesc): FunctionDeclarationStructure[] =>
+  variants.map(v => ({
+    name: `mk${unionName}${variantName(v)}`,
+    isExported: true,
+    parameters: variantToCtorParameters(unionName, v),
+    bodyText: `return ${variantToCtorBody(v)};`,
+    returnType: unionName
+  }))
+
+const variantToCtorParameters = (
+  unionName: string,
+  v: VariantT
+): ParameterDeclarationStructure[] =>
+  Variant.match(v, {
+    Struct: ({ name }) => [
+      { name: 'value', type: structVariantInterfaceName(unionName, name) }
+    ],
+    Unit: () => [],
+    NewType: ({ type }) => [{ name: 'value', type: typeToString(type) }],
+    Tuple: ({ fields }) =>
+      fields.map((f, i) => ({ name: `p${i}`, type: typeToString(f) }))
+  })
+
+const variantToCtorBody = Variant.match({
+  Struct: ({ name }) => `{ tag: "${name}", value}`,
+  Unit: name => `{ tag: "${name}"}`,
+  NewType: ({ name }) => `{ tag: "${name}", value}`,
+  Tuple: ({ name, fields }) =>
+    `{ tag: "${name}", value: [${fields.map((_, i) => `p${i}`)}]}`
+})
+
 const variantPayload = (unionName: string, v: VariantT): string | undefined =>
   Variant.match(v, {
-    Struct: ({ name }) => `${unionName + name}`,
+    Struct: ({ name }) => structVariantInterfaceName(unionName, name),
     Unit: () => undefined,
     NewType: ({ type }) => typeToString(type),
     Tuple: ({ fields }) => `[${fields.map(typeToString).join(', ')}]`
   })
+
+const structVariantInterfaceName = (unionName: string, variantName: string) =>
+  `${unionName + variantName}`
 
 const structToInterface = ({
   name,
