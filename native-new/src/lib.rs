@@ -1,4 +1,11 @@
 mod generated;
+mod surface;
+
+// TODO: generics
+// (into() is not enough; maybe struct)
+// usize for now
+pub type Id = usize;
+
 mod layout;
 mod temp;
 
