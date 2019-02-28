@@ -59,7 +59,7 @@ mod tests {
     use super::*;
 
     fn test_svc() -> SurfaceService {
-        SurfaceService { children: vec![] }
+        SurfaceService { children: vec![], background_colors: BTreeMap::new() }
     }
 
     #[test]
