@@ -1,4 +1,4 @@
-pub use crate::generated::BackgroundColor;
+pub use crate::generated::{Border, BoxShadow, Color, Image, Text};
 use crate::Id;
 use std::collections::BTreeMap;
 
@@ -21,10 +21,25 @@ use std::collections::BTreeMap;
 /// which should make rendering way-faster (by being cpu cache-friendly)
 pub struct SurfaceService {
     children: Vec<Vec<Id>>,
+    box_shadows: BTreeMap<Id, BoxShadow>,
     background_colors: BTreeMap<Id, Color>,
+    texts: BTreeMap<Id, Text>,
+    images: BTreeMap<Id, Image>,
+    borders: BTreeMap<Id, Border>,
 }
 
 impl SurfaceService {
+    pub fn new() -> Self {
+        SurfaceService {
+            children: vec![],
+            box_shadows: BTreeMap::new(),
+            background_colors: BTreeMap::new(),
+            texts: BTreeMap::new(),
+            images: BTreeMap::new(),
+            borders: BTreeMap::new(),
+        }
+    }
+
     pub fn append_child(&mut self, parent: Id, child: Id) {
         self.children[parent].push(child);
     }
@@ -50,8 +65,15 @@ impl SurfaceService {
     // ideally we would store them here and just pass them to LayoutService but that's not
     // how yoga works
 
-    pub fn set_box_shadow(surface: Id, box_shadow: BoxShadow) {}
-    pub fn set_background_color(surface: Id, color: Color) {}
+    pub fn set_box_shadow(&mut self, surface: Id, box_shadow: Option<BoxShadow>) {}
+
+    pub fn set_background_color(&mut self, surface: Id, color: Option<Color>) {
+        self.background_colors.set_opt(surface, color);
+    }
+
+    pub fn set_image(&mut self, surface: Id, image: Option<Image>) {}
+    pub fn set_text(&mut self, surface: Id, text: Option<Text>) {}
+    pub fn set_border(&mut self, surface: Id, border: Option<Border>) {}
 }
 
 #[cfg(test)]
@@ -59,7 +81,7 @@ mod tests {
     use super::*;
 
     fn test_svc() -> SurfaceService {
-        SurfaceService { children: vec![], background_colors: BTreeMap::new() }
+        SurfaceService::new()
     }
 
     #[test]
@@ -78,5 +100,18 @@ mod tests {
     }
 }
 
-type BoxShadow = ();
-type Color = ();
+trait SetOpt<K, V> {
+    fn set_opt(&mut self, key: K, opt_value: Option<V>);
+}
+
+impl <K, V> SetOpt<K, V> for BTreeMap<K, V>
+where K: Ord
+{
+    fn set_opt(&mut self, key: K, opt_value: Option<V>) {
+        if let Some(value) = opt_value {
+            self.insert(key, value);
+        } else {
+            self.remove(&key);
+        }
+    }
+}

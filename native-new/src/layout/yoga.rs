@@ -6,9 +6,18 @@ use yoga::{FlexStyle, Node as YogaNode, StyleUnit, Direction};
 use super::{ComputedLayout, Dimension, Flex, LayoutService, Rect, Size};
 use crate::Id;
 
-struct YogaLayoutService {
+pub struct YogaLayoutService {
     yoga_nodes: Vec<YogaNode>,
     computed_layouts: Vec<ComputedLayout>,
+}
+
+impl YogaLayoutService {
+    pub fn new() -> Self {
+        YogaLayoutService {
+            yoga_nodes: vec![],
+            computed_layouts: vec![]
+        }
+    }
 }
 
 impl LayoutService for YogaLayoutService {

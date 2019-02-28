@@ -2,7 +2,8 @@ import { EntryT, EntryType, Scalar, T, Variant as V } from './schema/ast'
 
 const { Tuple, Enum, Struct, Union, Newtype } = EntryType
 
-const SurfaceId = Newtype({ name: 'SurfaceId', type: T.Scalar(Scalar.U32) })
+// support type aliases
+const SurfaceId = Newtype({ name: 'SurfaceId', type: T.Scalar(Scalar.USIZE) })
 
 const Dimension = Union({
   name: 'Dimension',
@@ -39,7 +40,7 @@ const Flex = Struct({
 
 const Color = Tuple({
   name: 'Color',
-  fields: new Array(4).fill(T.Scalar(Scalar.F32))
+  fields: new Array(4).fill(T.Scalar(Scalar.U8))
 })
 
 const Vector2f = Tuple({
@@ -57,18 +58,14 @@ const BoxShadow = Struct({
   }
 })
 
-const BackgroundColor = Newtype({
-  name: 'BackgroundColor',
-  type: T.RefTo(Color.value.name)
-})
-
 const BorderStyle = Enum({ name: 'BorderStyle', variants: ['None', 'Solid'] })
 
 const BorderSide = Struct({
   name: 'BorderSide',
   members: {
-    color: T.RefTo(Color.value.name),
-    style: T.RefTo(BorderStyle.value.name)
+    width: T.Scalar(Scalar.F32),
+    style: T.RefTo(BorderStyle.value.name),
+    color: T.RefTo(Color.value.name)
   }
 })
 
@@ -87,14 +84,19 @@ const Image = Struct({
   members: { url: T.Scalar(Scalar.Str) }
 })
 
+// TODO: font family/query, weight, size
 const Text = Struct({
   name: 'Text',
-  members: { text: T.Scalar(Scalar.Str) }
+  members: {
+    color: T.RefTo(Color.value.name),
+    text: T.Scalar(Scalar.Str)
+  }
 })
 
-const SurfaceMsg = Union({
-  name: 'SurfaceMsg',
+const Msg = Union({
+  name: 'Msg',
   variants: [
+    V.Unit('HandleEvents'),
     V.Struct({
       name: 'AppendChild',
       members: {
@@ -117,54 +119,67 @@ const SurfaceMsg = Union({
         child: T.RefTo(SurfaceId.value.name)
       }
     }),
-    V.NewType({
-      name: 'SetSize',
-      type: T.RefTo(Size.value.name)
-    }),
-    V.NewType({
-      name: 'SetFlex',
-      type: T.RefTo(Flex.value.name)
-    }),
-    V.NewType({
-      name: 'SetPadding',
-      type: T.RefTo(Rect.value.name)
-    }),
-    V.NewType({
-      name: 'SetMargin',
-      type: T.RefTo(Rect.value.name)
-    }),
-    V.NewType({
-      name: 'SetBoxShadow',
-      type: T.Option(T.RefTo(BoxShadow.value.name))
-    }),
-    V.NewType({
-      name: 'SetBackgroundColor',
-      type: T.Option(T.RefTo(BackgroundColor.value.name))
-    }),
-    V.NewType({
-      name: 'SetImage',
-      type: T.Option(T.RefTo(Image.value.name))
-    }),
-    V.NewType({
-      name: 'SetText',
-      type: T.Option(T.RefTo(Text.value.name))
-    }),
-    V.NewType({
-      name: 'SetBorder',
-      type: T.Option(T.RefTo(Border.value.name))
-    })
-  ]
-})
-
-const Msg = Union({
-  name: 'Msg',
-  variants: [
-    V.Unit('CreateSurface'),
     V.Struct({
-      name: 'SurfaceMsg',
+      name: 'SetSize',
       members: {
         surface: T.RefTo(SurfaceId.value.name),
-        msg: T.RefTo(SurfaceMsg.value.name)
+        size: T.RefTo(Size.value.name)
+      }
+    }),
+    V.Struct({
+      name: 'SetFlex',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
+        flex: T.RefTo(Flex.value.name)
+      }
+    }),
+    V.Struct({
+      name: 'SetPadding',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
+        rect: T.RefTo(Rect.value.name)
+      }
+    }),
+    V.Struct({
+      name: 'SetMargin',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
+        rect: T.RefTo(Rect.value.name)
+      }
+    }),
+    V.Struct({
+      name: 'SetBoxShadow',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
+        rect: T.Option(T.RefTo(BoxShadow.value.name))
+      }
+    }),
+    V.Struct({
+      name: 'SetBackgroundColor',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
+        color: T.Option(T.RefTo(Color.value.name))
+      }
+    }),
+    V.Struct({
+      name: 'SetImage',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
+        image: T.Option(T.RefTo(Image.value.name))
+      }
+    }),
+    V.Struct({
+      name: 'SetText',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
+        text: T.Option(T.RefTo(Text.value.name))
+      }
+    }),
+    V.Struct({
+      name: 'SetBorder',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
+        border: T.Option(T.RefTo(Border.value.name))
       }
     })
   ]
@@ -172,7 +187,6 @@ const Msg = Union({
 
 export const exampleEntries: EntryT[] = [
   Msg,
-  SurfaceMsg,
   SurfaceId,
   Color,
   Flex,
@@ -181,7 +195,6 @@ export const exampleEntries: EntryT[] = [
   Rect,
   Vector2f,
   BoxShadow,
-  BackgroundColor,
   Image,
   Text,
   Border,

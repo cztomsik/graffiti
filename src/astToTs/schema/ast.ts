@@ -1,7 +1,9 @@
 import { unionize, ofType as of, UnionOf } from 'unionize'
 
 export const enum Scalar {
+  U8 = 'u8',
   U32 = 'u32',
+  USIZE = 'usize',
   F32 = 'f32',
   Str = 'str',
   Bool = 'bool'

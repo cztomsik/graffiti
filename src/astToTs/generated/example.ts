@@ -1,20 +1,17 @@
 export type Msg = 
-    | { tag: "CreateSurface"}
-    | { tag: "SurfaceMsg", value: MsgSurfaceMsg}
-;
-export type SurfaceMsg = 
-    | { tag: "AppendChild", value: SurfaceMsgAppendChild}
-    | { tag: "InsertBefore", value: SurfaceMsgInsertBefore}
-    | { tag: "RemoveChild", value: SurfaceMsgRemoveChild}
-    | { tag: "SetSize", value: Size}
-    | { tag: "SetFlex", value: Flex}
-    | { tag: "SetPadding", value: Rect}
-    | { tag: "SetMargin", value: Rect}
-    | { tag: "SetBoxShadow", value: (BoxShadow) | undefined}
-    | { tag: "SetBackgroundColor", value: (BackgroundColor) | undefined}
-    | { tag: "SetImage", value: (Image) | undefined}
-    | { tag: "SetText", value: (Text) | undefined}
-    | { tag: "SetBorder", value: (Border) | undefined}
+    | { tag: "HandleEvents"}
+    | { tag: "AppendChild", value: MsgAppendChild}
+    | { tag: "InsertBefore", value: MsgInsertBefore}
+    | { tag: "RemoveChild", value: MsgRemoveChild}
+    | { tag: "SetSize", value: MsgSetSize}
+    | { tag: "SetFlex", value: MsgSetFlex}
+    | { tag: "SetPadding", value: MsgSetPadding}
+    | { tag: "SetMargin", value: MsgSetMargin}
+    | { tag: "SetBoxShadow", value: MsgSetBoxShadow}
+    | { tag: "SetBackgroundColor", value: MsgSetBackgroundColor}
+    | { tag: "SetImage", value: MsgSetImage}
+    | { tag: "SetText", value: MsgSetText}
+    | { tag: "SetBorder", value: MsgSetBorder}
 ;
 export type SurfaceId = number & { type: 'SurfaceId'};
 export type Dimension = 
@@ -22,27 +19,66 @@ export type Dimension =
     | { tag: "Point", value: number}
     | { tag: "Percent", value: number}
 ;
-export type BackgroundColor = Color & { type: 'BackgroundColor'};
 
-export interface MsgSurfaceMsg {
-    surface: SurfaceId;
-    msg: SurfaceMsg;
-}
-
-export interface SurfaceMsgAppendChild {
+export interface MsgAppendChild {
     parent: SurfaceId;
     child: SurfaceId;
 }
 
-export interface SurfaceMsgInsertBefore {
+export interface MsgInsertBefore {
     parent: SurfaceId;
     child: SurfaceId;
     before: SurfaceId;
 }
 
-export interface SurfaceMsgRemoveChild {
+export interface MsgRemoveChild {
     parent: SurfaceId;
     child: SurfaceId;
+}
+
+export interface MsgSetSize {
+    surface: SurfaceId;
+    size: Size;
+}
+
+export interface MsgSetFlex {
+    surface: SurfaceId;
+    flex: Flex;
+}
+
+export interface MsgSetPadding {
+    surface: SurfaceId;
+    rect: Rect;
+}
+
+export interface MsgSetMargin {
+    surface: SurfaceId;
+    rect: Rect;
+}
+
+export interface MsgSetBoxShadow {
+    surface: SurfaceId;
+    rect: (BoxShadow) | undefined;
+}
+
+export interface MsgSetBackgroundColor {
+    surface: SurfaceId;
+    color: (Color) | undefined;
+}
+
+export interface MsgSetImage {
+    surface: SurfaceId;
+    image: (Image) | undefined;
+}
+
+export interface MsgSetText {
+    surface: SurfaceId;
+    text: (Text) | undefined;
+}
+
+export interface MsgSetBorder {
+    surface: SurfaceId;
+    border: (Border) | undefined;
 }
 
 export interface Color {
@@ -91,6 +127,7 @@ export interface Image {
 }
 
 export interface Text {
+    color: Color;
     text: string;
 }
 
@@ -102,8 +139,9 @@ export interface Border {
 }
 
 export interface BorderSide {
-    color: Color;
+    width: number;
     style: BorderStyle;
+    color: Color;
 }
 
 export enum BorderStyle {
@@ -111,59 +149,55 @@ export enum BorderStyle {
     Solid
 }
 
-export function mkMsgCreateSurface(): Msg {
-    return { tag: "CreateSurface"};
+export function mkMsgHandleEvents(): Msg {
+    return { tag: "HandleEvents"};
 }
 
-export function mkMsgSurfaceMsg(value: MsgSurfaceMsg): Msg {
-    return { tag: "SurfaceMsg", value};
-}
-
-export function mkSurfaceMsgAppendChild(value: SurfaceMsgAppendChild): SurfaceMsg {
+export function mkMsgAppendChild(value: MsgAppendChild): Msg {
     return { tag: "AppendChild", value};
 }
 
-export function mkSurfaceMsgInsertBefore(value: SurfaceMsgInsertBefore): SurfaceMsg {
+export function mkMsgInsertBefore(value: MsgInsertBefore): Msg {
     return { tag: "InsertBefore", value};
 }
 
-export function mkSurfaceMsgRemoveChild(value: SurfaceMsgRemoveChild): SurfaceMsg {
+export function mkMsgRemoveChild(value: MsgRemoveChild): Msg {
     return { tag: "RemoveChild", value};
 }
 
-export function mkSurfaceMsgSetSize(value: Size): SurfaceMsg {
+export function mkMsgSetSize(value: MsgSetSize): Msg {
     return { tag: "SetSize", value};
 }
 
-export function mkSurfaceMsgSetFlex(value: Flex): SurfaceMsg {
+export function mkMsgSetFlex(value: MsgSetFlex): Msg {
     return { tag: "SetFlex", value};
 }
 
-export function mkSurfaceMsgSetPadding(value: Rect): SurfaceMsg {
+export function mkMsgSetPadding(value: MsgSetPadding): Msg {
     return { tag: "SetPadding", value};
 }
 
-export function mkSurfaceMsgSetMargin(value: Rect): SurfaceMsg {
+export function mkMsgSetMargin(value: MsgSetMargin): Msg {
     return { tag: "SetMargin", value};
 }
 
-export function mkSurfaceMsgSetBoxShadow(value: (BoxShadow) | undefined): SurfaceMsg {
+export function mkMsgSetBoxShadow(value: MsgSetBoxShadow): Msg {
     return { tag: "SetBoxShadow", value};
 }
 
-export function mkSurfaceMsgSetBackgroundColor(value: (BackgroundColor) | undefined): SurfaceMsg {
+export function mkMsgSetBackgroundColor(value: MsgSetBackgroundColor): Msg {
     return { tag: "SetBackgroundColor", value};
 }
 
-export function mkSurfaceMsgSetImage(value: (Image) | undefined): SurfaceMsg {
+export function mkMsgSetImage(value: MsgSetImage): Msg {
     return { tag: "SetImage", value};
 }
 
-export function mkSurfaceMsgSetText(value: (Text) | undefined): SurfaceMsg {
+export function mkMsgSetText(value: MsgSetText): Msg {
     return { tag: "SetText", value};
 }
 
-export function mkSurfaceMsgSetBorder(value: (Border) | undefined): SurfaceMsg {
+export function mkMsgSetBorder(value: MsgSetBorder): Msg {
     return { tag: "SetBorder", value};
 }
 
@@ -197,8 +231,4 @@ export function mkRect(p0: Dimension, p1: Dimension, p2: Dimension, p3: Dimensio
 
 export function mkVector2f(p0: number, p1: number): Vector2f {
     return [p0, p1]
-}
-
-export function mkBackgroundColor(val: Color): Color & { type: 'BackgroundColor'} {
-    return val as any
 }

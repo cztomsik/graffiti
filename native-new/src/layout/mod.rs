@@ -1,6 +1,7 @@
-pub use crate::generated::{Dimension, Flex, Rect, Size};
+pub use crate::generated::{Flex, Rect, Size, Dimension};
 use crate::Id;
 mod yoga;
+pub use crate::layout::yoga::YogaLayoutService;
 
 pub trait LayoutService {
     fn append_child(&mut self, parent: Id, child: Id);

@@ -229,8 +229,9 @@ const scalarToString = (scalar: Scalar): string => {
     case Scalar.Bool:
       return 'boolean'
     case Scalar.F32:
-      return 'number'
+    case Scalar.U8:
     case Scalar.U32:
+    case Scalar.USIZE:
       return 'number'
     case Scalar.Str:
       return 'string'

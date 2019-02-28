@@ -6,35 +6,28 @@ use serde::Deserialize;
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "tag", content = "value")]
 pub enum Msg {
-    CreateSurface,
-    SurfaceMsg { surface: SurfaceId, msg: SurfaceMsg },
-}
-
-
-#[derive(Deserialize, Debug, Clone)]
-#[serde(tag = "tag", content = "value")]
-pub enum SurfaceMsg {
+    HandleEvents,
     AppendChild { parent: SurfaceId, child: SurfaceId },
     InsertBefore { parent: SurfaceId, child: SurfaceId, before: SurfaceId },
     RemoveChild { parent: SurfaceId, child: SurfaceId },
-    SetSize(Size),
-    SetFlex(Flex),
-    SetPadding(Rect),
-    SetMargin(Rect),
-    SetBoxShadow(Option<BoxShadow>),
-    SetBackgroundColor(Option<BackgroundColor>),
-    SetImage(Option<Image>),
-    SetText(Option<Text>),
-    SetBorder(Option<Border>),
+    SetSize { surface: SurfaceId, size: Size },
+    SetFlex { surface: SurfaceId, flex: Flex },
+    SetPadding { surface: SurfaceId, rect: Rect },
+    SetMargin { surface: SurfaceId, rect: Rect },
+    SetBoxShadow { surface: SurfaceId, rect: Option<BoxShadow> },
+    SetBackgroundColor { surface: SurfaceId, color: Option<Color> },
+    SetImage { surface: SurfaceId, image: Option<Image> },
+    SetText { surface: SurfaceId, text: Option<Text> },
+    SetBorder { surface: SurfaceId, border: Option<Border> },
 }
 
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct SurfaceId(pub u32);
+pub struct SurfaceId(pub usize);
 
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Color(pub f32, pub f32, pub f32, pub f32);
+pub struct Color(pub u8, pub u8, pub u8, pub u8);
 
 
 #[derive(Deserialize, Debug, Clone)]
@@ -76,10 +69,6 @@ pub struct BoxShadow {
 
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct BackgroundColor(pub Color);
-
-
-#[derive(Deserialize, Debug, Clone)]
 pub struct Image {
     pub url: String,
 }
@@ -87,6 +76,7 @@ pub struct Image {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Text {
+    pub color: Color,
     pub text: String,
 }
 
@@ -102,8 +92,9 @@ pub struct Border {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct BorderSide {
-    pub color: Color,
+    pub width: f32,
     pub style: BorderStyle,
+    pub color: Color,
 }
 
 
