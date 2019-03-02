@@ -23,36 +23,35 @@ impl YogaLayoutService {
     pub fn alloc(&mut self) {
         self.yoga_nodes.push(YogaNode::new())
     }
-}
 
-impl LayoutService for YogaLayoutService {
-    fn append_child(&mut self, parent: Id, child: Id) {
+    pub fn append_child(&mut self, parent: Id, child: Id) {
         let (parent, child) = self.yoga_nodes.get_two_muts(parent, child);
 
         let index = parent.get_child_count();
         parent.insert_child(child, index);
     }
 
-    fn remove_child(&mut self, parent: Id, child: Id) {
+    pub fn remove_child(&mut self, parent: Id, child: Id) {
         let (parent, child) = self.yoga_nodes.get_two_muts(parent, child);
 
         parent.remove_child(child);
     }
 
-    fn insert_at(&mut self, parent: Id, child: Id, index: u32) {
+    // easier with index rather than with Id
+    pub fn insert_at(&mut self, parent: Id, child: Id, index: u32) {
         let (parent, child) = self.yoga_nodes.get_two_muts(parent, child);
 
         parent.insert_child(child, index);
     }
 
-    fn set_size(&mut self, id: Id, size: Size) {
+    pub fn set_size(&mut self, id: Id, size: Size) {
         self.yoga_nodes.get_mut(id).apply_styles(&vec![
             FlexStyle::Width(size.0.into()),
             FlexStyle::Height(size.1.into()),
         ])
     }
 
-    fn set_flex(&mut self, id: Id, flex: Flex) {
+    pub fn set_flex(&mut self, id: Id, flex: Flex) {
         self.yoga_nodes.get_mut(id).apply_styles(&vec![
             FlexStyle::FlexGrow(flex.grow.into()),
             FlexStyle::FlexShrink(flex.shrink.into()),
@@ -60,7 +59,7 @@ impl LayoutService for YogaLayoutService {
         ]);
     }
 
-    fn set_padding(&mut self, id: Id, padding: Rect) {
+    pub fn set_padding(&mut self, id: Id, padding: Rect) {
         self.yoga_nodes.get_mut(id).apply_styles(&vec![
             FlexStyle::PaddingTop(padding.0.into()),
             FlexStyle::PaddingRight(padding.1.into()),
@@ -69,7 +68,7 @@ impl LayoutService for YogaLayoutService {
         ]);
     }
 
-    fn set_margin(&mut self, id: Id, margin: Rect) {
+    pub fn set_margin(&mut self, id: Id, margin: Rect) {
         self.yoga_nodes.get_mut(id).apply_styles(&vec![
             FlexStyle::MarginTop(margin.0.into()),
             FlexStyle::MarginRight(margin.1.into()),
@@ -77,7 +76,9 @@ impl LayoutService for YogaLayoutService {
             FlexStyle::MarginLeft(margin.3.into()),
         ]);
     }
+}
 
+impl LayoutService for YogaLayoutService {
     fn compute_layout(&mut self, id: Id) {
         self.yoga_nodes.get_mut(id).calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
 
