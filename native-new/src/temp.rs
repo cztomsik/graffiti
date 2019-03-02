@@ -8,6 +8,7 @@ use webrender::api::{DocumentId, RenderApi, RenderNotifier, Transaction, DeviceI
 use webrender::{Renderer, RendererOptions};
 use env_logger;
 
+static SIZE: (i32, i32) = (200, 200);
 static mut TEMP: Option<Temp> = None;
 
 pub fn init() {
@@ -23,7 +24,7 @@ pub fn init() {
         // get & init native window with gl support
         let (gl_window, gl) = {
             let gl_window = GlWindow::new(
-                WindowBuilder::new().with_dimensions(glutin::dpi::LogicalSize::new(100., 100.)),
+                WindowBuilder::new().with_dimensions(glutin::dpi::LogicalSize::new(SIZE.0 as f64, SIZE.1 as f64)),
                 glutin::ContextBuilder::new(),
                 &events_loop,
             )
@@ -41,7 +42,7 @@ pub fn init() {
             gl,
             Box::new(Notifier(events_loop.create_proxy(), tx)),
             RendererOptions {
-                device_pixel_ratio: 96.0,
+                device_pixel_ratio: 1.0,
                 ..RendererOptions::default()
             },
             None,
@@ -49,7 +50,7 @@ pub fn init() {
         .expect("couldn't create renderer");
         let render_api = sender.create_api();
 
-        let document_id = render_api.add_document(DeviceIntSize::new(100, 100), 0);
+        let document_id = render_api.add_document(DeviceIntSize::new(SIZE.0, SIZE.1), 0);
         let pipeline_id = PipelineId::dummy();
 
         let mut tx = Transaction::new();
@@ -87,7 +88,7 @@ pub fn send_frame(builder: DisplayListBuilder) {
                 let mut tx = Transaction::new();
 
                 tx.set_root_pipeline(temp.pipeline_id);
-                tx.set_display_list(Epoch(0), None, LayoutSize::new(100.0, 100.0), builder.finalize(), true);
+                tx.set_display_list(Epoch(0), None, LayoutSize::new(SIZE.0 as f32, SIZE.1 as f32), builder.finalize(), true);
                 tx.generate_frame();
 
                 temp.render_api.send_transaction(temp.document_id, tx);
@@ -96,7 +97,7 @@ pub fn send_frame(builder: DisplayListBuilder) {
                 temp.rx.recv().ok();
 
                 temp.renderer.update();
-                temp.renderer.render(DeviceIntSize::new(100, 100)).ok();
+                temp.renderer.render(DeviceIntSize::new(SIZE.0, SIZE.1)).ok();
                 temp.gl_window.swap_buffers().ok();
             },
         }

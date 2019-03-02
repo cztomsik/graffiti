@@ -12,11 +12,10 @@ extern crate log;
 
 use crate::generated::{Msg};
 use serde_json;
-use crate::layout::LayoutService;
 use crate::surface::SurfaceService;
 use crate::render::RenderService;
 use crate::generated::SurfaceId;
-use crate::layout::YogaLayoutService;
+use crate::layout::{LayoutService, YogaLayoutService};
 use crate::render::WebrenderRenderService;
 
 static mut APP: Option<Box<App>> = None;
@@ -65,6 +64,18 @@ pub extern "C" fn send(data: *const u8, len: u32) {
                     app.surface_service.remove_child(parent, child);
                     app.layout_service.remove_child(parent, child);
                 }
+                Msg::SetSize { surface, size } => {
+                    app.layout_service.set_size(surface, size);
+                }
+                Msg::SetFlex { surface, flex } => {
+                    app.layout_service.set_flex(surface, flex );
+                }
+                Msg::SetPadding { surface, padding } => {
+                    app.layout_service.set_padding(surface, padding );
+                }
+                Msg::SetMargin { surface, margin } => {
+                    app.layout_service.set_margin(surface, margin );
+                }
                 Msg::SetBoxShadow {
                     surface,
                     box_shadow,
@@ -83,10 +94,10 @@ pub extern "C" fn send(data: *const u8, len: u32) {
                 }
                 Msg::Render { surface } => {
                     let surface = app.surface_service.get_surface_data(surface);
+                    let computed_layouts = app.layout_service.get_computed_layouts(&surface);
 
-                    app.render_service.render(&surface);
+                    app.render_service.render(&surface, computed_layouts);
                 }
-                _ => {}
             }
         }
     }

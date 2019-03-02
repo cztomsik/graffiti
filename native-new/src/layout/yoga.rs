@@ -6,17 +6,16 @@ use yoga::{Direction, FlexStyle, Node as YogaNode, StyleUnit};
 use super::{ComputedLayout, Dimension, Flex, LayoutService, Rect, Size};
 use crate::Id;
 use crate::storage::DenseStorage;
+use crate::surface::SurfaceData;
 
 pub struct YogaLayoutService {
-    yoga_nodes: DenseStorage<Id, YogaNode>,
-    computed_layouts: DenseStorage<Id, ComputedLayout>,
+    yoga_nodes: DenseStorage<Id, YogaNode>
 }
 
 impl YogaLayoutService {
     pub fn new() -> Self {
         YogaLayoutService {
-            yoga_nodes: DenseStorage::new(),
-            computed_layouts: DenseStorage::new()
+            yoga_nodes: DenseStorage::new()
         }
     }
 
@@ -79,10 +78,10 @@ impl YogaLayoutService {
 }
 
 impl LayoutService for YogaLayoutService {
-    fn compute_layout(&mut self, id: Id) {
-        self.yoga_nodes.get_mut(id).calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
+    fn get_computed_layouts(&mut self, surface: &SurfaceData) -> Vec<ComputedLayout> {
+        self.yoga_nodes.get_mut(surface.id()).calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
 
-        self.computed_layouts = self
+        self
             .yoga_nodes
             .iter()
             .map(|n| {

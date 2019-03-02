@@ -50,12 +50,12 @@ export interface MsgSetFlex {
 
 export interface MsgSetPadding {
     surface: SurfaceId;
-    rect: Rect;
+    padding: Rect;
 }
 
 export interface MsgSetMargin {
     surface: SurfaceId;
-    rect: Rect;
+    margin: Rect;
 }
 
 export interface MsgSetBoxShadow {

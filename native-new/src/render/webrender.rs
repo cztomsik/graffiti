@@ -4,12 +4,14 @@ use webrender::api::{
     BoxShadowClipMode, BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, FontInstanceKey,
     IdNamespace, ImageDisplayItem, ImageKey, ImageRendering, LayoutPrimitiveInfo, LayoutRect,
     LayoutSize, NormalBorder, PipelineId, RectangleDisplayItem, SpaceAndClipInfo,
-    SpecificDisplayItem, TextDisplayItem,
+    SpecificDisplayItem, TextDisplayItem, LayoutPoint
 };
 use webrender::euclid::{TypedPoint2D, TypedSideOffsets2D, TypedSize2D};
 use crate::surface::SurfaceData;
 use crate::temp::send_frame;
 use std::fmt::Debug;
+
+static BUILDER_CAPACITY: usize = 512 * 1024;
 
 pub struct WebrenderRenderService {}
 
@@ -20,12 +22,13 @@ impl WebrenderRenderService {
 }
 
 impl RenderService for WebrenderRenderService {
-    fn render(&mut self, surface: &SurfaceData) {
-        let content_size = LayoutSize::new(100., 100.);
+    fn render(&mut self, surface: &SurfaceData, computed_layouts: Vec<ComputedLayout>) {
+        let content_size = LayoutSize::new(1000., 1000.);
         let pipeline_id = PipelineId::dummy();
 
         let mut context = RenderContext {
-            builder: DisplayListBuilder::new(pipeline_id, content_size.clone()),
+            computed_layouts,
+            builder: DisplayListBuilder::with_capacity(pipeline_id, content_size.clone(), BUILDER_CAPACITY),
             // TODO: clip (normal, border-radius, scrollframe)
             layout: LayoutPrimitiveInfo::new(content_size.into()),
             space_and_clip: SpaceAndClipInfo::root_scroll(pipeline_id)
@@ -38,6 +41,7 @@ impl RenderService for WebrenderRenderService {
 }
 
 struct RenderContext {
+    computed_layouts: Vec<ComputedLayout>,
     builder: DisplayListBuilder,
     layout: LayoutPrimitiveInfo,
     space_and_clip: SpaceAndClipInfo
@@ -45,6 +49,12 @@ struct RenderContext {
 
 impl RenderContext {
     fn render_surface(&mut self, surface: &SurfaceData) {
+        let (x, y, width, height) = self.computed_layouts[surface.id() as usize];
+
+        self.layout = LayoutPrimitiveInfo::new(LayoutRect::new(LayoutPoint::new(self.layout.rect.origin.x + x, self.layout.rect.origin.y + y), LayoutSize::new(width, height)));
+
+        debug!("surface {} {:?}", surface.id(), &self.layout);
+
         // shared, not directly rendered
         //if let Some(border_radius) = surface.border_radius {
         // TODO: set to context
@@ -77,9 +87,8 @@ impl RenderContext {
     fn render_item<T>(&mut self,
         item: Option<&T>
     ) where T: RenderItem + Debug {
-        debug!("render_item {:#?} {:?} {:?}", &item, &self.layout, &self.space_and_clip);
-
         if let Some(item) = item {
+            debug!("render_item {:#?}", &item);
             item.push_into(&mut self.builder, &self.layout, &self.space_and_clip);
         }
     }

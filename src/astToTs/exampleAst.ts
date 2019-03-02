@@ -137,14 +137,14 @@ const Msg = Union({
       name: 'SetPadding',
       members: {
         surface: T.RefTo(SurfaceId.value.name),
-        rect: T.RefTo(Rect.value.name)
+        padding: T.RefTo(Rect.value.name)
       }
     }),
     V.Struct({
       name: 'SetMargin',
       members: {
         surface: T.RefTo(SurfaceId.value.name),
-        rect: T.RefTo(Rect.value.name)
+        margin: T.RefTo(Rect.value.name)
       }
     }),
     V.Struct({
