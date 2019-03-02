@@ -1,13 +1,15 @@
-use super::{Border, BoxShadow, Color, ComputedLayout, Data, Image, RenderService, Text};
-use crate::Id;
+use super::{Border, BoxShadow, Color, ComputedLayout, Image, RenderService, Text};
 use webrender::api::{
     AlphaType, BorderDetails, BorderDisplayItem, BorderRadius, BorderSide, BorderStyle,
-    BoxShadowClipMode, BoxShadowDisplayItem, ColorF, DisplayListBuilder, FontInstanceKey,
-    ImageDisplayItem, ImageKey, ImageRendering, LayoutPrimitiveInfo, LayoutRect, LayoutSize,
-    LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem, SpaceAndClipInfo,
-    SpecificDisplayItem, TextDisplayItem, ColorU, IdNamespace
+    BoxShadowClipMode, BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, FontInstanceKey,
+    IdNamespace, ImageDisplayItem, ImageKey, ImageRendering, LayoutPrimitiveInfo, LayoutRect,
+    LayoutSize, NormalBorder, PipelineId, RectangleDisplayItem, SpaceAndClipInfo,
+    SpecificDisplayItem, TextDisplayItem,
 };
 use webrender::euclid::{TypedPoint2D, TypedSideOffsets2D, TypedSize2D};
+use crate::surface::SurfaceData;
+use crate::temp::send_frame;
+use std::fmt::Debug;
 
 pub struct WebrenderRenderService {}
 
@@ -18,56 +20,71 @@ impl WebrenderRenderService {
 }
 
 impl RenderService for WebrenderRenderService {
-    fn render(&mut self, id: Id, data: &Data) {
-        let content_size = LayoutSize::new(1024., 768.);
+    fn render(&mut self, surface: &SurfaceData) {
+        let content_size = LayoutSize::new(100., 100.);
         let pipeline_id = PipelineId::dummy();
-        let mut builder = DisplayListBuilder::new(pipeline_id, content_size);
 
-        // surface specific
-        let layout = LayoutPrimitiveInfo::new(TypedSize2D::new(100., 100.).into());
-        // TODO: clip (normal, border-radius, scrollframe)
-        let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
+        let mut context = RenderContext {
+            builder: DisplayListBuilder::new(pipeline_id, content_size.clone()),
+            // TODO: clip (normal, border-radius, scrollframe)
+            layout: LayoutPrimitiveInfo::new(content_size.into()),
+            space_and_clip: SpaceAndClipInfo::root_scroll(pipeline_id)
+        };
 
+        context.render_surface(surface);
+
+        send_frame(context.builder)
+    }
+}
+
+struct RenderContext {
+    builder: DisplayListBuilder,
+    layout: LayoutPrimitiveInfo,
+    space_and_clip: SpaceAndClipInfo
+}
+
+impl RenderContext {
+    fn render_surface(&mut self, surface: &SurfaceData) {
         // shared, not directly rendered
-        if let Some(border_radius) = data.border_radii.get(&id) {
-            // TODO: set to context
-        }
+        //if let Some(border_radius) = surface.border_radius {
+        // TODO: set to context
+        //}
 
         // TODO: hittest
 
-        render_item(data.box_shadows.get(&id), &mut builder, &layout, &space_and_clip);
+        self.render_item(surface.box_shadow());
 
-        if let Some(color) = data.background_colors.get(&id) {
-            render_item(Some(&BackgroundColor(color.clone())), &mut builder, &layout, &space_and_clip);
+        if let Some(color) = surface.background_color() {
+            self.render_item(Some(&BackgroundColor(color.clone())));
         }
 
-        render_item(data.images.get(&id), &mut builder, &layout, &space_and_clip);
+        self.render_item(surface.image());
 
         // selection should be below text
         // TODO
         // render_item(data.selections.get(&id), &mut builder, &layout, &space_and_clip);
 
-        render_item(data.texts.get(&id), &mut builder, &layout, &space_and_clip);
+        self.render_item(surface.text());
 
-        if let Some(children) = data.children.get(id) {
-            for child_id in children {
-                // TODO: layout, space_and_clip, border_radius
-                //render(
-                //    child_id,
-                //    box_shadows,
-                //    background_colors,
-                //    ...
-                //)
-            }
+        for child_surface in surface.children() {
+            // TODO: layout, offset, space_and_clip, border_radius
+            self.render_surface(&child_surface);
+        }
+
+        self.render_item(surface.border());
+    }
+
+    fn render_item<T>(&mut self,
+        item: Option<&T>
+    ) where T: RenderItem + Debug {
+        debug!("render_item {:#?} {:?} {:?}", &item, &self.layout, &self.space_and_clip);
+
+        if let Some(item) = item {
+            item.push_into(&mut self.builder, &self.layout, &self.space_and_clip);
         }
     }
 }
 
-fn render_item<T>(item: Option<&T>, builder: &mut DisplayListBuilder, layout: &LayoutPrimitiveInfo, space_and_clip: &SpaceAndClipInfo) where T: RenderItem {
-    if let Some(item) = item {
-        item.render_using(builder, layout, space_and_clip);
-    }
-}
 
 trait RenderItem {
     // so that we can test it
@@ -75,7 +92,7 @@ trait RenderItem {
 
     // so that we can customize it if necessary (push_iter() for text)
     // NOTE: trait can be resolved statically (in contrast to match clause)
-    fn render_using(
+    fn push_into(
         &self,
         builder: &mut DisplayListBuilder,
         layout: &LayoutPrimitiveInfo,
@@ -106,6 +123,7 @@ impl RenderItem for BoxShadow {
 }
 
 // just so that we can implement the trait
+#[derive(Debug)]
 struct BackgroundColor(Color);
 
 impl RenderItem for BackgroundColor {

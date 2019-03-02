@@ -2,6 +2,7 @@ import { unionize, ofType as of, UnionOf } from 'unionize'
 
 export const enum Scalar {
   U8 = 'u8',
+  U16 = 'u16',
   U32 = 'u32',
   USIZE = 'usize',
   F32 = 'f32',
@@ -34,10 +35,16 @@ export type NewTypeDesc = {
   type: Type
 }
 
+export type AliasDesc = {
+  name: string
+  type: Type
+}
+
 const withTagAndValueProps = { tag: 'tag' as 'tag', value: 'value' as 'value' }
 
 export const EntryType = unionize(
   {
+    Alias: of<AliasDesc>(),
     Struct: of<StructDesc>(),
     Enum: of<EnumDesc>(),
     Tuple: of<TupleDesc>(),

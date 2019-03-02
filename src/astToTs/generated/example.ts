@@ -1,5 +1,6 @@
 export type Msg = 
     | { tag: "HandleEvents"}
+    | { tag: "Alloc"}
     | { tag: "AppendChild", value: MsgAppendChild}
     | { tag: "InsertBefore", value: MsgInsertBefore}
     | { tag: "RemoveChild", value: MsgRemoveChild}
@@ -12,8 +13,9 @@ export type Msg =
     | { tag: "SetImage", value: MsgSetImage}
     | { tag: "SetText", value: MsgSetText}
     | { tag: "SetBorder", value: MsgSetBorder}
+    | { tag: "Render", value: MsgRender}
 ;
-export type SurfaceId = number & { type: 'SurfaceId'};
+export type SurfaceId = number;
 export type Dimension = 
     | { tag: "Auto"}
     | { tag: "Point", value: number}
@@ -58,7 +60,7 @@ export interface MsgSetMargin {
 
 export interface MsgSetBoxShadow {
     surface: SurfaceId;
-    rect: (BoxShadow) | undefined;
+    box_shadow: (BoxShadow) | undefined;
 }
 
 export interface MsgSetBackgroundColor {
@@ -79,6 +81,10 @@ export interface MsgSetText {
 export interface MsgSetBorder {
     surface: SurfaceId;
     border: (Border) | undefined;
+}
+
+export interface MsgRender {
+    surface: SurfaceId;
 }
 
 export interface Color {
@@ -153,6 +159,10 @@ export function mkMsgHandleEvents(): Msg {
     return { tag: "HandleEvents"};
 }
 
+export function mkMsgAlloc(): Msg {
+    return { tag: "Alloc"};
+}
+
 export function mkMsgAppendChild(value: MsgAppendChild): Msg {
     return { tag: "AppendChild", value};
 }
@@ -201,8 +211,8 @@ export function mkMsgSetBorder(value: MsgSetBorder): Msg {
     return { tag: "SetBorder", value};
 }
 
-export function mkSurfaceId(val: number): number & { type: 'SurfaceId'} {
-    return val as any
+export function mkMsgRender(value: MsgRender): Msg {
+    return { tag: "Render", value};
 }
 
 export function mkColor(p0: number, p1: number, p2: number, p3: number): Color {

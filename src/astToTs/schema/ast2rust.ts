@@ -17,6 +17,7 @@ type Entries = string[]
 export const makeRustFile = (entries: EntryT[]): Entries =>
   entries.map(
     EntryType.match({
+      Alias: aliasToAlias,
       Enum: enumToEnum,
       Newtype: newtypeToStruct,
       Tuple: tupleToStruct,
@@ -24,6 +25,10 @@ export const makeRustFile = (entries: EntryT[]): Entries =>
       Union: unionToEnum
     })
   )
+
+const aliasToAlias = ({ name, type }) => `
+pub type ${name} = ${typeToString(type)};
+`
 
 const enumToEnum = ({ name, variants }: EnumDesc): string => `
 #[derive(Deserialize, Debug, Clone)]
@@ -83,6 +88,8 @@ const scalarToString = (scalar: Scalar): string => {
       return 'f32'
     case Scalar.U8:
       return 'u8'
+    case Scalar.U16:
+      return 'u16'
     case Scalar.U32:
       return 'u32'
     case Scalar.USIZE:

@@ -1,9 +1,8 @@
 import { EntryT, EntryType, Scalar, T, Variant as V } from './schema/ast'
 
-const { Tuple, Enum, Struct, Union, Newtype } = EntryType
+const { Tuple, Enum, Struct, Union, Newtype, Alias } = EntryType
 
-// support type aliases
-const SurfaceId = Newtype({ name: 'SurfaceId', type: T.Scalar(Scalar.USIZE) })
+const SurfaceId = Alias({ name: 'SurfaceId', type: T.Scalar(Scalar.U16) })
 
 const Dimension = Union({
   name: 'Dimension',
@@ -97,6 +96,7 @@ const Msg = Union({
   name: 'Msg',
   variants: [
     V.Unit('HandleEvents'),
+    V.Unit('Alloc'),
     V.Struct({
       name: 'AppendChild',
       members: {
@@ -151,7 +151,7 @@ const Msg = Union({
       name: 'SetBoxShadow',
       members: {
         surface: T.RefTo(SurfaceId.value.name),
-        rect: T.Option(T.RefTo(BoxShadow.value.name))
+        box_shadow: T.Option(T.RefTo(BoxShadow.value.name))
       }
     }),
     V.Struct({
@@ -180,6 +180,12 @@ const Msg = Union({
       members: {
         surface: T.RefTo(SurfaceId.value.name),
         border: T.Option(T.RefTo(Border.value.name))
+      }
+    }),
+    V.Struct({
+      name: 'Render',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
       }
     })
   ]

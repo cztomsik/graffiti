@@ -7,6 +7,7 @@ use serde::Deserialize;
 #[serde(tag = "tag", content = "value")]
 pub enum Msg {
     HandleEvents,
+    Alloc,
     AppendChild { parent: SurfaceId, child: SurfaceId },
     InsertBefore { parent: SurfaceId, child: SurfaceId, before: SurfaceId },
     RemoveChild { parent: SurfaceId, child: SurfaceId },
@@ -14,16 +15,16 @@ pub enum Msg {
     SetFlex { surface: SurfaceId, flex: Flex },
     SetPadding { surface: SurfaceId, rect: Rect },
     SetMargin { surface: SurfaceId, rect: Rect },
-    SetBoxShadow { surface: SurfaceId, rect: Option<BoxShadow> },
+    SetBoxShadow { surface: SurfaceId, box_shadow: Option<BoxShadow> },
     SetBackgroundColor { surface: SurfaceId, color: Option<Color> },
     SetImage { surface: SurfaceId, image: Option<Image> },
     SetText { surface: SurfaceId, text: Option<Text> },
     SetBorder { surface: SurfaceId, border: Option<Border> },
+    Render { surface: SurfaceId },
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
-pub struct SurfaceId(pub usize);
+pub type SurfaceId = u16;
 
 
 #[derive(Deserialize, Debug, Clone)]

@@ -2,7 +2,7 @@
 // cargo build
 // npx ts-node test.ts
 
-import { mkColor, Msg, mkSurfaceId, mkVector2f } from '../src/astToTs/generated/example'
+import { mkColor, Msg, mkMsgHandleEvents, mkMsgAlloc, mkMsgSetBackgroundColor, mkMsgRender } from '../src/astToTs/generated/example'
 
 const ref = require('ref');
 const ffi = require('ffi');
@@ -16,12 +16,16 @@ const libnode_webrender = ffi.Library('./target/debug/libnode_webrender', {
 
 libnode_webrender.init()
 
-send({ tag: 'Alloc' })
-
 // necessary for window to stay responsive
-setInterval(() => send({ tag: 'HandleEvents' }), 30)
+setInterval(() => {
+  send(mkMsgHandleEvents())
+  send(mkMsgRender({ surface: 0 }))
+}, 100)
 
-function send(msg) {
+send(mkMsgAlloc())
+send(mkMsgSetBackgroundColor({ surface: 0, color: mkColor(255, 0, 127, 255) }))
+
+function send(msg: Msg) {
   // prepare buffer with msg
   let buf = Buffer.from(JSON.stringify(msg))
 

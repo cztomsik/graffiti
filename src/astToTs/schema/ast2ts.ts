@@ -27,6 +27,12 @@ export const makeFileStructure = (entries: EntryT[]) =>
   entries.reduce<StatementedNodeStructure>(
     (file, entry) =>
       EntryType.match(entry, {
+        Alias: (desc) => ({
+          ...file,
+          typeAliases: (file.typeAliases || []).concat(
+            aliasToAlias(desc)
+          )
+        }),
         Struct: (desc): StatementedNodeStructure => ({
           ...file,
           interfaces: (file.interfaces || []).concat(structToInterface(desc))
@@ -61,6 +67,12 @@ export const makeFileStructure = (entries: EntryT[]) =>
       }),
     {}
   )
+
+const aliasToAlias = ({ name, type }) => ({
+  name,
+  isExported: true,
+  type: typeToString(type)
+})
 
 const enumToEnum = ({
   name,
@@ -230,6 +242,7 @@ const scalarToString = (scalar: Scalar): string => {
       return 'boolean'
     case Scalar.F32:
     case Scalar.U8:
+    case Scalar.U16:
     case Scalar.U32:
     case Scalar.USIZE:
       return 'number'

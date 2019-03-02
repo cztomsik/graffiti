@@ -1,4 +1,4 @@
-pub use crate::generated::{Flex, Rect, Size, Dimension};
+pub use crate::generated::{Dimension, Flex, Rect, Size};
 use crate::Id;
 mod yoga;
 pub use crate::layout::yoga::YogaLayoutService;
@@ -15,7 +15,6 @@ pub trait LayoutService {
     fn set_padding(&mut self, id: Id, padding: Rect);
     fn set_margin(&mut self, id: Id, padding: Rect);
     fn compute_layout(&mut self, id: Id);
-    fn get_computed_layout(&self, id: Id) -> ComputedLayout;
 }
 
 pub type ComputedLayout = (f32, f32, f32, f32);

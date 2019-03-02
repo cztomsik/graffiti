@@ -4,12 +4,15 @@
 
 use glutin::{EventsLoop, GlContext, GlWindow, WindowBuilder};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use webrender::api::{DocumentId, RenderApi, RenderNotifier};
+use webrender::api::{DocumentId, RenderApi, RenderNotifier, Transaction, DeviceIntSize, DisplayListBuilder, Epoch, LayoutSize, PipelineId};
 use webrender::{Renderer, RendererOptions};
+use env_logger;
 
 static mut TEMP: Option<Temp> = None;
 
 pub fn init() {
+    env_logger::init();
+
     unsafe {
         // so that we can block until the frame is actually rendered
         let (tx, rx) = channel();
@@ -20,7 +23,7 @@ pub fn init() {
         // get & init native window with gl support
         let (gl_window, gl) = {
             let gl_window = GlWindow::new(
-                WindowBuilder::new().with_dimensions(glutin::dpi::LogicalSize::new(200., 200.)),
+                WindowBuilder::new().with_dimensions(glutin::dpi::LogicalSize::new(100., 100.)),
                 glutin::ContextBuilder::new(),
                 &events_loop,
             )
@@ -46,12 +49,23 @@ pub fn init() {
         .expect("couldn't create renderer");
         let render_api = sender.create_api();
 
+        let document_id = render_api.add_document(DeviceIntSize::new(100, 100), 0);
+        let pipeline_id = PipelineId::dummy();
+
+        let mut tx = Transaction::new();
+        tx.set_root_pipeline(pipeline_id);
+        tx.generate_frame();
+        render_api.send_transaction(document_id, tx);
+        rx.recv().ok();
+
         TEMP = Some(Temp {
             events_loop,
             gl_window,
             render_api,
             renderer,
             rx,
+            document_id,
+            pipeline_id
         });
     }
 }
@@ -65,12 +79,38 @@ pub fn handle_events() {
     }
 }
 
+pub fn send_frame(builder: DisplayListBuilder) {
+    unsafe {
+        match TEMP {
+            None => {}
+            Some(ref mut temp) => {
+                let mut tx = Transaction::new();
+
+                tx.set_root_pipeline(temp.pipeline_id);
+                tx.set_display_list(Epoch(0), None, LayoutSize::new(100.0, 100.0), builder.finalize(), true);
+                tx.generate_frame();
+
+                temp.render_api.send_transaction(temp.document_id, tx);
+
+                debug!("waiting for frame");
+                temp.rx.recv().ok();
+
+                temp.renderer.update();
+                temp.renderer.render(DeviceIntSize::new(100, 100)).ok();
+                temp.gl_window.swap_buffers().ok();
+            },
+        }
+    }
+}
+
 struct Temp {
     events_loop: EventsLoop,
     gl_window: GlWindow,
     render_api: RenderApi,
     renderer: Renderer,
     rx: Receiver<()>,
+    document_id: DocumentId,
+    pipeline_id: PipelineId
 }
 
 struct Notifier(glutin::EventsLoopProxy, Sender<()>);
