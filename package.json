@@ -33,14 +33,14 @@
     "@types/node": "^10.12.1",
     "@types/react-native": "^0.57.18",
     "@types/yoga-layout": "^1.9.0",
-    "react": "16.7.0-alpha.2",
-    "react-devtools-core": "^3.4.3",
-    "react-reconciler": "0.18.0-alpha.2",
-    "scheduler": "0.12.0-alpha.2",
+    "react": "^16.8.3",
+    "react-devtools-core": "^3.6.0",
+    "react-reconciler": "^0.20.1",
+    "scheduler": "^0.13.3",
+    "ts-morph": "^1.1.0",
     "ts-node": "^8.0.2",
     "typescript": "^3.2.2",
     "unionize": "^2.1.2",
-    "ts-morph": "^1.1.0",
     "ws": "^6.1.2"
   }
 }

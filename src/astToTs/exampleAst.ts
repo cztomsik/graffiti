@@ -28,12 +28,31 @@ const Rect = Tuple({
   ]
 })
 
+const FlexAlign = Enum({ name: 'FlexAlign', variants: ['Auto', 'FlexStart', 'Center', 'FlexEnd', 'Stretch', 'Baseline', 'SpaceBetween', 'SpaceAround'] })
+
+const JustifyContent = Enum({ name: 'JustifyContent', variants: ['FlexStart', 'Center', 'FlexEnd', 'SpaceBetween', 'SpaceAround', 'SpaceEvenly'] })
+
+const FlexDirection = Enum({ name: 'FlexDirection', variants: ['Column', 'ColumnReverse', 'Row', 'RowReverse'] })
+
+const FlexWrap = Enum({ name: 'FlexWrap', variants: ['NoWrap', 'Wrap', 'WrapReverse'] })
+
+const Flow = Struct({
+  name: 'Flow',
+  members: {
+    flexDirection: T.RefTo(FlexDirection.value.name),
+    flexWrap: T.RefTo(FlexWrap.value.name),
+    alignContent: T.RefTo(FlexAlign.value.name),
+    alignItems: T.RefTo(FlexAlign.value.name),
+    justifyContent: T.RefTo(JustifyContent.value.name),
+  }
+})
+
 const Flex = Struct({
   name: 'Flex',
   members: {
-    grow: T.Scalar(Scalar.F32),
-    shrink: T.Scalar(Scalar.F32),
-    basis: T.RefTo(Dimension.value.name)
+    flexGrow: T.Scalar(Scalar.F32),
+    flexShrink: T.Scalar(Scalar.F32),
+    flexBasis: T.RefTo(Dimension.value.name)
   }
 })
 
@@ -93,6 +112,8 @@ const Text = Struct({
   name: 'Text',
   members: {
     color: T.RefTo(Color.value.name),
+    fontSize: T.Scalar(Scalar.F32),
+    lineHeight: T.Scalar(Scalar.F32),
     text: T.Scalar(Scalar.Str)
   }
 })
@@ -143,6 +164,13 @@ const Msg = Union({
       members: {
         surface: T.RefTo(SurfaceId.value.name),
         flex: T.RefTo(Flex.value.name)
+      }
+    }),
+    V.Struct({
+      name: 'SetFlow',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
+        flow: T.RefTo(Flow.value.name)
       }
     }),
     V.Struct({
@@ -207,6 +235,11 @@ export const exampleEntries: EntryT[] = [
   Msg,
   SurfaceId,
   Color,
+  FlexDirection,
+  FlexWrap,
+  FlexAlign,
+  JustifyContent,
+  Flow,
   Flex,
   Dimension,
   Size,

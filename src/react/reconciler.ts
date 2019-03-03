@@ -6,19 +6,46 @@ import {
   unstable_shouldYield as shouldYield,
   unstable_cancelCallback as cancelDeferredCallback
 } from 'scheduler'
-import { Surface, TextContainer, TextPart, Img } from '../core'
 import initDevtools from './devtools'
 import ErrorBoundary from './ErrorBoundary'
 import ControlManager, { ControlManagerContext } from './ControlManager'
-import { BridgeBrush, BridgeClip } from '../core/ResourceManager'
-import { N } from '../core/nativeApi'
-import { BridgeColor } from '../core/RenderOperation'
 
-const enum ElementType {
-  Surface = 'host-surface',
-  TextContainer = 'host-text-container',
-  Image = 'host-image'
+import { Msg, mkMsgHandleEvents, mkMsgRender, mkMsgAlloc, Size, Color, Flex, Image, Border, Text, mkMsgSetPadding, mkMsgSetMargin, mkMsgSetFlex, mkDimensionAuto, mkSize, mkDimensionPercent, Flow, mkMsgSetFlow } from '../astToTs/generated/example'
+import { mkMsgSetSize, mkMsgSetBackgroundColor, mkMsgAppendChild, mkMsgInsertBefore, mkMsgRemoveChild } from '../astToTs/generated/example'
+
+const ref = require('ref');
+const ffi = require('ffi');
+
+// define lib
+export const lib = ffi.Library(__dirname + '/../../native-new/target/debug/libnode_webrender', {
+  init: ['void', []],
+  // pass a buffer (pointer to some memory + its length)
+  'send': ['void', [ref.refType(ref.types.void), 'int']]
+});
+
+lib.init()
+send(mkMsgAlloc())
+send(mkMsgSetSize({ surface: 0, size: mkSize(mkDimensionPercent(100), mkDimensionAuto()) }))
+send(mkMsgSetFlex({ surface: 0, flex: { flexGrow: 1, flexShrink: 1, flexBasis: mkDimensionAuto() } }))
+
+// necessary for window to stay responsive
+setInterval(() => {
+  send(mkMsgHandleEvents())
+}, 200)
+
+function send(msg: Msg) {
+  console.log(msg)
+  // prepare buffer with msg
+  let buf = Buffer.from(JSON.stringify(msg))
+
+  // send (sync)
+  lib.send(buf, buf.length)
 }
+
+// temporary helpers
+let __ROOT_SURFACE__ = 0
+// because root is 0
+let __nextId__ = 1
 
 const NOOP = () => undefined
 const IDENTITY = v => v
@@ -35,7 +62,7 @@ const reconciler = Reconciler({
   prepareUpdate: () => true,
   shouldSetTextContent: () => false,
   shouldDeprioritizeSubtree: () => false,
-  createTextInstance: str => new TextPart(str),
+  createTextInstance: NOOP,
   scheduleDeferredCallback,
   cancelDeferredCallback,
   shouldYield,
@@ -51,11 +78,9 @@ const reconciler = Reconciler({
   // mutation
   appendChild,
   appendChildToContainer: appendChild,
-  commitTextUpdate: (textInstance, oldText, newText) =>
-    textInstance.setValue(newText),
+  commitTextUpdate: NOOP,
   commitMount: NOOP,
-  commitUpdate: (instance, payload, type, oldProps, newProps, handle) =>
-    instance.update(newProps),
+  commitUpdate: (surface, payload, type, oldProps, newProps, handle) => update(surface, newProps, oldProps),
   insertBefore,
   insertInContainerBefore: insertBefore,
   removeChild,
@@ -83,77 +108,84 @@ export function render(vnode, window, cb?) {
   vnode = React.createElement(ErrorBoundary, null, vnode)
 
   if (window._reactRoot === undefined) {
-    window._reactRoot = reconciler.createContainer(window, false, false)
+    window._reactRoot = reconciler.createContainer(__ROOT_SURFACE__, false, false)
   }
 
   return reconciler.updateContainer(vnode, window._reactRoot, null, cb)
 }
 
 function createInstance(type, props) {
-  const inst = createEmpty(type)
-  ;(inst as any).update(props)
+  send(mkMsgAlloc())
+  let id = __nextId__++
 
-  return inst
+  update(id, props, {})
+
+  return id
 }
 
-function createEmpty(type: ElementType) {
-  switch (type) {
-    case ElementType.Surface:
-      return new Surface()
-    case ElementType.TextContainer:
-      return new TextContainer()
-    case ElementType.Image:
-      return new Img()
+function update(surface, props: HostSurfaceProps, oldProps: HostSurfaceProps) {
+  if (props.size !== oldProps.size) {
+    send(mkMsgSetSize({ surface, size: props.size }))
   }
 
-  throw new Error('unknown type')
+  if (props.flex !== oldProps.flex) {
+    send(mkMsgSetFlex({ surface, flex: props.flex }))
+  }
+
+  if (props.flow !== oldProps.flow) {
+    send(mkMsgSetFlow({ surface, flow: props.flow }))
+  }
+
+  if (props.padding !== oldProps.padding) {
+    send(mkMsgSetPadding({ surface, padding: props.padding }))
+  }
+
+  if (props.margin !== oldProps.margin) {
+    send(mkMsgSetMargin({ surface, margin: props.margin }))
+  }
+
+  if (props.backgroundColor !== oldProps.backgroundColor) {
+    send(mkMsgSetBackgroundColor({ surface, color: props.backgroundColor }))
+  }
 }
 
 function appendChild(parent, child) {
-  parent.appendChild(child)
+  send(mkMsgAppendChild({ parent, child }))
 }
 
 function removeChild(parent, child) {
-  parent.removeChild(child)
+  send(mkMsgRemoveChild({ parent, child }))
 }
 
 function insertBefore(parent, child, before) {
-  parent.insertBefore(child, before)
+  send(mkMsgInsertBefore({ parent, child, before }))
 }
-
 function resetAfterCommit(window) {
-  window.renderLater()
+  send(mkMsgRender({ surface: 0 }))
 }
 
 export interface HostSurfaceProps {
-  brush?: BridgeBrush
-  layout?: N.FlexStyle
-  clip?: BridgeClip
-}
-
-export interface HostTextContainerProps {
-  color?: BridgeColor
-  fontSize?: number
-  lineHeight?: number
-}
-
-export interface HostImageProps {
-  imgBrush: N.ResourceHandle
+  size?: Size
+  flex?: Flex
+  flow?: Flow
+  padding?: any
+  margin?: any
+  backgroundColor?: Color
+  image?: Image
+  text?: Text
+  border?: Border
+  children?: any
 }
 
 declare global {
   namespace JSX {
     interface IntrinsicAttributes {
       children?: any
-      key?: any
+      key?: any,
     }
 
     interface IntrinsicElements {
       'host-surface': HostSurfaceProps
-
-      'host-text-container': HostTextContainerProps
-
-      'host-image': HostImageProps
     }
   }
 }

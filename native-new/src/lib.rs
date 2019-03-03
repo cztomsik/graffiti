@@ -39,7 +39,7 @@ pub extern "C" fn send(data: *const u8, len: u32) {
     let msg = unsafe { std::slice::from_raw_parts(data, len as usize) };
     let msg: Msg = serde_json::from_slice(msg).expect("invalid message");
 
-    debug!("Msg {:#?}", &msg);
+    debug!("Msg {:?}", &msg);
 
     unsafe {
         match APP {
@@ -69,6 +69,9 @@ pub extern "C" fn send(data: *const u8, len: u32) {
                 }
                 Msg::SetSize { surface, size } => {
                     app.layout_service.set_size(surface, size);
+                }
+                Msg::SetFlow { surface, flow } => {
+                    app.layout_service.set_flow(surface, flow );
                 }
                 Msg::SetFlex { surface, flex } => {
                     app.layout_service.set_flex(surface, flex );

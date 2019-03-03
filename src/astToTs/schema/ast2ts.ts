@@ -80,7 +80,7 @@ const enumToEnum = ({
 }: EnumDesc): EnumDeclarationStructure => ({
   name,
   isExported: true,
-  members: variants.map(v => ({ name: v }))
+  members: variants.map(v => ({ name: v, value: v }))
 })
 
 // const unionToTagEnum = ({

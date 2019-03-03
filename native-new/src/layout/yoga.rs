@@ -2,8 +2,9 @@
 use ordered_float::OrderedFloat;
 use std::f32;
 use yoga::{Direction, FlexStyle, Node as YogaNode, StyleUnit};
+use yoga::types::{FlexDirection as YogaFlexDirection};
 
-use super::{ComputedLayout, Dimension, Flex, LayoutService, Rect, Size};
+use super::{ComputedLayout, Dimension, Flex, LayoutService, Rect, Size, Flow, FlexDirection};
 use crate::Id;
 use crate::storage::DenseStorage;
 use crate::surface::SurfaceData;
@@ -52,9 +53,16 @@ impl YogaLayoutService {
 
     pub fn set_flex(&mut self, id: Id, flex: Flex) {
         self.yoga_nodes.get_mut(id).apply_styles(&vec![
-            FlexStyle::FlexGrow(flex.grow.into()),
-            FlexStyle::FlexShrink(flex.shrink.into()),
-            FlexStyle::FlexBasis(flex.basis.into()),
+            FlexStyle::FlexGrow(flex.flex_grow.into()),
+            FlexStyle::FlexShrink(flex.flex_shrink.into()),
+            FlexStyle::FlexBasis(flex.flex_basis.into()),
+        ]);
+    }
+
+    pub fn set_flow(&mut self, id: Id, flow: Flow) {
+        self.yoga_nodes.get_mut(id).apply_styles(&vec![
+            FlexStyle::FlexDirection(flow.flex_direction.into()),
+            // TODO
         ]);
     }
 
@@ -102,6 +110,17 @@ impl Into<StyleUnit> for Dimension {
             Dimension::Auto => StyleUnit::Auto,
             Dimension::Percent(f) => StyleUnit::Percent(f.into()),
             Dimension::Point(f) => StyleUnit::Point(f.into()),
+        }
+    }
+}
+
+impl Into<YogaFlexDirection> for FlexDirection {
+    fn into(self) -> YogaFlexDirection {
+        match self {
+            FlexDirection::Column => YogaFlexDirection::Column,
+            FlexDirection::ColumnReverse => YogaFlexDirection::ColumnReverse,
+            FlexDirection::Row => YogaFlexDirection::Row,
+            FlexDirection::RowReverse => YogaFlexDirection::RowReverse,
         }
     }
 }

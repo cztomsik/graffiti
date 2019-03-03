@@ -14,6 +14,7 @@ pub enum Msg {
     SetBorderRadius { surface: SurfaceId, border_radius: Option<BorderRadius> },
     SetSize { surface: SurfaceId, size: Size },
     SetFlex { surface: SurfaceId, flex: Flex },
+    SetFlow { surface: SurfaceId, flow: Flow },
     SetPadding { surface: SurfaceId, padding: Rect },
     SetMargin { surface: SurfaceId, margin: Rect },
     SetBoxShadow { surface: SurfaceId, box_shadow: Option<BoxShadow> },
@@ -33,10 +34,77 @@ pub struct Color(pub u8, pub u8, pub u8, pub u8);
 
 
 #[derive(Deserialize, Debug, Clone)]
+pub enum FlexDirection {
+    Column,
+    ColumnReverse,
+    Row,
+    RowReverse,
+}
+
+
+#[derive(Deserialize, Debug, Clone)]
+pub enum FlexWrap {
+    NoWrap,
+    Wrap,
+    WrapReverse,
+}
+
+
+#[derive(Deserialize, Debug, Clone)]
+pub enum FlexAlign {
+    Auto,
+    FlexStart,
+    Center,
+    FlexEnd,
+    Stretch,
+    Baseline,
+    SpaceBetween,
+    SpaceAround,
+}
+
+
+#[derive(Deserialize, Debug, Clone)]
+pub enum JustifyContent {
+    FlexStart,
+    Center,
+    FlexEnd,
+    SpaceBetween,
+    SpaceAround,
+    SpaceEvenly,
+}
+
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct Flow {
+    #[serde(rename = "flexDirection")]
+    pub flex_direction: FlexDirection,
+
+    #[serde(rename = "flexWrap")]
+    pub flex_wrap: FlexWrap,
+
+    #[serde(rename = "alignContent")]
+    pub align_content: FlexAlign,
+
+    #[serde(rename = "alignItems")]
+    pub align_items: FlexAlign,
+
+    #[serde(rename = "justifyContent")]
+    pub justify_content: JustifyContent,
+
+}
+
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct Flex {
-    pub grow: f32,
-    pub shrink: f32,
-    pub basis: Dimension,
+    #[serde(rename = "flexGrow")]
+    pub flex_grow: f32,
+
+    #[serde(rename = "flexShrink")]
+    pub flex_shrink: f32,
+
+    #[serde(rename = "flexBasis")]
+    pub flex_basis: Dimension,
+
 }
 
 
@@ -83,6 +151,12 @@ pub struct Image {
 #[derive(Deserialize, Debug, Clone)]
 pub struct Text {
     pub color: Color,
+    #[serde(rename = "fontSize")]
+    pub font_size: f32,
+
+    #[serde(rename = "lineHeight")]
+    pub line_height: f32,
+
     pub text: String,
 }
 

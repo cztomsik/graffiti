@@ -1,12 +1,9 @@
-import { Container } from './types'
-import { Surface, TextContainer } from '.'
 import { NativeApi, N } from './nativeApi'
-import ResourceManager, { BridgeBrush, BridgeClip } from './ResourceManager'
-const native: NativeApi = require('../../native')
 
-class Window implements Container<Surface | TextContainer> {
+type TextContainer = any
+
+class Window {
   ref: N.Window
-  root = new Surface()
   width
   height
   onClose = DEFAULT_CLOSE
@@ -14,9 +11,9 @@ class Window implements Container<Surface | TextContainer> {
   renderScheduled = false
 
   constructor(title, width = 800, height = 600) {
-    this.ref = native.window_create(title, width, height, evStr =>
-      this.handleEvent(JSON.parse(evStr))
-    )
+    //this.ref = native.window_create(title, width, height, evStr =>
+    //  this.handleEvent(JSON.parse(evStr))
+    //)
 
     windowCount++
 
@@ -25,8 +22,6 @@ class Window implements Container<Surface | TextContainer> {
     // TODO: listen for changes
     this.width = width
     this.height = height
-
-    this.root.update({ layout: FILL_LAYOUT })
   }
 
   // TODO
@@ -58,25 +53,7 @@ class Window implements Container<Surface | TextContainer> {
     throw new Error('unknown event')
   }
 
-  appendChild(child) {
-    this.root.appendChild(child)
-  }
-
-  insertBefore(child, before) {
-    this.root.insertBefore(child, before)
-  }
-
-  removeChild(child) {
-    this.root.removeChild(child)
-  }
-
   render() {
-    return native.window_render_surface(
-      this.ref,
-      this.root.ref,
-      this.width,
-      this.height
-    )
   }
 
   renderLater() {
@@ -102,12 +79,12 @@ const DEFAULT_CLOSE = () => {
 }
 
 const handleEvents = () => {
-  native.app_loop_a_bit()
+  //native.app_loop_a_bit()
 
   setImmediate(handleEvents)
 }
 
-handleEvents()
+//handleEvents()
 
 // TODO: refactor rust so ResourceManager is separate from Window
 // (almost done, we just need to get glyph indices & advances)
@@ -117,7 +94,5 @@ function ResourceManagerHack(window: Window) {
 export let WINDOW_HACK: Window = null
 
 export const __callbacks = []
-
-const FILL_LAYOUT = ResourceManager.getLayout({ width: '100%', height: '100%' })
 
 export default Window

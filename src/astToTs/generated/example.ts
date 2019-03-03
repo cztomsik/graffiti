@@ -7,6 +7,7 @@ export type Msg =
     | { tag: "SetBorderRadius", value: MsgSetBorderRadius}
     | { tag: "SetSize", value: MsgSetSize}
     | { tag: "SetFlex", value: MsgSetFlex}
+    | { tag: "SetFlow", value: MsgSetFlow}
     | { tag: "SetPadding", value: MsgSetPadding}
     | { tag: "SetMargin", value: MsgSetMargin}
     | { tag: "SetBoxShadow", value: MsgSetBoxShadow}
@@ -52,6 +53,11 @@ export interface MsgSetSize {
 export interface MsgSetFlex {
     surface: SurfaceId;
     flex: Flex;
+}
+
+export interface MsgSetFlow {
+    surface: SurfaceId;
+    flow: Flow;
 }
 
 export interface MsgSetPadding {
@@ -101,10 +107,18 @@ export interface Color {
     length: 4;
 }
 
+export interface Flow {
+    flexDirection: FlexDirection;
+    flexWrap: FlexWrap;
+    alignContent: FlexAlign;
+    alignItems: FlexAlign;
+    justifyContent: JustifyContent;
+}
+
 export interface Flex {
-    grow: number;
-    shrink: number;
-    basis: Dimension;
+    flexGrow: number;
+    flexShrink: number;
+    flexBasis: Dimension;
 }
 
 export interface Size {
@@ -148,6 +162,8 @@ export interface Image {
 
 export interface Text {
     color: Color;
+    fontSize: number;
+    lineHeight: number;
     text: string;
 }
 
@@ -164,9 +180,42 @@ export interface BorderSide {
     color: Color;
 }
 
+export enum FlexDirection {
+    Column = "Column",
+    ColumnReverse = "ColumnReverse",
+    Row = "Row",
+    RowReverse = "RowReverse"
+}
+
+export enum FlexWrap {
+    NoWrap = "NoWrap",
+    Wrap = "Wrap",
+    WrapReverse = "WrapReverse"
+}
+
+export enum FlexAlign {
+    Auto = "Auto",
+    FlexStart = "FlexStart",
+    Center = "Center",
+    FlexEnd = "FlexEnd",
+    Stretch = "Stretch",
+    Baseline = "Baseline",
+    SpaceBetween = "SpaceBetween",
+    SpaceAround = "SpaceAround"
+}
+
+export enum JustifyContent {
+    FlexStart = "FlexStart",
+    Center = "Center",
+    FlexEnd = "FlexEnd",
+    SpaceBetween = "SpaceBetween",
+    SpaceAround = "SpaceAround",
+    SpaceEvenly = "SpaceEvenly"
+}
+
 export enum BorderStyle {
-    None,
-    Solid
+    None = "None",
+    Solid = "Solid"
 }
 
 export function mkMsgHandleEvents(): Msg {
@@ -199,6 +248,10 @@ export function mkMsgSetSize(value: MsgSetSize): Msg {
 
 export function mkMsgSetFlex(value: MsgSetFlex): Msg {
     return { tag: "SetFlex", value};
+}
+
+export function mkMsgSetFlow(value: MsgSetFlow): Msg {
+    return { tag: "SetFlow", value};
 }
 
 export function mkMsgSetPadding(value: MsgSetPadding): Msg {
