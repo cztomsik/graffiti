@@ -64,6 +64,9 @@ pub extern "C" fn send(data: *const u8, len: u32) {
                     app.surface_service.remove_child(parent, child);
                     app.layout_service.remove_child(parent, child);
                 }
+                Msg::SetBorderRadius{ surface, border_radius } => {
+                    app.surface_service.set_border_radius(surface, border_radius );
+                }
                 Msg::SetSize { surface, size } => {
                     app.layout_service.set_size(surface, size);
                 }

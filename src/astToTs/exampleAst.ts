@@ -47,6 +47,11 @@ const Vector2f = Tuple({
   fields: [T.Scalar(Scalar.F32), T.Scalar(Scalar.F32)]
 })
 
+const BorderRadius = Tuple({
+  name: 'BorderRadius',
+  fields: new Array(4).fill(T.Scalar(Scalar.F32))
+})
+
 const BoxShadow = Struct({
   name: 'BoxShadow',
   members: {
@@ -120,6 +125,13 @@ const Msg = Union({
       }
     }),
     V.Struct({
+      name: 'SetBorderRadius',
+      members: {
+        surface: T.RefTo(SurfaceId.value.name),
+        borderRadius: T.Option(T.RefTo(BorderRadius.value.name))
+      }
+    }),
+    V.Struct({
       name: 'SetSize',
       members: {
         surface: T.RefTo(SurfaceId.value.name),
@@ -151,7 +163,7 @@ const Msg = Union({
       name: 'SetBoxShadow',
       members: {
         surface: T.RefTo(SurfaceId.value.name),
-        box_shadow: T.Option(T.RefTo(BoxShadow.value.name))
+        boxShadow: T.Option(T.RefTo(BoxShadow.value.name))
       }
     }),
     V.Struct({
@@ -200,6 +212,7 @@ export const exampleEntries: EntryT[] = [
   Size,
   Rect,
   Vector2f,
+  BorderRadius,
   BoxShadow,
   Image,
   Text,

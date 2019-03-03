@@ -4,6 +4,7 @@ export type Msg =
     | { tag: "AppendChild", value: MsgAppendChild}
     | { tag: "InsertBefore", value: MsgInsertBefore}
     | { tag: "RemoveChild", value: MsgRemoveChild}
+    | { tag: "SetBorderRadius", value: MsgSetBorderRadius}
     | { tag: "SetSize", value: MsgSetSize}
     | { tag: "SetFlex", value: MsgSetFlex}
     | { tag: "SetPadding", value: MsgSetPadding}
@@ -38,6 +39,11 @@ export interface MsgRemoveChild {
     child: SurfaceId;
 }
 
+export interface MsgSetBorderRadius {
+    surface: SurfaceId;
+    borderRadius: (BorderRadius) | undefined;
+}
+
 export interface MsgSetSize {
     surface: SurfaceId;
     size: Size;
@@ -60,7 +66,7 @@ export interface MsgSetMargin {
 
 export interface MsgSetBoxShadow {
     surface: SurfaceId;
-    box_shadow: (BoxShadow) | undefined;
+    boxShadow: (BoxShadow) | undefined;
 }
 
 export interface MsgSetBackgroundColor {
@@ -121,6 +127,14 @@ export interface Vector2f {
     length: 2;
 }
 
+export interface BorderRadius {
+    0: number;
+    1: number;
+    2: number;
+    3: number;
+    length: 4;
+}
+
 export interface BoxShadow {
     color: Color;
     offset: Vector2f;
@@ -173,6 +187,10 @@ export function mkMsgInsertBefore(value: MsgInsertBefore): Msg {
 
 export function mkMsgRemoveChild(value: MsgRemoveChild): Msg {
     return { tag: "RemoveChild", value};
+}
+
+export function mkMsgSetBorderRadius(value: MsgSetBorderRadius): Msg {
+    return { tag: "SetBorderRadius", value};
 }
 
 export function mkMsgSetSize(value: MsgSetSize): Msg {
@@ -241,4 +259,8 @@ export function mkRect(p0: Dimension, p1: Dimension, p2: Dimension, p3: Dimensio
 
 export function mkVector2f(p0: number, p1: number): Vector2f {
     return [p0, p1]
+}
+
+export function mkBorderRadius(p0: number, p1: number, p2: number, p3: number): BorderRadius {
+    return [p0, p1, p2, p3]
 }

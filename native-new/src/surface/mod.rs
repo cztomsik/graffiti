@@ -1,4 +1,4 @@
-pub use crate::generated::{Border, BoxShadow, Color, Image, Text};
+pub use crate::generated::{BorderRadius, Border, BoxShadow, Color, Image, Text};
 use crate::Id;
 use crate::storage::{DenseStorage, SparseStorage};
 
@@ -23,6 +23,7 @@ use crate::storage::{DenseStorage, SparseStorage};
 /// Note that SurfaceData accessors reduce coupling on this internal structure
 pub struct SurfaceService {
     children: DenseStorage<Id, Vec<Id>>,
+    border_radii: SparseStorage<Id, BorderRadius>,
     box_shadows: SparseStorage<Id, BoxShadow>,
     background_colors: SparseStorage<Id, Color>,
     texts: SparseStorage<Id, Text>,
@@ -34,6 +35,7 @@ impl SurfaceService {
     pub fn new() -> Self {
         SurfaceService {
             children: DenseStorage::new(),
+            border_radii: SparseStorage::new(),
             box_shadows: SparseStorage::new(),
             background_colors: SparseStorage::new(),
             texts: SparseStorage::new(),
@@ -71,6 +73,10 @@ impl SurfaceService {
     // ideally we would store them here and just pass them to LayoutService but that's not
     // how yoga works
 
+    pub fn set_border_radius(&mut self, surface: Id, border_radius: Option<BorderRadius>) {
+        self.border_radii.set(surface, border_radius);
+    }
+
     pub fn set_box_shadow(&mut self, surface: Id, box_shadow: Option<BoxShadow>) {
         self.box_shadows.set(surface, box_shadow);
     }
@@ -107,6 +113,10 @@ pub struct SurfaceData<'a> {
 impl <'a> SurfaceData<'a> {
     pub fn id(&self) -> Id {
         self.id
+    }
+
+    pub fn border_radius(&self) -> Option<&'a BorderRadius> {
+        self.svc.border_radii.get(self.id)
     }
 
     pub fn box_shadow(&self) -> Option<&'a BoxShadow> {

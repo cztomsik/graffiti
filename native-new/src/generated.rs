@@ -11,6 +11,7 @@ pub enum Msg {
     AppendChild { parent: SurfaceId, child: SurfaceId },
     InsertBefore { parent: SurfaceId, child: SurfaceId, before: SurfaceId },
     RemoveChild { parent: SurfaceId, child: SurfaceId },
+    SetBorderRadius { surface: SurfaceId, border_radius: Option<BorderRadius> },
     SetSize { surface: SurfaceId, size: Size },
     SetFlex { surface: SurfaceId, flex: Flex },
     SetPadding { surface: SurfaceId, padding: Rect },
@@ -58,6 +59,10 @@ pub struct Rect(pub Dimension, pub Dimension, pub Dimension, pub Dimension);
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Vector2f(pub f32, pub f32);
+
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct BorderRadius(pub f32, pub f32, pub f32, pub f32);
 
 
 #[derive(Deserialize, Debug, Clone)]

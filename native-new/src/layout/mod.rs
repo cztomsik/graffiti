@@ -1,5 +1,4 @@
 pub use crate::generated::{Dimension, Flex, Rect, Size};
-use crate::Id;
 mod yoga;
 pub use crate::layout::yoga::YogaLayoutService;
 use crate::surface::SurfaceData;

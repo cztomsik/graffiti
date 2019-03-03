@@ -1,6 +1,6 @@
-use super::{Border, BoxShadow, Color, ComputedLayout, Image, RenderService, Text};
+use super::{BorderRadius, Border, BoxShadow, Color, ComputedLayout, Image, RenderService, Text};
 use webrender::api::{
-    AlphaType, BorderDetails, BorderDisplayItem, BorderRadius, BorderSide, BorderStyle,
+    AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius, BorderSide, BorderStyle,
     BoxShadowClipMode, BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, FontInstanceKey,
     IdNamespace, ImageDisplayItem, ImageKey, ImageRendering, LayoutPrimitiveInfo, LayoutRect,
     LayoutSize, NormalBorder, PipelineId, RectangleDisplayItem, SpaceAndClipInfo,
@@ -29,6 +29,7 @@ impl RenderService for WebrenderRenderService {
         let mut context = RenderContext {
             computed_layouts,
             builder: DisplayListBuilder::with_capacity(pipeline_id, content_size.clone(), BUILDER_CAPACITY),
+            border_radius: None,
             // TODO: clip (normal, border-radius, scrollframe)
             layout: LayoutPrimitiveInfo::new(content_size.into()),
             space_and_clip: SpaceAndClipInfo::root_scroll(pipeline_id)
@@ -40,14 +41,15 @@ impl RenderService for WebrenderRenderService {
     }
 }
 
-struct RenderContext {
+struct RenderContext<'a> {
     computed_layouts: Vec<ComputedLayout>,
     builder: DisplayListBuilder,
+    border_radius: Option<&'a BorderRadius>,
     layout: LayoutPrimitiveInfo,
     space_and_clip: SpaceAndClipInfo
 }
 
-impl RenderContext {
+impl <'a> RenderContext<'a> {
     fn render_surface(&mut self, surface: &SurfaceData) {
         let (x, y, width, height) = self.computed_layouts[surface.id() as usize];
 
@@ -56,9 +58,9 @@ impl RenderContext {
         debug!("surface {} {:?}", surface.id(), &self.layout);
 
         // shared, not directly rendered
-        //if let Some(border_radius) = surface.border_radius {
-        // TODO: set to context
-        //}
+        // TODO: define & use clip
+        // TODO: borrowing (radius should only be visible during rendering of one particular surface)
+        self.border_radius = { surface.border_radius(); None };
 
         // TODO: hittest
 
@@ -123,7 +125,7 @@ impl RenderItem for BoxShadow {
             spread_radius: self.spread,
 
             // TODO
-            border_radius: BorderRadius::uniform(5.0),
+            border_radius: WRBorderRadius::uniform(5.0),
 
             // TODO
             clip_mode: BoxShadowClipMode::Outset,
@@ -206,7 +208,7 @@ impl RenderItem for Border {
                 style: BorderStyle::Solid,
             },
             // TODO
-            radius: BorderRadius::uniform(5.0),
+            radius: WRBorderRadius::uniform(5.0),
             do_aa: true,
         });
 

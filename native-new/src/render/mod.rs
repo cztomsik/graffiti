@@ -1,5 +1,5 @@
 use crate::layout::ComputedLayout;
-use crate::surface::{Border, BoxShadow, Color, Image, Text};
+use crate::surface::{BorderRadius, Border, BoxShadow, Color, Image, Text};
 
 mod webrender;
 pub use self::webrender::WebrenderRenderService;
