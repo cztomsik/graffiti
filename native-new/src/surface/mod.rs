@@ -1,6 +1,8 @@
 pub use crate::generated::{BorderRadius, Border, BoxShadow, Color, Image, Text};
 use crate::Id;
 use crate::storage::{DenseStorage, SparseStorage};
+use std::fmt::Debug;
+use std::fmt::Formatter;
 
 /// In a perfect world this could be just:
 ///
@@ -141,6 +143,18 @@ impl <'a> SurfaceData<'a> {
 
     pub fn children(&'a self) -> impl Iterator<Item=SurfaceData<'a>> {
         self.svc.children.get(self.id).iter().map(move |child_id| self.svc.get_surface_data(*child_id))
+    }
+}
+
+impl <'a> Debug for SurfaceData<'a> {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let children: Vec<SurfaceData> = self.children().map(|ch| ch).collect();
+
+        f.debug_struct("Surface")
+            .field("id", &self.id())
+            .field("background_color", &self.background_color())
+            .field("children", &children)
+            .finish()
     }
 }
 

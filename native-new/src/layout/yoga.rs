@@ -1,22 +1,26 @@
 #[cfg(test)]
 use ordered_float::OrderedFloat;
 use std::f32;
+use yoga::types::{Align, FlexDirection as YogaFlexDirection, Wrap};
 use yoga::{Direction, FlexStyle, Node as YogaNode, StyleUnit};
-use yoga::types::{FlexDirection as YogaFlexDirection};
 
-use super::{ComputedLayout, Dimension, Flex, LayoutService, Rect, Size, Flow, FlexDirection};
-use crate::Id;
+use super::{
+    ComputedLayout, Dimension, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent,
+    LayoutService, Rect, Size,
+};
 use crate::storage::DenseStorage;
 use crate::surface::SurfaceData;
+use crate::Id;
+use yoga::types::Justify;
 
 pub struct YogaLayoutService {
-    yoga_nodes: DenseStorage<Id, YogaNode>
+    yoga_nodes: DenseStorage<Id, YogaNode>,
 }
 
 impl YogaLayoutService {
     pub fn new() -> Self {
         YogaLayoutService {
-            yoga_nodes: DenseStorage::new()
+            yoga_nodes: DenseStorage::new(),
         }
     }
 
@@ -62,7 +66,10 @@ impl YogaLayoutService {
     pub fn set_flow(&mut self, id: Id, flow: Flow) {
         self.yoga_nodes.get_mut(id).apply_styles(&vec![
             FlexStyle::FlexDirection(flow.flex_direction.into()),
-            // TODO
+            FlexStyle::FlexWrap(flow.flex_wrap.into()),
+            FlexStyle::JustifyContent(flow.justify_content.into()),
+            FlexStyle::AlignContent(flow.align_content.into()),
+            FlexStyle::AlignItems(flow.align_items.into())
         ]);
     }
 
@@ -87,10 +94,11 @@ impl YogaLayoutService {
 
 impl LayoutService for YogaLayoutService {
     fn get_computed_layouts(&mut self, surface: &SurfaceData) -> Vec<ComputedLayout> {
-        self.yoga_nodes.get_mut(surface.id()).calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
+        self.yoga_nodes
+            .get_mut(surface.id())
+            .calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
 
-        self
-            .yoga_nodes
+        self.yoga_nodes
             .iter()
             .map(|n| {
                 (
@@ -125,6 +133,43 @@ impl Into<YogaFlexDirection> for FlexDirection {
     }
 }
 
+impl Into<Align> for FlexAlign {
+    fn into(self) -> Align {
+        match self {
+            FlexAlign::Auto => Align::Auto,
+            FlexAlign::Baseline => Align::Baseline,
+            FlexAlign::Center => Align::Center,
+            FlexAlign::FlexStart => Align::FlexStart,
+            FlexAlign::FlexEnd => Align::FlexEnd,
+            FlexAlign::SpaceAround => Align::SpaceAround,
+            FlexAlign::SpaceBetween => Align::SpaceBetween,
+            FlexAlign::Stretch => Align::Stretch,
+        }
+    }
+}
+
+impl Into<Justify> for JustifyContent {
+    fn into(self) -> Justify {
+        match self {
+            JustifyContent::Center => Justify::Center,
+            JustifyContent::FlexStart => Justify::FlexStart,
+            JustifyContent::FlexEnd => Justify::FlexEnd,
+            JustifyContent::SpaceAround => Justify::SpaceAround,
+            JustifyContent::SpaceBetween => Justify::SpaceBetween,
+            JustifyContent::SpaceEvenly => Justify::SpaceEvenly,
+        }
+    }
+}
+
+impl Into<Wrap> for FlexWrap {
+    fn into(self) -> Wrap {
+        match self {
+            FlexWrap::Wrap => Wrap::Wrap,
+            FlexWrap::WrapReverse => Wrap::WrapReverse,
+            FlexWrap::NoWrap => Wrap::NoWrap,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

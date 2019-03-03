@@ -8,7 +8,7 @@ use webrender::api::{DocumentId, RenderApi, RenderNotifier, Transaction, DeviceI
 use webrender::{Renderer, RendererOptions};
 use env_logger;
 
-static SIZE: (i32, i32) = (200, 200);
+static SIZE: (i32, i32) = (300, 300);
 static mut TEMP: Option<Temp> = None;
 
 pub fn init() {

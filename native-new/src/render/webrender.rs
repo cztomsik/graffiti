@@ -23,6 +23,8 @@ impl WebrenderRenderService {
 
 impl RenderService for WebrenderRenderService {
     fn render(&mut self, surface: &SurfaceData, computed_layouts: Vec<ComputedLayout>) {
+        debug!("render {:#?}", surface);
+
         let content_size = LayoutSize::new(1000., 1000.);
         let pipeline_id = PipelineId::dummy();
 
@@ -90,7 +92,7 @@ impl <'a> RenderContext<'a> {
         item: Option<&T>
     ) where T: RenderItem + Debug {
         if let Some(item) = item {
-            debug!("render_item {:#?}", &item);
+            debug!("render_item {:?}", &item);
             item.push_into(&mut self.builder, &self.layout, &self.space_and_clip);
         }
     }

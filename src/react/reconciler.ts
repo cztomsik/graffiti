@@ -34,7 +34,6 @@ setInterval(() => {
 }, 200)
 
 function send(msg: Msg) {
-  console.log(msg)
   // prepare buffer with msg
   let buf = Buffer.from(JSON.stringify(msg))
 
