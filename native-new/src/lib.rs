@@ -17,6 +17,8 @@ use crate::render::RenderService;
 use crate::generated::SurfaceId;
 use crate::layout::{LayoutService, YogaLayoutService};
 use crate::render::WebrenderRenderService;
+use crate::generated::Size;
+use crate::generated::Dimension;
 
 static mut APP: Option<Box<App>> = None;
 
@@ -100,6 +102,11 @@ pub extern "C" fn send(data: *const u8, len: u32) {
                 }
                 Msg::Render { surface } => {
                     let surface = app.surface_service.get_surface_data(surface);
+
+                    // TODO: set on resize
+                    let layout_size = temp::get_layout_size();
+                    app.layout_service.set_size(0, Size(Dimension::Point(layout_size.width), Dimension::Point(layout_size.height)));
+
                     let computed_layouts = app.layout_service.get_computed_layouts(&surface);
 
                     app.render_service.render(&surface, computed_layouts);

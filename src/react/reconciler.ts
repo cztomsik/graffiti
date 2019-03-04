@@ -4,13 +4,13 @@ import {
   unstable_now as now,
   unstable_scheduleCallback as scheduleDeferredCallback,
   unstable_shouldYield as shouldYield,
-  unstable_cancelCallback as cancelDeferredCallback
+  unstable_cancelCallback as cancelDeferredCallback,
 } from 'scheduler'
 import initDevtools from './devtools'
 import ErrorBoundary from './ErrorBoundary'
 import ControlManager, { ControlManagerContext } from './ControlManager'
 
-import { Msg, mkMsgHandleEvents, mkMsgRender, mkMsgAlloc, Size, Color, Flex, Image, Border, Text, mkMsgSetPadding, mkMsgSetMargin, mkMsgSetFlex, mkDimensionAuto, mkSize, mkDimensionPercent, Flow, mkMsgSetFlow } from '../astToTs/generated/example'
+import { Msg, mkMsgHandleEvents, mkMsgRender, mkMsgAlloc, Size, Color, Flex, Image, Border, Text, mkMsgSetPadding, mkMsgSetMargin, mkMsgSetFlex, Flow, mkMsgSetFlow, mkMsgSetImage, mkMsgSetText } from '../astToTs/generated/example'
 import { mkMsgSetSize, mkMsgSetBackgroundColor, mkMsgAppendChild, mkMsgInsertBefore, mkMsgRemoveChild } from '../astToTs/generated/example'
 
 const ref = require('ref');
@@ -25,8 +25,6 @@ export const lib = ffi.Library(__dirname + '/../../native-new/target/debug/libno
 
 lib.init()
 send(mkMsgAlloc())
-send(mkMsgSetSize({ surface: 0, size: mkSize(mkDimensionPercent(100), mkDimensionAuto()) }))
-send(mkMsgSetFlex({ surface: 0, flex: { flexGrow: 1, flexShrink: 1, flexBasis: mkDimensionAuto() } }))
 
 // necessary for window to stay responsive
 setInterval(() => {
@@ -64,6 +62,8 @@ const reconciler = Reconciler({
   createTextInstance: NOOP,
   scheduleDeferredCallback,
   cancelDeferredCallback,
+  schedulePassiveEffects: scheduleDeferredCallback,
+  cancelPassiveEffects: cancelDeferredCallback,
   shouldYield,
   scheduleTimeout: setTimeout,
   cancelTimeout: clearTimeout,
@@ -145,6 +145,14 @@ function update(surface, props: HostSurfaceProps, oldProps: HostSurfaceProps) {
 
   if (props.backgroundColor !== oldProps.backgroundColor) {
     send(mkMsgSetBackgroundColor({ surface, color: props.backgroundColor }))
+  }
+
+  if (props.image !== oldProps.image) {
+    send(mkMsgSetImage({ surface, image: props.image }))
+  }
+
+  if (props.text !== oldProps.text) {
+    send(mkMsgSetText({ surface, text: props.text }))
   }
 }
 

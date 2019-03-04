@@ -2,17 +2,22 @@
 //! all of this has to be refactored before we can support multiple windows
 //! TODO: software renderer (RendererKind)
 
+use env_logger;
 use glutin::{EventsLoop, GlContext, GlWindow, WindowBuilder};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use webrender::api::{DocumentId, RenderApi, RenderNotifier, Transaction, DeviceIntSize, DisplayListBuilder, Epoch, LayoutSize, PipelineId};
+use webrender::api::{
+    DeviceIntSize, DisplayListBuilder, DocumentId, Epoch, LayoutSize, PipelineId, RenderApi,
+    RenderNotifier, Transaction,
+};
 use webrender::{Renderer, RendererOptions};
-use env_logger;
 
-static SIZE: (i32, i32) = (300, 300);
 static mut TEMP: Option<Temp> = None;
 
 pub fn init() {
     env_logger::init();
+
+    let fb_size = DeviceIntSize::new(300, 300);
+    let layout_size = LayoutSize::new(fb_size.width as f32, fb_size.height as f32);
 
     unsafe {
         // so that we can block until the frame is actually rendered
@@ -24,7 +29,10 @@ pub fn init() {
         // get & init native window with gl support
         let (gl_window, gl) = {
             let gl_window = GlWindow::new(
-                WindowBuilder::new().with_dimensions(glutin::dpi::LogicalSize::new(SIZE.0 as f64, SIZE.1 as f64)),
+                WindowBuilder::new().with_dimensions(glutin::dpi::LogicalSize::new(
+                    layout_size.width as f64,
+                    layout_size.height as f64,
+                )),
                 glutin::ContextBuilder::new(),
                 &events_loop,
             )
@@ -50,7 +58,7 @@ pub fn init() {
         .expect("couldn't create renderer");
         let render_api = sender.create_api();
 
-        let document_id = render_api.add_document(DeviceIntSize::new(SIZE.0, SIZE.1), 0);
+        let document_id = render_api.add_document(fb_size, 0);
         let pipeline_id = PipelineId::dummy();
 
         let mut tx = Transaction::new();
@@ -61,34 +69,90 @@ pub fn init() {
 
         TEMP = Some(Temp {
             events_loop,
-            gl_window,
-            render_api,
-            renderer,
-            rx,
-            document_id,
-            pipeline_id
+            inner: Inner {
+                fb_size,
+                layout_size,
+                gl_window,
+                render_api,
+                renderer,
+                rx,
+                document_id,
+                pipeline_id,
+            },
         });
     }
 }
 
 pub fn handle_events() {
     unsafe {
-        match TEMP {
+        match &mut TEMP {
             None => {}
-            Some(ref mut temp) => temp.events_loop.poll_events(|_e| {}),
+            Some(Temp {
+                events_loop,
+                inner: temp,
+            }) => events_loop.poll_events(move |e| {
+                match e {
+                    glutin::Event::WindowEvent { event, .. } => {
+                        match event {
+                            // some events are going to be handled in rust and javascript will only get notified
+                            // one such case is resize (web does the same)
+                            glutin::WindowEvent::Resized(size) => {
+                                let dpi = 1.0;
+                                let real_size = size.to_physical(dpi);
+
+                                temp.layout_size =
+                                    LayoutSize::new(size.width as f32, size.height as f32);
+                                temp.fb_size = DeviceIntSize::new(
+                                    real_size.width as i32,
+                                    real_size.height as i32,
+                                );
+
+                                temp.render_api.set_window_parameters(
+                                    temp.document_id,
+                                    temp.fb_size,
+                                    temp.fb_size.into(),
+                                    dpi as f32,
+                                );
+                                temp.gl_window.resize(real_size);
+
+                                temp.renderer.update();
+                                temp.renderer
+                                    .render(temp.fb_size)
+                                    .expect("resize re-render failed");
+                                temp.gl_window.swap_buffers().ok();
+
+                                // TODO: notify js
+                                // TODO: recalculate layout & redraw
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                }
+            }),
+        }
+    }
+}
+
+pub fn get_layout_size() -> LayoutSize {
+    unsafe {
+        match &TEMP {
+            None => panic!("not initialized"),
+            Some(temp) => temp.inner.layout_size.clone(),
         }
     }
 }
 
 pub fn send_frame(builder: DisplayListBuilder) {
     unsafe {
-        match TEMP {
+        match &mut TEMP {
             None => {}
-            Some(ref mut temp) => {
+            Some(temp) => {
+                let temp = &mut temp.inner;
                 let mut tx = Transaction::new();
 
                 tx.set_root_pipeline(temp.pipeline_id);
-                tx.set_display_list(Epoch(0), None, LayoutSize::new(SIZE.0 as f32, SIZE.1 as f32), builder.finalize(), true);
+                tx.set_display_list(Epoch(0), None, temp.layout_size, builder.finalize(), true);
                 tx.generate_frame();
 
                 temp.render_api.send_transaction(temp.document_id, tx);
@@ -97,21 +161,28 @@ pub fn send_frame(builder: DisplayListBuilder) {
                 temp.rx.recv().ok();
 
                 temp.renderer.update();
-                temp.renderer.render(DeviceIntSize::new(SIZE.0, SIZE.1)).ok();
+                temp.renderer.render(temp.fb_size).ok();
                 temp.gl_window.swap_buffers().ok();
-            },
+            }
         }
     }
 }
 
 struct Temp {
     events_loop: EventsLoop,
+    inner: Inner,
+}
+
+// so that it can be borrowed independently on events_loop
+struct Inner {
+    fb_size: DeviceIntSize,
+    layout_size: LayoutSize,
     gl_window: GlWindow,
     render_api: RenderApi,
     renderer: Renderer,
     rx: Receiver<()>,
     document_id: DocumentId,
-    pipeline_id: PipelineId
+    pipeline_id: PipelineId,
 }
 
 struct Notifier(glutin::EventsLoopProxy, Sender<()>);

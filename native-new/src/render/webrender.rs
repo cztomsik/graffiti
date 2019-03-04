@@ -25,7 +25,7 @@ impl RenderService for WebrenderRenderService {
     fn render(&mut self, surface: &SurfaceData, computed_layouts: Vec<ComputedLayout>) {
         debug!("render\n{:#?}", surface);
 
-        let content_size = LayoutSize::new(1000., 1000.);
+        let content_size = LayoutSize::new(computed_layouts[0].2, computed_layouts[0].3);
         let pipeline_id = PipelineId::dummy();
 
         let mut context = RenderContext {
