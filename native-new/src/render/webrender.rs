@@ -4,7 +4,7 @@ use webrender::api::{
     BoxShadowClipMode, BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, FontInstanceKey,
     IdNamespace, ImageDisplayItem, ImageKey, ImageRendering, LayoutPrimitiveInfo, LayoutRect,
     LayoutSize, NormalBorder, PipelineId, RectangleDisplayItem, SpaceAndClipInfo,
-    SpecificDisplayItem, TextDisplayItem, LayoutPoint
+    SpecificDisplayItem, TextDisplayItem, LayoutPoint, GlyphInstance
 };
 use webrender::euclid::{TypedPoint2D, TypedSideOffsets2D, TypedSize2D};
 use crate::surface::SurfaceData;
@@ -23,7 +23,7 @@ impl WebrenderRenderService {
 
 impl RenderService for WebrenderRenderService {
     fn render(&mut self, surface: &SurfaceData, computed_layouts: Vec<ComputedLayout>) {
-        debug!("render {:#?}", surface);
+        debug!("render\n{:#?}", surface);
 
         let content_size = LayoutSize::new(1000., 1000.);
         let pipeline_id = PipelineId::dummy();
@@ -160,7 +160,19 @@ impl RenderItem for Text {
         })
     }
 
-    // TODO: push_iter(&glyphs)
+    fn push_into(
+        &self,
+        builder: &mut DisplayListBuilder,
+        layout: &LayoutPrimitiveInfo,
+        space_and_clip: &SpaceAndClipInfo,
+    ) {
+        builder.push_item(&self.render(), layout, space_and_clip);
+
+        // TODO
+        let glyphs = vec![GlyphInstance { index: 40, point: layout.rect.origin.clone() }];
+
+        builder.push_iter(&glyphs);
+    }
 }
 
 impl RenderItem for Image {

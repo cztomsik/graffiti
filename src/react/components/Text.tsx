@@ -6,7 +6,7 @@ import { parseColor } from '../../core/utils'
 const Text: React.SFC<TextProps> = ({ style = {}, children }) => {
   const flatStyle = StyleSheet.flatten(style)
 
-  const { fontSize, color = '#000000', lineHeight = 30 } = flatStyle
+  const { fontSize = 16, color = '#000000', lineHeight = 30 } = flatStyle
 
   return (
     <View style={flatStyle}>

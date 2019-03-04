@@ -150,11 +150,29 @@ impl <'a> Debug for SurfaceData<'a> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         let children: Vec<SurfaceData> = self.children().map(|ch| ch).collect();
 
-        f.debug_struct("Surface")
-            .field("id", &self.id())
-            .field("background_color", &self.background_color())
-            .field("children", &children)
-            .finish()
+        write!(f, "#{} ", self.id())?;
+
+        if let Some(radius) = self.border_radius() {
+            write!(f, "BorderRadius{:?} ", (radius.0, radius.1, radius.2, radius.3))?;
+        }
+
+        if let Some(text) = self.text() {
+            write!(f, "Text({}) ", text.text)?;
+        }
+
+        if let Some(image) = self.image() {
+            write!(f, "Img({}) ", image.url)?;
+        }
+
+        if let Some(color) = self.background_color() {
+            write!(f, "BgColor({:02x}{:02x}{:02x}) ", color.0, color.1, color.2)?;
+        }
+
+        if !children.is_empty() {
+            children.fmt(f)?
+        }
+
+        Ok(())
     }
 }
 
