@@ -1,15 +1,19 @@
-use super::{BorderRadius, Border, BoxShadow, Color, ComputedLayout, Image, RenderService, Text};
-use webrender::api::{
-    AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius, BorderSide, BorderStyle,
-    BoxShadowClipMode, BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, FontInstanceKey,
-    IdNamespace, ImageDisplayItem, ImageKey, ImageRendering, LayoutPrimitiveInfo, LayoutRect,
-    LayoutSize, NormalBorder, PipelineId, RectangleDisplayItem, SpaceAndClipInfo,
-    SpecificDisplayItem, TextDisplayItem, LayoutPoint, GlyphInstance
+use super::{
+    Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, ComputedLayout, Image,
+    RenderService, Text,
 };
-use webrender::euclid::{TypedPoint2D, TypedSideOffsets2D, TypedSize2D};
+use crate::generated::Vector2f;
 use crate::surface::SurfaceData;
 use crate::temp::send_frame;
-use std::fmt::Debug;
+use webrender::api::{
+    AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius,
+    BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
+    BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, FontInstanceKey, GlyphInstance,
+    IdNamespace, ImageDisplayItem, ImageKey, ImageRendering, LayoutPoint, LayoutPrimitiveInfo,
+    LayoutRect, LayoutSize, LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem,
+    SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem,
+};
+use webrender::euclid::{TypedSideOffsets2D, TypedSize2D};
 
 static BUILDER_CAPACITY: usize = 512 * 1024;
 
@@ -30,11 +34,15 @@ impl RenderService for WebrenderRenderService {
 
         let mut context = RenderContext {
             computed_layouts,
-            builder: DisplayListBuilder::with_capacity(pipeline_id, content_size.clone(), BUILDER_CAPACITY),
-            border_radius: None,
-            // TODO: clip (normal, border-radius, scrollframe)
+
+            builder: DisplayListBuilder::with_capacity(
+                pipeline_id,
+                content_size.clone(),
+                BUILDER_CAPACITY,
+            ),
+            border_radius: WRBorderRadius::zero(),
             layout: LayoutPrimitiveInfo::new(content_size.into()),
-            space_and_clip: SpaceAndClipInfo::root_scroll(pipeline_id)
+            space_and_clip: SpaceAndClipInfo::root_scroll(pipeline_id),
         };
 
         context.render_surface(surface);
@@ -43,190 +51,149 @@ impl RenderService for WebrenderRenderService {
     }
 }
 
-struct RenderContext<'a> {
+struct RenderContext {
     computed_layouts: Vec<ComputedLayout>,
+
     builder: DisplayListBuilder,
-    border_radius: Option<&'a BorderRadius>,
+    border_radius: WRBorderRadius,
     layout: LayoutPrimitiveInfo,
-    space_and_clip: SpaceAndClipInfo
+    space_and_clip: SpaceAndClipInfo,
 }
 
-impl <'a> RenderContext<'a> {
+impl RenderContext {
     fn render_surface(&mut self, surface: &SurfaceData) {
+        let parent_layout = self.layout;
+
         let (x, y, width, height) = self.computed_layouts[surface.id() as usize];
 
-        self.layout = LayoutPrimitiveInfo::new(LayoutRect::new(LayoutPoint::new(self.layout.rect.origin.x + x, self.layout.rect.origin.y + y), LayoutSize::new(width, height)));
+        self.layout = LayoutPrimitiveInfo::new(LayoutRect::new(
+            LayoutPoint::new(parent_layout.rect.origin.x + x, parent_layout.rect.origin.y + y),
+            LayoutSize::new(width, height),
+        ));
 
-        debug!("surface {} {:?}", surface.id(), &self.layout);
+        debug!("surface {} {:?}", surface.id(), self.layout.rect);
 
         // shared, not directly rendered
-        // TODO: define & use clip
-        // TODO: borrowing (radius should only be visible during rendering of one particular surface)
-        self.border_radius = { surface.border_radius(); None };
+        // TODO: define & use clip (round or fixed?)
+        if let Some(border_radius) = surface.border_radius() {
+            self.border_radius = border_radius.clone().into();
+        } else {
+            self.border_radius = WRBorderRadius::zero();
+        }
 
         // TODO: hittest
 
-        self.render_item(surface.box_shadow());
-
-        if let Some(color) = surface.background_color() {
-            self.render_item(Some(&BackgroundColor(color.clone())));
+        if let Some(box_shadow) = surface.box_shadow() {
+            self.push(self.box_shadow(box_shadow.clone()));
         }
 
-        self.render_item(surface.image());
+        if let Some(color) = surface.background_color() {
+            self.push(self.background_color(color.clone()));
+        }
 
-        // selection should be below text
-        // TODO
-        // render_item(data.selections.get(&id), &mut builder, &layout, &space_and_clip);
+        if let Some(image) = surface.image() {
+            self.push(self.image(image.clone()));
+        }
 
-        self.render_item(surface.text());
+        // TODO: selections (should be below text)
+
+        if let Some(text) = surface.text() {
+            let (item, glyphs) = self.text(text.clone());
+
+            self.push(item);
+            self.builder.push_iter(glyphs);
+        }
 
         for child_surface in surface.children() {
-            // TODO: layout, offset, space_and_clip, border_radius
             self.render_surface(&child_surface);
         }
 
-        self.render_item(surface.border());
-    }
-
-    fn render_item<T>(&mut self,
-        item: Option<&T>
-    ) where T: RenderItem + Debug {
-        if let Some(item) = item {
-            debug!("render_item {:?}", &item);
-            item.push_into(&mut self.builder, &self.layout, &self.space_and_clip);
+        if let Some(border) = surface.border() {
+            self.push(self.border(border.clone()));
         }
+
+        // restore layout
+        self.layout = parent_layout;
     }
-}
 
-
-trait RenderItem {
-    // so that we can test it
-    fn render(&self) -> SpecificDisplayItem;
-
-    // so that we can customize it if necessary (push_iter() for text)
-    // NOTE: trait can be resolved statically (in contrast to match clause)
-    fn push_into(
-        &self,
-        builder: &mut DisplayListBuilder,
-        layout: &LayoutPrimitiveInfo,
-        space_and_clip: &SpaceAndClipInfo,
-    ) {
-        builder.push_item(&self.render(), layout, space_and_clip);
-    }
-}
-
-impl RenderItem for BoxShadow {
-    fn render(&self) -> SpecificDisplayItem {
+    fn box_shadow(&self, box_shadow: BoxShadow) -> SpecificDisplayItem {
         SpecificDisplayItem::BoxShadow(BoxShadowDisplayItem {
-            color: self.color.clone().into(),
+            color: box_shadow.color.clone().into(),
 
-            // TODO
-            box_bounds: LayoutRect::new(TypedPoint2D::new(0., 0.), TypedSize2D::new(100., 100.)),
-            offset: [self.offset.0, self.offset.1].into(),
-            blur_radius: self.blur,
-            spread_radius: self.spread,
-
-            // TODO
-            border_radius: WRBorderRadius::uniform(5.0),
+            box_bounds: self.layout.rect,
+            offset: box_shadow.offset.into(),
+            blur_radius: box_shadow.blur,
+            spread_radius: box_shadow.spread,
+            border_radius: self.border_radius.clone().into(),
 
             // TODO
             clip_mode: BoxShadowClipMode::Outset,
         })
     }
-}
 
-// just so that we can implement the trait
-#[derive(Debug)]
-struct BackgroundColor(Color);
-
-impl RenderItem for BackgroundColor {
-    fn render(&self) -> SpecificDisplayItem {
+    fn background_color(&self, color: Color) -> SpecificDisplayItem {
         SpecificDisplayItem::Rectangle(RectangleDisplayItem {
-            color: self.0.clone().into(),
-        })
-    }
-}
-
-// TODO
-impl RenderItem for Text {
-    fn render(&self) -> SpecificDisplayItem {
-        // TODO
-        let font_key = FontInstanceKey::new(IdNamespace(0), 0);
-
-        SpecificDisplayItem::Text(TextDisplayItem {
-            font_key,
-            color: self.color.clone().into(),
-            glyph_options: None,
+            color: color.into(),
         })
     }
 
-    fn push_into(
-        &self,
-        builder: &mut DisplayListBuilder,
-        layout: &LayoutPrimitiveInfo,
-        space_and_clip: &SpaceAndClipInfo,
-    ) {
-        builder.push_item(&self.render(), layout, space_and_clip);
-
-        // TODO
-        let glyphs = vec![GlyphInstance { index: 40, point: layout.rect.origin.clone() }];
-
-        builder.push_iter(&glyphs);
-    }
-}
-
-impl RenderItem for Image {
-    fn render(&self) -> SpecificDisplayItem {
+    fn image(&self, _image: Image) -> SpecificDisplayItem {
         // TODO
         let image_key = ImageKey::DUMMY;
-        let layout = LayoutPrimitiveInfo::new(TypedSize2D::new(0., 0.).into());
 
         SpecificDisplayItem::Image(ImageDisplayItem {
             image_key,
-            stretch_size: layout.clone().rect.size,
+            stretch_size: self.layout.rect.size.into(),
             tile_spacing: TypedSize2D::zero(),
             image_rendering: ImageRendering::Auto,
             alpha_type: AlphaType::PremultipliedAlpha,
             color: ColorF::WHITE,
         })
     }
-}
 
-impl RenderItem for Border {
-    // TODO: border-radius
-    // TODO: border widths + colors + styles (actual border)
-    fn render(&self) -> SpecificDisplayItem {
-        // TODO: widths
-        let top = 0.;
-        let right = 0.;
-        let bottom = 0.;
-        let left = 0.;
-        let widths = TypedSideOffsets2D::new(top, right, bottom, left);
+    fn text(&self, text: Text) -> (SpecificDisplayItem, Vec<GlyphInstance>) {
+        // TODO
+        let font_key = FontInstanceKey::new(IdNamespace(0), 0);
 
-        // TODO: colors + styles
-        let details = BorderDetails::Normal(NormalBorder {
-            top: BorderSide {
-                color: ColorF::new(0., 0., 0., 0.),
-                style: BorderStyle::Solid,
-            },
-            right: BorderSide {
-                color: ColorF::new(0., 0., 0., 0.),
-                style: BorderStyle::Solid,
-            },
-            bottom: BorderSide {
-                color: ColorF::new(0., 0., 0., 0.),
-                style: BorderStyle::Solid,
-            },
-            left: BorderSide {
-                color: ColorF::new(0., 0., 0., 0.),
-                style: BorderStyle::Solid,
-            },
-            // TODO
-            radius: WRBorderRadius::uniform(5.0),
-            do_aa: true,
+        let item = SpecificDisplayItem::Text(TextDisplayItem {
+            font_key,
+            color: text.color.clone().into(),
+            glyph_options: None,
         });
 
-        SpecificDisplayItem::Border(BorderDisplayItem { widths, details })
+        // TODO
+        let glyphs = vec![GlyphInstance {
+            index: 40,
+            point: self.layout.rect.origin.clone(),
+        }];
+
+        (item, glyphs)
+    }
+
+    fn border(&self, border: Border) -> SpecificDisplayItem {
+        SpecificDisplayItem::Border(BorderDisplayItem {
+            widths: TypedSideOffsets2D::new(
+                border.top.width,
+                border.right.width,
+                border.bottom.width,
+                border.left.width,
+            ),
+            details: BorderDetails::Normal(NormalBorder {
+                top: border.top.into(),
+                right: border.right.into(),
+                bottom: border.bottom.into(),
+                left: border.left.into(),
+                radius: self.border_radius.clone().into(),
+                do_aa: true,
+            }),
+        })
+    }
+
+    fn push(&mut self, item: SpecificDisplayItem) {
+        debug!("push {:?}", &item);
+
+        self.builder
+            .push_item(&item, &self.layout, &self.space_and_clip);
     }
 }
 
@@ -234,5 +201,99 @@ impl Into<ColorF> for Color {
     fn into(self) -> ColorF {
         let Color(r, g, b, a) = self;
         ColorU::new(r, g, b, a).into()
+    }
+}
+
+impl Into<LayoutVector2D> for Vector2f {
+    fn into(self) -> LayoutVector2D {
+        LayoutVector2D::new(self.0, self.1)
+    }
+}
+
+impl Into<WRBorderRadius> for BorderRadius {
+    fn into(self) -> WRBorderRadius {
+        WRBorderRadius {
+            top_left: LayoutSize::new(self.0, self.0),
+            top_right: LayoutSize::new(self.1, self.1),
+            bottom_right: LayoutSize::new(self.2, self.2),
+            bottom_left: LayoutSize::new(self.3, self.3),
+        }
+    }
+}
+
+impl Into<WRBorderSide> for BorderSide {
+    fn into(self) -> WRBorderSide {
+        WRBorderSide {
+            color: self.color.into(),
+            style: self.style.into(),
+        }
+    }
+}
+
+// TODO: more styles
+impl Into<WRBorderStyle> for BorderStyle {
+    fn into(self) -> WRBorderStyle {
+        match self {
+            BorderStyle::None => WRBorderStyle::None,
+            BorderStyle::Solid => WRBorderStyle::Solid,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::generated::Vector2f;
+
+    fn test_ctx() -> SurfaceContext {
+        // some "rect", optionally rounded (param to this fn?)
+
+        SurfaceContext {
+            border_radius: BorderRadius(0., 0., 0., 0.),
+            layout: LayoutPrimitiveInfo::new(LayoutSize::new(100., 100.).into()),
+        }
+    }
+
+    #[test]
+    fn test_background_color() {
+        let ctx = test_ctx();
+        let color = Color(0, 0, 0, 255);
+
+        assert_eq!(
+            ctx.background_color(color.clone()),
+            SpecificDisplayItem::Rectangle(RectangleDisplayItem {
+                color: color.into()
+            })
+        );
+    }
+
+    #[test]
+    fn test_box_shadow() {
+        let ctx = test_ctx();
+        let box_bounds = LayoutSize::new(100., 100.).into();
+        let border_radius = BorderRadius(5., 5., 5., 5.);
+        let color = Color(0, 0, 0, 255);
+        let blur = 10.;
+        let spread = 5.;
+        let offset = Vector2f(5., 5.);
+        let box_shadow = BoxShadow {
+            offset: offset.clone(),
+            blur,
+            spread,
+            color: color.clone(),
+        };
+
+        assert_eq!(
+            ctx.box_shadow(box_shadow),
+            SpecificDisplayItem::BoxShadow(BoxShadowDisplayItem {
+                box_bounds,
+                offset: offset.into(),
+                color: color.into(),
+                blur_radius: blur,
+                spread_radius: spread,
+                border_radius: border_radius.into(),
+                clip_mode: BoxShadowClipMode::Outset
+            })
+        );
     }
 }

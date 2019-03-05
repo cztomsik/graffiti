@@ -1,4 +1,4 @@
-pub use crate::generated::{BorderRadius, Border, BoxShadow, Color, Image, Text};
+pub use crate::generated::{BorderRadius, Border, BorderSide, BorderStyle, BoxShadow, Color, Image, Text};
 use crate::Id;
 use crate::storage::{DenseStorage, SparseStorage};
 use std::fmt::Debug;
@@ -209,7 +209,7 @@ mod tests {
         let mut svc = test_svc();
         let data = svc.get_surface_data(0);
 
-        assert!(data.box_shadow.is_none());
+        assert!(data.box_shadow().is_none());
 
         data.children();
     }
