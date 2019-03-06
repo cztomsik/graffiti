@@ -10,8 +10,8 @@ import initDevtools from './devtools'
 import ErrorBoundary from './ErrorBoundary'
 import ControlManager, { ControlManagerContext } from './ControlManager'
 
-import { Msg, mkMsgHandleEvents, mkMsgRender, mkMsgAlloc, Size, Color, Flex, Image, Border, Text, mkMsgSetPadding, mkMsgSetMargin, mkMsgSetFlex, Flow, mkMsgSetFlow, mkMsgSetImage, mkMsgSetText } from '../astToTs/generated/example'
-import { mkMsgSetSize, mkMsgSetBackgroundColor, mkMsgAppendChild, mkMsgInsertBefore, mkMsgRemoveChild } from '../astToTs/generated/example'
+import { Size, Color, Flex, Image, Border, Text, Flow } from '../core'
+import { Msg, mkMsgHandleEvents, mkMsgRender, mkMsgAlloc, mkMsgSetFlow, mkMsgSetImage, mkMsgSetText, mkMsgSetPadding, mkMsgSetMargin, mkMsgSetFlex, mkMsgSetSize, mkMsgSetBackgroundColor, mkMsgAppendChild, mkMsgInsertBefore, mkMsgRemoveChild } from '../core/generated'
 
 const ref = require('ref');
 const ffi = require('ffi');
@@ -40,7 +40,6 @@ function send(msg: Msg) {
 }
 
 // temporary helpers
-let __ROOT_SURFACE__ = 0
 // because root is 0
 let __nextId__ = 1
 
@@ -107,7 +106,7 @@ export function render(vnode, window, cb?) {
   vnode = React.createElement(ErrorBoundary, null, vnode)
 
   if (window._reactRoot === undefined) {
-    window._reactRoot = reconciler.createContainer(__ROOT_SURFACE__, false, false)
+    window._reactRoot = reconciler.createContainer(window.id, false, false)
   }
 
   return reconciler.updateContainer(vnode, window._reactRoot, null, cb)

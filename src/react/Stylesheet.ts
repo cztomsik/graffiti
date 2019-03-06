@@ -17,7 +17,7 @@ import {
   JustifyContent,
   FlexAlign,
   FlexWrap
-} from '../astToTs/generated/example'
+} from '../core/generated'
 import { parseColor } from '../core/utils'
 
 // needed for Stylesheet.create() autocompletion

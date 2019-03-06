@@ -157,6 +157,7 @@ pub fn send_frame(builder: DisplayListBuilder) {
 
                 temp.render_api.send_transaction(temp.document_id, tx);
 
+                // TODO: we could return early and let notifier do the rest
                 debug!("waiting for frame");
                 temp.rx.recv().ok();
 

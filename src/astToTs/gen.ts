@@ -4,7 +4,7 @@ import { makeRustFile } from './schema/ast2rust'
 import { exampleEntries } from './exampleAst'
 import * as fs from 'fs'
 
-const testFile = 'src/astToTs/generated/example.ts'
+const testFile = __dirname + '/../core/generated.ts'
 const testRustFile = __dirname + '/../../native-new/src/generated.rs'
 fs.unlinkSync(testFile)
 

@@ -1,4 +1,4 @@
-import { Color } from "../astToTs/generated/example";
+import { Color } from '.';
 
 export const remove = (arr: any[], item: any) =>
   arr.splice(arr.indexOf(item), 1)

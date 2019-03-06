@@ -1,98 +1,26 @@
-import { NativeApi, N } from './nativeApi'
-
-type TextContainer = any
-
-class Window {
-  ref: N.Window
-  width
-  height
-  onClose = DEFAULT_CLOSE
-  onKeyPress = e => {}
-  renderScheduled = false
+export class Window {
+  id = 0
 
   constructor(title, width = 800, height = 600) {
-    //this.ref = native.window_create(title, width, height, evStr =>
-    //  this.handleEvent(JSON.parse(evStr))
-    //)
+    // TODO: factory (no side-effects in constructor)
 
-    windowCount++
-
-    ResourceManagerHack(this)
-
-    // TODO: listen for changes
-    this.width = width
-    this.height = height
+    // TODO (in create/openWindow)
+    // it's not constructor's job to perform window allocation and so it shouldn't free either
+    // createdWindow.destructor = require('finalize')(window, function() { send(destroyWindow(window.id)) }))
   }
 
-  // TODO
-  handleEvent(event) {
-    if (event === 'Close') {
-      this.onClose()
-      return
-    }
+  // maybe this should be done somewhere else - if this class doesn't do aquire, maybe it shouldn't do destroy either
+  // and then maybe it's not
+  // TODO: destructor = require('finalize')(this, () => send(destroyWindow(this.id)))
 
-    if ('KeyPress' in event) {
-      this.onKeyPress({ ch: event.KeyPress })
-      return
-    }
 
-    if ('Resize' in event) {
-      let [width, height] = event.Resize
-
-      this.width = width
-      this.height = height
-      this.renderLater()
-      return
-    }
-
-    if ('Click' in event) {
-      __callbacks[event.Click]()
-      return
-    }
-
-    throw new Error('unknown event')
+  setSize(width, height) {
+    // TODO (sync)
   }
 
-  render() {
-  }
-
-  renderLater() {
-    if (this.renderScheduled) {
-      return
-    }
-
-    setImmediate(() => {
-      this.render()
-      this.renderScheduled = false
-    })
-    this.renderScheduled = true
+  close() {
+    // TODO (sync)
   }
 }
-
-let windowCount = 0
-
-const DEFAULT_CLOSE = () => {
-  // TODO: open/close()?
-  if (!--windowCount) {
-    process.exit()
-  }
-}
-
-const handleEvents = () => {
-  //native.app_loop_a_bit()
-
-  setImmediate(handleEvents)
-}
-
-//handleEvents()
-
-// TODO: refactor rust so ResourceManager is separate from Window
-// (almost done, we just need to get glyph indices & advances)
-function ResourceManagerHack(window: Window) {
-  WINDOW_HACK = window
-}
-export let WINDOW_HACK: Window = null
 
 export const __callbacks = []
-
-export default Window
