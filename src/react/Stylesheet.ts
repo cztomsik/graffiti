@@ -17,7 +17,8 @@ import {
   JustifyContent,
   FlexAlign,
   FlexWrap,
-  BorderStyle
+  BorderStyle,
+  mkVector2f
 } from '../core/generated'
 import { parseColor } from '../core/utils'
 
@@ -139,6 +140,10 @@ function compile2(style: FlatStyle & BorderProps): HostSurfaceProps {
     flexWrap = 'no-wrap',
     overflow = 'visible',
 
+    shadowColor,
+    //shadowOffset,
+    //shadowOpacity,
+    shadowRadius = 0,
     backgroundColor,
     // TODO: BorderStyle
     borderRadius = 0,
@@ -216,7 +221,12 @@ function compile2(style: FlatStyle & BorderProps): HostSurfaceProps {
       parseDimension(marginRight),
       parseDimension(marginLeft)
     ),
-    //boxShadow,
+    boxShadow: (shadowColor || undefined) && {
+      blur: shadowRadius,
+      spread: 0,
+      color: parseColor(shadowColor),
+      offset: mkVector2f(0, 0)
+    },
     backgroundColor:
       (backgroundColor || undefined) && parseColor(backgroundColor),
     //image,

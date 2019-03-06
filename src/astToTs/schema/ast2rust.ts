@@ -76,7 +76,7 @@ const variantStr = Variant.match({
     `${name}(${fields.map(typeToString).join(', ')})`,
   Struct: ({ name, members }) =>
     `${name} { ${Object.keys(members)
-      .map(n => `${camelToSnakeCase(n)}: ${typeToString(members[n])}`)
+      .map(n => `#[serde(rename = "${n}")] ${camelToSnakeCase(n)}: ${typeToString(members[n])}`)
       .join(', ')} }`
 })
 

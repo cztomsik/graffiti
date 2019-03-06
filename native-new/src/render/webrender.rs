@@ -126,8 +126,8 @@ impl RenderContext {
             spread_radius: box_shadow.spread,
             border_radius: self.border_radius.clone().into(),
 
-            // TODO
-            clip_mode: BoxShadowClipMode::Outset,
+            // TODO: Inset/Outset (outset needs bigger clip-rect)
+            clip_mode: BoxShadowClipMode::Inset,
         })
     }
 
