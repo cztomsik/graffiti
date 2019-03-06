@@ -16,7 +16,8 @@ import {
   FlexDirection,
   JustifyContent,
   FlexAlign,
-  FlexWrap
+  FlexWrap,
+  BorderStyle
 } from '../core/generated'
 import { parseColor } from '../core/utils'
 
@@ -217,10 +218,35 @@ function compile2(style: FlatStyle & BorderProps): HostSurfaceProps {
     ),
     //boxShadow,
     backgroundColor:
-      (backgroundColor || undefined) && parseColor(backgroundColor)
+      (backgroundColor || undefined) && parseColor(backgroundColor),
     //image,
     //text,
-    //border
+    border: (borderTopWidth ||
+      borderRightWidth ||
+      borderBottomWidth ||
+      borderLeftWidth ||
+      undefined) && {
+      top: {
+        width: borderTopWidth,
+        color: parseColor(borderTopColor),
+        style: BorderStyle.Solid
+      },
+      right: {
+        width: borderRightWidth,
+        color: parseColor(borderRightColor),
+        style: BorderStyle.Solid
+      },
+      bottom: {
+        width: borderBottomWidth,
+        color: parseColor(borderBottomColor),
+        style: BorderStyle.Solid
+      },
+      left: {
+        width: borderLeftWidth,
+        color: parseColor(borderLeftColor),
+        style: BorderStyle.Solid
+      }
+    }
   }
 }
 
@@ -246,7 +272,7 @@ const FLEX_DIRECTION = {
 }
 
 const FLEX_WRAP = {
-  'nowrap': 'NoWrap',
+  nowrap: 'NoWrap',
   'no-wrap': 'NoWrap',
   wrap: 'Wrap',
   'wrap-reverse': 'WrapReverse'

@@ -11,7 +11,7 @@ import ErrorBoundary from './ErrorBoundary'
 import ControlManager, { ControlManagerContext } from './ControlManager'
 
 import { Size, Color, Flex, Image, Border, Text, Flow } from '../core'
-import { Msg, mkMsgHandleEvents, mkMsgRender, mkMsgAlloc, mkMsgSetFlow, mkMsgSetImage, mkMsgSetText, mkMsgSetPadding, mkMsgSetMargin, mkMsgSetFlex, mkMsgSetSize, mkMsgSetBackgroundColor, mkMsgAppendChild, mkMsgInsertBefore, mkMsgRemoveChild } from '../core/generated'
+import { Msg, mkMsgHandleEvents, mkMsgRender, mkMsgAlloc, mkMsgSetFlow, mkMsgSetImage, mkMsgSetText, mkMsgSetPadding, mkMsgSetMargin, mkMsgSetFlex, mkMsgSetSize, mkMsgSetBackgroundColor, mkMsgAppendChild, mkMsgInsertBefore, mkMsgRemoveChild, mkMsgSetBorder } from '../core/generated'
 
 const ref = require('ref');
 const ffi = require('ffi');
@@ -152,6 +152,10 @@ function update(surface, props: HostSurfaceProps, oldProps: HostSurfaceProps) {
 
   if (props.text !== oldProps.text) {
     send(mkMsgSetText({ surface, text: props.text }))
+  }
+
+  if (props.border !== oldProps.border) {
+    send(mkMsgSetBorder({ surface, border: props.border }))
   }
 }
 
