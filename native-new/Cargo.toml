@@ -1,0 +1,25 @@
+[package]
+edition = "2018"
+name = "node-webrender"
+version = "0.1.0"
+authors = ["Kamil Tomšík <info@tomsik.cz>"]
+license = "MIT"
+
+[lib]
+name = "node_webrender"
+crate-type = ["cdylib"]
+
+[dependencies]
+libc = "0.2.48"
+serde = { version = "1.0.80", features = ["derive"] }
+serde_json = "1.0.38"
+bincode = "1.1.1"
+yoga = "0.3.1"
+webrender = "0.60.0"
+glutin = "0.19.0"
+gleam = "0.6.9"
+ordered-float = "1.0.1"
+log = "0.4.6"
+env_logger = "0.6.0"
+font-loader = "0.8.0"
+image = "0.21.0"

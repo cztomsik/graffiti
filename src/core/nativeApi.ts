@@ -1,103 +1,27 @@
-export module N {
-  export interface Window {
-    opaque: 'opaque win reference'
-  }
+import { Msg, mkMsgAlloc, mkMsgHandleEvents } from "./generated";
 
-  export interface Surface {
-    opaque: 'opaque surface reference'
-  }
+const ref = require('ref');
+const ffi = require('ffi');
 
-  export type ImageId = number & { opaque: 'image id' }
+// define lib
+const lib = ffi.Library(__dirname + '/../../native-new/target/debug/libnode_webrender', {
+  init: ['void', []],
+  // pass a buffer (pointer to some memory + its length)
+  'send': ['void', [ref.refType(ref.types.void), 'int']]
+});
 
-  export interface FlexStyle {
-    opaque: 'opaque compiled flex style object reference'
-  }
+lib.init()
+send(mkMsgAlloc())
 
-  export enum MeasureMode {
-    Undefined = 0,
-    Exactly = 1,
-    AtMost = 2
-  }
+// necessary for window to stay responsive
+setInterval(() => {
+  send(mkMsgHandleEvents())
+}, 200)
 
-  export interface MeasureCallback {
-    (
-      availableWidth: number,
-      widthMode: MeasureMode,
-      availableHeight: number,
-      heightMode: MeasureMode
-    ): { width: number; height: number }
-  }
+export function send(msg: Msg) {
+  // prepare buffer with msg
+  let buf = Buffer.from(JSON.stringify(msg))
 
-  export interface ResourceHandle {
-    opaque: 'opaque handle of brush or clip'
-  }
-}
-
-export interface NativeApi {
-  app_loop_a_bit: () => void
-
-  window_create: (
-    title: string,
-    width: number,
-    hieght: number,
-    event_handler: (evStr: string) => void
-  ) => N.Window
-
-  window_render_surface: (
-    win: N.Window,
-    surface: N.Surface,
-    availableWidth: number,
-    availableHeight: number
-  ) => void
-
-  surface_create: () => N.Surface
-
-  surface_append_child: (to: N.Surface, child: N.Surface) => void
-
-  surface_insert_before: (
-    to: N.Surface,
-    child: N.Surface,
-    before: N.Surface
-  ) => void
-
-  surface_remove_child: (from: N.Surface, child: N.Surface) => void
-
-  surface_mark_dirty: (surface: N.Surface) => void
-
-  surface_calculate_layout: (
-    surface: N.Surface,
-    availableWidth: number,
-    availableHeight: number
-  ) => void
-
-  surface_update: (
-    surface: N.Surface,
-    brush: N.ResourceHandle | undefined,
-    clip: N.ResourceHandle | undefined,
-    layout: N.FlexStyle
-  ) => void
-
-  surface_set_measure_func: (
-    surface: N.Surface,
-    callback: N.MeasureCallback
-  ) => void
-
-  flex_style_create: (serializedStyle: string) => N.FlexStyle
-
-  op_resource_create: (serializedOperations: string) => N.ResourceHandle
-
-  window_get_glyph_indices_and_advances: (
-    win: N.Window,
-    fontSize: number,
-    str: string
-  ) => [
-    // indices
-    // -> Uint32Array
-    number[],
-    // advances
-    // -> Float32Array
-    number[]
-  ]
-
-  registerImage: (win: N.Window, payload: string) => void
+  // send (sync)
+  lib.send(buf, buf.length)
 }

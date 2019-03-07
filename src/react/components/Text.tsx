@@ -6,19 +6,14 @@ import { parseColor } from '../../core/utils'
 const Text: React.SFC<TextProps> = ({ style = {}, children }) => {
   const flatStyle = StyleSheet.flatten(style)
 
-  // TODO: move defaults to TextContainer
-  // TODO: what if color was resource with its own bucket/renderOperation? it could in theory improve CPU-caching
-  const { fontSize, color = '#000000', lineHeight = 30 } = flatStyle
+  const { fontSize = 16, color = '#000000', lineHeight = 30 } = flatStyle
 
   return (
     <View style={flatStyle}>
-      <host-text-container
-        fontSize={fontSize}
-        color={parseColor(color)}
-        lineHeight={lineHeight}
-      >
-        {children}
-      </host-text-container>
+      <host-surface
+        size={[{ tag: 'Point', value: 20 }, { tag: 'Point', value: 20 }]}
+        text={{ fontSize, color: parseColor(color), lineHeight, text: [].concat(children).join('') }}
+      />
     </View>
   )
 }

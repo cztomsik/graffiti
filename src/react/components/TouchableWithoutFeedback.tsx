@@ -1,10 +1,7 @@
 import * as React from 'react'
-import { ResourceManager } from '../..'
 import { __callbacks } from '../../core/Window'
 import { View } from '..'
 import { TouchableWithoutFeedbackProps } from '../react-native-types'
-import { RenderOp } from '../../core/RenderOperation'
-import { BridgeBrush } from '../../core/ResourceManager'
 
 // TODO: we should not need extra yoga nodes but
 // we do (HasLayout)
@@ -12,7 +9,6 @@ class TouchableWithoutFeedback extends React.Component<
   TouchableWithoutFeedbackProps
 > {
   callbackId
-  brush: BridgeBrush
 
   static defaultProps = {
     onPress: () => {}
@@ -23,9 +19,9 @@ class TouchableWithoutFeedback extends React.Component<
 
     this.callbackId = __callbacks.push(() => this.props.onPress(null)) - 1
 
-    this.brush = ResourceManager.createBrush([
-      RenderOp.HitTest(this.callbackId)
-    ])
+    //this.brush = ResourceManager.createBrush([
+    //  RenderOp.HitTest(this.callbackId)
+    //])
   }
 
   render() {
@@ -34,11 +30,10 @@ class TouchableWithoutFeedback extends React.Component<
     // this is super-hacky but it's fine for now
     const props = View(rest).props
 
+    // TODO
     return (
-      <host-surface {...props} brush={this.brush}>
-        <host-surface brush={props.brush} layout={TOUCHABLE_INSIDE}>
-          {children}
-        </host-surface>
+      <host-surface>
+        {children}
       </host-surface>
     )
   }
@@ -47,7 +42,5 @@ class TouchableWithoutFeedback extends React.Component<
     // TODO: free callback
   }
 }
-
-const TOUCHABLE_INSIDE = ResourceManager.getLayout({ flex: 1, flexBasis: 'auto' })
 
 export default TouchableWithoutFeedback

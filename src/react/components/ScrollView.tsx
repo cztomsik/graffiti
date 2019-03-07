@@ -1,30 +1,13 @@
 import * as React from 'react'
-import { useMemo } from 'react'
-import { ResourceManager } from '../..'
 import { ScrollViewProps } from '../react-native-types'
-import { __callbacks } from '../../core/Window'
-import { RenderOp } from '../../core/RenderOperation'
 
+// TODO
 const ScrollView = (props: ScrollViewProps & { children? }) => {
-  const clip = useMemo(
-    () => ResourceManager.createBrush([RenderOp.PushScrollClip(++lastId)]),
-    []
-  )
-
   return (
-    <host-surface brush={SAVE_RECT} layout={SCROLL_LAYOUT}>
-      <host-surface clip={clip} brush={SCROLL_TEST}>
-        {props.children}
-      </host-surface>
+    <host-surface flex={{ flexGrow: 1, flexShrink: 1, flexBasis: { tag: 'Auto' }}} backgroundColor={[0, 0, 0, 1]}>
+      {props.children}
     </host-surface>
   )
 }
-
-const SAVE_RECT = ResourceManager.createBrush([RenderOp.SaveRect()])
-const SCROLL_LAYOUT = ResourceManager.getLayout({ flex: 1, overflow: 'scroll' })
-const SCROLL_CB = __callbacks.push(() => {}) - 1
-const SCROLL_TEST = ResourceManager.createBrush([RenderOp.HitTest(SCROLL_CB)])
-
-let lastId = 0
 
 export default ScrollView

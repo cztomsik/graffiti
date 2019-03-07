@@ -1,18 +1,18 @@
-import { BridgeColor } from './RenderOperation'
+import { Color } from '.';
 
 export const remove = (arr: any[], item: any) =>
   arr.splice(arr.indexOf(item), 1)
 
 // TODO: rgb(), rgba(), hex short
-export const parseColor = (str: string): BridgeColor => {
+export const parseColor = (str: string): Color => {
   let res = COLOR_CACHE.get(str)
 
   if (res === undefined) {
     COLOR_CACHE.set(str, res = [
-      parseHex(str.slice(1, 3)) / 255,
-      parseHex(str.slice(3, 5)) / 255,
-      parseHex(str.slice(5, 7)) / 255,
-      1
+      parseHex(str.slice(1, 3)),
+      parseHex(str.slice(3, 5)),
+      parseHex(str.slice(5, 7)),
+      255
     ])
   }
 
@@ -21,4 +21,4 @@ export const parseColor = (str: string): BridgeColor => {
 
 export const parseHex = (str: string) => parseInt(str, 16)
 
-const COLOR_CACHE = new Map<string, BridgeColor>()
+const COLOR_CACHE = new Map<string, Color>()

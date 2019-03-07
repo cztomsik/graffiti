@@ -14,7 +14,7 @@ const App = () => (
 
       <Button title="Click to exit" onPress={() => process.exit()} />
 
-      <Image style={styles.img as any} source={{ uri: 'myImg.png' }} />
+      <Image style={styles.img} source={{ uri: 'docs/images/react-calculator.png' }} />
     </View>
   </View>
 )
@@ -29,14 +29,14 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: '#eeeeee',
+    backgroundImageUrl: 'docs/images/hello.png',
     justifyContent: 'space-between'
   },
 
   img: {
-    width: 40,
-    height: 80,
-    backgroundColor: '#eeeeee',
-    margin: 20
+    width: 300,
+    height: 200,
+    backgroundColor: '#eeeeee'
   },
 
   main: {

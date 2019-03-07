@@ -1,6 +1,20 @@
-export { default as Window } from './Window'
-export { default as ResourceManager } from './ResourceManager'
-export { default as Surface } from './Surface'
-export { default as TextContainer } from './TextContainer'
-export { default as TextPart } from './TextPart'
-export { Img } from './Img'
+export {
+  Color,
+  Border,
+  BorderStyle,
+  Dimension,
+  Flex,
+  FlexAlign,
+  FlexDirection,
+  FlexWrap,
+  Flow,
+  Image,
+  JustifyContent,
+  Text,
+  BorderRadius,
+  Size,
+  BorderSide,
+  BoxShadow
+} from './generated'
+
+export { Window } from './Window'

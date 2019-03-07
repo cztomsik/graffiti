@@ -2,7 +2,6 @@ import * as React from 'react'
 import { useState, useRef, useContext } from 'react'
 import { TextInputProps } from '../react-native-types'
 import { ControlManagerContext, TouchableWithoutFeedback, Text, StyleSheet } from '..'
-import { ResourceManager } from '../..'
 
 // TODO: reconsider if layout should be coupled to Surface, drawing custom shapes (caret) would have been much easier
 
