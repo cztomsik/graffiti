@@ -4,7 +4,7 @@ permalink: /
 ---
 
 # stain
-[webrender](https://github.com/servo/webrender) bindings for node.js & react
+Rapid GUI development using familiar technologies (javascript, flexbox, css)
 
 ---
 
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
 </div>
 <br>
 
-Please note there is **no DOM, nor any web technology** involved in this project, unlike what you might expect from such name. [Read more here](./docs/webrender.md)
+We use [webrender](https://github.com/servo/webrender) for the actual drawing, yet there is **no DOM**, so we can be faster and yet use (much) less memory. [Read more here](./docs/webrender.md)
 
 ---
 
