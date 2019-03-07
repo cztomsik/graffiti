@@ -3,7 +3,7 @@ title: Home
 permalink: /
 ---
 
-# node-webrender
+# stain
 [webrender](https://github.com/servo/webrender) bindings for node.js & react
 
 ---
