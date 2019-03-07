@@ -1,5 +1,12 @@
 {
   "compilerOptions": {
+    "noImplicitAny": false,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "strictBindCallApply": true,
+    "strictNullChecks": false,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": false,
     "lib": ["es2017"],
     "target": "es2017",
     "module": "commonjs",

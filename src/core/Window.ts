@@ -1,7 +1,7 @@
 export class Window {
   id = 0
 
-  constructor(title, width = 800, height = 600) {
+  constructor(title: string, width = 800, height = 600) {
     // TODO: factory (no side-effects in constructor)
 
     // TODO (in create/openWindow)
@@ -9,12 +9,7 @@ export class Window {
     // createdWindow.destructor = require('finalize')(window, function() { send(destroyWindow(window.id)) }))
   }
 
-  // maybe this should be done somewhere else - if this class doesn't do aquire, maybe it shouldn't do destroy either
-  // and then maybe it's not
-  // TODO: destructor = require('finalize')(this, () => send(destroyWindow(this.id)))
-
-
-  setSize(width, height) {
+  setSize(width: number, height: number) {
     // TODO (sync)
   }
 

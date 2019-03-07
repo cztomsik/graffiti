@@ -147,7 +147,7 @@ function compile2(style: FlatStyle & BorderProps): HostSurfaceProps {
     backgroundColor,
     // TODO: BorderStyle
     borderRadius = 0,
-    borderColor,
+    borderColor = '#000000',
     borderWidth = 0,
 
     ...rest
@@ -221,42 +221,42 @@ function compile2(style: FlatStyle & BorderProps): HostSurfaceProps {
       parseDimension(marginRight),
       parseDimension(marginLeft)
     ),
-    boxShadow: (shadowColor || undefined) && {
-      blur: shadowRadius,
-      spread: 0,
-      color: parseColor(shadowColor),
-      offset: mkVector2f(0, 0)
-    },
-    backgroundColor:
-      (backgroundColor || undefined) && parseColor(backgroundColor),
+    boxShadow: shadowColor
+      ? {
+          blur: shadowRadius,
+          spread: 0,
+          color: parseColor(shadowColor),
+          offset: mkVector2f(0, 0)
+        }
+      : undefined,
+    backgroundColor: backgroundColor ? parseColor(backgroundColor) : undefined,
     //image,
     //text,
-    border: (borderTopWidth ||
-      borderRightWidth ||
-      borderBottomWidth ||
-      borderLeftWidth ||
-      undefined) && {
-      top: {
-        width: borderTopWidth,
-        color: parseColor(borderTopColor),
-        style: BorderStyle.Solid
-      },
-      right: {
-        width: borderRightWidth,
-        color: parseColor(borderRightColor),
-        style: BorderStyle.Solid
-      },
-      bottom: {
-        width: borderBottomWidth,
-        color: parseColor(borderBottomColor),
-        style: BorderStyle.Solid
-      },
-      left: {
-        width: borderLeftWidth,
-        color: parseColor(borderLeftColor),
-        style: BorderStyle.Solid
-      }
-    }
+    border:
+      borderTopWidth || borderRightWidth || borderBottomWidth || borderLeftWidth
+        ? {
+            top: {
+              width: borderTopWidth,
+              color: parseColor(borderTopColor),
+              style: BorderStyle.Solid
+            },
+            right: {
+              width: borderRightWidth,
+              color: parseColor(borderRightColor),
+              style: BorderStyle.Solid
+            },
+            bottom: {
+              width: borderBottomWidth,
+              color: parseColor(borderBottomColor),
+              style: BorderStyle.Solid
+            },
+            left: {
+              width: borderLeftWidth,
+              color: parseColor(borderLeftColor),
+              style: BorderStyle.Solid
+            }
+          }
+        : undefined
   }
 }
 

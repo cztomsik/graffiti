@@ -11,33 +11,8 @@ import ErrorBoundary from './ErrorBoundary'
 import ControlManager, { ControlManagerContext } from './ControlManager'
 
 import { Size, Color, Flex, Image, Border, Text, Flow } from '../core'
-import { Msg, mkMsgHandleEvents, mkMsgRender, mkMsgAlloc, mkMsgSetFlow, mkMsgSetImage, mkMsgSetText, mkMsgSetPadding, mkMsgSetMargin, mkMsgSetFlex, mkMsgSetSize, mkMsgSetBackgroundColor, mkMsgAppendChild, mkMsgInsertBefore, mkMsgRemoveChild, mkMsgSetBorder, mkMsgSetBoxShadow, BoxShadow } from '../core/generated'
-
-const ref = require('ref');
-const ffi = require('ffi');
-
-// define lib
-export const lib = ffi.Library(__dirname + '/../../native-new/target/debug/libnode_webrender', {
-  init: ['void', []],
-  // pass a buffer (pointer to some memory + its length)
-  'send': ['void', [ref.refType(ref.types.void), 'int']]
-});
-
-lib.init()
-send(mkMsgAlloc())
-
-// necessary for window to stay responsive
-setInterval(() => {
-  send(mkMsgHandleEvents())
-}, 200)
-
-function send(msg: Msg) {
-  // prepare buffer with msg
-  let buf = Buffer.from(JSON.stringify(msg))
-
-  // send (sync)
-  lib.send(buf, buf.length)
-}
+import { mkMsgRender, mkMsgAlloc, mkMsgSetFlow, mkMsgSetImage, mkMsgSetText, mkMsgSetPadding, mkMsgSetMargin, mkMsgSetFlex, mkMsgSetSize, mkMsgSetBackgroundColor, mkMsgAppendChild, mkMsgInsertBefore, mkMsgRemoveChild, mkMsgSetBorder, mkMsgSetBoxShadow, BoxShadow } from '../core/generated'
+import { send } from '../core/nativeApi'
 
 // temporary helpers
 // because root is 0

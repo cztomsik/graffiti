@@ -13,6 +13,20 @@ use webrender::{Renderer, RendererOptions};
 
 static mut TEMP: Option<Temp> = None;
 
+// proper multi-window support is rather big task (> week)
+// in the meantime we can access render_api this way
+pub fn with_api<F, SomeRes>(f: F) -> SomeRes
+    where
+        F: FnOnce(&mut RenderApi) -> SomeRes,
+{
+    unsafe {
+        match &mut TEMP {
+            None => panic!("not initialized"),
+            Some(temp) => f(&mut temp.inner.render_api),
+        }
+    }
+}
+
 pub fn init() {
     env_logger::init();
 
@@ -61,8 +75,15 @@ pub fn init() {
         let document_id = render_api.add_document(fb_size, 0);
         let pipeline_id = PipelineId::dummy();
 
+        let property = font_loader::system_fonts::FontPropertyBuilder::new()
+            .family("Arial")
+            .build();
+        let (font, font_index) = font_loader::system_fonts::get(&property).unwrap();
+        let font_key = render_api.generate_font_key();
+
         let mut tx = Transaction::new();
         tx.set_root_pipeline(pipeline_id);
+        tx.add_raw_font(font_key, font, font_index as u32);
         tx.generate_frame();
         render_api.send_transaction(document_id, tx);
         rx.recv().ok();

@@ -12,7 +12,7 @@ export function FlatList<TItem>(props: FlatListProps<TItem>) {
   const { data, renderItem, style, ItemSeparatorComponent } = props
   return (
     <ScrollView style={style}>
-      {data.map((item, index) => (
+      {data && data.map((item, index) => (
         <React.Fragment key={index}>
           {renderItem({ item, index, separators: noopSeparators })}
           {ItemSeparatorComponent && index !== data.length - 1 ? (
