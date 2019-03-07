@@ -61,4 +61,4 @@ Please note there is **no DOM, nor any web technology** involved in this project
 
 ## Documentation
 Please refer to respective sub-page on the
-[project website](http://tomsik.cz/node-webrender)
+[project website](http://tomsik.cz/stain)
