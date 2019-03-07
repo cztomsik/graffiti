@@ -18,3 +18,14 @@ export {
   ImageURISource,
   ImageSourcePropType
 } from 'react-native'
+
+declare module 'react-native' {
+  interface ViewStyle {
+    backgroundImageUrl?: string
+
+    borderTopColor?: string
+    borderRightColor?: string
+    borderBottomColor?: string
+    borderLeftColor?: string
+  }
+}

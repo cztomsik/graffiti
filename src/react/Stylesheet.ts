@@ -27,14 +27,7 @@ type Styles = {
   [key: string]: FlatStyle
 }
 
-type FlatStyle = ViewStyle | TextStyle | ImageStyle
-
-interface BorderProps {
-  borderTopColor?: string
-  borderRightColor?: string
-  borderBottomColor?: string
-  borderLeftColor?: string
-}
+type FlatStyle = ViewStyle & TextStyle & ImageStyle
 
 const create = (obj: Styles): Styles => {
   for (const k in obj) {
@@ -125,7 +118,7 @@ const StyleSheet = {
 
 export default StyleSheet
 
-function compile2(style: FlatStyle & BorderProps): HostSurfaceProps {
+function compile2(style: FlatStyle): HostSurfaceProps {
   const {
     width = 'auto',
     height = 'auto',
@@ -145,6 +138,7 @@ function compile2(style: FlatStyle & BorderProps): HostSurfaceProps {
     //shadowOpacity,
     shadowRadius = 0,
     backgroundColor,
+    backgroundImageUrl,
     // TODO: BorderStyle
     borderRadius = 0,
     borderColor = '#000000',
@@ -230,7 +224,7 @@ function compile2(style: FlatStyle & BorderProps): HostSurfaceProps {
         }
       : undefined,
     backgroundColor: backgroundColor ? parseColor(backgroundColor) : undefined,
-    //image,
+    image: backgroundImageUrl ? { url: backgroundImageUrl } : undefined,
     //text,
     border:
       borderTopWidth || borderRightWidth || borderBottomWidth || borderLeftWidth

@@ -4,14 +4,19 @@ use super::{
 };
 use crate::generated::Vector2f;
 use crate::surface::SurfaceData;
-use crate::temp::send_frame;
+use crate::temp;
+use image;
+use image::GenericImageView;
+use std::fs::File;
+use std::io::prelude::*;
 use webrender::api::{
-    AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius,
+    AddImage, AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius,
     BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
     BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, FontInstanceKey, GlyphInstance,
-    IdNamespace, ImageDisplayItem, ImageKey, ImageRendering, LayoutPoint, LayoutPrimitiveInfo,
-    LayoutRect, LayoutSize, LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem,
-    SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem,
+    IdNamespace, ImageData, ImageDescriptor, ImageDisplayItem, ImageFormat, ImageRendering,
+    LayoutPoint, LayoutPrimitiveInfo, LayoutRect, LayoutSize, LayoutVector2D, NormalBorder,
+    PipelineId, RectangleDisplayItem, ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem,
+    TextDisplayItem,
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D};
 
@@ -47,7 +52,7 @@ impl RenderService for WebrenderRenderService {
 
         context.render_surface(surface);
 
-        send_frame(context.builder)
+        temp::send_frame(context.builder)
     }
 }
 
@@ -67,7 +72,10 @@ impl RenderContext {
         let (x, y, width, height) = self.computed_layouts[surface.id() as usize];
 
         self.layout = LayoutPrimitiveInfo::new(LayoutRect::new(
-            LayoutPoint::new(parent_layout.rect.origin.x + x, parent_layout.rect.origin.y + y),
+            LayoutPoint::new(
+                parent_layout.rect.origin.x + x,
+                parent_layout.rect.origin.y + y,
+            ),
             LayoutSize::new(width, height),
         ));
 
@@ -137,9 +145,38 @@ impl RenderContext {
         })
     }
 
-    fn image(&self, _image: Image) -> SpecificDisplayItem {
-        // TODO
-        let image_key = ImageKey::DUMMY;
+    // TODO: refactor, cache, free + hook to make loading possible from node.js (http)
+    fn image(&self, image: Image) -> SpecificDisplayItem {
+        let image_key = temp::with_api(|api| {
+            let mut f = File::open(image.url).expect("couldn't open file");
+            let mut buffer = Vec::new();
+            f.read_to_end(&mut buffer).expect("couldn't read");
+
+            let image = image::load_from_memory(&buffer).expect("couldn't load image");
+            let descriptor = ImageDescriptor::new(
+                image.width() as i32,
+                image.height() as i32,
+                ImageFormat::RGBA8,
+                true,
+                false,
+            );
+
+            let key = api.generate_image_key();
+
+            api.update_resources(vec![ResourceUpdate::AddImage(AddImage {
+                key,
+                descriptor,
+                data: ImageData::new(
+                    image
+                        .as_rgba8()
+                        .expect("couldn't convert to rgba8")
+                        .to_vec(),
+                ),
+                tiling: None,
+            })]);
+
+            key
+        });
 
         SpecificDisplayItem::Image(ImageDisplayItem {
             image_key,
