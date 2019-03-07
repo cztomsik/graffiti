@@ -5,7 +5,7 @@ aux_links:
   "Gitter":
     - "https://gitter.im/node-webrender/community"
   "GitHub":
-    - "//github.com/cztomsik/node-webrender"
+    - "//github.com/cztomsik/stain"
 
 # actually, it's this + /project_name
 url: //tomsik.cz
