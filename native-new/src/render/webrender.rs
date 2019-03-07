@@ -18,7 +18,7 @@ use webrender::api::{
     PipelineId, RectangleDisplayItem, ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem,
     TextDisplayItem,
 };
-use webrender::euclid::{TypedSideOffsets2D, TypedSize2D};
+use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 
 static BUILDER_CAPACITY: usize = 512 * 1024;
 
@@ -92,7 +92,10 @@ impl RenderContext {
         // TODO: hittest
 
         if let Some(box_shadow) = surface.box_shadow() {
-            self.push(self.box_shadow(box_shadow.clone()));
+            let Vector2f(x, y) = box_shadow.offset;
+            let size = box_shadow.spread + box_shadow.blur;
+            let layout = LayoutPrimitiveInfo::with_clip_rect(self.layout.rect, self.layout.rect.translate(&TypedVector2D::new(x, y)).inflate(size, size));
+            self.builder.push_item(&self.box_shadow(box_shadow.clone()), &layout, &self.space_and_clip);
         }
 
         if let Some(color) = surface.background_color() {
@@ -135,7 +138,7 @@ impl RenderContext {
             border_radius: self.border_radius.clone().into(),
 
             // TODO: Inset/Outset (outset needs bigger clip-rect)
-            clip_mode: BoxShadowClipMode::Inset,
+            clip_mode: BoxShadowClipMode::Outset,
         })
     }
 
