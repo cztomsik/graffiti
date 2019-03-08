@@ -7,7 +7,7 @@ use glutin::{EventsLoop, GlContext, GlWindow, WindowBuilder};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use webrender::api::{
     DeviceIntSize, DisplayListBuilder, DocumentId, Epoch, LayoutSize, PipelineId, RenderApi,
-    RenderNotifier, Transaction,
+    RenderNotifier, Transaction, FontInstanceKey
 };
 use webrender::{Renderer, RendererOptions};
 
@@ -84,6 +84,19 @@ pub fn init() {
         let mut tx = Transaction::new();
         tx.set_root_pipeline(pipeline_id);
         tx.add_raw_font(font_key, font, font_index as u32);
+
+        // TODO: support any size
+        for font_size in [10, 12, 14, 16, 20, 24, 34, 40, 48].iter() {
+            tx.add_font_instance(
+                FontInstanceKey(font_key.0, *font_size),
+                font_key,
+                app_units::Au::from_px(*font_size as i32),
+                None,
+                None,
+                Vec::new(),
+            );
+        }
+
         tx.generate_frame();
         render_api.send_transaction(document_id, tx);
         rx.recv().ok();

@@ -28,4 +28,8 @@ declare module 'react-native' {
     borderBottomColor?: string
     borderLeftColor?: string
   }
+
+  interface TextProps {
+    children?: string | string[]
+  }
 }

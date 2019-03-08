@@ -16,12 +16,22 @@ use webrender::api::{
     IdNamespace, ImageData, ImageDescriptor, ImageDisplayItem, ImageFormat, ImageRendering,
     LayoutPoint, LayoutPrimitiveInfo, LayoutRect, LayoutSize, LayoutVector2D, NormalBorder,
     PipelineId, RectangleDisplayItem, ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem,
-    TextDisplayItem,
+    TextDisplayItem, ImageKey, FontKey
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
+use std::collections::BTreeMap;
+use pango::prelude::*;
+use pango::WrapMode;
+use pangocairo::FontMap;
 
 static BUILDER_CAPACITY: usize = 512 * 1024;
 
+pub struct WebrenderRenderService {
+    // so that we can reuse already uploaded images
+    // this can be (periodically) cleaned up by simply going through all keys and
+    // looking what has (not) been used in the last render (and can be evicted)
+    // _uploaded_images: BTreeMap<String, ImageKey>
+}
 pub struct WebrenderRenderService {}
 
 impl WebrenderRenderService {
@@ -191,21 +201,52 @@ impl RenderContext {
         })
     }
 
+    // TODO: cache, free, refactor, etc.
+    // (this is rather PoC)
     fn text(&self, text: Text) -> (SpecificDisplayItem, Vec<GlyphInstance>) {
-        // TODO
-        let font_key = FontInstanceKey::new(IdNamespace(0), 0);
+        let [text_x, text_y] = self.layout.rect.origin.to_array();
+        let font_map = FontMap::new().expect("couldn't get fontmap");
+        let context = pango::Context::new();
+        context.set_font_map(&font_map);
+
+        let mut description = pango::FontDescription::new();
+        description.set_family("Arial");
+        description.set_size(text.font_size as i32);
+
+        let layout = pango::Layout::new(&context);
+        layout.set_font_description(&description);
+        layout.set_wrap(WrapMode::Word);
+        layout.set_width(100);
+        layout.set_text(&text.text);
+
+        let glyphs = temp::with_api(|render_api| {
+            let mut glyphs: Vec<GlyphInstance> = Vec::new();
+
+            let glyph_indices = render_api.get_glyph_indices(FontKey(IdNamespace(1), 1), &text.text);
+
+            for (i, _char) in text.text.char_indices() {
+                let rect = layout.index_to_pos(i as i32);
+
+                if let Some(glyph_index) = glyph_indices[i] {
+                    glyphs.push(GlyphInstance {
+                        index: glyph_index,
+                        point: LayoutPoint::new(text_x + rect.x as f32, 30. + text_y + rect.y as f32)
+                    })
+                }
+            }
+
+            glyphs
+        });
+
+        debug!("{:?}", &glyphs);
+
+        let font_key = FontInstanceKey::new(IdNamespace(1), text.font_size as u32);
 
         let item = SpecificDisplayItem::Text(TextDisplayItem {
             font_key,
             color: text.color.clone().into(),
             glyph_options: None,
         });
-
-        // TODO
-        let glyphs = vec![GlyphInstance {
-            index: 40,
-            point: self.layout.rect.origin.clone(),
-        }];
 
         (item, glyphs)
     }
