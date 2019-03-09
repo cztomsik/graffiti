@@ -17,24 +17,28 @@ use webrender::api::{
     BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
     BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, FontInstanceKey, FontKey,
     GlyphInstance, IdNamespace, ImageData, ImageDescriptor, ImageDisplayItem, ImageFormat,
-    ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect, LayoutSize,
-    LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem, ResourceUpdate,
-    SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem,
+    ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect, LayoutSize, LayoutVector2D,
+    NormalBorder, PipelineId, RectangleDisplayItem, ResourceUpdate, SpaceAndClipInfo,
+    SpecificDisplayItem, TextDisplayItem,
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 
 static BUILDER_CAPACITY: usize = 512 * 1024;
 
 pub struct WebrenderRenderService {
-    // so that we can reuse already uploaded images
-// this can be (periodically) cleaned up by simply going through all keys and
-// looking what has (not) been used in the last render (and can be evicted)
-// _uploaded_images: BTreeMap<String, ImageKey>
+    pango_context: pango::Context, // so that we can reuse already uploaded images
+                                   // this can be (periodically) cleaned up by simply going through all keys and
+                                   // looking what has (not) been used in the last render (and can be evicted)
+                                   // _uploaded_images: BTreeMap<String, ImageKey>
 }
 
 impl WebrenderRenderService {
     pub fn new() -> Self {
-        WebrenderRenderService {}
+        let font_map = FontMap::new().expect("couldn't get fontmap");
+        let pango_context = pango::Context::new();
+        pango_context.set_font_map(&font_map);
+
+        WebrenderRenderService { pango_context }
     }
 }
 
@@ -47,6 +51,7 @@ impl RenderService for WebrenderRenderService {
 
         let mut context = RenderContext {
             computed_layouts,
+            pango_context: &self.pango_context,
 
             builder: DisplayListBuilder::with_capacity(
                 pipeline_id,
@@ -64,8 +69,9 @@ impl RenderService for WebrenderRenderService {
     }
 }
 
-struct RenderContext {
+struct RenderContext<'a> {
     computed_layouts: Vec<ComputedLayout>,
+    pango_context: &'a pango::Context,
 
     builder: DisplayListBuilder,
     border_radius: WRBorderRadius,
@@ -73,7 +79,7 @@ struct RenderContext {
     space_and_clip: SpaceAndClipInfo,
 }
 
-impl RenderContext {
+impl<'a> RenderContext<'a> {
     // TODO: scroll
     fn render_surface(&mut self, surface: &SurfaceData) {
         let parent_layout = self.layout;
@@ -214,15 +220,12 @@ impl RenderContext {
     // (this is rather PoC)
     fn text(&self, text: Text) -> (SpecificDisplayItem, Vec<GlyphInstance>) {
         let [text_x, text_y] = self.layout.rect.origin.to_array();
-        let font_map = FontMap::new().expect("couldn't get fontmap");
-        let context = pango::Context::new();
-        context.set_font_map(&font_map);
 
         let mut description = pango::FontDescription::new();
         description.set_family("Arial");
         description.set_size(text.font_size as i32);
 
-        let layout = pango::Layout::new(&context);
+        let layout = pango::Layout::new(self.pango_context);
         layout.set_font_description(&description);
         layout.set_wrap(WrapMode::Word);
         layout.set_width(100);

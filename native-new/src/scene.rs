@@ -6,13 +6,13 @@ use crate::storage::{DenseStorage, SparseStorage};
 use std::fmt::Debug;
 use std::fmt::Formatter;
 
-/// In a perfect world this could be just:
+/// A tree of surfaces (UI elements) along with all of their layout/visual properties
+///
+/// In a perfect world this could be just (js pseudo code):
 ///
 /// class Surface {
 ///   children = []
-///
 ///   padding, margin, ...
-///
 ///   boxShadow, backgroundColor, ...
 /// }
 ///
@@ -25,8 +25,12 @@ use std::fmt::Formatter;
 /// let computedLayouts = layoutFn(rootSurface)
 /// renderFn(rootSurface, computedLayouts)
 ///
-/// And this is basically an attempt to implement a whole tree of surfaces as a "struct of arrays"
-/// which should make rendering way-faster (by being cpu cache-friendly)
+/// BUT
+///     1. object graphs are complicated to do in rust
+///     2. most of the data will be sparse which is not great for performance
+///
+/// And this is basically an attempt to implement a whole tree of surfaces (rootNode) as a
+/// "struct of arrays" which should make rendering way-faster (by being cpu cache-friendly)
 ///
 /// Note that SurfaceData accessors reduce coupling on this internal structure
 pub struct Scene {

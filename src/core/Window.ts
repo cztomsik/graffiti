@@ -1,4 +1,7 @@
+import { Transaction } from "./Transaction";
+
 export class Window {
+  rootSurface = 0
   id = 0
 
   constructor(title: string, width = 800, height = 600) {
@@ -7,6 +10,10 @@ export class Window {
     // TODO (in create/openWindow)
     // it's not constructor's job to perform window allocation and so it shouldn't free either
     // createdWindow.destructor = require('finalize')(window, function() { send(destroyWindow(window.id)) }))
+  }
+
+  createTransaction() {
+    return new Transaction()
   }
 
   setSize(width: number, height: number) {
