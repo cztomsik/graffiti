@@ -6,8 +6,8 @@ use env_logger;
 use glutin::{EventsLoop, GlContext, GlWindow, WindowBuilder};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use webrender::api::{
-    DeviceIntSize, DisplayListBuilder, DocumentId, Epoch, LayoutSize, PipelineId, RenderApi,
-    RenderNotifier, Transaction, FontInstanceKey
+    DeviceIntSize, DisplayListBuilder, DocumentId, Epoch, FontInstanceKey, LayoutSize, PipelineId,
+    RenderApi, RenderNotifier, Transaction,
 };
 use webrender::{Renderer, RendererOptions};
 
@@ -16,8 +16,8 @@ static mut TEMP: Option<Temp> = None;
 // proper multi-window support is rather big task (> week)
 // in the meantime we can access render_api this way
 pub fn with_api<F, SomeRes>(f: F) -> SomeRes
-    where
-        F: FnOnce(&mut RenderApi) -> SomeRes,
+where
+    F: FnOnce(&mut RenderApi) -> SomeRes,
 {
     unsafe {
         match &mut TEMP {

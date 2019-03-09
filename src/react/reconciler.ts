@@ -151,7 +151,7 @@ function insertBefore(parent, child, before) {
   send(mkMsgInsertBefore({ parent, child, before }))
 }
 function resetAfterCommit(window) {
-  send(mkMsgRender({ surface: 0 }))
+  send(mkMsgRender())
 }
 
 export interface HostSurfaceProps {

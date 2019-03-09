@@ -3,36 +3,34 @@ use super::{
     RenderService, Text,
 };
 use crate::generated::Vector2f;
-use crate::surface::SurfaceData;
+use crate::scene::SurfaceData;
 use crate::temp;
 use image;
 use image::GenericImageView;
+use pango::prelude::*;
+use pango::WrapMode;
+use pangocairo::FontMap;
 use std::fs::File;
 use std::io::prelude::*;
 use webrender::api::{
     AddImage, AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius,
     BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
-    BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, FontInstanceKey, GlyphInstance,
-    IdNamespace, ImageData, ImageDescriptor, ImageDisplayItem, ImageFormat, ImageRendering,
-    LayoutPoint, LayoutPrimitiveInfo, LayoutRect, LayoutSize, LayoutVector2D, NormalBorder,
-    PipelineId, RectangleDisplayItem, ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem,
-    TextDisplayItem, ImageKey, FontKey
+    BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, FontInstanceKey, FontKey,
+    GlyphInstance, IdNamespace, ImageData, ImageDescriptor, ImageDisplayItem, ImageFormat,
+    ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect, LayoutSize,
+    LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem, ResourceUpdate,
+    SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem,
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
-use std::collections::BTreeMap;
-use pango::prelude::*;
-use pango::WrapMode;
-use pangocairo::FontMap;
 
 static BUILDER_CAPACITY: usize = 512 * 1024;
 
 pub struct WebrenderRenderService {
     // so that we can reuse already uploaded images
-    // this can be (periodically) cleaned up by simply going through all keys and
-    // looking what has (not) been used in the last render (and can be evicted)
-    // _uploaded_images: BTreeMap<String, ImageKey>
+// this can be (periodically) cleaned up by simply going through all keys and
+// looking what has (not) been used in the last render (and can be evicted)
+// _uploaded_images: BTreeMap<String, ImageKey>
 }
-pub struct WebrenderRenderService {}
 
 impl WebrenderRenderService {
     pub fn new() -> Self {
@@ -76,6 +74,7 @@ struct RenderContext {
 }
 
 impl RenderContext {
+    // TODO: scroll
     fn render_surface(&mut self, surface: &SurfaceData) {
         let parent_layout = self.layout;
 
@@ -104,8 +103,18 @@ impl RenderContext {
         if let Some(box_shadow) = surface.box_shadow() {
             let Vector2f(x, y) = box_shadow.offset;
             let size = box_shadow.spread + box_shadow.blur;
-            let layout = LayoutPrimitiveInfo::with_clip_rect(self.layout.rect, self.layout.rect.translate(&TypedVector2D::new(x, y)).inflate(size, size));
-            self.builder.push_item(&self.box_shadow(box_shadow.clone()), &layout, &self.space_and_clip);
+            let layout = LayoutPrimitiveInfo::with_clip_rect(
+                self.layout.rect,
+                self.layout
+                    .rect
+                    .translate(&TypedVector2D::new(x, y))
+                    .inflate(size, size),
+            );
+            self.builder.push_item(
+                &self.box_shadow(box_shadow.clone()),
+                &layout,
+                &self.space_and_clip,
+            );
         }
 
         if let Some(color) = surface.background_color() {
@@ -222,7 +231,8 @@ impl RenderContext {
         let glyphs = temp::with_api(|render_api| {
             let mut glyphs: Vec<GlyphInstance> = Vec::new();
 
-            let glyph_indices = render_api.get_glyph_indices(FontKey(IdNamespace(1), 1), &text.text);
+            let glyph_indices =
+                render_api.get_glyph_indices(FontKey(IdNamespace(1), 1), &text.text);
 
             for (i, _char) in text.text.char_indices() {
                 let rect = layout.index_to_pos(i as i32);
@@ -230,7 +240,10 @@ impl RenderContext {
                 if let Some(glyph_index) = glyph_indices[i] {
                     glyphs.push(GlyphInstance {
                         index: glyph_index,
-                        point: LayoutPoint::new(text_x + rect.x as f32, 30. + text_y + rect.y as f32)
+                        point: LayoutPoint::new(
+                            text_x + rect.x as f32,
+                            30. + text_y + rect.y as f32,
+                        ),
                     })
                 }
             }
