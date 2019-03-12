@@ -1,7 +1,9 @@
-pub use crate::generated::{Dimension, Flex, Rect, Size, Flow, FlexDirection, FlexWrap, FlexAlign, JustifyContent};
+pub use crate::generated::{
+    Dimension, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent, Rect, Size,
+};
 mod yoga;
 pub use crate::layout::yoga::YogaLayoutService;
-use crate::surface::SurfaceData;
+use crate::scene::SurfaceData;
 
 pub trait LayoutService {
     fn get_computed_layouts(&mut self, surface: &SurfaceData) -> Vec<ComputedLayout>;

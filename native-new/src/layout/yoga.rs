@@ -9,7 +9,7 @@ use super::{
     LayoutService, Rect, Size,
 };
 use crate::storage::DenseStorage;
-use crate::surface::SurfaceData;
+use crate::scene::SurfaceData;
 use crate::Id;
 use yoga::types::Justify;
 
@@ -69,7 +69,7 @@ impl YogaLayoutService {
             FlexStyle::FlexWrap(flow.flex_wrap.into()),
             FlexStyle::JustifyContent(flow.justify_content.into()),
             FlexStyle::AlignContent(flow.align_content.into()),
-            FlexStyle::AlignItems(flow.align_items.into())
+            FlexStyle::AlignItems(flow.align_items.into()),
         ]);
     }
 

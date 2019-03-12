@@ -222,12 +222,7 @@ const Msg = Union({
         border: T.Option(T.RefTo(Border.value.name))
       }
     }),
-    V.Struct({
-      name: 'Render',
-      members: {
-        surface: T.RefTo(SurfaceId.value.name),
-      }
-    })
+    V.Unit('Render')
   ]
 })
 

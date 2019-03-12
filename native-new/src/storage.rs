@@ -11,7 +11,15 @@ impl <K, V> DenseStorage<K, V> where K: DenseKey {
     }
 
     pub fn push(&mut self, value: V) {
+        self.insert(value);
+    }
+
+    // TODO: return K: DenseKey
+    pub fn insert(&mut self, value: V) -> usize {
+        let index = self.0.len();
         self.0.push(value);
+
+        index
     }
 
     pub fn get(&self, key: K) -> &V {

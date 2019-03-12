@@ -15,7 +15,7 @@ export type Msg =
     | { tag: "SetImage", value: MsgSetImage}
     | { tag: "SetText", value: MsgSetText}
     | { tag: "SetBorder", value: MsgSetBorder}
-    | { tag: "Render", value: MsgRender}
+    | { tag: "Render"}
 ;
 export type SurfaceId = number;
 export type Dimension = 
@@ -93,10 +93,6 @@ export interface MsgSetText {
 export interface MsgSetBorder {
     surface: SurfaceId;
     border: (Border) | undefined;
-}
-
-export interface MsgRender {
-    surface: SurfaceId;
 }
 
 export interface Color {
@@ -282,8 +278,8 @@ export function mkMsgSetBorder(value: MsgSetBorder): Msg {
     return { tag: "SetBorder", value};
 }
 
-export function mkMsgRender(value: MsgRender): Msg {
-    return { tag: "Render", value};
+export function mkMsgRender(): Msg {
+    return { tag: "Render"};
 }
 
 export function mkColor(p0: number, p1: number, p2: number, p3: number): Color {

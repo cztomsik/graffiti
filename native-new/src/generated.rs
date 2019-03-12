@@ -22,7 +22,7 @@ pub enum Msg {
     SetImage { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "image")] image: Option<Image> },
     SetText { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "text")] text: Option<Text> },
     SetBorder { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "border")] border: Option<Border> },
-    Render { #[serde(rename = "surface")] surface: SurfaceId },
+    Render,
 }
 
 
