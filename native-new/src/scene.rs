@@ -1,6 +1,6 @@
 pub use crate::api::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Flex, Flow, Image, Rect,
-    SceneFacade, Size, Text, SurfaceId
+    Size, Text, SurfaceId
 };
 use crate::storage::{DenseStorage, SparseStorage};
 use std::fmt::Debug;
@@ -18,7 +18,7 @@ use std::fmt::Formatter;
 ///
 /// And then we could:
 ///
-/// rootSurface = ...
+/// rootSurface = new Surface()
 /// rootSurface.padding = ...
 /// rootSurface.children[0].backgroundColor = ...
 ///
@@ -27,7 +27,7 @@ use std::fmt::Formatter;
 ///
 /// BUT
 ///     1. object graphs are complicated to do in rust
-///     2. most of the data will be sparse which is not great for performance
+///     2. most of the data will be sparse which is not good for performance
 ///
 /// And this is basically an attempt to implement a whole tree of surfaces (rootNode) as a
 /// "struct of arrays" which should make rendering way-faster (by being cpu cache-friendly)
@@ -43,7 +43,8 @@ pub struct Scene {
     borders: SparseStorage<SurfaceId, Border>,
 }
 
-// this is internal module, NOT an implementation of api::SceneFacade, it's just conincidentical similarity
+// this is internal module, used by window, NOT an implementation of api::SceneUpdateContext,
+// it's just coincidental similarity
 impl Scene {
     pub fn new() -> Self {
         Scene {

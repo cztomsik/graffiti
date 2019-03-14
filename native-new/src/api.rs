@@ -1,27 +1,56 @@
-/// high-level interface/access-point to everything (what's important)
+//! high-level API
+//!
+//! note that it is mostly write-only because it is intentionally
+//! designed to be used with some client-side stateful wrapper/reconciler
+
+
+/// Represents currently running application
 ///
-/// the point is that it doesn't matter how it's implemented inside,
-/// if it's data-oriented or not, what technologies are used for layout, rendering, etc.
+/// you need app to create windows, access them & handle their events
 ///
-/// technically, it doesn't even have to be real window (embedded, mobile)
+/// in future it might provide some app-related things (notifications, icon highlighting, ...)
+pub trait App<W: Window> {
+    fn get_next_event(&mut self) -> Option<AppEvent>;
+
+    fn create_window(&mut self) -> WindowId;
+    fn get_window(&mut self, id: WindowId) -> &mut W;
+    fn destroy_window(&mut self, id: WindowId);
+}
+
+pub enum AppEvent {
+  WindowEvent {
+    window: WindowId,
+    event: WindowEvent
+  }
+}
+
+pub enum WindowEvent {
+  Close,
+  Resize,
+  Click
+}
+
+/// Represents a window, including all of its UI contents (scene)
 ///
-/// note that there is generally very limited amount of getters because it is intentionally
-/// designed to be used with some client-side stateful wrapper/reconciler
+/// any changes to the scene have to be made through facade/mediator which is provided to an
+/// update_scene() call
+///
+/// technically, it doesn't even have to be a real window (embedded, mobile)
 pub trait Window {
-    fn get_scene(&mut self) -> &mut SceneFacade;
-    fn render(&mut self);
+    fn update_scene<F>(&mut self, update_fn: F) where F: FnMut(&mut SceneUpdateContext);
 
     // platform-specific (and optional)
     //fn set_size(&mut self, _width: u32, _height: u32) {}
     //fn set_title(&mut self, _title: &str) {}
-    //fn show(&mut self) {}
-    //fn hide(&mut self) {}
+    fn show(&mut self) {}
+    fn hide(&mut self) {}
 }
 
-/// another facade to a tree of surfaces and their properties
-/// it IS part of window's interface but it's separate so that it can freely evolve
-/// without worrying about name collisions
-pub trait SceneFacade {
+/// Facade/mediator to an executed scene update
+///
+/// theoretically we could represent it as a message but we would need to return SurfaceId somehow
+/// and it just doesn't feel right (for some reason)
+pub trait SceneUpdateContext {
     // structure
     fn create_surface(&mut self) -> SurfaceId;
     fn append_child(&mut self, parent: SurfaceId, child: SurfaceId);
@@ -51,15 +80,6 @@ pub use crate::generated::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Dimension, Flex, Flow, Image,
     Rect, Size, SurfaceId, Text,
 };
+
 // TODO: gen
-pub type WindowId = usize;
-
-pub trait Application {
-    fn create_window(&mut self) -> WindowId;
-    fn get_window(&mut self, window_id: WindowId) -> &Window;
-    fn destroy_window(&mut self, window: WindowId);
-}
-
-/*struct SomeAppWindowImpl {
-    ui_tree: UiTree,
-}*/
+pub type WindowId = glutin::WindowId;

@@ -12,6 +12,8 @@ export class Window {
     // createdWindow.destructor = require('finalize')(window, function() { send(destroyWindow(window.id)) }))
   }
 
+  // TODO: consider if it wouldn't be better to enforce single tx at one time
+  // (window.getTransaction() would either return current or create a new one)
   createTransaction() {
     return new Transaction()
   }

@@ -5,6 +5,7 @@ use super::{
 use crate::generated::Vector2f;
 use crate::scene::SurfaceData;
 use crate::temp;
+use gleam::gl::Gl;
 use image;
 use image::GenericImageView;
 use pango::prelude::*;
@@ -12,33 +13,129 @@ use pango::WrapMode;
 use pangocairo::FontMap;
 use std::fs::File;
 use std::io::prelude::*;
+use std::rc::Rc;
+use std::sync::mpsc::{channel, Receiver};
 use webrender::api::{
     AddImage, AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius,
     BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
-    BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, FontInstanceKey, FontKey,
-    GlyphInstance, IdNamespace, ImageData, ImageDescriptor, ImageDisplayItem, ImageFormat,
-    ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect, LayoutSize, LayoutVector2D,
-    NormalBorder, PipelineId, RectangleDisplayItem, ResourceUpdate, SpaceAndClipInfo,
-    SpecificDisplayItem, TextDisplayItem,
+    BoxShadowDisplayItem, ColorF, ColorU, DeviceIntSize, DisplayListBuilder, DocumentId, Epoch,
+    FontInstanceKey, FontKey, GlyphInstance, IdNamespace, ImageData, ImageDescriptor,
+    ImageDisplayItem, ImageFormat, ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect,
+    LayoutSize, LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
+    ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem, Transaction,
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
-
-static BUILDER_CAPACITY: usize = 512 * 1024;
+use webrender::{Renderer, RendererOptions};
 
 pub struct WebrenderRenderService {
-    pango_context: pango::Context, // so that we can reuse already uploaded images
-                                   // this can be (periodically) cleaned up by simply going through all keys and
-                                   // looking what has (not) been used in the last render (and can be evicted)
-                                   // _uploaded_images: BTreeMap<String, ImageKey>
+    renderer: Renderer,
+    render_api: RenderApi,
+    document_id: DocumentId,
+    rx: Receiver<()>,
+
+    pub layout_size: LayoutSize,
+    fb_size: DeviceIntSize,
+    pango_context: pango::Context,
+    // so that we can reuse already uploaded images
+    // this can be (periodically) cleaned up by simply going through all keys and
+    // looking what has (not) been used in the last render (and can be evicted)
+    // _uploaded_images: BTreeMap<String, ImageKey>
 }
 
 impl WebrenderRenderService {
-    pub fn new() -> Self {
+    pub fn new(gl: Rc<Gl>) -> Self {
         let font_map = FontMap::new().expect("couldn't get fontmap");
         let pango_context = pango::Context::new();
         pango_context.set_font_map(&font_map);
 
-        WebrenderRenderService { pango_context }
+        let fb_size = DeviceIntSize::new(300, 300);
+        let layout_size = LayoutSize::new(fb_size.width as f32, fb_size.height as f32);
+
+        let (renderer, mut render_api, rx) = Self::init_webrender(gl);
+        let document_id = render_api.add_document(fb_size, 0);
+
+        Self::load_fonts(&mut render_api, document_id, &rx);
+
+        WebrenderRenderService {
+            renderer,
+            render_api,
+            document_id,
+            rx,
+
+            layout_size,
+            fb_size,
+            pango_context,
+        }
+    }
+
+    pub fn resize() {}
+
+    fn init_webrender(gl: Rc<Gl>) -> (Renderer, RenderApi, Receiver<()>) {
+        // so that we can block until the frame is actually rendered
+        let (tx, rx) = channel();
+
+        let (renderer, sender) = Renderer::new(
+            gl,
+            Box::new(temp::Notifier(tx)),
+            RendererOptions {
+                device_pixel_ratio: 1.0,
+                ..RendererOptions::default()
+            },
+            None,
+        )
+        .expect("couldn't init webrender");
+        let render_api = sender.create_api();
+
+        (renderer, render_api, rx)
+    }
+
+    fn load_fonts(render_api: &mut RenderApi, document_id: DocumentId, rx: &Receiver<()>) {
+        let property = font_loader::system_fonts::FontPropertyBuilder::new()
+            .family("Arial")
+            .build();
+        let (font, font_index) = font_loader::system_fonts::get(&property).unwrap();
+        let font_key = render_api.generate_font_key();
+
+        let mut tx = Transaction::new();
+        tx.set_root_pipeline(PipelineId::dummy());
+        tx.add_raw_font(font_key, font, font_index as u32);
+
+        // TODO: support any size
+        for font_size in [10, 12, 14, 16, 20, 24, 34, 40, 48].iter() {
+            tx.add_font_instance(
+                FontInstanceKey(font_key.0, *font_size),
+                font_key,
+                app_units::Au::from_px(*font_size as i32),
+                None,
+                None,
+                Vec::new(),
+            );
+        }
+
+        tx.generate_frame();
+        render_api.send_transaction(document_id, tx);
+        rx.recv().ok();
+    }
+
+    fn send_frame(&mut self, builder: DisplayListBuilder) {
+        let mut tx = Transaction::new();
+
+        // according to https://github.com/servo/webrender/wiki/Path-to-the-Screen
+        tx.set_root_pipeline(PIPELINE_ID);
+        tx.set_display_list(Epoch(0), None, self.layout_size, builder.finalize(), true);
+        tx.generate_frame();
+
+        self.render_api.send_transaction(self.document_id, tx);
+
+        self.wait_for_frame();
+    }
+
+    // this needs rework (rendering should be in its own thread anyway) but it's good enough for now
+    fn wait_for_frame(&mut self) {
+        self.rx.recv().ok();
+
+        self.renderer.update();
+        self.renderer.render(self.fb_size).ok();
     }
 }
 
@@ -47,30 +144,36 @@ impl RenderService for WebrenderRenderService {
         debug!("render\n{:#?}", surface);
 
         let content_size = LayoutSize::new(computed_layouts[0].2, computed_layouts[0].3);
-        let pipeline_id = PipelineId::dummy();
+        let pipeline_id = PIPELINE_ID;
 
-        let mut context = RenderContext {
-            computed_layouts,
-            pango_context: &self.pango_context,
+        let builder = {
+            let mut context = RenderContext {
+                computed_layouts,
+                render_api: &mut self.render_api,
+                pango_context: &self.pango_context,
 
-            builder: DisplayListBuilder::with_capacity(
-                pipeline_id,
-                content_size.clone(),
-                BUILDER_CAPACITY,
-            ),
-            border_radius: WRBorderRadius::zero(),
-            layout: LayoutPrimitiveInfo::new(content_size.into()),
-            space_and_clip: SpaceAndClipInfo::root_scroll(pipeline_id),
+                builder: DisplayListBuilder::with_capacity(
+                    pipeline_id,
+                    content_size.clone(),
+                    BUILDER_CAPACITY,
+                ),
+                border_radius: WRBorderRadius::zero(),
+                layout: LayoutPrimitiveInfo::new(content_size.into()),
+                space_and_clip: SpaceAndClipInfo::root_scroll(PIPELINE_ID),
+            };
+
+            context.render_surface(surface);
+
+            context.builder
         };
 
-        context.render_surface(surface);
-
-        temp::send_frame(context.builder)
+        self.send_frame(builder)
     }
 }
 
 struct RenderContext<'a> {
     computed_layouts: Vec<ComputedLayout>,
+    render_api: &'a mut RenderApi,
     pango_context: &'a pango::Context,
 
     builder: DisplayListBuilder,
@@ -175,7 +278,7 @@ impl<'a> RenderContext<'a> {
 
     // TODO: refactor, cache, free + hook to make loading possible from node.js (http)
     fn image(&self, image: Image) -> SpecificDisplayItem {
-        let image_key = temp::with_api(|api| {
+        let image_key = {
             let mut f = File::open(image.url).expect("couldn't open file");
             let mut buffer = Vec::new();
             f.read_to_end(&mut buffer).expect("couldn't read");
@@ -189,22 +292,23 @@ impl<'a> RenderContext<'a> {
                 false,
             );
 
-            let key = api.generate_image_key();
+            let key = self.render_api.generate_image_key();
 
-            api.update_resources(vec![ResourceUpdate::AddImage(AddImage {
-                key,
-                descriptor,
-                data: ImageData::new(
-                    image
-                        .as_rgba8()
-                        .expect("couldn't convert to rgba8")
-                        .to_vec(),
-                ),
-                tiling: None,
-            })]);
+            self.render_api
+                .update_resources(vec![ResourceUpdate::AddImage(AddImage {
+                    key,
+                    descriptor,
+                    data: ImageData::new(
+                        image
+                            .as_rgba8()
+                            .expect("couldn't convert to rgba8")
+                            .to_vec(),
+                    ),
+                    tiling: None,
+                })]);
 
             key
-        });
+        };
 
         SpecificDisplayItem::Image(ImageDisplayItem {
             image_key,
@@ -231,11 +335,12 @@ impl<'a> RenderContext<'a> {
         layout.set_width(100);
         layout.set_text(&text.text);
 
-        let glyphs = temp::with_api(|render_api| {
+        let glyphs = {
             let mut glyphs: Vec<GlyphInstance> = Vec::new();
 
-            let glyph_indices =
-                render_api.get_glyph_indices(FontKey(IdNamespace(1), 1), &text.text);
+            let glyph_indices = self
+                .render_api
+                .get_glyph_indices(FontKey(IdNamespace(1), 1), &text.text);
 
             for (i, _char) in text.text.char_indices() {
                 let rect = layout.index_to_pos(i as i32);
@@ -252,9 +357,11 @@ impl<'a> RenderContext<'a> {
             }
 
             glyphs
-        });
+        };
 
         debug!("{:?}", &glyphs);
+
+        let glyphs = vec![];
 
         let font_key = FontInstanceKey::new(IdNamespace(1), text.font_size as u32);
 
@@ -293,6 +400,11 @@ impl<'a> RenderContext<'a> {
             .push_item(&item, &self.layout, &self.space_and_clip);
     }
 }
+
+// unlike browser, we are going to have only one pipeline (per window)
+static PIPELINE_ID: PipelineId = PipelineId(0, 0);
+
+static BUILDER_CAPACITY: usize = 512 * 1024;
 
 impl Into<ColorF> for Color {
     fn into(self) -> ColorF {

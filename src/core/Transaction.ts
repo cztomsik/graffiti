@@ -2,6 +2,8 @@ import { mkMsgAppendChild, mkMsgRemoveChild, mkMsgInsertBefore } from "./generat
 import { send } from './nativeApi'
 
 /**
+ * Represents batch of messages to be sent to native api.
+ *
  * Provides (stable) high-level mutation api, so that we can freely change an
  * actual message format in the future
  *

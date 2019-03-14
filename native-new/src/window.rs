@@ -1,38 +1,38 @@
-use crate::api::{
-    Border, BorderRadius, BoxShadow, Color, Dimension, Flex, Flow, Image, Rect, SceneFacade, Size,
-    SurfaceId, Text, Window,
-};
+use crate::api::{Border, BorderRadius, BoxShadow, Color, Dimension, Flex, Flow, Image, Rect, SceneUpdateContext, Size, SurfaceId, Text, Window, WindowEvent};
 use crate::layout::{LayoutService, YogaLayoutService};
 use crate::render::{RenderService, WebrenderRenderService};
 use crate::scene::Scene;
-use crate::temp;
+use glutin::{WindowId, WindowedContext, ContextTrait};
+use gleam::gl::GlFns;
 
-pub struct WindowImpl {
+pub struct GlutinWindow {
+    glutin_context: WindowedContext,
     scene: Scene,
     layout_service: YogaLayoutService,
     render_service: WebrenderRenderService,
 }
 
-impl WindowImpl {
-    pub fn new() -> Self {
-        WindowImpl {
+impl GlutinWindow {
+    pub fn new(glutin_context: WindowedContext) -> Self {
+        let gl = unsafe { GlFns::load_with(|addr| glutin_context.get_proc_address(addr) as *const _) };
+
+        GlutinWindow {
+            glutin_context,
             scene: Scene::new(),
             layout_service: YogaLayoutService::new(),
-            render_service: WebrenderRenderService::new(),
+            render_service: WebrenderRenderService::new(gl),
         }
     }
-}
 
-impl Window for WindowImpl {
-    fn get_scene(&mut self) -> &mut SceneFacade {
-        self
+    pub fn id(&self) -> WindowId {
+        self.glutin_context.id()
     }
 
     fn render(&mut self) {
         let surface = self.scene.get_surface_data(0);
 
         // TODO: set on resize
-        let layout_size = temp::get_layout_size();
+        let layout_size = self.render_service.layout_size;
         self.layout_service.set_size(
             0,
             Size(
@@ -44,11 +44,31 @@ impl Window for WindowImpl {
         let computed_layouts = self.layout_service.get_computed_layouts(&surface);
 
         self.render_service.render(&surface, computed_layouts);
+
+        self.glutin_context.swap_buffers().ok();
+    }
+
+    // TODO
+    pub fn translate_event(&self, event: glutin::WindowEvent) -> WindowEvent {
+        match event {
+            glutin::WindowEvent::CloseRequested => WindowEvent::Close,
+            glutin::WindowEvent::Resized(..) => WindowEvent::Resize,
+            _ => {
+                unimplemented!()
+            }
+        }
+    }
+}
+
+impl Window for GlutinWindow {
+    fn update_scene<F>(&mut self, mut update_fn: F) where F: FnMut(&mut SceneUpdateContext) {
+        update_fn(self);
+        self.render();
     }
 }
 
 // delegates to self.scene/layout_service with few special-cases where both have to be updated
-impl SceneFacade for WindowImpl {
+impl SceneUpdateContext for GlutinWindow {
     fn create_surface(&mut self) -> SurfaceId {
         self.layout_service.alloc();
         self.scene.create_surface()
