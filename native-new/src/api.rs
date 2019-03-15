@@ -3,7 +3,6 @@
 //! note that it is mostly write-only because it is intentionally
 //! designed to be used with some client-side stateful wrapper/reconciler
 
-
 /// Represents currently running application
 ///
 /// you need app to create windows, access them & handle their events
@@ -18,16 +17,16 @@ pub trait App<W: Window> {
 }
 
 pub enum AppEvent {
-  WindowEvent {
-    window: WindowId,
-    event: WindowEvent
-  }
+    WindowEvent {
+        window: WindowId,
+        event: WindowEvent,
+    },
 }
 
 pub enum WindowEvent {
-  Close,
-  Resize,
-  Click
+    Close,
+    Resize,
+    Click,
 }
 
 /// Represents a window, including all of its UI contents (scene)
@@ -37,7 +36,9 @@ pub enum WindowEvent {
 ///
 /// technically, it doesn't even have to be a real window (embedded, mobile)
 pub trait Window {
-    fn update_scene<F>(&mut self, update_fn: F) where F: FnMut(&mut SceneUpdateContext);
+    fn update_scene<F>(&mut self, update_fn: F)
+    where
+        F: FnMut(&mut SceneUpdateContext);
 
     // platform-specific (and optional)
     //fn set_size(&mut self, _width: u32, _height: u32) {}
@@ -78,8 +79,5 @@ pub trait SceneUpdateContext {
 // re-export some value objects
 pub use crate::generated::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Dimension, Flex, Flow, Image,
-    Rect, Size, SurfaceId, Text,
+    Rect, Size, SurfaceId, Text, WindowId,
 };
-
-// TODO: gen
-pub type WindowId = glutin::WindowId;

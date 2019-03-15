@@ -54,7 +54,9 @@ impl GlutinWindow {
             glutin::WindowEvent::CloseRequested => WindowEvent::Close,
             glutin::WindowEvent::Resized(..) => WindowEvent::Resize,
             _ => {
-                unimplemented!()
+                // TODO: other events
+                // unimplemented!()
+                WindowEvent::Click
             }
         }
     }

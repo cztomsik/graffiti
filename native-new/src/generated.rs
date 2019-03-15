@@ -5,8 +5,16 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "tag", content = "value")]
-pub enum Msg {
+pub enum FfiMsg {
     HandleEvents,
+    CreateWindow,
+    UpdateScene { #[serde(rename = "window")] window: WindowId, #[serde(rename = "msgs")] msgs: Vec<UpdateSceneMsg> },
+}
+
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(tag = "tag", content = "value")]
+pub enum UpdateSceneMsg {
     Alloc,
     AppendChild { #[serde(rename = "parent")] parent: SurfaceId, #[serde(rename = "child")] child: SurfaceId },
     InsertBefore { #[serde(rename = "parent")] parent: SurfaceId, #[serde(rename = "child")] child: SurfaceId, #[serde(rename = "before")] before: SurfaceId },
@@ -22,8 +30,10 @@ pub enum Msg {
     SetImage { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "image")] image: Option<Image> },
     SetText { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "text")] text: Option<Text> },
     SetBorder { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "border")] border: Option<Border> },
-    Render,
 }
+
+
+pub type WindowId = u16;
 
 
 pub type SurfaceId = u16;
@@ -149,6 +159,14 @@ pub struct Image {
 
 
 #[derive(Deserialize, Debug, Clone)]
+pub enum TextAlign {
+    Left,
+    Center,
+    Right,
+}
+
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct Text {
     pub color: Color,
     #[serde(rename = "fontSize")]
@@ -157,6 +175,7 @@ pub struct Text {
     #[serde(rename = "lineHeight")]
     pub line_height: f32,
 
+    pub align: TextAlign,
     pub text: String,
 }
 

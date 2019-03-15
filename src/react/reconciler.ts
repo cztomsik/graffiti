@@ -10,18 +10,19 @@ import initDevtools from './devtools'
 
 import { Size, Color, Flex, Image, Border, Text, Flow } from '../core'
 import {
-  mkMsgAlloc,
-  mkMsgSetFlow,
-  mkMsgSetImage,
-  mkMsgSetText,
-  mkMsgSetPadding,
-  mkMsgSetMargin,
-  mkMsgSetFlex,
-  mkMsgSetSize,
-  mkMsgSetBackgroundColor,
-  mkMsgSetBorder,
-  mkMsgSetBoxShadow,
-  BoxShadow
+  mkUpdateSceneMsgAlloc,
+  mkUpdateSceneMsgSetFlow,
+  mkUpdateSceneMsgSetImage,
+  mkUpdateSceneMsgSetText,
+  mkUpdateSceneMsgSetPadding,
+  mkUpdateSceneMsgSetMargin,
+  mkUpdateSceneMsgSetFlex,
+  mkUpdateSceneMsgSetSize,
+  mkUpdateSceneMsgSetBackgroundColor,
+  mkUpdateSceneMsgSetBorder,
+  mkUpdateSceneMsgSetBoxShadow,
+  BoxShadow,
+  mkFfiMsgUpdateScene
 } from '../core/generated'
 import { send } from '../core/nativeApi'
 
@@ -69,8 +70,8 @@ function prepareForCommit(window) {
   }
 }
 
-function createInstance(type, props) {
-  send(mkMsgAlloc())
+function createInstance(type, props, window) {
+  send(mkFfiMsgUpdateScene({ window: window.id, msgs: [mkUpdateSceneMsgAlloc()] }))
   let id = __nextId__++
 
   update(id, props, {})
@@ -80,47 +81,47 @@ function createInstance(type, props) {
 
 function update(surface, props: HostSurfaceProps, oldProps: HostSurfaceProps) {
   if (props.size !== oldProps.size) {
-    tx.sceneMsgs.push(mkMsgSetSize({ surface, size: props.size }))
+    tx.sceneMsgs.push(mkUpdateSceneMsgSetSize({ surface, size: props.size }))
   }
 
   if (props.flex !== oldProps.flex) {
-    tx.sceneMsgs.push(mkMsgSetFlex({ surface, flex: props.flex }))
+    tx.sceneMsgs.push(mkUpdateSceneMsgSetFlex({ surface, flex: props.flex }))
   }
 
   if (props.flow !== oldProps.flow) {
-    tx.sceneMsgs.push(mkMsgSetFlow({ surface, flow: props.flow }))
+    tx.sceneMsgs.push(mkUpdateSceneMsgSetFlow({ surface, flow: props.flow }))
   }
 
   if (props.padding !== oldProps.padding) {
-    tx.sceneMsgs.push(mkMsgSetPadding({ surface, padding: props.padding }))
+    tx.sceneMsgs.push(mkUpdateSceneMsgSetPadding({ surface, padding: props.padding }))
   }
 
   if (props.margin !== oldProps.margin) {
-    tx.sceneMsgs.push(mkMsgSetMargin({ surface, margin: props.margin }))
+    tx.sceneMsgs.push(mkUpdateSceneMsgSetMargin({ surface, margin: props.margin }))
   }
 
   if (props.boxShadow !== oldProps.boxShadow) {
     tx.sceneMsgs.push(
-      mkMsgSetBoxShadow({ surface, boxShadow: props.boxShadow })
+      mkUpdateSceneMsgSetBoxShadow({ surface, boxShadow: props.boxShadow })
     )
   }
 
   if (props.backgroundColor !== oldProps.backgroundColor) {
     tx.sceneMsgs.push(
-      mkMsgSetBackgroundColor({ surface, color: props.backgroundColor })
+      mkUpdateSceneMsgSetBackgroundColor({ surface, color: props.backgroundColor })
     )
   }
 
   if (props.image !== oldProps.image) {
-    tx.sceneMsgs.push(mkMsgSetImage({ surface, image: props.image }))
+    tx.sceneMsgs.push(mkUpdateSceneMsgSetImage({ surface, image: props.image }))
   }
 
   if (props.text !== oldProps.text) {
-    tx.sceneMsgs.push(mkMsgSetText({ surface, text: props.text }))
+    tx.sceneMsgs.push(mkUpdateSceneMsgSetText({ surface, text: props.text }))
   }
 
   if (props.border !== oldProps.border) {
-    tx.sceneMsgs.push(mkMsgSetBorder({ surface, border: props.border }))
+    tx.sceneMsgs.push(mkUpdateSceneMsgSetBorder({ surface, border: props.border }))
   }
 }
 

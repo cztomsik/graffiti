@@ -107,6 +107,8 @@ const Image = Struct({
   members: { url: T.Scalar(Scalar.Str) }
 })
 
+const TextAlign = Enum({ name: 'TextAlign', variants: ['Left', 'Center', 'Right'] })
+
 // TODO: font family/query, weight, size
 const Text = Struct({
   name: 'Text',
@@ -114,14 +116,14 @@ const Text = Struct({
     color: T.RefTo(Color.value.name),
     fontSize: T.Scalar(Scalar.F32),
     lineHeight: T.Scalar(Scalar.F32),
+    align: T.RefTo(TextAlign.value.name),
     text: T.Scalar(Scalar.Str)
   }
 })
 
-const Msg = Union({
-  name: 'Msg',
+const UpdateSceneMsg = Union({
+  name: 'UpdateSceneMsg',
   variants: [
-    V.Unit('HandleEvents'),
     V.Unit('Alloc'),
     V.Struct({
       name: 'AppendChild',
@@ -222,12 +224,30 @@ const Msg = Union({
         border: T.Option(T.RefTo(Border.value.name))
       }
     }),
-    V.Unit('Render')
+  ]
+})
+
+const WindowId = Alias({ name: 'WindowId', type: T.Scalar(Scalar.U16) })
+
+const FfiMsg = Union({
+  name: 'FfiMsg',
+  variants: [
+    V.Unit('HandleEvents'),
+    V.Unit('CreateWindow'),
+    V.Struct({
+      name: 'UpdateScene',
+      members: {
+        window: T.RefTo(WindowId.value.name),
+        msgs: T.Vec(T.RefTo(UpdateSceneMsg.value.name))
+      }
+    })
   ]
 })
 
 export const exampleEntries: EntryT[] = [
-  Msg,
+  FfiMsg,
+  UpdateSceneMsg,
+  WindowId,
   SurfaceId,
   Color,
   FlexDirection,
@@ -243,6 +263,7 @@ export const exampleEntries: EntryT[] = [
   BorderRadius,
   BoxShadow,
   Image,
+  TextAlign,
   Text,
   Border,
   BorderSide,

@@ -67,7 +67,7 @@ impl RenderNotifier for Notifier {
     }
 
     fn wake_up(&self) {
-        self.0.send(());
+        self.0.send(()).ok();
     }
 
     fn new_frame_ready(

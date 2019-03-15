@@ -2,14 +2,14 @@ use super::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, ComputedLayout, Image,
     RenderService, Text,
 };
-use crate::generated::Vector2f;
+use crate::generated::{Vector2f, TextAlign};
 use crate::scene::SurfaceData;
 use crate::temp;
 use gleam::gl::Gl;
 use image;
 use image::GenericImageView;
 use pango::prelude::*;
-use pango::WrapMode;
+use pango::{WrapMode, Alignment};
 use pangocairo::FontMap;
 use std::fs::File;
 use std::io::prelude::*;
@@ -334,6 +334,7 @@ impl<'a> RenderContext<'a> {
         layout.set_wrap(WrapMode::Word);
         layout.set_width(100);
         layout.set_text(&text.text);
+        layout.set_alignment(text.align.clone().into());
 
         let glyphs = {
             let mut glyphs: Vec<GlyphInstance> = Vec::new();
@@ -445,6 +446,16 @@ impl Into<WRBorderStyle> for BorderStyle {
         match self {
             BorderStyle::None => WRBorderStyle::None,
             BorderStyle::Solid => WRBorderStyle::Solid,
+        }
+    }
+}
+
+impl Into<Alignment> for TextAlign {
+    fn into(self) -> Alignment {
+        match self {
+            TextAlign::Left => Alignment::Left,
+            TextAlign::Center => Alignment::Center,
+            TextAlign::Right => Alignment::Right,
         }
     }
 }

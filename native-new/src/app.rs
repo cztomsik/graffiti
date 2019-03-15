@@ -1,11 +1,14 @@
-use crate::api::{App, AppEvent, WindowEvent};
+use crate::api::{App, AppEvent, WindowEvent, WindowId};
 use crate::window::GlutinWindow;
-use glutin::{ContextBuilder, ContextTrait, ControlFlow, EventsLoop, WindowBuilder, WindowId};
+use glutin::{ContextBuilder, ContextTrait, ControlFlow, EventsLoop, WindowBuilder};
 use std::collections::BTreeMap;
 
+// TODO: it's not wrong technically, but it might be confusing name (GlutinWindow too)
 pub struct GlutinApp {
     events_loop: EventsLoop,
     windows: BTreeMap<WindowId, GlutinWindow>,
+    native_ids: BTreeMap<glutin::WindowId, WindowId>,
+    next_window_id: WindowId
 }
 
 impl GlutinApp {
@@ -15,14 +18,9 @@ impl GlutinApp {
         GlutinApp {
             events_loop,
             windows: BTreeMap::new(),
+            native_ids: BTreeMap::new(),
+            next_window_id: 1
         }
-    }
-
-    // temp
-    pub fn get_first_window_id(&self) -> WindowId {
-        let ids: Vec<&WindowId> = self.windows.keys().into_iter().collect();
-
-        ids[0].clone()
     }
 }
 
@@ -30,16 +28,17 @@ impl App<GlutinWindow> for GlutinApp {
     fn get_next_event(&mut self) -> Option<AppEvent> {
         let mut result = None;
 
-        let GlutinApp { events_loop, windows } = self;
+        let GlutinApp { events_loop, windows, native_ids, .. } = self;
 
         // weird but necessary (we want to keep the control)
         events_loop.run_forever(|e| match e {
             glutin::Event::Awakened => ControlFlow::Break,
             glutin::Event::WindowEvent { window_id, event } => {
-                let window = windows.get(&window_id).expect("got message for nonexistent window");
+                let id = native_ids.get(&window_id).expect("got message for nonexistent window");
+                let window = windows.get(&id).unwrap();
 
                 result = Some(AppEvent::WindowEvent {
-                    window: window_id,
+                    window: *id,
                     event: window.translate_event(event),
                 });
 
@@ -64,9 +63,13 @@ impl App<GlutinWindow> for GlutinApp {
         }
 
         let window = GlutinWindow::new(glutin_context);
-        let id = window.id();
+        let id = self.next_window_id;
+        let native_id = window.id();
 
         self.windows.insert(id, window);
+        self.native_ids.insert(native_id, id);
+
+        self.next_window_id = self.next_window_id + 1;
 
         id
     }
@@ -76,6 +79,9 @@ impl App<GlutinWindow> for GlutinApp {
     }
 
     fn destroy_window(&mut self, id: WindowId) {
+        let native_id = self.get_window(id).id();
+
         self.windows.remove(&id);
+        self.native_ids.remove(&native_id);
     }
 }
