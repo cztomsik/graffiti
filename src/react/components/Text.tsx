@@ -23,7 +23,7 @@ export function Text({ style = {}, children = [] }: TextProps) {
         text: [].concat(children).filter(numberOrString).join('')
       }}
       {..._props}
-      size={[{ tag: 'Auto' }, { tag: 'Auto' }]}
+      size={SIZE_AUTO}
     />
   )
 }
@@ -37,3 +37,5 @@ const TEXT_ALIGN = {
   center: TextAlign.Center,
   right: TextAlign.Right
 }
+
+const SIZE_AUTO = [{ tag: 'Auto' }, { tag: 'Auto' }]
