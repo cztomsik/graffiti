@@ -1,10 +1,6 @@
 import { send } from './nativeApi'
 import { Transaction } from './Transaction'
-import {
-  mkFfiMsgCreateWindow,
-  mkFfiMsgUpdateScene,
-  mkUpdateSceneMsgAlloc
-} from './generated'
+import { FfiMsg, UpdateSceneMsg } from './generated'
 
 export class Window {
   rootSurface = 0
@@ -14,11 +10,9 @@ export class Window {
     // TODO: factory (no side-effects in constructor)
 
     // this is ofc wrong because it can change but it's good enough for now (WindowId variant starts at offset 2)
-    this.id = send(mkFfiMsgCreateWindow()).readUInt16LE(2)
+    this.id = send(FfiMsg.CreateWindow).readUInt16LE(2)
 
-    send(
-      mkFfiMsgUpdateScene({ window: this.id, msgs: [mkUpdateSceneMsgAlloc()] })
-    )
+    send(FfiMsg.UpdateScene({ window: this.id, msgs: [UpdateSceneMsg.Alloc] }))
 
     // TODO (in create/openWindow)
     // it's not constructor's job to perform window allocation and so it shouldn't free either

@@ -28,7 +28,7 @@
     "prepublishOnly": "npm run build && tsc -d",
     "example": "RUST_LOG=debug ts-node -T example/example.tsx",
     "example-calc": "RUST_LOG=debug ts-node -T example/react-calculator.tsx",
-    "codegen": "ts-node src/astToTs/gen.ts"
+    "codegen": "ts-node src/contract/codegenContract.ts"
   },
   "devDependencies": {
     "@types/node": "^10.12.1",
@@ -42,7 +42,9 @@
     "ts-morph": "^1.1.0",
     "ts-node": "^8.0.2",
     "typescript": "^3.2.2",
-    "unionize": "^2.1.2",
-    "ws": "^6.1.2"
+    "ws": "^6.1.2",
+    "ts-rust-bridge-codegen": "^0.1.1",
+    "@types/prettier": "^1.16.1",
+    "prettier": "^1.16.4"
   }
 }

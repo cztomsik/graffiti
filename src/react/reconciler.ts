@@ -1,4 +1,3 @@
-import * as React from 'react'
 import * as Reconciler from 'react-reconciler'
 import {
   unstable_now as now,
@@ -9,21 +8,7 @@ import {
 import initDevtools from './devtools'
 
 import { Size, Color, Flex, Image, Border, Text, Flow } from '../core'
-import {
-  mkUpdateSceneMsgAlloc,
-  mkUpdateSceneMsgSetFlow,
-  mkUpdateSceneMsgSetImage,
-  mkUpdateSceneMsgSetText,
-  mkUpdateSceneMsgSetPadding,
-  mkUpdateSceneMsgSetMargin,
-  mkUpdateSceneMsgSetFlex,
-  mkUpdateSceneMsgSetSize,
-  mkUpdateSceneMsgSetBackgroundColor,
-  mkUpdateSceneMsgSetBorder,
-  mkUpdateSceneMsgSetBoxShadow,
-  BoxShadow,
-  mkFfiMsgUpdateScene
-} from '../core/generated'
+import { BoxShadow, FfiMsg, UpdateSceneMsg as U } from '../core/generated'
 import { send } from '../core/nativeApi'
 
 // temporary helpers
@@ -71,7 +56,7 @@ function prepareForCommit(window) {
 }
 
 function createInstance(type, props, window) {
-  send(mkFfiMsgUpdateScene({ window: window.id, msgs: [mkUpdateSceneMsgAlloc()] }))
+  send(FfiMsg.UpdateScene({ window: window.id, msgs: [U.Alloc] }))
   let id = __nextId__++
 
   update(id, props, {})
@@ -81,47 +66,48 @@ function createInstance(type, props, window) {
 
 function update(surface, props: HostSurfaceProps, oldProps: HostSurfaceProps) {
   if (props.size !== oldProps.size) {
-    tx.sceneMsgs.push(mkUpdateSceneMsgSetSize({ surface, size: props.size }))
+    tx.sceneMsgs.push(U.SetSize({ surface, size: props.size }))
   }
 
   if (props.flex !== oldProps.flex) {
-    tx.sceneMsgs.push(mkUpdateSceneMsgSetFlex({ surface, flex: props.flex }))
+    tx.sceneMsgs.push(U.SetFlex({ surface, flex: props.flex }))
   }
 
   if (props.flow !== oldProps.flow) {
-    tx.sceneMsgs.push(mkUpdateSceneMsgSetFlow({ surface, flow: props.flow }))
+    tx.sceneMsgs.push(U.SetFlow({ surface, flow: props.flow }))
   }
 
   if (props.padding !== oldProps.padding) {
-    tx.sceneMsgs.push(mkUpdateSceneMsgSetPadding({ surface, padding: props.padding }))
+    tx.sceneMsgs.push(U.SetPadding({ surface, padding: props.padding }))
   }
 
   if (props.margin !== oldProps.margin) {
-    tx.sceneMsgs.push(mkUpdateSceneMsgSetMargin({ surface, margin: props.margin }))
+    tx.sceneMsgs.push(U.SetMargin({ surface, margin: props.margin }))
   }
 
   if (props.boxShadow !== oldProps.boxShadow) {
-    tx.sceneMsgs.push(
-      mkUpdateSceneMsgSetBoxShadow({ surface, boxShadow: props.boxShadow })
-    )
+    tx.sceneMsgs.push(U.SetBoxShadow({ surface, boxShadow: props.boxShadow }))
   }
 
   if (props.backgroundColor !== oldProps.backgroundColor) {
     tx.sceneMsgs.push(
-      mkUpdateSceneMsgSetBackgroundColor({ surface, color: props.backgroundColor })
+      U.SetBackgroundColor({
+        surface,
+        color: props.backgroundColor
+      })
     )
   }
 
   if (props.image !== oldProps.image) {
-    tx.sceneMsgs.push(mkUpdateSceneMsgSetImage({ surface, image: props.image }))
+    tx.sceneMsgs.push(U.SetImage({ surface, image: props.image }))
   }
 
   if (props.text !== oldProps.text) {
-    tx.sceneMsgs.push(mkUpdateSceneMsgSetText({ surface, text: props.text }))
+    tx.sceneMsgs.push(U.SetText({ surface, text: props.text }))
   }
 
   if (props.border !== oldProps.border) {
-    tx.sceneMsgs.push(mkUpdateSceneMsgSetBorder({ surface, border: props.border }))
+    tx.sceneMsgs.push(U.SetBorder({ surface, border: props.border }))
   }
 }
 

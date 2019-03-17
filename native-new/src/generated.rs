@@ -8,7 +8,7 @@ use serde::Deserialize;
 pub enum FfiMsg {
     HandleEvents,
     CreateWindow,
-    UpdateScene { #[serde(rename = "window")] window: WindowId, #[serde(rename = "msgs")] msgs: Vec<UpdateSceneMsg> },
+    UpdateScene { window: WindowId, msgs: Vec<UpdateSceneMsg> },
 }
 
 
@@ -16,20 +16,20 @@ pub enum FfiMsg {
 #[serde(tag = "tag", content = "value")]
 pub enum UpdateSceneMsg {
     Alloc,
-    AppendChild { #[serde(rename = "parent")] parent: SurfaceId, #[serde(rename = "child")] child: SurfaceId },
-    InsertBefore { #[serde(rename = "parent")] parent: SurfaceId, #[serde(rename = "child")] child: SurfaceId, #[serde(rename = "before")] before: SurfaceId },
-    RemoveChild { #[serde(rename = "parent")] parent: SurfaceId, #[serde(rename = "child")] child: SurfaceId },
-    SetBorderRadius { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "borderRadius")] border_radius: Option<BorderRadius> },
-    SetSize { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "size")] size: Size },
-    SetFlex { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "flex")] flex: Flex },
-    SetFlow { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "flow")] flow: Flow },
-    SetPadding { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "padding")] padding: Rect },
-    SetMargin { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "margin")] margin: Rect },
-    SetBoxShadow { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "boxShadow")] box_shadow: Option<BoxShadow> },
-    SetBackgroundColor { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "color")] color: Option<Color> },
-    SetImage { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "image")] image: Option<Image> },
-    SetText { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "text")] text: Option<Text> },
-    SetBorder { #[serde(rename = "surface")] surface: SurfaceId, #[serde(rename = "border")] border: Option<Border> },
+    AppendChild { parent: SurfaceId, child: SurfaceId },
+    InsertBefore { parent: SurfaceId, child: SurfaceId, before: SurfaceId },
+    RemoveChild { parent: SurfaceId, child: SurfaceId },
+    SetBorderRadius { surface: SurfaceId, #[serde(rename = "borderRadius")] border_radius: Option<BorderRadius> },
+    SetSize { surface: SurfaceId, size: Size },
+    SetFlex { surface: SurfaceId, flex: Flex },
+    SetFlow { surface: SurfaceId, flow: Flow },
+    SetPadding { surface: SurfaceId, padding: Rect },
+    SetMargin { surface: SurfaceId, margin: Rect },
+    SetBoxShadow { surface: SurfaceId, #[serde(rename = "boxShadow")] box_shadow: Option<BoxShadow> },
+    SetBackgroundColor { surface: SurfaceId, color: Option<Color> },
+    SetImage { surface: SurfaceId, image: Option<Image> },
+    SetText { surface: SurfaceId, text: Option<Text> },
+    SetBorder { surface: SurfaceId, border: Option<Border> },
 }
 
 
