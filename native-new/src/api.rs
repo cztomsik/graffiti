@@ -49,8 +49,8 @@ pub trait Window {
 
 /// Facade/mediator to an executed scene update
 ///
-/// theoretically we could represent it as a message but we would need to return SurfaceId somehow
-/// and it just doesn't feel right (for some reason)
+/// TODO: redo as a message (updates should run in a thread so it has to own the data and services
+///     and so there will be no context available)
 pub trait SceneUpdateContext {
     // structure
     fn create_surface(&mut self) -> SurfaceId;
@@ -79,5 +79,5 @@ pub trait SceneUpdateContext {
 // re-export some value objects
 pub use crate::generated::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Dimension, Flex, Flow, Image,
-    Rect, Size, SurfaceId, Text, WindowId,
+    Rect, Size, SurfaceId, Text, TextAlign, WindowId,
 };

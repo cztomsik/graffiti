@@ -197,9 +197,12 @@ impl<'a> Debug for SurfaceData<'a> {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    type Id = SurfaceId;
 
     fn test_scene() -> Scene {
         Scene::new()
@@ -235,3 +238,4 @@ mod tests {
         data.children();
     }
 }
+*/

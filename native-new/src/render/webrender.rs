@@ -2,15 +2,12 @@ use super::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, ComputedLayout, Image,
     RenderService, Text,
 };
-use crate::generated::{Vector2f, TextAlign};
+use crate::generated::{Vector2f};
 use crate::scene::SurfaceData;
 use crate::temp;
 use gleam::gl::Gl;
 use image;
 use image::GenericImageView;
-use pango::prelude::*;
-use pango::{WrapMode, Alignment};
-use pangocairo::FontMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::rc::Rc;
@@ -26,8 +23,11 @@ use webrender::api::{
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 use webrender::{Renderer, RendererOptions};
+use crate::text::{TextShaper, LaidGlyph, PangoService};
 
 pub struct WebrenderRenderService {
+    text_shaper: PangoService,
+
     renderer: Renderer,
     render_api: RenderApi,
     document_id: DocumentId,
@@ -35,7 +35,6 @@ pub struct WebrenderRenderService {
 
     pub layout_size: LayoutSize,
     fb_size: DeviceIntSize,
-    pango_context: pango::Context,
     // so that we can reuse already uploaded images
     // this can be (periodically) cleaned up by simply going through all keys and
     // looking what has (not) been used in the last render (and can be evicted)
@@ -44,10 +43,6 @@ pub struct WebrenderRenderService {
 
 impl WebrenderRenderService {
     pub fn new(gl: Rc<Gl>) -> Self {
-        let font_map = FontMap::new().expect("couldn't get fontmap");
-        let pango_context = pango::Context::new();
-        pango_context.set_font_map(&font_map);
-
         let fb_size = DeviceIntSize::new(300, 300);
         let layout_size = LayoutSize::new(fb_size.width as f32, fb_size.height as f32);
 
@@ -57,6 +52,9 @@ impl WebrenderRenderService {
         Self::load_fonts(&mut render_api, document_id, &rx);
 
         WebrenderRenderService {
+            // find out how to share one ref with YogaService
+            text_shaper: PangoService::new(),
+
             renderer,
             render_api,
             document_id,
@@ -64,7 +62,6 @@ impl WebrenderRenderService {
 
             layout_size,
             fb_size,
-            pango_context,
         }
     }
 
@@ -150,7 +147,7 @@ impl RenderService for WebrenderRenderService {
             let mut context = RenderContext {
                 computed_layouts,
                 render_api: &mut self.render_api,
-                pango_context: &self.pango_context,
+                text_shaper: &self.text_shaper,
 
                 builder: DisplayListBuilder::with_capacity(
                     pipeline_id,
@@ -174,7 +171,7 @@ impl RenderService for WebrenderRenderService {
 struct RenderContext<'a> {
     computed_layouts: Vec<ComputedLayout>,
     render_api: &'a mut RenderApi,
-    pango_context: &'a pango::Context,
+    text_shaper: &'a dyn TextShaper,
 
     builder: DisplayListBuilder,
     border_radius: WRBorderRadius,
@@ -323,46 +320,25 @@ impl<'a> RenderContext<'a> {
     // TODO: cache, free, refactor, etc.
     // (this is rather PoC)
     fn text(&self, text: Text) -> (SpecificDisplayItem, Vec<GlyphInstance>) {
+        let [width, height] = self.layout.rect.size.to_array();
         let [text_x, text_y] = self.layout.rect.origin.to_array();
 
-        let mut description = pango::FontDescription::new();
-        description.set_family("Arial");
-        description.set_size(text.font_size as i32);
+        // TODO: glyph_indices from pango are different
+        let glyph_indices = self
+            .render_api
+            .get_glyph_indices(FontKey(IdNamespace(1), 1), &text.text);
 
-        let layout = pango::Layout::new(self.pango_context);
-        layout.set_font_description(&description);
-        layout.set_wrap(WrapMode::Word);
-        layout.set_width(100);
-        layout.set_text(&text.text);
-        layout.set_alignment(text.align.clone().into());
+        let glyphs = self.text_shaper.shape_text(&text, (width, height));
+        let glyphs = glyphs.iter().enumerate().map(|(i, LaidGlyph { x, y, .. })| {
+            GlyphInstance {
+                index: glyph_indices[i].unwrap_or(0),
 
-        let glyphs = {
-            let mut glyphs: Vec<GlyphInstance> = Vec::new();
-
-            let glyph_indices = self
-                .render_api
-                .get_glyph_indices(FontKey(IdNamespace(1), 1), &text.text);
-
-            for (i, _char) in text.text.char_indices() {
-                let rect = layout.index_to_pos(i as i32);
-
-                if let Some(glyph_index) = glyph_indices[i] {
-                    glyphs.push(GlyphInstance {
-                        index: glyph_index,
-                        point: LayoutPoint::new(
-                            text_x + rect.x as f32,
-                            30. + text_y + rect.y as f32,
-                        ),
-                    })
-                }
+                // y is the bottom, so we need to add font_size too
+                point: LayoutPoint::new(text_x + x, text_y + y + text.font_size)
             }
-
-            glyphs
-        };
+        }).collect();
 
         debug!("{:?}", &glyphs);
-
-        let glyphs = vec![];
 
         let font_key = FontInstanceKey::new(IdNamespace(1), text.font_size as u32);
 
@@ -450,16 +426,7 @@ impl Into<WRBorderStyle> for BorderStyle {
     }
 }
 
-impl Into<Alignment> for TextAlign {
-    fn into(self) -> Alignment {
-        match self {
-            TextAlign::Left => Alignment::Left,
-            TextAlign::Center => Alignment::Center,
-            TextAlign::Right => Alignment::Right,
-        }
-    }
-}
-
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -517,3 +484,4 @@ mod tests {
         );
     }
 }
+*/
