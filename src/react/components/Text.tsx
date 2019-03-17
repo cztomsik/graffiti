@@ -20,12 +20,16 @@ export function Text({ style = {}, children = [] }: TextProps) {
         color: parseColor(color),
         lineHeight,
         align: TEXT_ALIGN[textAlign],
-        text: [].concat(children).filter(Boolean).join('')
+        text: [].concat(children).filter(numberOrString).join('')
       }}
       {..._props}
       size={[{ tag: 'Auto' }, { tag: 'Auto' }]}
     />
   )
+}
+
+function numberOrString(v) {
+  return typeof v === 'string' || typeof v === 'number';
 }
 
 const TEXT_ALIGN = {
