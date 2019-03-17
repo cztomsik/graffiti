@@ -1,26 +1,28 @@
 #[cfg(test)]
 use ordered_float::OrderedFloat;
 use std::f32;
-use yoga::types::{Align, FlexDirection as YogaFlexDirection, Wrap};
-use yoga::{Direction, FlexStyle, Node as YogaNode, StyleUnit};
+use yoga::{Direction, FlexStyle, Node as YogaNode, StyleUnit, Context, Align, FlexDirection as YogaFlexDirection, Wrap, MeasureMode, NodeRef};
 
-use super::{
-    ComputedLayout, Dimension, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent,
-    LayoutService, Rect, Size,
+use super::{LayoutService, ComputedLayout};
+use crate::api::{Dimension, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent,
+    Rect, Size, Text,
 };
 use crate::storage::DenseStorage;
 use crate::scene::SurfaceData;
 use crate::Id;
 use yoga::types::Justify;
+use crate::text::{PangoService, TextMeasurer};
 
 pub struct YogaLayoutService {
     yoga_nodes: DenseStorage<Id, YogaNode>,
+    pango_service: PangoService
 }
 
-impl YogaLayoutService {
+impl <'svc> YogaLayoutService {
     pub fn new() -> Self {
         YogaLayoutService {
             yoga_nodes: DenseStorage::new(),
+            pango_service: PangoService::new()
         }
     }
 
@@ -90,6 +92,28 @@ impl YogaLayoutService {
             FlexStyle::MarginLeft(margin.3.into()),
         ]);
     }
+
+    pub fn set_text(&'svc mut self, id: Id, text: Option<Text>) {
+        let node = self.yoga_nodes.get_mut(id);
+
+        if let Some(text) = text {
+            // TODO: this should be done better
+            // needed because yoga context has static lifetime
+            // yoga context is dropped but Box<Any> does not know which destructor to call
+            // so the memory will be freed but no destructors will be called, actually
+            // which is not an issue right now but it's certainly not a good way
+            let text_measurer: &'static PangoService = unsafe { std::mem::transmute(&self.pango_service) };
+
+            node.set_measure_func(Some(measure_text_node));
+            node.set_context(Some(Context::new(MeasureContext { text_measurer, text })));
+
+            node.mark_dirty();
+        } else {
+            node.set_measure_func(None);
+            node.set_context(None);
+        }
+
+    }
 }
 
 impl LayoutService for YogaLayoutService {
@@ -110,6 +134,42 @@ impl LayoutService for YogaLayoutService {
             })
             .collect()
     }
+}
+
+extern "C" fn measure_text_node(
+    node_ref: NodeRef,
+    w: f32,
+    wm: MeasureMode,
+    _h: f32,
+    _hm: MeasureMode,
+) -> yoga::Size {
+    let ctx = YogaNode::get_context(&node_ref).expect("no context found");
+    let ctx = ctx.downcast_ref::<MeasureContext>().expect("not a measure context");
+
+    let max_width = match wm {
+        MeasureMode::Exactly => Some(w),
+        MeasureMode::AtMost => Some(w),
+        MeasureMode::Undefined => None
+    };
+
+    let (width, height) = ctx.text_measurer.measure_text(&ctx.text, max_width);
+
+    let width = match wm {
+        MeasureMode::Exactly => w,
+        MeasureMode::AtMost => width,
+        MeasureMode::Undefined => width
+    };
+
+    let size = yoga::Size { width, height };
+
+    info!("measure {:?}", (&ctx.text.text, w, wm, &size));
+
+    size
+}
+
+struct MeasureContext<'svc> {
+    pub text_measurer: &'svc PangoService,
+    pub text: Text
 }
 
 impl Into<StyleUnit> for Dimension {

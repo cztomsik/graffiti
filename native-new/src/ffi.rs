@@ -18,7 +18,7 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut FfiResult) {
     let msg = unsafe { std::slice::from_raw_parts(data, len as usize) };
     let msg: FfiMsg = serde_json::from_slice(msg).expect("invalid message");
 
-    debug!("Msg {:?}", &msg);
+    debug!("Msg {:#?}", &msg);
 
     unsafe {
         match APP {

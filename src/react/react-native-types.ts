@@ -29,7 +29,9 @@ declare module 'react-native' {
     borderLeftColor?: string
   }
 
+  type TextValue = string | number | null | undefined | false
+
   interface TextProps {
-    children?: string | string[]
+    children?: TextValue | TextValue[]
   }
 }

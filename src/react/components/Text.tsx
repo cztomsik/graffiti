@@ -20,10 +20,10 @@ export function Text({ style = {}, children = [] }: TextProps) {
         color: parseColor(color),
         lineHeight,
         align: TEXT_ALIGN[textAlign],
-        text: [].concat(children).join('')
+        text: [].concat(children).filter(Boolean).join('')
       }}
       {..._props}
-      size={[{ tag: 'Point', value: 100 }, { tag: 'Point', value: 30 }]}
+      size={[{ tag: 'Auto' }, { tag: 'Auto' }]}
     />
   )
 }

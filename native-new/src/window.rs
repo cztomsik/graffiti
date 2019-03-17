@@ -134,7 +134,8 @@ impl SceneUpdateContext for GlutinWindow {
     }
 
     fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
-        self.scene.set_text(surface, text);
+        self.scene.set_text(surface, text.clone());
+        self.layout_service.set_text(surface, text);
     }
 
     fn set_border(&mut self, surface: SurfaceId, border: Option<Border>) {

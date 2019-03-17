@@ -2,9 +2,10 @@ use super::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, ComputedLayout, Image,
     RenderService, Text,
 };
-use crate::generated::{Vector2f};
+use crate::generated::Vector2f;
 use crate::scene::SurfaceData;
 use crate::temp;
+use crate::text::{LaidGlyph, PangoService, TextShaper};
 use gleam::gl::Gl;
 use image;
 use image::GenericImageView;
@@ -23,7 +24,6 @@ use webrender::api::{
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 use webrender::{Renderer, RendererOptions};
-use crate::text::{TextShaper, LaidGlyph, PangoService};
 
 pub struct WebrenderRenderService {
     text_shaper: PangoService,
@@ -43,7 +43,7 @@ pub struct WebrenderRenderService {
 
 impl WebrenderRenderService {
     pub fn new(gl: Rc<Gl>) -> Self {
-        let fb_size = DeviceIntSize::new(300, 300);
+        let fb_size = DeviceIntSize::new(1024, 768);
         let layout_size = LayoutSize::new(fb_size.width as f32, fb_size.height as f32);
 
         let (renderer, mut render_api, rx) = Self::init_webrender(gl);
@@ -186,13 +186,10 @@ impl<'a> RenderContext<'a> {
 
         let (x, y, width, height) = self.computed_layouts[surface.id() as usize];
 
-        self.layout = LayoutPrimitiveInfo::new(LayoutRect::new(
-            LayoutPoint::new(
-                parent_layout.rect.origin.x + x,
-                parent_layout.rect.origin.y + y,
-            ),
-            LayoutSize::new(width, height),
-        ));
+        self.layout = LayoutPrimitiveInfo::new(
+            LayoutRect::new(LayoutPoint::new(x, y), LayoutSize::new(width, height))
+                .translate(&parent_layout.rect.origin.to_vector()),
+        );
 
         debug!("surface {} {:?}", surface.id(), self.layout.rect);
 
@@ -323,22 +320,17 @@ impl<'a> RenderContext<'a> {
         let [width, height] = self.layout.rect.size.to_array();
         let [text_x, text_y] = self.layout.rect.origin.to_array();
 
-        // TODO: glyph_indices from pango are different
-        let glyph_indices = self
-            .render_api
-            .get_glyph_indices(FontKey(IdNamespace(1), 1), &text.text);
+        // y is from the bottom, so we need to add font size and half of the difference between line-height and font-size
+        let text_y = text_y + text.font_size + ((text.line_height - text.font_size) / 2.);
 
         let glyphs = self.text_shaper.shape_text(&text, (width, height));
-        let glyphs = glyphs.iter().enumerate().map(|(i, LaidGlyph { x, y, .. })| {
-            GlyphInstance {
-                index: glyph_indices[i].unwrap_or(0),
-
-                // y is the bottom, so we need to add font_size too
-                point: LayoutPoint::new(text_x + x, text_y + y + text.font_size)
-            }
-        }).collect();
-
-        debug!("{:?}", &glyphs);
+        let glyphs = glyphs
+            .iter()
+            .map(|LaidGlyph { glyph_index, x, y }| GlyphInstance {
+                index: *glyph_index,
+                point: LayoutPoint::new(text_x + x, text_y + y),
+            })
+            .collect();
 
         let font_key = FontInstanceKey::new(IdNamespace(1), text.font_size as u32);
 

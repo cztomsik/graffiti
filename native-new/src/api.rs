@@ -79,5 +79,5 @@ pub trait SceneUpdateContext {
 // re-export some value objects
 pub use crate::generated::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Dimension, Flex, Flow, Image,
-    Rect, Size, SurfaceId, Text, TextAlign, WindowId,
+    Rect, Size, SurfaceId, Text, TextAlign, WindowId, FlexAlign, FlexDirection, FlexWrap, JustifyContent
 };

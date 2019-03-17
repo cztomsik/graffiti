@@ -202,14 +202,14 @@ function compile2(style: FlatStyle): HostSurfaceProps {
     },
     padding: Rect.mk(
       parseDimension(paddingTop),
-      parseDimension(paddingBottom),
       parseDimension(paddingRight),
+      parseDimension(paddingBottom),
       parseDimension(paddingLeft)
     ),
     margin: Rect.mk(
       parseDimension(marginTop),
-      parseDimension(marginBottom),
       parseDimension(marginRight),
+      parseDimension(marginBottom),
       parseDimension(marginLeft)
     ),
     boxShadow: shadowColor

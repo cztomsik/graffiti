@@ -56,7 +56,7 @@ function prepareForCommit(window) {
 }
 
 function createInstance(type, props, window) {
-  send(FfiMsg.UpdateScene({ window: window.id, msgs: [U.Alloc] }))
+  tx.sceneMsgs.push(U.Alloc)
   let id = __nextId__++
 
   update(id, props, {})
