@@ -1,4 +1,4 @@
-import { mkUpdateSceneMsgAppendChild, mkUpdateSceneMsgRemoveChild, mkUpdateSceneMsgInsertBefore, mkFfiMsgUpdateScene } from "./generated";
+import { UpdateSceneMsg as U, FfiMsg } from './generated'
 import { send } from './nativeApi'
 
 /**
@@ -16,22 +16,24 @@ export class Transaction {
   constructor(private windowId) {}
 
   appendChild(parent, child) {
-    this.sceneMsgs.push(mkUpdateSceneMsgAppendChild({ parent, child }))
+    this.sceneMsgs.push(U.AppendChild({ parent, child }))
   }
 
   removeChild(parent, child) {
-    this.sceneMsgs.push(mkUpdateSceneMsgRemoveChild({ parent, child }))
+    this.sceneMsgs.push(U.RemoveChild({ parent, child }))
   }
 
   insertBefore(parent, child, before) {
-    this.sceneMsgs.push(mkUpdateSceneMsgInsertBefore({ parent, child, before }))
+    this.sceneMsgs.push(U.InsertBefore({ parent, child, before }))
   }
 
   // not yet sure if it should be here or on window
   _send() {
-    send(mkFfiMsgUpdateScene({
-      window: this.windowId,
-      msgs: this.sceneMsgs
-    }))
+    send(
+      FfiMsg.UpdateScene({
+        window: this.windowId,
+        msgs: this.sceneMsgs
+      })
+    )
   }
 }

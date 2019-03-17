@@ -7,18 +7,15 @@ import {
 } from './react-native-types'
 import { HostSurfaceProps } from './reconciler'
 import {
-  mkRect,
-  mkDimensionAuto,
+  Rect,
   Dimension,
-  mkDimensionPoint,
-  mkDimensionPercent,
-  mkSize,
+  Size,
   FlexDirection,
   JustifyContent,
   FlexAlign,
   FlexWrap,
   BorderStyle,
-  mkVector2f
+  Vector2f
 } from '../core/generated'
 import { parseColor } from '../core/utils'
 
@@ -190,7 +187,7 @@ function compile2(style: FlatStyle): HostSurfaceProps {
 
   return {
     //borderRadius,
-    size: mkSize(parseDimension(width), parseDimension(height)),
+    size: Size.mk(parseDimension(width), parseDimension(height)),
     flex: {
       flexGrow,
       flexShrink,
@@ -203,13 +200,13 @@ function compile2(style: FlatStyle): HostSurfaceProps {
       alignItems: FlexAlign[FLEX_ALIGN[alignItems]],
       justifyContent: JustifyContent[JUSTIFY_CONTENT[justifyContent]]
     },
-    padding: mkRect(
+    padding: Rect.mk(
       parseDimension(paddingTop),
       parseDimension(paddingBottom),
       parseDimension(paddingRight),
       parseDimension(paddingLeft)
     ),
-    margin: mkRect(
+    margin: Rect.mk(
       parseDimension(marginTop),
       parseDimension(marginBottom),
       parseDimension(marginRight),
@@ -220,7 +217,7 @@ function compile2(style: FlatStyle): HostSurfaceProps {
           blur: shadowRadius,
           spread: 0,
           color: parseColor(shadowColor),
-          offset: mkVector2f(0, 0)
+          offset: Vector2f.mk(0, 0)
         }
       : undefined,
     backgroundColor: backgroundColor ? parseColor(backgroundColor) : undefined,
@@ -258,14 +255,14 @@ function parseDimension(value?: string | number): Dimension {
   value = '' + value
 
   if (value.endsWith('%')) {
-    return mkDimensionPercent(parseFloat(value))
+    return Dimension.Percent(parseFloat(value))
   }
 
   if (value === 'auto' || value === undefined) {
-    return mkDimensionAuto()
+    return Dimension.Auto
   }
 
-  return mkDimensionPoint(parseFloat(value))
+  return Dimension.Point(parseFloat(value))
 }
 
 const FLEX_DIRECTION = {

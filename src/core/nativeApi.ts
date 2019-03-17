@@ -1,20 +1,26 @@
-import { FfiMsg, mkFfiMsgHandleEvents } from "./generated";
+import { FfiMsg } from './generated'
 
-const ref = require('ref');
-const ffi = require('ffi');
+const ref = require('ref')
+const ffi = require('ffi')
 
 // define lib
-const lib = ffi.Library(__dirname + '/../../native-new/target/debug/libnode_webrender', {
-  init: ['void', []],
-  // pass a buffer (pointer to some memory + its length)
-  'send': ['void', [ref.refType(ref.types.void), 'int', ref.refType(ref.types.void)]]
-});
+const lib = ffi.Library(
+  __dirname + '/../../native-new/target/debug/libnode_webrender',
+  {
+    init: ['void', []],
+    // pass a buffer (pointer to some memory + its length)
+    send: [
+      'void',
+      [ref.refType(ref.types.void), 'int', ref.refType(ref.types.void)]
+    ]
+  }
+)
 
 lib.init()
 
 // necessary for window to stay responsive
 setInterval(() => {
-  send(mkFfiMsgHandleEvents())
+  send(FfiMsg.HandleEvents)
 }, 200)
 
 export function send(msg: FfiMsg) {
