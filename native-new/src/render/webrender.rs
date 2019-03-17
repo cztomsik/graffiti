@@ -17,7 +17,7 @@ use webrender::api::{
     AddImage, AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius,
     BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
     BoxShadowDisplayItem, ColorF, ColorU, DeviceIntSize, DisplayListBuilder, DocumentId, Epoch,
-    FontInstanceKey, FontKey, GlyphInstance, IdNamespace, ImageData, ImageDescriptor,
+    FontInstanceKey, GlyphInstance, ImageData, ImageDescriptor,
     ImageDisplayItem, ImageFormat, ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect,
     LayoutSize, LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
     ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem, Transaction,
@@ -332,7 +332,7 @@ impl<'a> RenderContext<'a> {
             })
             .collect();
 
-        let font_key = FontInstanceKey::new(IdNamespace(1), text.font_size as u32);
+        let font_key = FontInstanceKey::new(self.render_api.get_namespace_id(), text.font_size as u32);
 
         let item = SpecificDisplayItem::Text(TextDisplayItem {
             font_key,

@@ -162,7 +162,7 @@ extern "C" fn measure_text_node(
 
     let size = yoga::Size { width, height };
 
-    info!("measure {:?}", (&ctx.text.text, w, wm, &size));
+    debug!("measure {:?}", (&ctx.text.text, w, wm, &size));
 
     size
 }

@@ -11,9 +11,6 @@ import { Size, Color, Flex, Image, Border, Text, Flow } from '../core'
 import { BoxShadow, FfiMsg, UpdateSceneMsg as U } from '../core/generated'
 import { send } from '../core/nativeApi'
 
-// temporary helpers
-// because root is 0
-let __nextId__ = 1
 let tx = null
 
 const reconciler = createReconciler({
@@ -38,6 +35,8 @@ const reconciler = createReconciler({
 export function render(vnode, window, cb?) {
   if (window._reactRoot === undefined) {
     window._reactRoot = reconciler.createContainer(window, false, false)
+    // because root is 0
+    window.__nextId__ = 1
   }
 
   // initial tx
@@ -57,7 +56,7 @@ function prepareForCommit(window) {
 
 function createInstance(type, props, window) {
   tx.sceneMsgs.push(U.Alloc)
-  let id = __nextId__++
+  let id = window.__nextId__++
 
   update(id, props, {})
 

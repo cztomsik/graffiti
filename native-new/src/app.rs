@@ -15,6 +15,17 @@ impl GlutinApp {
     pub fn new() -> Self {
         let events_loop = EventsLoop::new();
 
+        // start awaker thread
+        let proxy = events_loop.create_proxy();
+        let duration = std::time::Duration::from_millis(30);
+        std::thread::spawn(move || loop {
+            std::thread::sleep(duration);
+
+            if proxy.wakeup().is_err() {
+                break;
+            }
+        });
+
         GlutinApp {
             events_loop,
             windows: BTreeMap::new(),

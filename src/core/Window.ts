@@ -12,8 +12,6 @@ export class Window {
     // this is ofc wrong because it can change but it's good enough for now (WindowId variant starts at offset 2)
     this.id = send(FfiMsg.CreateWindow).readUInt16LE(2)
 
-    send(FfiMsg.UpdateScene({ window: this.id, msgs: [UpdateSceneMsg.Alloc] }))
-
     // TODO (in create/openWindow)
     // it's not constructor's job to perform window allocation and so it shouldn't free either
     // createdWindow.destructor = require('finalize')(window, function() { send(destroyWindow(window.id)) }))

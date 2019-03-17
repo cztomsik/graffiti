@@ -1,9 +1,12 @@
-use crate::api::{Border, BorderRadius, BoxShadow, Color, Dimension, Flex, Flow, Image, Rect, SceneUpdateContext, Size, SurfaceId, Text, Window, WindowEvent};
+use crate::api::{
+    Border, BorderRadius, BoxShadow, Color, Dimension, Flex, Flow, Image, Rect, SceneUpdateContext,
+    Size, SurfaceId, Text, Window, WindowEvent,
+};
 use crate::layout::{LayoutService, YogaLayoutService};
 use crate::render::{RenderService, WebrenderRenderService};
 use crate::scene::Scene;
-use glutin::{WindowId, WindowedContext, ContextTrait};
 use gleam::gl::GlFns;
+use glutin::{ContextTrait, WindowId, WindowedContext};
 
 pub struct GlutinWindow {
     glutin_context: WindowedContext,
@@ -14,14 +17,21 @@ pub struct GlutinWindow {
 
 impl GlutinWindow {
     pub fn new(glutin_context: WindowedContext) -> Self {
-        let gl = unsafe { GlFns::load_with(|addr| glutin_context.get_proc_address(addr) as *const _) };
+        let gl =
+            unsafe { GlFns::load_with(|addr| glutin_context.get_proc_address(addr) as *const _) };
 
-        GlutinWindow {
+        let mut window = GlutinWindow {
             glutin_context,
             scene: Scene::new(),
             layout_service: YogaLayoutService::new(),
             render_service: WebrenderRenderService::new(gl),
-        }
+        };
+
+        window.update_scene(|ctx| {
+            ctx.create_surface();
+        });
+
+        window
     }
 
     pub fn id(&self) -> WindowId {
@@ -63,7 +73,10 @@ impl GlutinWindow {
 }
 
 impl Window for GlutinWindow {
-    fn update_scene<F>(&mut self, mut update_fn: F) where F: FnMut(&mut SceneUpdateContext) {
+    fn update_scene<F>(&mut self, mut update_fn: F)
+    where
+        F: FnMut(&mut SceneUpdateContext),
+    {
         update_fn(self);
         self.render();
     }
