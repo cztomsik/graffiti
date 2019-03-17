@@ -1,27 +1,22 @@
-use crate::api::{Window};
-use crate::generated::Msg;
-use crate::temp;
-use crate::window::WindowImpl;
+use crate::api::{App, Window, WindowId};
+use crate::app::GlutinApp;
+use crate::generated::{FfiMsg, UpdateSceneMsg};
 use serde_json;
 
-static mut APP: Option<Box<App>> = None;
+static mut APP: Option<GlutinApp> = None;
 
 #[no_mangle]
 pub extern "C" fn init() {
-    temp::init();
+    env_logger::init();
 
-    unsafe {
-        APP = Some(Box::new(App {
-            window: WindowImpl::new(),
-        }))
-    }
+    unsafe { APP = Some(GlutinApp::new()) }
 }
 
 #[no_mangle]
-pub extern "C" fn send(data: *const u8, len: u32) {
+pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut FfiResult) {
     // get slice of bytes & try to deserialize
     let msg = unsafe { std::slice::from_raw_parts(data, len as usize) };
-    let msg: Msg = serde_json::from_slice(msg).expect("invalid message");
+    let msg: FfiMsg = serde_json::from_slice(msg).expect("invalid message");
 
     debug!("Msg {:?}", &msg);
 
@@ -29,60 +24,85 @@ pub extern "C" fn send(data: *const u8, len: u32) {
         match APP {
             None => {}
             Some(ref mut app) => {
-                let window = &mut app.window;
-                match msg {
-                    Msg::HandleEvents => temp::handle_events(),
+                let mut result = FfiResult::Ok;
 
-                    // all what this does is that it delegates to window.get_scene().* calls
-                    // no logic should be here!
-                    // TODO: maybe we could use some rust rpc which works with bincode (like https://github.com/google/tarpc)
-                    _ => {
-                        let scene = window.get_scene();
+                handle_msg(app, msg, &mut result);
 
-                        match msg {
-                            Msg::Alloc => { scene.create_surface(); },
-                            Msg::AppendChild { parent, child } => scene.append_child(parent, child),
-                            Msg::InsertBefore {
-                                parent,
-                                child,
-                                before,
-                            } => {
-                                scene.insert_before(parent, child, before);
-                            }
-                            Msg::RemoveChild { parent, child } => scene.remove_child(parent, child),
-                            Msg::SetBorderRadius {
-                                surface,
-                                border_radius,
-                            } => scene.set_border_radius(surface, border_radius),
-                            Msg::SetSize { surface, size } => scene.set_size(surface, size),
-                            Msg::SetFlow { surface, flow } => scene.set_flow(surface, flow),
-                            Msg::SetFlex { surface, flex } => scene.set_flex(surface, flex),
-                            Msg::SetPadding { surface, padding } => {
-                                scene.set_padding(surface, padding)
-                            }
-                            Msg::SetMargin { surface, margin } => scene.set_margin(surface, margin),
-                            Msg::SetBoxShadow {
-                                surface,
-                                box_shadow,
-                            } => scene.set_box_shadow(surface, box_shadow),
-                            Msg::SetBackgroundColor { surface, color } => {
-                                scene.set_background_color(surface, color)
-                            }
-                            Msg::SetImage { surface, image } => scene.set_image(surface, image),
-                            Msg::SetText { surface, text } => scene.set_text(surface, text),
-                            Msg::SetBorder { surface, border } => scene.set_border(surface, border),
-                            Msg::Render => window.render(),
-                            _ => unreachable!()
-                        };
-
-                        window.render();
-                    }
-                }
+                *result_ptr = result;
             }
         }
     }
 }
 
-struct App {
-    window: WindowImpl,
+fn handle_msg(app: &mut GlutinApp, msg: FfiMsg, result: &mut FfiResult) {
+    match msg {
+        FfiMsg::HandleEvents => {
+            // TODO: return AppEvent
+            app.get_next_event();
+        }
+        FfiMsg::CreateWindow => {
+            let id = app.create_window();
+            *result = FfiResult::WindowId(id);
+        }
+        FfiMsg::UpdateScene { window, msgs } => {
+            let window = app.get_window(window);
+
+            // this should only delegate to appropriate ctx.* calls
+            // no logic should be here!
+            window.update_scene(|ctx| {
+                for msg in msgs.clone() {
+                    match msg {
+                        UpdateSceneMsg::Alloc => {
+                            ctx.create_surface();
+                        }
+                        UpdateSceneMsg::AppendChild { parent, child } => {
+                            ctx.append_child(parent, child)
+                        }
+                        UpdateSceneMsg::InsertBefore {
+                            parent,
+                            child,
+                            before,
+                        } => {
+                            ctx.insert_before(parent, child, before);
+                        }
+                        UpdateSceneMsg::RemoveChild { parent, child } => {
+                            ctx.remove_child(parent, child)
+                        }
+                        UpdateSceneMsg::SetBorderRadius {
+                            surface,
+                            border_radius,
+                        } => ctx.set_border_radius(surface, border_radius),
+                        UpdateSceneMsg::SetSize { surface, size } => ctx.set_size(surface, size),
+                        UpdateSceneMsg::SetFlow { surface, flow } => ctx.set_flow(surface, flow),
+                        UpdateSceneMsg::SetFlex { surface, flex } => ctx.set_flex(surface, flex),
+                        UpdateSceneMsg::SetPadding { surface, padding } => {
+                            ctx.set_padding(surface, padding)
+                        }
+                        UpdateSceneMsg::SetMargin { surface, margin } => {
+                            ctx.set_margin(surface, margin)
+                        }
+                        UpdateSceneMsg::SetBoxShadow {
+                            surface,
+                            box_shadow,
+                        } => ctx.set_box_shadow(surface, box_shadow),
+                        UpdateSceneMsg::SetBackgroundColor { surface, color } => {
+                            ctx.set_background_color(surface, color)
+                        }
+                        UpdateSceneMsg::SetImage { surface, image } => {
+                            ctx.set_image(surface, image)
+                        }
+                        UpdateSceneMsg::SetText { surface, text } => ctx.set_text(surface, text),
+                        UpdateSceneMsg::SetBorder { surface, border } => {
+                            ctx.set_border(surface, border)
+                        }
+                    }
+                }
+            })
+        }
+    }
+}
+
+pub enum FfiResult {
+    Ok,
+    WindowId(WindowId)
 }

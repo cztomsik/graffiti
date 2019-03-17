@@ -2,9 +2,11 @@
 extern crate log;
 
 mod api;
-mod scene;
+mod app;
 mod window;
+mod scene;
 mod layout;
+mod text;
 mod render;
 mod storage;
 mod ffi;
