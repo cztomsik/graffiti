@@ -1,18 +1,51 @@
 
 use bincode;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "tag", content = "value")]
 pub enum FfiMsg {
-    HandleEvents,
+    GetNextEvent,
     CreateWindow,
     UpdateScene { window: WindowId, msgs: Vec<UpdateSceneMsg> },
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(tag = "tag", content = "value")]
+pub enum FfiResult {
+    Nothing,
+    Event(Event),
+    WindowId(WindowId),
+}
+
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(tag = "tag", content = "value")]
+pub enum Event {
+    WindowEvent { window: WindowId, event: WindowEvent },
+}
+
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(tag = "tag", content = "value")]
+pub enum WindowEvent {
+    MouseMove { target: u16 },
+    MouseDown,
+    MouseUp,
+    KeyDown,
+    KeyPress(u16),
+    KeyUp,
+    Focus,
+    Blur,
+    Resize,
+    Close,
+    Unknown,
+}
+
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "tag", content = "value")]
 pub enum UpdateSceneMsg {
     Alloc,
@@ -39,11 +72,11 @@ pub type WindowId = u16;
 pub type SurfaceId = u16;
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Color(pub u8, pub u8, pub u8, pub u8);
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum FlexDirection {
     Column,
     ColumnReverse,
@@ -52,7 +85,7 @@ pub enum FlexDirection {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum FlexWrap {
     NoWrap,
     Wrap,
@@ -60,7 +93,7 @@ pub enum FlexWrap {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum FlexAlign {
     Auto,
     FlexStart,
@@ -73,7 +106,7 @@ pub enum FlexAlign {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum JustifyContent {
     FlexStart,
     Center,
@@ -84,7 +117,7 @@ pub enum JustifyContent {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Flow {
     #[serde(rename = "flexDirection")]
     pub flex_direction: FlexDirection,
@@ -104,7 +137,7 @@ pub struct Flow {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Flex {
     #[serde(rename = "flexGrow")]
     pub flex_grow: f32,
@@ -118,7 +151,7 @@ pub struct Flex {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "tag", content = "value")]
 pub enum Dimension {
     Auto,
@@ -127,23 +160,23 @@ pub enum Dimension {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Size(pub Dimension, pub Dimension);
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Rect(pub Dimension, pub Dimension, pub Dimension, pub Dimension);
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Vector2f(pub f32, pub f32);
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct BorderRadius(pub f32, pub f32, pub f32, pub f32);
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct BoxShadow {
     pub color: Color,
     pub offset: Vector2f,
@@ -152,13 +185,13 @@ pub struct BoxShadow {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Image {
     pub url: String,
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum TextAlign {
     Left,
     Center,
@@ -166,7 +199,7 @@ pub enum TextAlign {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Text {
     pub color: Color,
     #[serde(rename = "fontSize")]
@@ -180,7 +213,7 @@ pub struct Text {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Border {
     pub top: BorderSide,
     pub right: BorderSide,
@@ -189,7 +222,7 @@ pub struct Border {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct BorderSide {
     pub width: f32,
     pub style: BorderStyle,
@@ -197,7 +230,7 @@ pub struct BorderSide {
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum BorderStyle {
     None,
     Solid,

@@ -1,5 +1,5 @@
 export type FfiMsg =
-  | { tag: 'HandleEvents' }
+  | { tag: 'GetNextEvent' }
   | { tag: 'CreateWindow' }
   | { tag: 'UpdateScene'; value: FfiMsgUpdateScene }
 
@@ -9,7 +9,7 @@ export interface FfiMsgUpdateScene {
 }
 
 export module FfiMsg {
-  export const HandleEvents: FfiMsg = { tag: 'HandleEvents' }
+  export const GetNextEvent: FfiMsg = { tag: 'GetNextEvent' }
 
   export const CreateWindow: FfiMsg = { tag: 'CreateWindow' }
 
@@ -17,6 +17,83 @@ export module FfiMsg {
     tag: 'UpdateScene',
     value
   })
+}
+
+export type FfiResult =
+  | { tag: 'Nothing' }
+  | { tag: 'Event'; value: Event }
+  | { tag: 'WindowId'; value: WindowId }
+
+export module FfiResult {
+  export const Nothing: FfiResult = { tag: 'Nothing' }
+
+  export const Event = (value: Event): FfiResult => ({ tag: 'Event', value })
+
+  export const WindowId = (value: WindowId): FfiResult => ({
+    tag: 'WindowId',
+    value
+  })
+}
+
+export type Event = { tag: 'WindowEvent'; value: EventWindowEvent }
+
+export interface EventWindowEvent {
+  window: WindowId
+  event: WindowEvent
+}
+
+export module Event {
+  export const WindowEvent = (value: EventWindowEvent): Event => ({
+    tag: 'WindowEvent',
+    value
+  })
+}
+
+export type WindowEvent =
+  | { tag: 'MouseMove'; value: WindowEventMouseMove }
+  | { tag: 'MouseDown' }
+  | { tag: 'MouseUp' }
+  | { tag: 'KeyDown' }
+  | { tag: 'KeyPress'; value: number }
+  | { tag: 'KeyUp' }
+  | { tag: 'Focus' }
+  | { tag: 'Blur' }
+  | { tag: 'Resize' }
+  | { tag: 'Close' }
+  | { tag: 'Unknown' }
+
+export interface WindowEventMouseMove {
+  target: number
+}
+
+export module WindowEvent {
+  export const MouseMove = (value: WindowEventMouseMove): WindowEvent => ({
+    tag: 'MouseMove',
+    value
+  })
+
+  export const MouseDown: WindowEvent = { tag: 'MouseDown' }
+
+  export const MouseUp: WindowEvent = { tag: 'MouseUp' }
+
+  export const KeyDown: WindowEvent = { tag: 'KeyDown' }
+
+  export const KeyPress = (value: number): WindowEvent => ({
+    tag: 'KeyPress',
+    value
+  })
+
+  export const KeyUp: WindowEvent = { tag: 'KeyUp' }
+
+  export const Focus: WindowEvent = { tag: 'Focus' }
+
+  export const Blur: WindowEvent = { tag: 'Blur' }
+
+  export const Resize: WindowEvent = { tag: 'Resize' }
+
+  export const Close: WindowEvent = { tag: 'Close' }
+
+  export const Unknown: WindowEvent = { tag: 'Unknown' }
 }
 
 export type UpdateSceneMsg =

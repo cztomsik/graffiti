@@ -17,4 +17,5 @@ export {
   BoxShadow
 } from './generated'
 
+export { APP, App } from './App'
 export { Window } from './Window'

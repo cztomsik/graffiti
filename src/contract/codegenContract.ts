@@ -9,7 +9,7 @@ const testRustFile = __dirname + '/../../native-new/src/generated.rs'
 
 const rustContent = `
 use bincode;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 
 ${schema2rust(exampleEntries).join('\n')}
 `

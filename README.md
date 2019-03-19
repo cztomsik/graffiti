@@ -63,7 +63,6 @@ const styles = StyleSheet.create({
 - bundle can be made using already established and mature tools (ncc + electron-builder)
 - low memory footprint (when compared to electron)
 - the language & platform you already know (when compared to flutter)
-- intention to support most of the CSS properties (when compared to react-native)
 
 We use [webrender](https://github.com/servo/webrender) for the actual drawing, yet there is **no DOM**, so we can be faster and use (much) less memory. [Read more here](./docs/webrender.md)
 

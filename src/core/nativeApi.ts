@@ -1,4 +1,4 @@
-import { FfiMsg } from './generated'
+import { FfiMsg, FfiResult } from './generated'
 
 const ref = require('ref')
 const ffi = require('ffi')
@@ -16,25 +16,22 @@ const lib = ffi.Library(
   }
 )
 
-lib.init()
-
-// necessary for window to stay responsive
-setInterval(() => {
-  send(FfiMsg.HandleEvents)
-}, 200)
+export const init = () => lib.init()
 
 export function send(msg: FfiMsg) {
-  // alloc some mem for result
-  const result = Buffer.alloc(16)
+  //console.log(msg)
 
   // prepare buffer with msg
-  let buf = Buffer.from(JSON.stringify(msg))
+  let msgBuf = Buffer.from(JSON.stringify(msg))
 
-  console.log(msg)
+  // alloc some mem for result
+  const resBuf = Buffer.alloc(1024, ' ')
 
   // send (sync)
-  lib.send(buf, buf.length, result)
+  lib.send(msgBuf, msgBuf.length, resBuf)
 
-  console.log(result)
-  return result
+  const res: FfiResult = JSON.parse(resBuf.toString('utf-8'))
+
+  //console.log(res)
+  return res
 }

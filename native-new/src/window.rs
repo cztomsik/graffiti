@@ -6,7 +6,7 @@ use crate::layout::{LayoutService, YogaLayoutService};
 use crate::render::{RenderService, WebrenderRenderService};
 use crate::scene::Scene;
 use gleam::gl::GlFns;
-use glutin::{ContextTrait, WindowId, WindowedContext};
+use glutin::{ContextTrait, WindowId, WindowedContext, ElementState};
 
 pub struct GlutinWindow {
     glutin_context: WindowedContext,
@@ -59,15 +59,24 @@ impl GlutinWindow {
     }
 
     // TODO
-    pub fn translate_event(&self, event: glutin::WindowEvent) -> WindowEvent {
+    pub fn translate_event(&self, event: glutin::WindowEvent) -> Option<WindowEvent> {
         match event {
-            glutin::WindowEvent::CloseRequested => WindowEvent::Close,
-            glutin::WindowEvent::Resized(..) => WindowEvent::Resize,
-            _ => {
-                // TODO: other events
-                // unimplemented!()
-                WindowEvent::Click
-            }
+            glutin::WindowEvent::CursorMoved { .. } => {
+                // can be none if no target was hit
+                Some(WindowEvent::MouseMove { target: 0 })
+            },
+            event => Some(match event {
+                glutin::WindowEvent::MouseInput { state, .. } => {
+                    match state {
+                        ElementState::Pressed => WindowEvent::MouseDown,
+                        ElementState::Released => WindowEvent::MouseUp
+                    }
+                },
+                glutin::WindowEvent::ReceivedCharacter(ch) => WindowEvent::KeyPress(ch as u16),
+                glutin::WindowEvent::CloseRequested => WindowEvent::Close,
+                glutin::WindowEvent::Resized(..) => WindowEvent::Resize,
+                _ => WindowEvent::Unknown
+            })
         }
     }
 }
