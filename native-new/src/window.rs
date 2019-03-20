@@ -61,9 +61,10 @@ impl GlutinWindow {
     // TODO
     pub fn translate_event(&self, event: glutin::WindowEvent) -> Option<WindowEvent> {
         match event {
-            glutin::WindowEvent::CursorMoved { .. } => {
-                // can be none if no target was hit
-                Some(WindowEvent::MouseMove { target: 0 })
+            glutin::WindowEvent::CursorMoved { position, .. } => {
+                let hit = self.render_service.hit_test(position.x as f32, position.y as f32);
+
+                hit.map(|target| WindowEvent::MouseMove { target })
             },
             event => Some(match event {
                 glutin::WindowEvent::MouseInput { state, .. } => {

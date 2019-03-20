@@ -3,7 +3,7 @@ use super::{
     RenderService, Text,
 };
 use crate::generated::Vector2f;
-use crate::scene::SurfaceData;
+use crate::scene::{SurfaceId, SurfaceData};
 use crate::temp;
 use crate::text::{LaidGlyph, PangoService, TextShaper};
 use gleam::gl::Gl;
@@ -21,6 +21,7 @@ use webrender::api::{
     ImageDisplayItem, ImageFormat, ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect,
     LayoutSize, LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
     ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem, Transaction,
+    HitTestFlags, WorldPoint, ComplexClipRegion, ClipMode,
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 use webrender::{Renderer, RendererOptions};
@@ -63,6 +64,13 @@ impl WebrenderRenderService {
             layout_size,
             fb_size,
         }
+    }
+
+    // not complete (border-radius) but it might be fine for some time
+    pub fn hit_test(&self, x: f32, y: f32) -> Option<SurfaceId> {
+        let res = self.render_api.hit_test(self.document_id, Some(PIPELINE_ID), WorldPoint::new(x, y), HitTestFlags::empty());
+
+        res.items.get(0).map(|item| item.tag.1)
     }
 
     pub fn resize() {}
@@ -183,6 +191,7 @@ impl<'a> RenderContext<'a> {
     // TODO: scroll
     fn render_surface(&mut self, surface: &SurfaceData) {
         let parent_layout = self.layout;
+        let parent_space_and_clip = self.space_and_clip;
 
         let (x, y, width, height) = self.computed_layouts[surface.id() as usize];
 
@@ -191,17 +200,28 @@ impl<'a> RenderContext<'a> {
                 .translate(&parent_layout.rect.origin.to_vector()),
         );
 
+        // TODO: surface flag
+        // components/surfaces should be explicit about if they want to receive pointer events or not
+        // ommitting tag works a bit like bubbling (closest parent is matched)
+        //
+        // interactive components should set this even if they don't have a callback yet
+        // (button should always match, not be click-through)
+        self.layout.tag = Some((0, surface.id()));
+
         debug!("surface {} {:?}", surface.id(), self.layout.rect);
 
         // shared, not directly rendered
-        // TODO: define & use clip (round or fixed?)
         if let Some(border_radius) = surface.border_radius() {
             self.border_radius = border_radius.clone().into();
+
+            let clip_region = ComplexClipRegion::new(self.layout.clip_rect.clone(), self.border_radius, ClipMode::Clip);
+            let clip_id = self.builder.define_clip(&self.space_and_clip, self.layout.clip_rect, vec![clip_region], None);
+
+            self.space_and_clip = self.space_and_clip.clone();
+            self.space_and_clip.clip_id = clip_id;
         } else {
             self.border_radius = WRBorderRadius::zero();
         }
-
-        // TODO: hittest
 
         if let Some(box_shadow) = surface.box_shadow() {
             let Vector2f(x, y) = box_shadow.offset;
@@ -247,6 +267,7 @@ impl<'a> RenderContext<'a> {
 
         // restore layout
         self.layout = parent_layout;
+        self.space_and_clip = parent_space_and_clip;
     }
 
     fn box_shadow(&self, box_shadow: BoxShadow) -> SpecificDisplayItem {

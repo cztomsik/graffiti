@@ -7,7 +7,7 @@ import {
 } from 'scheduler'
 import initDevtools from './devtools'
 
-import { Size, Color, Flex, Image, Border, Text, Flow } from '../core'
+import { Size, Color, Flex, Image, Border, Text, Flow, BorderRadius } from '../core'
 import { BoxShadow, FfiMsg, UpdateSceneMsg as U } from '../core/generated'
 import { send } from '../core/nativeApi'
 
@@ -84,6 +84,10 @@ function update(surface, props: HostSurfaceProps, oldProps: HostSurfaceProps) {
     tx.sceneMsgs.push(U.SetMargin({ surface, margin: props.margin }))
   }
 
+  if (props.borderRadius !== oldProps.borderRadius) {
+    tx.sceneMsgs.push(U.SetBorderRadius({ surface, borderRadius: props.borderRadius }))
+  }
+
   if (props.boxShadow !== oldProps.boxShadow) {
     tx.sceneMsgs.push(U.SetBoxShadow({ surface, boxShadow: props.boxShadow }))
   }
@@ -133,6 +137,7 @@ export interface HostSurfaceProps {
   flow?: Flow
   padding?: any
   margin?: any
+  borderRadius?: BorderRadius
   boxShadow?: BoxShadow
   backgroundColor?: Color
   image?: Image

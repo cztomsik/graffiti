@@ -160,10 +160,10 @@ function compile2(style: FlatStyle): HostSurfaceProps {
     borderBottomColor = borderColor,
     borderLeftColor = borderColor,
 
-    borderBottomLeftRadius = borderRadius,
-    borderBottomRightRadius = borderRadius,
     borderTopLeftRadius = borderRadius,
     borderTopRightRadius = borderRadius,
+    borderBottomLeftRadius = borderRadius,
+    borderBottomRightRadius = borderRadius,
 
     ...rest2
   } = rest
@@ -186,7 +186,6 @@ function compile2(style: FlatStyle): HostSurfaceProps {
   } = rest2
 
   return {
-    //borderRadius,
     size: Size.mk(parseDimension(width), parseDimension(height)),
     flex: {
       flexGrow,
@@ -212,6 +211,9 @@ function compile2(style: FlatStyle): HostSurfaceProps {
       parseDimension(marginBottom),
       parseDimension(marginLeft)
     ),
+    borderRadius: (borderTopLeftRadius || borderTopRightRadius || borderBottomLeftRadius || borderBottomLeftRadius) ?[
+      borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomLeftRadius
+    ] :undefined,
     boxShadow: shadowColor
       ? {
           blur: shadowRadius,
