@@ -1,16 +1,29 @@
 import { send } from './nativeApi'
-import { Transaction } from './Transaction'
+import { SceneContext } from './SceneContext'
 import { WindowId, WindowEvent } from './generated'
 
 export class Window {
   rootSurface = 0
+  sceneContext: SceneContext
 
-  constructor(private id: WindowId) {}
+  constructor(private id: WindowId) {
+    this.sceneContext = new SceneContext(this.id)
+  }
 
-  // TODO: consider if it wouldn't be better to enforce single tx at one time
-  // (window.getTransaction() would either return current or create a new one)
-  createTransaction() {
-    return new Transaction(this.id)
+  // this is how you should update the scene
+  // pass a callback and do whatever you need with the context
+  // which will build the message and send it immediately
+  updateScene(cb: (SceneContext) => void) {
+    const ctx = this.getSceneContext()
+
+    cb(ctx)
+    ctx._send
+  }
+
+  // sometimes it's necessary to keep the context around during multiple function calls
+  // (in reconciler we need to return id but we also don't want to send the batch yet)
+  getSceneContext() {
+    return this.sceneContext
   }
 
   handleEvent(event: WindowEvent) {
