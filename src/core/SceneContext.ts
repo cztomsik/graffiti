@@ -5,8 +5,7 @@ import { send } from './nativeApi'
  * Provides indirect mutation api for the scene, so that we can freely change an
  * actual message format in the future
  *
- * Operations are not performed until the whole batch is sent - and even that is
- * async.
+ * Operations are batched and not sent until the `flush()` is called
  */
 export class SceneContext {
   // because root is 0
@@ -82,8 +81,7 @@ export class SceneContext {
     this.sceneMsgs.push(U.SetBorder({ surface, border }))
   }
 
-  // not yet sure if it should be here or on window
-  _send() {
+  flush() {
     send(
       FfiMsg.UpdateScene({
         window: this.windowId,

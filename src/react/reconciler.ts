@@ -117,7 +117,7 @@ function insertBefore(parent, child, before) {
 }
 
 function resetAfterCommit(window) {
-  ctx._send()
+  ctx.flush()
   ctx = null
 }
 

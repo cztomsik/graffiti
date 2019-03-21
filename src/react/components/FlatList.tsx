@@ -23,5 +23,3 @@ export function FlatList<TItem>(props: FlatListProps<TItem>) {
     </ScrollView>
   )
 }
-
-export default FlatList

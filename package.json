@@ -32,19 +32,20 @@
   },
   "devDependencies": {
     "@types/node": "^10.12.1",
-    "@types/react": "^16.8.6",
-    "@types/react-native": "^0.57.18",
+    "@types/prettier": "^1.16.1",
+    "@types/react": "^16.8.8",
+    "@types/react-native": "^0.57.41",
     "@types/yoga-layout": "^1.9.0",
+    "hot-module-replacement": "^3.0.3",
+    "prettier": "^1.16.4",
     "react": "^16.8.3",
     "react-devtools-core": "^3.6.0",
     "react-reconciler": "^0.20.1",
     "scheduler": "^0.13.3",
     "ts-morph": "^1.1.0",
     "ts-node": "^8.0.2",
-    "typescript": "^3.2.2",
-    "ws": "^6.1.2",
     "ts-rust-bridge-codegen": "^0.1.1",
-    "@types/prettier": "^1.16.1",
-    "prettier": "^1.16.4"
+    "typescript": "^3.2.2",
+    "ws": "^6.1.2"
   }
 }

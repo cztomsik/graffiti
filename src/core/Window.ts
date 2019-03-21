@@ -17,7 +17,7 @@ export class Window {
     const ctx = this.getSceneContext()
 
     cb(ctx)
-    ctx._send
+    ctx.flush()
   }
 
   // sometimes it's necessary to keep the context around during multiple function calls
