@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { StyleSheet } from '..'
+import StyleSheet from '../Stylesheet';
 import { ViewProps } from '../react-native-types'
 
 const View: React.SFC<ViewProps> = ({ style = {}, children }) => {

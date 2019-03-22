@@ -1,6 +1,9 @@
 import * as React from 'react'
 import { ButtonProps } from '../react-native-types'
-import { TouchableWithoutFeedback, View, Text, StyleSheet } from '..'
+import TouchableWithoutFeedback from './TouchableWithoutFeedback';
+import View from './View';
+import { Text } from './Text';
+import StyleSheet from '../Stylesheet';
 
 const Button = (props: ButtonProps) =>
   <TouchableWithoutFeedback onPress={props.onPress}>

@@ -1,8 +1,8 @@
 import * as React from 'react'
-import { StyleSheet, View } from '..'
 import { TextProps } from '../react-native-types'
 import { parseColor } from '../../core/utils'
 import { TextAlign } from '../../core/generated';
+import StyleSheet from '../Stylesheet';
 
 export function Text({ style = {}, children = [] }: TextProps) {
   const {

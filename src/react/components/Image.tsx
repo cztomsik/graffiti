@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { View } from '..'
+import View from './View';
 import {
   ImageProps,
   ImageSourcePropType,

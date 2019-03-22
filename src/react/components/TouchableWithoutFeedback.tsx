@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { __callbacks } from '../../core/Window'
-import { View } from '..'
+import View from './View';
 import { TouchableWithoutFeedbackProps } from '../react-native-types'
 
 // TODO: we should not need extra yoga nodes but

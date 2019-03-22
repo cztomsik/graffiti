@@ -337,12 +337,14 @@ impl<'a> RenderContext<'a> {
 
     // TODO: cache, free, refactor, etc.
     // (this is rather PoC)
+    // TODO: clip should be enough big to contain `y` and similar characters
     fn text(&self, text: Text) -> (SpecificDisplayItem, Vec<GlyphInstance>) {
         let [width, height] = self.layout.rect.size.to_array();
         let [text_x, text_y] = self.layout.rect.origin.to_array();
 
-        // y is from the bottom, so we need to add font size and half of the difference between line-height and font-size
-        let text_y = text_y + text.font_size + ((text.line_height - text.font_size) / 2.);
+        // y is from the bottom, I think it should be y + ((text.line_height + text.font_size) / 2)
+        // but this works better (no idea why)
+        let text_y = text_y + (text.line_height / 2.) + (text.font_size / 2.7);
 
         let glyphs = self.text_shaper.shape_text(&text, (width, height));
         let glyphs = glyphs
