@@ -26,7 +26,9 @@ use std::fmt::Formatter;
 /// renderFn(rootSurface, computedLayouts)
 ///
 /// BUT
-///     1. object graphs are complicated to do in rust
+///     1. object graphs are complicated to do in safe rust (borrowing)
+///        (scene.get_surface_mut(id).append_child(scene.get_surface(id)))
+///
 ///     2. most of the data will be sparse which is not good for performance
 ///
 /// And this is basically an attempt to implement a whole tree of surfaces (rootNode) as a

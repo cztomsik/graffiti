@@ -1,4 +1,4 @@
-// typescript should not require() this dependency at all if only types are used
+// typescript should not require('react-native') at all if only types are used
 export {
   StyleProp,
   ViewStyle,
@@ -22,14 +22,15 @@ export {
 declare module 'react-native' {
   interface ViewStyle {
     backgroundImageUrl?: string
-
-    borderTopColor?: string
-    borderRightColor?: string
-    borderBottomColor?: string
-    borderLeftColor?: string
   }
 
+  interface ViewProps {
+    onClick?: (ev) => void
+  }
+
+  type TextValue = string | number | null | undefined | false
+
   interface TextProps {
-    children?: string | string[]
+    children?: TextValue | TextValue[]
   }
 }

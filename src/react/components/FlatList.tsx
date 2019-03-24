@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { FlatListProps } from '../react-native-types'
-import { ScrollView } from '..'
+import { ScrollView } from './ScrollView';
 
 const noopSeparators = {
   highlight: (): void => {},
@@ -23,5 +23,3 @@ export function FlatList<TItem>(props: FlatListProps<TItem>) {
     </ScrollView>
   )
 }
-
-export default FlatList

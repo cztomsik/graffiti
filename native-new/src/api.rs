@@ -9,25 +9,14 @@
 ///
 /// in future it might provide some app-related things (notifications, icon highlighting, ...)
 pub trait App<W: Window> {
-    fn get_next_event(&mut self) -> Option<AppEvent>;
+    fn get_next_event(&mut self) -> Option<Event>;
 
     fn create_window(&mut self) -> WindowId;
     fn get_window(&mut self, id: WindowId) -> &mut W;
     fn destroy_window(&mut self, id: WindowId);
 }
 
-pub enum AppEvent {
-    WindowEvent {
-        window: WindowId,
-        event: WindowEvent,
-    },
-}
-
-pub enum WindowEvent {
-    Close,
-    Resize,
-    Click,
-}
+pub use crate::generated::{Event, WindowEvent};
 
 /// Represents a window, including all of its UI contents (scene)
 ///
@@ -79,5 +68,5 @@ pub trait SceneUpdateContext {
 // re-export some value objects
 pub use crate::generated::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Dimension, Flex, Flow, Image,
-    Rect, Size, SurfaceId, Text, TextAlign, WindowId,
+    Rect, Size, SurfaceId, Text, TextAlign, WindowId, FlexAlign, FlexDirection, FlexWrap, JustifyContent
 };

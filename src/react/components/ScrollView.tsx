@@ -1,13 +1,22 @@
 import * as React from 'react'
 import { ScrollViewProps } from '../react-native-types'
+import StyleSheet from '../Stylesheet';
+import View from './View';
 
 // TODO
-const ScrollView = (props: ScrollViewProps & { children? }) => {
+export const ScrollView: React.SFC<ScrollViewProps> = (props) => {
   return (
-    <host-surface flex={{ flexGrow: 1, flexShrink: 1, flexBasis: { tag: 'Auto' }}} backgroundColor={[0, 0, 0, 1]}>
-      {props.children}
-    </host-surface>
+    <View style={[styles.scrollView, props.style]}>
+      <View style={props.contentContainerStyle}>
+        {props.children}
+      </View>
+    </View>
   )
 }
 
-export default ScrollView
+const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+    //overflow: '?'
+  }
+})

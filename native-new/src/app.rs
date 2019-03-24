@@ -1,4 +1,4 @@
-use crate::api::{App, AppEvent, WindowEvent, WindowId};
+use crate::api::{App, Event, WindowId};
 use crate::window::GlutinWindow;
 use glutin::{ContextBuilder, ContextTrait, ControlFlow, EventsLoop, WindowBuilder};
 use std::collections::BTreeMap;
@@ -15,6 +15,17 @@ impl GlutinApp {
     pub fn new() -> Self {
         let events_loop = EventsLoop::new();
 
+        // start awaker thread
+        let proxy = events_loop.create_proxy();
+        let duration = std::time::Duration::from_millis(30);
+        std::thread::spawn(move || loop {
+            std::thread::sleep(duration);
+
+            if proxy.wakeup().is_err() {
+                break;
+            }
+        });
+
         GlutinApp {
             events_loop,
             windows: BTreeMap::new(),
@@ -25,7 +36,7 @@ impl GlutinApp {
 }
 
 impl App<GlutinWindow> for GlutinApp {
-    fn get_next_event(&mut self) -> Option<AppEvent> {
+    fn get_next_event(&mut self) -> Option<Event> {
         let mut result = None;
 
         let GlutinApp { events_loop, windows, native_ids, .. } = self;
@@ -37,10 +48,12 @@ impl App<GlutinWindow> for GlutinApp {
                 let id = native_ids.get(&window_id).expect("got message for nonexistent window");
                 let window = windows.get(&id).unwrap();
 
-                result = Some(AppEvent::WindowEvent {
-                    window: *id,
-                    event: window.translate_event(event),
-                });
+                if let Some(event) = window.translate_event(event) {
+                    result = Some(Event::WindowEvent {
+                        window: *id,
+                        event,
+                    });
+                }
 
                 ControlFlow::Break
             }

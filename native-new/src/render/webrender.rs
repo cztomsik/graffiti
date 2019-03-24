@@ -2,9 +2,10 @@ use super::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, ComputedLayout, Image,
     RenderService, Text,
 };
-use crate::generated::{Vector2f};
-use crate::scene::SurfaceData;
+use crate::generated::Vector2f;
+use crate::scene::{SurfaceId, SurfaceData};
 use crate::temp;
+use crate::text::{LaidGlyph, PangoService, TextShaper};
 use gleam::gl::Gl;
 use image;
 use image::GenericImageView;
@@ -16,14 +17,14 @@ use webrender::api::{
     AddImage, AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius,
     BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
     BoxShadowDisplayItem, ColorF, ColorU, DeviceIntSize, DisplayListBuilder, DocumentId, Epoch,
-    FontInstanceKey, FontKey, GlyphInstance, IdNamespace, ImageData, ImageDescriptor,
+    FontInstanceKey, GlyphInstance, ImageData, ImageDescriptor,
     ImageDisplayItem, ImageFormat, ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect,
     LayoutSize, LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
     ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem, Transaction,
+    HitTestFlags, WorldPoint, ComplexClipRegion, ClipMode,
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 use webrender::{Renderer, RendererOptions};
-use crate::text::{TextShaper, LaidGlyph, PangoService};
 
 pub struct WebrenderRenderService {
     text_shaper: PangoService,
@@ -43,7 +44,7 @@ pub struct WebrenderRenderService {
 
 impl WebrenderRenderService {
     pub fn new(gl: Rc<Gl>) -> Self {
-        let fb_size = DeviceIntSize::new(300, 300);
+        let fb_size = DeviceIntSize::new(1024, 768);
         let layout_size = LayoutSize::new(fb_size.width as f32, fb_size.height as f32);
 
         let (renderer, mut render_api, rx) = Self::init_webrender(gl);
@@ -63,6 +64,13 @@ impl WebrenderRenderService {
             layout_size,
             fb_size,
         }
+    }
+
+    // not complete (border-radius) but it might be fine for some time
+    pub fn hit_test(&self, x: f32, y: f32) -> Option<SurfaceId> {
+        let res = self.render_api.hit_test(self.document_id, Some(PIPELINE_ID), WorldPoint::new(x, y), HitTestFlags::empty());
+
+        res.items.get(0).map(|item| item.tag.1)
     }
 
     pub fn resize() {}
@@ -183,28 +191,37 @@ impl<'a> RenderContext<'a> {
     // TODO: scroll
     fn render_surface(&mut self, surface: &SurfaceData) {
         let parent_layout = self.layout;
+        let parent_space_and_clip = self.space_and_clip;
 
         let (x, y, width, height) = self.computed_layouts[surface.id() as usize];
 
-        self.layout = LayoutPrimitiveInfo::new(LayoutRect::new(
-            LayoutPoint::new(
-                parent_layout.rect.origin.x + x,
-                parent_layout.rect.origin.y + y,
-            ),
-            LayoutSize::new(width, height),
-        ));
+        self.layout = LayoutPrimitiveInfo::new(
+            LayoutRect::new(LayoutPoint::new(x, y), LayoutSize::new(width, height))
+                .translate(&parent_layout.rect.origin.to_vector()),
+        );
+
+        // TODO: surface flag
+        // components/surfaces should be explicit about if they want to receive pointer events or not
+        // ommitting tag works a bit like bubbling (closest parent is matched)
+        //
+        // interactive components should set this even if they don't have a callback yet
+        // (button should always match, not be click-through)
+        self.layout.tag = Some((0, surface.id()));
 
         debug!("surface {} {:?}", surface.id(), self.layout.rect);
 
         // shared, not directly rendered
-        // TODO: define & use clip (round or fixed?)
         if let Some(border_radius) = surface.border_radius() {
             self.border_radius = border_radius.clone().into();
+
+            let clip_region = ComplexClipRegion::new(self.layout.clip_rect.clone(), self.border_radius, ClipMode::Clip);
+            let clip_id = self.builder.define_clip(&self.space_and_clip, self.layout.clip_rect, vec![clip_region], None);
+
+            self.space_and_clip = self.space_and_clip.clone();
+            self.space_and_clip.clip_id = clip_id;
         } else {
             self.border_radius = WRBorderRadius::zero();
         }
-
-        // TODO: hittest
 
         if let Some(box_shadow) = surface.box_shadow() {
             let Vector2f(x, y) = box_shadow.offset;
@@ -250,6 +267,7 @@ impl<'a> RenderContext<'a> {
 
         // restore layout
         self.layout = parent_layout;
+        self.space_and_clip = parent_space_and_clip;
     }
 
     fn box_shadow(&self, box_shadow: BoxShadow) -> SpecificDisplayItem {
@@ -319,28 +337,25 @@ impl<'a> RenderContext<'a> {
 
     // TODO: cache, free, refactor, etc.
     // (this is rather PoC)
+    // TODO: clip should be enough big to contain `y` and similar characters
     fn text(&self, text: Text) -> (SpecificDisplayItem, Vec<GlyphInstance>) {
         let [width, height] = self.layout.rect.size.to_array();
         let [text_x, text_y] = self.layout.rect.origin.to_array();
 
-        // TODO: glyph_indices from pango are different
-        let glyph_indices = self
-            .render_api
-            .get_glyph_indices(FontKey(IdNamespace(1), 1), &text.text);
+        // y is from the bottom, I think it should be y + ((text.line_height + text.font_size) / 2)
+        // but this works better (no idea why)
+        let text_y = text_y + (text.line_height / 2.) + (text.font_size / 2.7);
 
         let glyphs = self.text_shaper.shape_text(&text, (width, height));
-        let glyphs = glyphs.iter().enumerate().map(|(i, LaidGlyph { x, y, .. })| {
-            GlyphInstance {
-                index: glyph_indices[i].unwrap_or(0),
+        let glyphs = glyphs
+            .iter()
+            .map(|LaidGlyph { glyph_index, x, y }| GlyphInstance {
+                index: *glyph_index,
+                point: LayoutPoint::new(text_x + x, text_y + y),
+            })
+            .collect();
 
-                // y is the bottom, so we need to add font_size too
-                point: LayoutPoint::new(text_x + x, text_y + y + text.font_size)
-            }
-        }).collect();
-
-        debug!("{:?}", &glyphs);
-
-        let font_key = FontInstanceKey::new(IdNamespace(1), text.font_size as u32);
+        let font_key = FontInstanceKey::new(self.render_api.get_namespace_id(), text.font_size as u32);
 
         let item = SpecificDisplayItem::Text(TextDisplayItem {
             font_key,

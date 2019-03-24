@@ -1,5 +1,8 @@
 import { Color } from '.';
 
+export const NOOP = () => undefined
+export const IDENTITY = v => v
+
 export const remove = (arr: any[], item: any) =>
   arr.splice(arr.indexOf(item), 1)
 

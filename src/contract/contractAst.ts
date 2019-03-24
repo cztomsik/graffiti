@@ -170,7 +170,7 @@ const UpdateSceneMsg = Union('UpdateSceneMsg', [
 const WindowId = Alias('WindowId', T.Scalar.U16)
 
 const FfiMsg = Union('FfiMsg', [
-  V.Unit('HandleEvents'),
+  V.Unit('GetNextEvent'),
   V.Unit('CreateWindow'),
   V.Struct('UpdateScene', {
     window: T.RefTo(WindowId),
@@ -178,8 +178,46 @@ const FfiMsg = Union('FfiMsg', [
   })
 ])
 
+// WIP
+const WindowEvent = Union('WindowEvent', [
+  V.Struct('MouseMove', {
+    target: T.Scalar.U16
+  }),
+  V.Unit('MouseDown'),
+  V.Unit('MouseUp'),
+
+  V.Unit('KeyDown'),
+  V.NewType('KeyPress', T.Scalar.U16),
+  V.Unit('KeyUp'),
+
+  V.Unit('Focus'),
+  V.Unit('Blur'),
+
+  V.Unit('Resize'),
+  V.Unit('Close'),
+
+  // TODO: temp
+  V.Unit('Unknown')
+])
+
+const Event = Union('Event', [
+  V.Struct('WindowEvent', {
+    window: T.RefTo(WindowId),
+    event: T.RefTo(WindowEvent)
+  })
+])
+
+const FfiResult = Union('FfiResult', [
+  V.Unit('Nothing'),
+  V.NewType('Event', T.RefTo(Event)),
+  V.NewType('WindowId', T.RefTo(WindowId))
+])
+
 export const exampleEntries: EntryT[] = [
   FfiMsg,
+  FfiResult,
+  Event,
+  WindowEvent,
   UpdateSceneMsg,
   WindowId,
   SurfaceId,

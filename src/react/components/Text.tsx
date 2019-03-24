@@ -1,8 +1,8 @@
 import * as React from 'react'
-import { StyleSheet, View } from '..'
 import { TextProps } from '../react-native-types'
 import { parseColor } from '../../core/utils'
 import { TextAlign } from '../../core/generated';
+import StyleSheet from '../Stylesheet';
 
 export function Text({ style = {}, children = [] }: TextProps) {
   const {
@@ -20,16 +20,30 @@ export function Text({ style = {}, children = [] }: TextProps) {
         color: parseColor(color),
         lineHeight,
         align: TEXT_ALIGN[textAlign],
-        text: [].concat(children).join('')
+        text: [].concat(children).filter(numberOrString).join('')
       }}
       {..._props}
-      size={[{ tag: 'Point', value: 100 }, { tag: 'Point', value: 30 }]}
+      listeners={NO_LISTENERS}
+      size={SIZE_AUTO}
     />
   )
+}
+
+function numberOrString(v) {
+  return typeof v === 'string' || typeof v === 'number';
 }
 
 const TEXT_ALIGN = {
   left: TextAlign.Left,
   center: TextAlign.Center,
   right: TextAlign.Right
+}
+
+const SIZE_AUTO = [{ tag: 'Auto' }, { tag: 'Auto' }]
+
+const NO_LISTENERS = {
+  onMouseMove: undefined,
+  onMouseDown: undefined,
+  onMouseUp: undefined,
+  onClick: undefined
 }

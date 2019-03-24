@@ -1,9 +1,12 @@
-use crate::api::{Border, BorderRadius, BoxShadow, Color, Dimension, Flex, Flow, Image, Rect, SceneUpdateContext, Size, SurfaceId, Text, Window, WindowEvent};
+use crate::api::{
+    Border, BorderRadius, BoxShadow, Color, Dimension, Flex, Flow, Image, Rect, SceneUpdateContext,
+    Size, SurfaceId, Text, Window, WindowEvent,
+};
 use crate::layout::{LayoutService, YogaLayoutService};
 use crate::render::{RenderService, WebrenderRenderService};
 use crate::scene::Scene;
-use glutin::{WindowId, WindowedContext, ContextTrait};
 use gleam::gl::GlFns;
+use glutin::{ContextTrait, WindowId, WindowedContext, ElementState};
 
 pub struct GlutinWindow {
     glutin_context: WindowedContext,
@@ -14,14 +17,21 @@ pub struct GlutinWindow {
 
 impl GlutinWindow {
     pub fn new(glutin_context: WindowedContext) -> Self {
-        let gl = unsafe { GlFns::load_with(|addr| glutin_context.get_proc_address(addr) as *const _) };
+        let gl =
+            unsafe { GlFns::load_with(|addr| glutin_context.get_proc_address(addr) as *const _) };
 
-        GlutinWindow {
+        let mut window = GlutinWindow {
             glutin_context,
             scene: Scene::new(),
             layout_service: YogaLayoutService::new(),
             render_service: WebrenderRenderService::new(gl),
-        }
+        };
+
+        window.update_scene(|ctx| {
+            ctx.create_surface();
+        });
+
+        window
     }
 
     pub fn id(&self) -> WindowId {
@@ -49,21 +59,34 @@ impl GlutinWindow {
     }
 
     // TODO
-    pub fn translate_event(&self, event: glutin::WindowEvent) -> WindowEvent {
+    pub fn translate_event(&self, event: glutin::WindowEvent) -> Option<WindowEvent> {
         match event {
-            glutin::WindowEvent::CloseRequested => WindowEvent::Close,
-            glutin::WindowEvent::Resized(..) => WindowEvent::Resize,
-            _ => {
-                // TODO: other events
-                // unimplemented!()
-                WindowEvent::Click
-            }
+            glutin::WindowEvent::CursorMoved { position, .. } => {
+                let hit = self.render_service.hit_test(position.x as f32, position.y as f32);
+
+                hit.map(|target| WindowEvent::MouseMove { target })
+            },
+            event => Some(match event {
+                glutin::WindowEvent::MouseInput { state, .. } => {
+                    match state {
+                        ElementState::Pressed => WindowEvent::MouseDown,
+                        ElementState::Released => WindowEvent::MouseUp
+                    }
+                },
+                glutin::WindowEvent::ReceivedCharacter(ch) => WindowEvent::KeyPress(ch as u16),
+                glutin::WindowEvent::CloseRequested => WindowEvent::Close,
+                glutin::WindowEvent::Resized(..) => WindowEvent::Resize,
+                _ => WindowEvent::Unknown
+            })
         }
     }
 }
 
 impl Window for GlutinWindow {
-    fn update_scene<F>(&mut self, mut update_fn: F) where F: FnMut(&mut SceneUpdateContext) {
+    fn update_scene<F>(&mut self, mut update_fn: F)
+    where
+        F: FnMut(&mut SceneUpdateContext),
+    {
         update_fn(self);
         self.render();
     }
@@ -134,7 +157,8 @@ impl SceneUpdateContext for GlutinWindow {
     }
 
     fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
-        self.scene.set_text(surface, text);
+        self.scene.set_text(surface, text.clone());
+        self.layout_service.set_text(surface, text);
     }
 
     fn set_border(&mut self, surface: SurfaceId, border: Option<Border>) {

@@ -55,7 +55,16 @@ const styles = StyleSheet.create({
 </div>
 <br>
 
-We use [webrender](https://github.com/servo/webrender) for the actual drawing, yet there is **no DOM**, so we can be faster and yet use (much) less memory. [Read more here](./docs/webrender.md)
+## Why it's interesting
+- quick to setup, apart from rust & few libs, it should be just one `npm install` away
+- can be combined with most of the libraries you already know (react, mobx, lodash, ...)
+- works with existing tooling (debug in vscode, profile in chrome devtools, react-devtools, ...)
+- hot-reload works even without webpack (and it's faster)
+- bundle can be made using already established and mature tools (ncc + electron-builder)
+- low memory footprint (when compared to electron)
+- the language & platform you already know (when compared to flutter)
+
+We use [webrender](https://github.com/servo/webrender) for the actual drawing, yet there is **no DOM**, so we can be faster and use (much) less memory. [Read more here](./docs/webrender.md)
 
 ---
 

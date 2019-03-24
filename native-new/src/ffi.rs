@@ -1,7 +1,8 @@
-use crate::api::{App, Window, WindowId};
+use crate::api::{App, Window};
 use crate::app::GlutinApp;
-use crate::generated::{FfiMsg, UpdateSceneMsg};
+use crate::generated::{FfiMsg, UpdateSceneMsg, FfiResult};
 use serde_json;
+use std::io::prelude::Write;
 
 static mut APP: Option<GlutinApp> = None;
 
@@ -12,23 +13,37 @@ pub extern "C" fn init() {
     unsafe { APP = Some(GlutinApp::new()) }
 }
 
+// returning the value would require javascript to copy it to the heap,
+// we can avoid this simply by providing mutable ref to the already allocated
+// (and possibly reused) memory
+//
+// - the result should be fixed size (no vecs), even when encoded in bincode
+// - bincode encoding does not necessarily have to slow, it depends on the
+//   shape of the result
+// - often-occurring results should be "small" (Nothing, MouseMove)
 #[no_mangle]
-pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut FfiResult) {
+pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
     // get slice of bytes & try to deserialize
     let msg = unsafe { std::slice::from_raw_parts(data, len as usize) };
     let msg: FfiMsg = serde_json::from_slice(msg).expect("invalid message");
 
-    debug!("Msg {:?}", &msg);
+    debug!("Msg {:#?}", &msg);
 
     unsafe {
         match APP {
             None => {}
             Some(ref mut app) => {
-                let mut result = FfiResult::Ok;
+                let mut result = FfiResult::Nothing;
 
                 handle_msg(app, msg, &mut result);
 
-                *result_ptr = result;
+                // TODO: bincode
+                // TODO: find a way to avoid memcpy
+                // (it's not possible to use to_writer, because it takes ownership and so it would free the vec & the data)
+                let data = serde_json::to_vec(&result).expect("couldn't serialize result");
+                let mut writer = Vec::from_raw_parts(result_ptr, 0, 1024);
+                writer.write(&data[..]).unwrap();
+                Box::leak(Box::new(writer));
             }
         }
     }
@@ -36,9 +51,10 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut FfiResult) {
 
 fn handle_msg(app: &mut GlutinApp, msg: FfiMsg, result: &mut FfiResult) {
     match msg {
-        FfiMsg::HandleEvents => {
-            // TODO: return AppEvent
-            app.get_next_event();
+        FfiMsg::GetNextEvent => {
+            if let Some(event) = app.get_next_event() {
+                *result = FfiResult::Event(event);
+            }
         }
         FfiMsg::CreateWindow => {
             let id = app.create_window();
@@ -100,9 +116,4 @@ fn handle_msg(app: &mut GlutinApp, msg: FfiMsg, result: &mut FfiResult) {
             })
         }
     }
-}
-
-pub enum FfiResult {
-    Ok,
-    WindowId(WindowId)
 }

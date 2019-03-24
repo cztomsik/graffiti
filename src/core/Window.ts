@@ -1,37 +1,44 @@
 import { send } from './nativeApi'
-import { Transaction } from './Transaction'
-import { FfiMsg, UpdateSceneMsg } from './generated'
+import { SceneContext } from './SceneContext'
+import { WindowId, WindowEvent } from './generated'
 
 export class Window {
   rootSurface = 0
-  id = 0
+  sceneContext: SceneContext
 
-  constructor(title: string, width = 800, height = 600) {
-    // TODO: factory (no side-effects in constructor)
-
-    // this is ofc wrong because it can change but it's good enough for now (WindowId variant starts at offset 2)
-    this.id = send(FfiMsg.CreateWindow).readUInt16LE(2)
-
-    send(FfiMsg.UpdateScene({ window: this.id, msgs: [UpdateSceneMsg.Alloc] }))
-
-    // TODO (in create/openWindow)
-    // it's not constructor's job to perform window allocation and so it shouldn't free either
-    // createdWindow.destructor = require('finalize')(window, function() { send(destroyWindow(window.id)) }))
+  constructor(private id: WindowId) {
+    this.sceneContext = new SceneContext(this.id)
   }
 
-  // TODO: consider if it wouldn't be better to enforce single tx at one time
-  // (window.getTransaction() would either return current or create a new one)
-  createTransaction() {
-    return new Transaction(this.id)
+  // this is how you should update the scene
+  // pass a callback and do whatever you need with the context
+  // which will build the message and send it immediately
+  updateScene(cb: (ctx: SceneContext) => void) {
+    const ctx = this.getSceneContext()
+
+    cb(ctx)
+    ctx.flush()
+  }
+
+  // sometimes it's necessary to keep the context around during multiple function calls
+  // (in reconciler we need to return id but we also don't want to send the batch yet)
+  getSceneContext() {
+    return this.sceneContext
+  }
+
+  handleEvent(event: WindowEvent) {
+    console.log(event)
   }
 
   setSize(width: number, height: number) {
     // TODO (sync)
   }
 
-  close() {
-    // TODO (sync)
-  }
+  // TODO (sync)
+  // show/hide() - explicit and simple to do
+  //
+  // it's not clear if close() should just call handler so that app can show
+  // confirmation or if it should force the close, etc. let's leave it for later
 }
 
 export const __callbacks = []

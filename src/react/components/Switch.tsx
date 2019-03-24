@@ -1,6 +1,9 @@
 import * as React from 'react'
 import { SwitchProps } from '../react-native-types'
-import { View, Text, StyleSheet, TouchableWithoutFeedback } from '..'
+import View from './View';
+import { Text } from './Text';
+import TouchableWithoutFeedback from './TouchableWithoutFeedback';
+import StyleSheet from '../Stylesheet';
 
 const Switch = (props: SwitchProps) => {
   const { disabled, value, onValueChange } = props

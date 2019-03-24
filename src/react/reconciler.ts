@@ -7,14 +7,13 @@ import {
 } from 'scheduler'
 import initDevtools from './devtools'
 
-import { Size, Color, Flex, Image, Border, Text, Flow } from '../core'
-import { BoxShadow, FfiMsg, UpdateSceneMsg as U } from '../core/generated'
+import { Size, Color, Flex, Image, Border, Text, Flow, BorderRadius, BoxShadow } from '../core'
 import { send } from '../core/nativeApi'
+import { SceneContext } from '../core';
+import { NOOP, IDENTITY } from '../core/utils'
+import { WindowEvent } from '../core/generated';
 
-// temporary helpers
-// because root is 0
-let __nextId__ = 1
-let tx = null
+let ctx: SceneContext = null
 
 const reconciler = createReconciler({
   prepareForCommit,
@@ -38,9 +37,14 @@ const reconciler = createReconciler({
 export function render(vnode, window, cb?) {
   if (window._reactRoot === undefined) {
     window._reactRoot = reconciler.createContainer(window, false, false)
+
+    const ctx = window.getSceneContext()
+    const nsw = new NotSureWhat(ctx.parents)
+    ctx['events'] = nsw
+    window.handleEvent = (e) => nsw.handleWindowEvent(e)
   }
 
-  // initial tx
+  // initial update
   prepareForCommit(window)
 
   return reconciler.updateContainer(vnode, window._reactRoot, null, cb)
@@ -48,16 +52,13 @@ export function render(vnode, window, cb?) {
 
 function prepareForCommit(window) {
   // prepareForCommit is called before any update but also before initial
-  // append. I'd love to do this otherwise but I have no idea what reconciler
+  // append. I'd love to do this better but I have no idea what reconciler
   // actually calls and when (and if it's not going to change in next version)
-  if (tx === null) {
-    tx = window.createTransaction()
-  }
+  ctx = window.getSceneContext()
 }
 
 function createInstance(type, props, window) {
-  send(FfiMsg.UpdateScene({ window: window.id, msgs: [U.Alloc] }))
-  let id = __nextId__++
+  let id = ctx.createSurface()
 
   update(id, props, {})
 
@@ -66,66 +67,71 @@ function createInstance(type, props, window) {
 
 function update(surface, props: HostSurfaceProps, oldProps: HostSurfaceProps) {
   if (props.size !== oldProps.size) {
-    tx.sceneMsgs.push(U.SetSize({ surface, size: props.size }))
+    ctx.setSize(surface, props.size)
   }
 
   if (props.flex !== oldProps.flex) {
-    tx.sceneMsgs.push(U.SetFlex({ surface, flex: props.flex }))
+    ctx.setFlex(surface, props.flex)
   }
 
   if (props.flow !== oldProps.flow) {
-    tx.sceneMsgs.push(U.SetFlow({ surface, flow: props.flow }))
+    ctx.setFlow(surface, props.flow)
   }
 
   if (props.padding !== oldProps.padding) {
-    tx.sceneMsgs.push(U.SetPadding({ surface, padding: props.padding }))
+    ctx.setPadding(surface, props.padding)
   }
 
   if (props.margin !== oldProps.margin) {
-    tx.sceneMsgs.push(U.SetMargin({ surface, margin: props.margin }))
+    ctx.setMargin(surface, props.margin)
+  }
+
+  if (props.borderRadius !== oldProps.borderRadius) {
+    ctx.setBorderRadius(surface, props.borderRadius)
   }
 
   if (props.boxShadow !== oldProps.boxShadow) {
-    tx.sceneMsgs.push(U.SetBoxShadow({ surface, boxShadow: props.boxShadow }))
+    ctx.setBoxShadow(surface, props.boxShadow)
   }
 
   if (props.backgroundColor !== oldProps.backgroundColor) {
-    tx.sceneMsgs.push(
-      U.SetBackgroundColor({
-        surface,
-        color: props.backgroundColor
-      })
-    )
+    ctx.setBackgroundColor(surface, props.backgroundColor)
   }
 
   if (props.image !== oldProps.image) {
-    tx.sceneMsgs.push(U.SetImage({ surface, image: props.image }))
+    ctx.setImage(surface, props.image)
   }
 
   if (props.text !== oldProps.text) {
-    tx.sceneMsgs.push(U.SetText({ surface, text: props.text }))
+    ctx.setText(surface, props.text)
   }
 
   if (props.border !== oldProps.border) {
-    tx.sceneMsgs.push(U.SetBorder({ surface, border: props.border }))
+    ctx.setBorder(surface, props.border)
+  }
+
+  if (props.listeners !== oldProps.listeners) {
+    for (const type in props.listeners) {
+      ctx['events'].setEventListener(surface, type, props.listeners[type] || NOOP)
+    }
   }
 }
 
 function appendChild(parent, child) {
-  tx.appendChild(parent, child)
+  ctx.appendChild(parent, child)
 }
 
 function removeChild(parent, child) {
-  tx.removeChild(parent, child)
+  ctx.removeChild(parent, child)
 }
 
 function insertBefore(parent, child, before) {
-  tx.insertBefore(parent, child, before)
+  ctx.insertBefore(parent, child, before)
 }
 
 function resetAfterCommit(window) {
-  tx._send()
-  tx = null
+  ctx.flush()
+  ctx = null
 }
 
 export interface HostSurfaceProps {
@@ -134,12 +140,14 @@ export interface HostSurfaceProps {
   flow?: Flow
   padding?: any
   margin?: any
+  borderRadius?: BorderRadius
   boxShadow?: BoxShadow
   backgroundColor?: Color
   image?: Image
   text?: Text
   border?: Border
   children?: any
+  listeners?: any
 }
 
 declare global {
@@ -159,9 +167,6 @@ initDevtools(reconciler)
 
 // factory with reasonable defaults so that we dont need to read it all the time
 function createReconciler(cfg) {
-  const NOOP = () => undefined
-  const IDENTITY = v => v
-
   return Reconciler({
     getPublicInstance: IDENTITY,
     getRootHostContext: IDENTITY,
@@ -194,4 +199,85 @@ function createReconciler(cfg) {
 
     ...cfg
   })
+}
+
+
+// events
+// it shouldn't be here but I don't want to put it to the core yet and it needs to know
+// about hiearchy because of bubbling
+//
+// there is so much work to be done I don't even know where to start but here
+// are some useful notes:
+// - reuse existing event types if possible (either RN or DOM), it doesn't have to be 100%
+//   the same but it's great not having to re-learn everything
+// - bubbling has its issues but any different approach would be very surprising
+// - it should be enough to support only one listener for each (surface, type) pair (vs addEventListener)
+//   - simpler/faster, edge cases can be handled in user-space (if necessary at all)
+// - View shouldn't be responsible for registering events, it doesn't even know about window
+//   - and we want it to be stateless, so that it can be eventually optimized with prepack
+
+
+// TODO: multi-window
+
+export class NotSureWhat {
+  listeners: EventListeners = {
+    onMouseMove: [],
+    onMouseDown: [],
+    onMouseUp: [],
+    onClick: []
+  }
+  moveTarget = 0
+  downTarget = 0
+
+  constructor(private parents) {}
+
+  handleWindowEvent(event: WindowEvent) {
+    switch (event.tag) {
+      case "MouseMove": {
+        const target = this.moveTarget = event.value.target
+        return this.dispatch(this.listeners.onMouseMove, target, { target })
+      }
+      case "MouseDown": {
+        const target = this.downTarget = this.moveTarget
+        return this.dispatch(this.listeners.onMouseDown, target, { target })
+      }
+      case "MouseUp": {
+        const target = this.moveTarget
+
+        this.dispatch(this.listeners.onMouseUp, target, { target })
+
+        if (this.moveTarget === this.downTarget) {
+          this.dispatch(this.listeners.onClick, target, { target })
+        }
+
+        return
+      }
+    }
+  }
+
+  setEventListener<K extends keyof EventMap>(id, type: K, listener: Listener<EventMap[K]>) {
+    this.listeners[type][id] = listener
+  }
+
+  dispatch(listeners, id, event) {
+    while (id) {
+      listeners[id](event)
+
+      id = this.parents[id]
+    }
+  }
+}
+
+
+interface EventMap {
+  onMouseMove: MouseEvent,
+  onMouseDown: MouseEvent,
+  onMouseUp: MouseEvent,
+  onClick: MouseEvent
+}
+
+type Listener<E> = (ev: E) => any
+
+type EventListeners = {
+  [K in keyof EventMap]: Listener<EventMap[K]>[]
 }

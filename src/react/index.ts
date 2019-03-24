@@ -2,7 +2,7 @@ export { default as StyleSheet } from './Stylesheet'
 export { render } from './reconciler'
 export { ControlManagerContext } from './ControlManager'
 
-export { default as ScrollView } from './components/ScrollView'
+export { ScrollView } from './components/ScrollView'
 export { default as View } from './components/View'
 export { Text } from './components/Text'
 export { default as TextInput } from './components/TextInput'
@@ -12,5 +12,5 @@ export {
 
 export { default as Button } from './components/Button'
 export { default as Switch } from './components/Switch'
-export { default as FlatList } from './components/FlatList'
+export { FlatList } from './components/FlatList'
 export { Image } from './components/Image'

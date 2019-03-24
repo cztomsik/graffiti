@@ -1,6 +1,5 @@
 import {
   RNStyleSheet,
-  StyleProp,
   ViewStyle,
   TextStyle,
   ImageStyle
@@ -37,7 +36,7 @@ const create = (obj: Styles): Styles => {
 const flatten: typeof RNStyleSheet.flatten = styles => {
   styles = styles || undefined
 
-  return Array.isArray(styles) ? Object.assign({}, ...styles) : styles
+  return Array.isArray(styles) ? Object.assign({}, ...styles.map(flatten)) : styles
 }
 
 const cachingFlatten: typeof flatten = styles => {
@@ -160,10 +159,10 @@ function compile2(style: FlatStyle): HostSurfaceProps {
     borderBottomColor = borderColor,
     borderLeftColor = borderColor,
 
-    borderBottomLeftRadius = borderRadius,
-    borderBottomRightRadius = borderRadius,
     borderTopLeftRadius = borderRadius,
     borderTopRightRadius = borderRadius,
+    borderBottomLeftRadius = borderRadius,
+    borderBottomRightRadius = borderRadius,
 
     ...rest2
   } = rest
@@ -186,7 +185,6 @@ function compile2(style: FlatStyle): HostSurfaceProps {
   } = rest2
 
   return {
-    //borderRadius,
     size: Size.mk(parseDimension(width), parseDimension(height)),
     flex: {
       flexGrow,
@@ -202,16 +200,19 @@ function compile2(style: FlatStyle): HostSurfaceProps {
     },
     padding: Rect.mk(
       parseDimension(paddingTop),
-      parseDimension(paddingBottom),
       parseDimension(paddingRight),
+      parseDimension(paddingBottom),
       parseDimension(paddingLeft)
     ),
     margin: Rect.mk(
       parseDimension(marginTop),
-      parseDimension(marginBottom),
       parseDimension(marginRight),
+      parseDimension(marginBottom),
       parseDimension(marginLeft)
     ),
+    borderRadius: (borderTopLeftRadius || borderTopRightRadius || borderBottomLeftRadius || borderBottomLeftRadius) ?[
+      borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomLeftRadius
+    ] :undefined,
     boxShadow: shadowColor
       ? {
           blur: shadowRadius,
