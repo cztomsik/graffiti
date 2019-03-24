@@ -13,7 +13,7 @@ export class Window {
   // this is how you should update the scene
   // pass a callback and do whatever you need with the context
   // which will build the message and send it immediately
-  updateScene(cb: (SceneContext) => void) {
+  updateScene(cb: (ctx: SceneContext) => void) {
     const ctx = this.getSceneContext()
 
     cb(ctx)

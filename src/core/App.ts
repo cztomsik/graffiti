@@ -3,7 +3,7 @@ import { Window } from "./Window";
 import * as ffi from './nativeApi'
 
 export class App {
-  windows = []
+  windows: Window[] = []
 
   constructor(private ffi) {}
 

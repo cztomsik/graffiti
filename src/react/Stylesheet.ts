@@ -1,6 +1,5 @@
 import {
   RNStyleSheet,
-  StyleProp,
   ViewStyle,
   TextStyle,
   ImageStyle
@@ -37,7 +36,7 @@ const create = (obj: Styles): Styles => {
 const flatten: typeof RNStyleSheet.flatten = styles => {
   styles = styles || undefined
 
-  return Array.isArray(styles) ? Object.assign({}, ...styles) : styles
+  return Array.isArray(styles) ? Object.assign({}, ...styles.map(flatten)) : styles
 }
 
 const cachingFlatten: typeof flatten = styles => {

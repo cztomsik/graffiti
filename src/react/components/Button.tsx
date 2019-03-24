@@ -1,18 +1,15 @@
 import * as React from 'react'
 import { ButtonProps } from '../react-native-types'
-import TouchableWithoutFeedback from './TouchableWithoutFeedback';
 import View from './View';
 import { Text } from './Text';
 import StyleSheet from '../Stylesheet';
 
 const Button = (props: ButtonProps) =>
-  <TouchableWithoutFeedback onPress={props.onPress}>
-    <View style={[styles.button, props.disabled && styles.buttonDisabled]}>
-      <Text style={[styles.text, props.disabled && styles.textDisabled]}>
-        {props.title.toUpperCase()}
-      </Text>
-    </View>
-  </TouchableWithoutFeedback>
+  <View style={[styles.button, props.disabled && styles.buttonDisabled]} onClick={props.onPress}>
+    <Text style={[styles.text, props.disabled && styles.textDisabled]}>
+      {props.title.toUpperCase()}
+    </Text>
+  </View>
 
 const styles = StyleSheet.create({
   button: {

@@ -23,6 +23,7 @@ export function Text({ style = {}, children = [] }: TextProps) {
         text: [].concat(children).filter(numberOrString).join('')
       }}
       {..._props}
+      listeners={NO_LISTENERS}
       size={SIZE_AUTO}
     />
   )
@@ -39,3 +40,10 @@ const TEXT_ALIGN = {
 }
 
 const SIZE_AUTO = [{ tag: 'Auto' }, { tag: 'Auto' }]
+
+const NO_LISTENERS = {
+  onMouseMove: undefined,
+  onMouseDown: undefined,
+  onMouseUp: undefined,
+  onClick: undefined
+}

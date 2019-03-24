@@ -12,24 +12,29 @@ export class SceneContext {
   nextId = 1
   // TODO: consider ordering related things together (structural, layout, visual changes)
   sceneMsgs = []
+  parents = []
 
   constructor(private windowId) {}
 
   createSurface() {
     this.sceneMsgs.push(U.Alloc)
+    this.parents[this.nextId] = 0
     return this.nextId++
   }
 
   appendChild(parent, child) {
     this.sceneMsgs.push(U.AppendChild({ parent, child }))
+    this.parents[child] = parent
   }
 
   removeChild(parent, child) {
     this.sceneMsgs.push(U.RemoveChild({ parent, child }))
+    this.parents[child] = 0
   }
 
   insertBefore(parent, child, before) {
     this.sceneMsgs.push(U.InsertBefore({ parent, child, before }))
+    this.parents[child] = parent
   }
 
   setSize(surface, size) {

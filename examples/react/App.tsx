@@ -13,7 +13,7 @@ const examples = [Hello, Counter, Calculator].map(Comp => ({
 
 export function App() {
   // TODO: selection
-  const activeIndex = 2
+  const activeIndex = 1
   const example = examples[activeIndex]
 
   return (

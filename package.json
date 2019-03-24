@@ -26,8 +26,7 @@
     "build": "cd native-new && cargo build",
     "install": "npm run build -- --release",
     "prepublishOnly": "npm run build && tsc -d",
-    "example": "RUST_LOG=debug ts-node -T example/example.tsx",
-    "example-calc": "RUST_LOG=debug ts-node -T example/react-calculator.tsx",
+    "example": "ts-node -r ./examples/_hmr examples/react/main",
     "codegen": "ts-node src/contract/codegenContract.ts"
   },
   "devDependencies": {
@@ -43,9 +42,9 @@
     "react-reconciler": "^0.20.1",
     "scheduler": "^0.13.3",
     "ts-morph": "^1.1.0",
-    "ts-node": "^8.0.2",
+    "ts-node": "^8.0.3",
     "ts-rust-bridge-codegen": "^0.1.1",
-    "typescript": "^3.2.2",
+    "typescript": "^3.3.4000",
     "ws": "^6.1.2"
   }
 }

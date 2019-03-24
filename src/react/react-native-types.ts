@@ -24,6 +24,10 @@ declare module 'react-native' {
     backgroundImageUrl?: string
   }
 
+  interface ViewProps {
+    onClick?: (ev) => void
+  }
+
   type TextValue = string | number | null | undefined | false
 
   interface TextProps {

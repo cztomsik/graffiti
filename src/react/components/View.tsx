@@ -2,12 +2,19 @@ import * as React from 'react'
 import StyleSheet from '../Stylesheet';
 import { ViewProps } from '../react-native-types'
 
-const View: React.SFC<ViewProps> = ({ style = {}, children }) => {
+const View: React.SFC<ViewProps> = (props) => {
   const { _props } = StyleSheet.flatten(
-    style
+    props.style || {}
   ) as any
 
-  return <host-surface {..._props}>{children}</host-surface>
+  const listeners = {
+    onMouseMove: () => {},
+    onMouseDown: () => {},
+    onMouseUp: () => {},
+    onClick: props.onClick
+  }
+
+  return <host-surface {..._props} listeners={listeners}>{props.children}</host-surface>
 }
 
 export default View
