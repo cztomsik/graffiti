@@ -36,6 +36,10 @@ export class App {
           const window = this.windows[event.value.window]
 
           window.handleEvent(event.value.event)
+
+          // TODO: raf
+
+          window.getSceneContext().flush()
         }
       }
 

@@ -5,7 +5,7 @@ import { TextAlign } from '../../core/generated';
 import StyleSheet from '../Stylesheet';
 
 export function Text({ style = {}, children = [] }: TextProps) {
-  const {
+  /*const {
     _props,
     fontSize = 16,
     color = '#000000',
@@ -23,10 +23,12 @@ export function Text({ style = {}, children = [] }: TextProps) {
         text: [].concat(children).filter(numberOrString).join('')
       }}
       {..._props}
-      listeners={NO_LISTENERS}
       size={SIZE_AUTO}
     />
-  )
+  )*/
+
+  const View = 'View'
+  return <View style={{ width: 100, height: 30 }} />
 }
 
 function numberOrString(v) {
@@ -40,10 +42,3 @@ const TEXT_ALIGN = {
 }
 
 const SIZE_AUTO = [{ tag: 'Auto' }, { tag: 'Auto' }]
-
-const NO_LISTENERS = {
-  onMouseMove: undefined,
-  onMouseDown: undefined,
-  onMouseUp: undefined,
-  onClick: undefined
-}

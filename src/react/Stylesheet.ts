@@ -4,7 +4,6 @@ import {
   TextStyle,
   ImageStyle
 } from './react-native-types'
-import { HostSurfaceProps } from './reconciler'
 import {
   Rect,
   Dimension,
@@ -14,7 +13,14 @@ import {
   FlexAlign,
   FlexWrap,
   BorderStyle,
-  Vector2f
+  Vector2f,
+  Flex,
+  Flow,
+  BorderRadius,
+  BoxShadow,
+  Border,
+  Color,
+  Image
 } from '../core/generated'
 import { parseColor } from '../core/utils'
 
@@ -63,7 +69,7 @@ const compile = (style, id: string) => {
     return
   }
 
-  style._props = compile2(style)
+  style._surfaceProps = compile2(style)
 
   Object.defineProperty(style, '_id', {
     // so it does not propagate through Object.assign
@@ -114,7 +120,7 @@ const StyleSheet = {
 
 export default StyleSheet
 
-function compile2(style: FlatStyle): HostSurfaceProps {
+function compile2(style: FlatStyle): SurfaceProps {
   const {
     width = 'auto',
     height = 'auto',
@@ -298,4 +304,20 @@ const JUSTIFY_CONTENT = {
   'space-between': 'SpaceBetween',
   'space-around': 'SpaceAround',
   'space-evenly': 'SpaceEvenly'
+}
+
+export interface SurfaceProps {
+  size?: Size
+  flex?: Flex
+  flow?: Flow
+  padding?: any
+  margin?: any
+  borderRadius?: BorderRadius
+  boxShadow?: BoxShadow
+  backgroundColor?: Color
+  image?: Image
+  text?: Text
+  border?: Border
+  children?: any
+  listeners?: any
 }

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useState } from 'react'
 import { readFileSync } from 'fs'
 import { View, Text, FlatList } from '../../src/react'
 import { Hello } from './Hello'
@@ -12,16 +13,28 @@ const examples = [Hello, Counter, Calculator].map(Comp => ({
 }))
 
 export function App() {
-  // TODO: selection
-  const activeIndex = 1
+  const [activeIndex, setActive] = useState(1)
   const example = examples[activeIndex]
 
   return (
     <View style={{ flex: 1, flexDirection: 'row', alignContent: 'stretch' }}>
       <FlatList
         data={examples}
-        renderItem={({ item, index }) => <ExampleItem key={item.name} active={index === activeIndex} {...item} />}
-        style={{ flex: 0, width: 240, borderRightWidth: 1, borderStyle: 'solid', borderRightColor: '#cccccc' }}
+        renderItem={({ item, index }) => (
+          <ExampleItem
+            key={item.name}
+            name={item.name}
+            active={index === activeIndex}
+            onClick={() => setActive(index)}
+          />
+        )}
+        style={{
+          flex: 0,
+          width: 240,
+          borderRightWidth: 1,
+          borderStyle: 'solid',
+          borderRightColor: '#cccccc'
+        }}
       />
 
       <View style={{ flex: 1, justifyContent: 'space-between' }}>
@@ -33,13 +46,21 @@ export function App() {
           <Text style={{ color: '#ffffcc' }}>{example.source}</Text>
         </View>
       </View>
-
     </View>
   )
 }
 
-function ExampleItem({ name, active }) {
-  return <View style={{ paddingHorizontal: 20, paddingVertical: 5, backgroundColor: active && '#eeeeee' }}>
-    <Text>{name}</Text>
-  </View>
+function ExampleItem({ name, active, onClick }) {
+  return (
+    <View
+      style={{
+        paddingHorizontal: 20,
+        paddingVertical: 5,
+        backgroundColor: active && '#eeeeee'
+      }}
+      onClick={onClick}
+    >
+      <Text>{name}</Text>
+    </View>
+  )
 }
