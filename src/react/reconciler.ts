@@ -128,6 +128,10 @@ function setProp(surface, prop, value) {
     patchStyle(surface, _surfaceProps, ctx['surfaceProps'])
   }
 
+  if (prop === '_text') {
+    ctx.setText(surface, value ?value :undefined)
+  }
+
   // listeners
   if (prop[0] === 'o' && prop[1] === 'n') {
     ctx['events'].setEventListener(surface, prop, value === 'undefined' ?NOOP :value)
@@ -172,10 +176,6 @@ function patchStyle(surface, props: SurfaceProps, oldProps: SurfaceProps) {
     ctx.setImage(surface, props.image)
   }
 
-  if (props.text !== oldProps.text) {
-    ctx.setText(surface, props.text)
-  }
-
   if (props.border !== oldProps.border) {
     ctx.setBorder(surface, props.border)
   }
@@ -205,7 +205,7 @@ declare global {
     }
 
     interface IntrinsicElements {
-      'View': ViewProps
+      'View': ViewProps & { _text? }
     }
   }
 }
