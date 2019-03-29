@@ -3,7 +3,7 @@ import { Window } from "./Window";
 import * as ffi from './nativeApi'
 
 export class App {
-  windows: Window[] = []
+  windows: { [k: number]: Window } = {}
 
   constructor(private ffi) {}
 
@@ -33,10 +33,16 @@ export class App {
 
       if (event !== undefined) {
         if (event.tag === 'WindowEvent') {
-          const window = this.windows[event.value.window]
-
-          window.handleEvent(event.value.event)
+          this.windows[event.value.window].handleEvent(event.value.event)
         }
+      }
+
+      // TODO: raf
+
+      // TODO: inactive windows could be throttled, maybe even stopped
+      // but we should keep HMR working (update in inactive window)
+      for (const windowId in this.windows) {
+        this.windows[windowId].getSceneContext().flush()
       }
 
       setTimeout(runLoop, 100)

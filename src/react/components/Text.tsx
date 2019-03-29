@@ -3,28 +3,31 @@ import { TextProps } from '../react-native-types'
 import { parseColor } from '../../core/utils'
 import { TextAlign } from '../../core/generated';
 import StyleSheet from '../Stylesheet';
+import View from './View'
 
-export function Text({ style = {}, children = [] }: TextProps) {
+// we might make it native (host) comp in the future but for now we want to
+// avoid having to mess with `createTextInstance()`, so anything inside <Text>
+// actually gets joined to one string and passed to View via internal `_text`
+export function Text({ children = [], ...rest }: TextProps) {
   const {
     _props,
     fontSize = 16,
     color = '#000000',
     lineHeight = 30,
     textAlign = 'left'
-  } = StyleSheet.flatten(style) as any
+  } = StyleSheet.flatten(rest.style || {}) as any
 
+  // TODO: textContent + (fontFamily, color, ...) in style?
   return (
-    <host-surface
-      text={{
+    <View
+      _text={{
         fontSize,
         color: parseColor(color),
         lineHeight,
         align: TEXT_ALIGN[textAlign],
         text: [].concat(children).filter(numberOrString).join('')
       }}
-      {..._props}
-      listeners={NO_LISTENERS}
-      size={SIZE_AUTO}
+      {...rest}
     />
   )
 }
@@ -37,13 +40,4 @@ const TEXT_ALIGN = {
   left: TextAlign.Left,
   center: TextAlign.Center,
   right: TextAlign.Right
-}
-
-const SIZE_AUTO = [{ tag: 'Auto' }, { tag: 'Auto' }]
-
-const NO_LISTENERS = {
-  onMouseMove: undefined,
-  onMouseDown: undefined,
-  onMouseUp: undefined,
-  onClick: undefined
 }

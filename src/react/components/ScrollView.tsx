@@ -4,7 +4,7 @@ import StyleSheet from '../Stylesheet';
 import View from './View';
 
 // TODO
-export const ScrollView: React.SFC<ScrollViewProps> = (props) => {
+const ScrollView: React.SFC<ScrollViewProps> = (props) => {
   return (
     <View style={[styles.scrollView, props.style]}>
       <View style={props.contentContainerStyle}>
@@ -20,3 +20,5 @@ const styles = StyleSheet.create({
     //overflow: '?'
   }
 })
+
+export { ScrollView }

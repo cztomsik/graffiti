@@ -2,6 +2,7 @@ import { FfiMsg, FfiResult } from './generated'
 
 const ref = require('ref')
 const ffi = require('ffi')
+const util = require('util')
 
 // define lib
 const lib = ffi.Library(
@@ -19,7 +20,7 @@ const lib = ffi.Library(
 export const init = () => lib.init()
 
 export function send(msg: FfiMsg) {
-  //console.log(msg)
+  //console.log(util.inspect(msg, { depth: 4 }))
 
   // prepare buffer with msg
   let msgBuf = Buffer.from(JSON.stringify(msg))

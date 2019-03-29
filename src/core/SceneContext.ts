@@ -87,6 +87,10 @@ export class SceneContext {
   }
 
   flush() {
+    if (this.sceneMsgs.length === 0) {
+      return
+    }
+
     send(
       FfiMsg.UpdateScene({
         window: this.windowId,

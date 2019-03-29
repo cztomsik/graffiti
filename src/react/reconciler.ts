@@ -1,17 +1,22 @@
+// MIND that we optimize for the optimistic case (few updates in the whole tree)
+//
+// 1. most updates should be avoided at the app-level (redux, mobx, ...)
+// 2. components can avoid a lot too
+// 3. reconciler
+//    - quickly detect if the props (and listeners) are the same (inside)
+//    - check if the style combination is the same
+//    - eventually update the style and/or listeners
+
 import * as Reconciler from 'react-reconciler'
-import {
-  unstable_now as now,
-  unstable_scheduleCallback as scheduleDeferredCallback,
-  unstable_shouldYield as shouldYield,
-  unstable_cancelCallback as cancelDeferredCallback
-} from 'scheduler'
+import * as scheduler from 'scheduler'
 import initDevtools from './devtools'
 
-import { Size, Color, Flex, Image, Border, Text, Flow, BorderRadius, BoxShadow } from '../core'
-import { send } from '../core/nativeApi'
-import { SceneContext } from '../core';
+import { SceneContext } from '../core'
 import { NOOP, IDENTITY } from '../core/utils'
 import { WindowEvent } from '../core/generated';
+import { ViewProps, StyleProp } from './react-native-types'
+import StyleSheet, { SurfaceProps } from './Stylesheet';
+import { isEqual } from 'lodash'
 
 let ctx: SceneContext = null
 
@@ -22,7 +27,6 @@ const reconciler = createReconciler({
   appendChild,
   appendChildToContainer: (window, child) =>
     appendChild(window.rootSurface, child),
-  prepareUpdate: (surface, type, oldProps, newProps, window) => window,
   commitUpdate: (surface, window, type, oldProps, newProps, handle) =>
     update(surface, newProps, oldProps),
   insertBefore,
@@ -41,6 +45,7 @@ export function render(vnode, window, cb?) {
     const ctx = window.getSceneContext()
     const nsw = new NotSureWhat(ctx.parents)
     ctx['events'] = nsw
+    ctx['surfaceProps'] = [{}]
     window.handleEvent = (e) => nsw.handleWindowEvent(e)
   }
 
@@ -58,14 +63,88 @@ function prepareForCommit(window) {
 }
 
 function createInstance(type, props, window) {
+  // because it might be null if we are creating instance after listener was fired
+  ctx = window.getSceneContext()
+
   let id = ctx.createSurface()
 
+  ctx['events'].alloc()
+  ctx['surfaceProps'].push({})
   update(id, props, {})
 
   return id
 }
 
-function update(surface, props: HostSurfaceProps, oldProps: HostSurfaceProps) {
+function update(surface, props: ViewProps, oldProps: ViewProps) {
+  // all of this is actually faster than looking up (missing) properties
+  // it's also very common pattern in JS, so it's well optimized in V8
+  // (and we are just going through slots, in the physical memory order,
+  //  so it shouldn't be slow anyway, js objects are not hash tables)
+  //
+  // it's also worth pointing out that mostly, props are of the same shape,
+  // so there should be very few prop-misses
+  //
+  // there is usually just a few keys (style + children)
+
+
+  // update existing props with new values
+  for (const k in props) {
+    if (k !== 'children') {
+      const v = props[k]
+      const prev = oldProps[k]
+
+      if (v !== prev) {
+        // check if style is equal first (& skip if no update is necessary)
+        if (k === 'style') {
+          if (styleEqual(v, prev)) {
+            continue
+          }
+        }
+
+        setProp(surface, k, v)
+      }
+    }
+  }
+
+  // remove missing props
+  if (oldProps !== undefined) {
+    for (const k in oldProps) {
+      if (k !== 'children' && !(k in props)) {
+        setProp(surface, k, null)
+      }
+    }
+  }
+}
+
+function styleEqual(a: StyleProp<any>, b: StyleProp<any>): boolean {
+  // TODO: own, optimized (and readable) version
+  // [a] == [a]
+  // [a1, [a2]] == [a1, [a2]]
+  // [{a: 1}] == [{a: 1}]
+  // ...
+  return isEqual(a, b)
+}
+
+function setProp(surface, prop, value) {
+  if (prop === 'style') {
+    //TODO: setStyle(surface, value)
+    const { _surfaceProps } = StyleSheet.flatten(value)
+    patchStyle(surface, _surfaceProps, ctx['surfaceProps'][surface])
+    ctx['surfaceProps'][surface] = _surfaceProps
+  }
+
+  if (prop === '_text') {
+    ctx.setText(surface, value ?value :undefined)
+  }
+
+  // listeners
+  if (prop[0] === 'o' && prop[1] === 'n') {
+    ctx['events'].setEventListener(surface, prop, value === 'undefined' ?NOOP :value)
+  }
+}
+
+// TODO: diff style composition first (like we do with props) - most of them are the same and usually shallow
+function patchStyle(surface, props: SurfaceProps, oldProps: SurfaceProps) {
   if (props.size !== oldProps.size) {
     ctx.setSize(surface, props.size)
   }
@@ -102,18 +181,8 @@ function update(surface, props: HostSurfaceProps, oldProps: HostSurfaceProps) {
     ctx.setImage(surface, props.image)
   }
 
-  if (props.text !== oldProps.text) {
-    ctx.setText(surface, props.text)
-  }
-
   if (props.border !== oldProps.border) {
     ctx.setBorder(surface, props.border)
-  }
-
-  if (props.listeners !== oldProps.listeners) {
-    for (const type in props.listeners) {
-      ctx['events'].setEventListener(surface, type, props.listeners[type] || NOOP)
-    }
   }
 }
 
@@ -130,24 +199,7 @@ function insertBefore(parent, child, before) {
 }
 
 function resetAfterCommit(window) {
-  ctx.flush()
   ctx = null
-}
-
-export interface HostSurfaceProps {
-  size?: Size
-  flex?: Flex
-  flow?: Flow
-  padding?: any
-  margin?: any
-  borderRadius?: BorderRadius
-  boxShadow?: BoxShadow
-  backgroundColor?: Color
-  image?: Image
-  text?: Text
-  border?: Border
-  children?: any
-  listeners?: any
 }
 
 declare global {
@@ -158,7 +210,7 @@ declare global {
     }
 
     interface IntrinsicElements {
-      'host-surface': HostSurfaceProps
+      'View': ViewProps & { _text? }
     }
   }
 }
@@ -176,15 +228,15 @@ function createReconciler(cfg) {
     shouldDeprioritizeSubtree: () => false,
     createTextInstance: NOOP,
     finalizeInitialChildren: NOOP,
-    scheduleDeferredCallback,
-    cancelDeferredCallback,
-    schedulePassiveEffects: scheduleDeferredCallback,
-    cancelPassiveEffects: cancelDeferredCallback,
-    shouldYield,
+    scheduleDeferredCallback: scheduler.unstable_scheduleCallback,
+    cancelDeferredCallback: scheduler.unstable_cancelCallback,
+    schedulePassiveEffects: scheduler.unstable_scheduleCallback,
+    cancelPassiveEffects: scheduler.unstable_cancelCallback,
+    shouldYield: scheduler.unstable_shouldYield,
     scheduleTimeout: setTimeout,
     cancelTimeout: clearTimeout,
     noTimeout: -1,
-    now,
+    now: scheduler.unstable_now,
     isPrimaryRenderer: true,
     supportsMutation: true,
     supportsPersistence: false,
@@ -214,11 +266,7 @@ function createReconciler(cfg) {
 // - it should be enough to support only one listener for each (surface, type) pair (vs addEventListener)
 //   - simpler/faster, edge cases can be handled in user-space (if necessary at all)
 // - View shouldn't be responsible for registering events, it doesn't even know about window
-//   - and we want it to be stateless, so that it can be eventually optimized with prepack
-
-
-// TODO: multi-window
-
+//   - and we want it to be stateless
 export class NotSureWhat {
   listeners: EventListeners = {
     onMouseMove: [],
@@ -229,9 +277,20 @@ export class NotSureWhat {
   moveTarget = 0
   downTarget = 0
 
-  constructor(private parents) {}
+  constructor(private parents) {
+    // root
+    this.alloc()
+  }
+
+  alloc() {
+    for (const k in this.listeners) {
+      this.listeners[k].push(NOOP)
+    }
+  }
 
   handleWindowEvent(event: WindowEvent) {
+    console.log(event)
+
     switch (event.tag) {
       case "MouseMove": {
         const target = this.moveTarget = event.value.target
@@ -256,10 +315,16 @@ export class NotSureWhat {
   }
 
   setEventListener<K extends keyof EventMap>(id, type: K, listener: Listener<EventMap[K]>) {
+    if (!(type in this.listeners)) {
+      throw new Error(`${type} is not supported`)
+    }
+
     this.listeners[type][id] = listener
   }
 
-  dispatch(listeners, id, event) {
+  // dispatch event to target and all its parents
+  // TODO: stopPropagation()
+  dispatch<T>(listeners: Listener<T>[], id, event) {
     while (id) {
       listeners[id](event)
 
@@ -268,7 +333,7 @@ export class NotSureWhat {
   }
 }
 
-
+// events we support
 interface EventMap {
   onMouseMove: MouseEvent,
   onMouseDown: MouseEvent,
@@ -278,6 +343,7 @@ interface EventMap {
 
 type Listener<E> = (ev: E) => any
 
+// struct of arrays (listeners for each type)
 type EventListeners = {
   [K in keyof EventMap]: Listener<EventMap[K]>[]
 }

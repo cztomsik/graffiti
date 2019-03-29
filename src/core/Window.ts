@@ -10,18 +10,8 @@ export class Window {
     this.sceneContext = new SceneContext(this.id)
   }
 
-  // this is how you should update the scene
-  // pass a callback and do whatever you need with the context
-  // which will build the message and send it immediately
-  updateScene(cb: (ctx: SceneContext) => void) {
-    const ctx = this.getSceneContext()
-
-    cb(ctx)
-    ctx.flush()
-  }
-
-  // sometimes it's necessary to keep the context around during multiple function calls
-  // (in reconciler we need to return id but we also don't want to send the batch yet)
+  // use it to make changes to the scene
+  // all changes will be batched & sent at the end of this frame
   getSceneContext() {
     return this.sceneContext
   }
