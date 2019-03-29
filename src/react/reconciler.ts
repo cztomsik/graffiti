@@ -45,7 +45,7 @@ export function render(vnode, window, cb?) {
     const ctx = window.getSceneContext()
     const nsw = new NotSureWhat(ctx.parents)
     ctx['events'] = nsw
-    ctx['surfaceProps'] = []
+    ctx['surfaceProps'] = [{}]
     window.handleEvent = (e) => nsw.handleWindowEvent(e)
   }
 
@@ -63,9 +63,13 @@ function prepareForCommit(window) {
 }
 
 function createInstance(type, props, window) {
+  // because it might be null if we are creating instance after listener was fired
+  ctx = window.getSceneContext()
+
   let id = ctx.createSurface()
 
   ctx['events'].alloc()
+  ctx['surfaceProps'].push({})
   update(id, props, {})
 
   return id
@@ -125,7 +129,8 @@ function setProp(surface, prop, value) {
   if (prop === 'style') {
     //TODO: setStyle(surface, value)
     const { _surfaceProps } = StyleSheet.flatten(value)
-    patchStyle(surface, _surfaceProps, ctx['surfaceProps'])
+    patchStyle(surface, _surfaceProps, ctx['surfaceProps'][surface])
+    ctx['surfaceProps'][surface] = _surfaceProps
   }
 
   if (prop === '_text') {

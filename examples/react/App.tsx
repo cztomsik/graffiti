@@ -31,9 +31,10 @@ export function App() {
         style={{
           flex: 0,
           width: 240,
-          borderRightWidth: 1,
-          borderStyle: 'solid',
-          borderRightColor: '#cccccc'
+          padding: 20,
+          //borderRightWidth: 1,
+          //borderStyle: 'solid',
+          //borderRightColor: '#cccccc'
         }}
       />
 
@@ -56,6 +57,7 @@ function ExampleItem({ name, active, onClick }) {
       style={{
         paddingHorizontal: 20,
         paddingVertical: 5,
+        borderRadius: 3,
         backgroundColor: active && '#eeeeee'
       }}
       onClick={onClick}
