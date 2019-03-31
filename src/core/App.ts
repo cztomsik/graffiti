@@ -45,7 +45,7 @@ export class App {
         this.windows[windowId].getSceneContext().flush()
       }
 
-      setTimeout(runLoop, 100)
+      setTimeout(runLoop)
     }
 
     runLoop()

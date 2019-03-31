@@ -6,10 +6,10 @@ use crate::layout::{LayoutService, YogaLayoutService};
 use crate::render::{RenderService, WebrenderRenderService};
 use crate::scene::Scene;
 use gleam::gl::GlFns;
-use glutin::{ContextTrait, ElementState, WindowId, WindowedContext};
+use glfw::{Context, Window as GlfwWindow};
 
-pub struct GlutinWindow {
-    glutin_context: WindowedContext,
+pub struct AppWindow {
+    glfw_window: GlfwWindow,
     scene: Scene,
     layout_service: YogaLayoutService,
     render_service: WebrenderRenderService,
@@ -17,13 +17,12 @@ pub struct GlutinWindow {
     // TODO: mouse x,y (so we can do webrender.scroll(x, y, delta_x, delta_y))
 }
 
-impl GlutinWindow {
-    pub fn new(glutin_context: WindowedContext) -> Self {
-        let gl =
-            unsafe { GlFns::load_with(|addr| glutin_context.get_proc_address(addr) as *const _) };
+impl AppWindow {
+    pub fn new(mut glfw_window: GlfwWindow) -> Self {
+        let gl = unsafe { GlFns::load_with(|addr| glfw_window.get_proc_address(addr)) };
 
-        let mut window = GlutinWindow {
-            glutin_context,
+        let mut window = AppWindow {
+            glfw_window,
             scene: Scene::new(),
             layout_service: YogaLayoutService::new(),
             render_service: WebrenderRenderService::new(gl),
@@ -34,10 +33,6 @@ impl GlutinWindow {
         });
 
         window
-    }
-
-    pub fn id(&self) -> WindowId {
-        self.glutin_context.id()
     }
 
     fn render(&mut self) {
@@ -55,41 +50,42 @@ impl GlutinWindow {
 
         let computed_layouts = self.layout_service.get_computed_layouts(&surface);
 
+        self.glfw_window.make_current();
         self.render_service.render(&surface, computed_layouts);
-
-        self.glutin_context.swap_buffers().ok();
+        self.glfw_window.swap_buffers();
     }
 
     // TODO
-    pub fn translate_event(&self, event: glutin::WindowEvent) -> Option<WindowEvent> {
+    pub fn translate_event(&self, event: glfw::WindowEvent) -> Option<WindowEvent> {
         // TODO: we don't need Option currently so maybe we can remove it in the future
         match event {
             event => Some(match event {
-                glutin::WindowEvent::CursorMoved { position, .. } => {
+                glfw::WindowEvent::CursorPos(x, y) => {
                     // for any window event, there's always hit (root surface at least) because it's somewhere inside
                     // we need to send some MouseMove event because of onMouseOut (prevTarget !== target)
                     let target = self
                         .render_service
-                        .hit_test(position.x as f32, position.y as f32)
+                        .hit_test(x as f32, y as f32)
                         // TODO: should be a const or something
                         .unwrap_or(0);
 
                     WindowEvent::MouseMove { target }
                 }
-                glutin::WindowEvent::MouseInput { state, .. } => match state {
-                    ElementState::Pressed => WindowEvent::MouseDown,
-                    ElementState::Released => WindowEvent::MouseUp,
+                glfw::WindowEvent::MouseButton(_button, action, _modifiers) => match action {
+                    glfw::Action::Press => WindowEvent::MouseDown,
+                    glfw::Action::Release => WindowEvent::MouseUp,
+                    _ => unreachable!("mouse should not repeat"),
                 },
-                glutin::WindowEvent::ReceivedCharacter(ch) => WindowEvent::KeyPress(ch as u16),
-                glutin::WindowEvent::CloseRequested => WindowEvent::Close,
-                glutin::WindowEvent::Resized(..) => WindowEvent::Resize,
+                //glutin::WindowEvent::ReceivedCharacter(ch) => WindowEvent::KeyPress(ch as u16),
+                //glutin::WindowEvent::CloseRequested => WindowEvent::Close,
+                //glutin::WindowEvent::Resized(..) => WindowEvent::Resize,
                 _ => WindowEvent::Unknown,
             }),
         }
     }
 }
 
-impl Window for GlutinWindow {
+impl Window for AppWindow {
     fn update_scene<F>(&mut self, mut update_fn: F)
     where
         F: FnMut(&mut SceneUpdateContext),
@@ -100,7 +96,7 @@ impl Window for GlutinWindow {
 }
 
 // delegates to self.scene/layout_service with few special-cases where both have to be updated
-impl SceneUpdateContext for GlutinWindow {
+impl SceneUpdateContext for AppWindow {
     fn create_surface(&mut self) -> SurfaceId {
         self.layout_service.alloc();
         self.scene.create_surface()

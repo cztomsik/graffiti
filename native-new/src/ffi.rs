@@ -1,16 +1,16 @@
 use crate::api::{App, Window};
-use crate::app::GlutinApp;
+use crate::app::TheApp;
 use crate::generated::{FfiMsg, UpdateSceneMsg, FfiResult};
 use serde_json;
 use std::io::prelude::Write;
 
-static mut APP: Option<GlutinApp> = None;
+static mut APP: Option<TheApp> = None;
 
 #[no_mangle]
 pub extern "C" fn init() {
     env_logger::init();
 
-    unsafe { APP = Some(GlutinApp::new()) }
+    unsafe { APP = Some(TheApp::init()) }
 }
 
 // returning the value would require javascript to copy it to the heap,
@@ -49,7 +49,7 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
     }
 }
 
-fn handle_msg(app: &mut GlutinApp, msg: FfiMsg, result: &mut FfiResult) {
+fn handle_msg(app: &mut TheApp, msg: FfiMsg, result: &mut FfiResult) {
     match msg {
         FfiMsg::GetNextEvent => {
             if let Some(event) = app.get_next_event() {
