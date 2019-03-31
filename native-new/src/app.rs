@@ -12,7 +12,11 @@ pub struct TheApp {
 
 impl TheApp {
     pub fn init() -> Self {
-        let glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("could not init GLFW");
+        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("could not init GLFW");
+
+        glfw.window_hint(glfw::WindowHint::ContextVersion(3, 2));
+        glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
+        glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
 
         TheApp {
             glfw,
