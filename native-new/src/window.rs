@@ -6,13 +6,15 @@ use crate::layout::{LayoutService, YogaLayoutService};
 use crate::render::{RenderService, WebrenderRenderService};
 use crate::scene::Scene;
 use gleam::gl::GlFns;
-use glutin::{ContextTrait, WindowId, WindowedContext, ElementState};
+use glutin::{ContextTrait, ElementState, WindowId, WindowedContext};
 
 pub struct GlutinWindow {
     glutin_context: WindowedContext,
     scene: Scene,
     layout_service: YogaLayoutService,
     render_service: WebrenderRenderService,
+    // TODO: size (so we can resize)
+    // TODO: mouse x,y (so we can do webrender.scroll(x, y, delta_x, delta_y))
 }
 
 impl GlutinWindow {
@@ -60,24 +62,29 @@ impl GlutinWindow {
 
     // TODO
     pub fn translate_event(&self, event: glutin::WindowEvent) -> Option<WindowEvent> {
+        // TODO: we don't need Option currently so maybe we can remove it in the future
         match event {
-            glutin::WindowEvent::CursorMoved { position, .. } => {
-                let hit = self.render_service.hit_test(position.x as f32, position.y as f32);
-
-                hit.map(|target| WindowEvent::MouseMove { target })
-            },
             event => Some(match event {
-                glutin::WindowEvent::MouseInput { state, .. } => {
-                    match state {
-                        ElementState::Pressed => WindowEvent::MouseDown,
-                        ElementState::Released => WindowEvent::MouseUp
-                    }
+                glutin::WindowEvent::CursorMoved { position, .. } => {
+                    // for any window event, there's always hit (root surface at least) because it's somewhere inside
+                    // we need to send some MouseMove event because of onMouseOut (prevTarget !== target)
+                    let target = self
+                        .render_service
+                        .hit_test(position.x as f32, position.y as f32)
+                        // TODO: should be a const or something
+                        .unwrap_or(0);
+
+                    WindowEvent::MouseMove { target }
+                }
+                glutin::WindowEvent::MouseInput { state, .. } => match state {
+                    ElementState::Pressed => WindowEvent::MouseDown,
+                    ElementState::Released => WindowEvent::MouseUp,
                 },
                 glutin::WindowEvent::ReceivedCharacter(ch) => WindowEvent::KeyPress(ch as u16),
                 glutin::WindowEvent::CloseRequested => WindowEvent::Close,
                 glutin::WindowEvent::Resized(..) => WindowEvent::Resize,
-                _ => WindowEvent::Unknown
-            })
+                _ => WindowEvent::Unknown,
+            }),
         }
     }
 }

@@ -27,6 +27,8 @@ declare module 'react-native' {
   interface ViewProps {
     onClick?: (ev) => void
     onMouseMove?: (ev) => void
+    onMouseOver?: (ev) => void
+    onMouseOut?: (ev) => void
   }
 
   type TextValue = string | number | null | undefined | false

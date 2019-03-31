@@ -270,6 +270,8 @@ function createReconciler(cfg) {
 export class NotSureWhat {
   listeners: EventListeners = {
     onMouseMove: [],
+    onMouseOver: [],
+    onMouseOut: [],
     onMouseDown: [],
     onMouseUp: [],
     onClick: []
@@ -293,8 +295,16 @@ export class NotSureWhat {
 
     switch (event.tag) {
       case "MouseMove": {
+        const prevTarget = this.moveTarget
         const target = this.moveTarget = event.value.target
-        return this.dispatch(this.listeners.onMouseMove, target, { target })
+        this.dispatch(this.listeners.onMouseMove, target, { target })
+
+        if (target !== prevTarget) {
+          this.dispatch(this.listeners.onMouseOut, prevTarget, { target: prevTarget })
+          this.dispatch(this.listeners.onMouseOver, target, { target })
+        }
+
+        return
       }
       case "MouseDown": {
         const target = this.downTarget = this.moveTarget
@@ -336,6 +346,8 @@ export class NotSureWhat {
 // events we support
 interface EventMap {
   onMouseMove: MouseEvent,
+  onMouseOver: MouseEvent,
+  onMouseOut: MouseEvent,
   onMouseDown: MouseEvent,
   onMouseUp: MouseEvent,
   onClick: MouseEvent
