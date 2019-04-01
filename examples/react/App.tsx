@@ -5,15 +5,16 @@ import { View, Text, FlatList } from '../../src/react'
 import { Hello } from './Hello'
 import { Counter } from './Counter'
 import { Calculator } from './Calculator'
+import { Hover } from './Hover'
 
-const examples = [Hello, Counter, Calculator].map(Comp => ({
+const examples = [Hello, Counter, Calculator, Hover].map(Comp => ({
   name: Comp.name,
   Comp,
   source: readFileSync(`${__dirname}/${Comp.name}.tsx`, 'utf-8')
 }))
 
 export function App() {
-  const [activeIndex, setActive] = useState(1)
+  const [activeIndex, setActive] = useState(2)
   const example = examples[activeIndex]
 
   return (
@@ -39,11 +40,11 @@ export function App() {
       />
 
       <View style={{ flex: 1, justifyContent: 'space-between' }}>
-        <View style={{ padding: 20 }}>
+        <View style={{ flex: 1, padding: 20 }}>
           <example.Comp />
         </View>
 
-        <View style={{ padding: 20, backgroundColor: '#222233' }}>
+        <View style={{ flex: 1.5, padding: 20, backgroundColor: '#222233' }}>
           <Text style={{ color: '#ffffcc' }}>{example.source}</Text>
         </View>
       </View>
