@@ -1,18 +1,11 @@
-use crate::layout::ComputedLayout;
-use crate::scene::{
-    Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Image, Text, SurfaceData
-};
+use crate::api::Scene;
 
-pub trait Renderer {
-    fn render(&mut self, surface: &SurfaceData);
+pub trait SceneRenderer {
+    fn render(&mut self, scene: &dyn Scene);
 }
 
 mod webrender;
-pub use self::webrender::WebrenderRenderService;
+pub use self::webrender::WebrenderRenderer;
 
 //mod html;
 //pub use self::html::HtmlRenderer;
-
-pub trait RenderService {
-    fn render(&mut self, surface: &SurfaceData, computed_layouts: Vec<ComputedLayout>);
-}

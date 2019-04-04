@@ -31,7 +31,7 @@ pub enum Event {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "tag", content = "value")]
 pub enum WindowEvent {
-    MouseMove { target: u16 },
+    MouseMove { target: usize },
     MouseDown,
     MouseUp,
     KeyDown,
@@ -69,7 +69,7 @@ pub enum UpdateSceneMsg {
 pub type WindowId = u16;
 
 
-pub type SurfaceId = u16;
+pub type SurfaceId = usize;
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

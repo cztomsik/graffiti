@@ -2,7 +2,7 @@ import { EntryT, EntryType, T, Variant as V } from 'ts-rust-bridge-codegen'
 
 const { Tuple, Enum, Struct, Union, Newtype, Alias } = EntryType
 
-const SurfaceId = Alias('SurfaceId', T.Scalar.U16)
+const SurfaceId = Alias('SurfaceId', T.Scalar.USIZE)
 
 const Dimension = Union('Dimension', [
   V.Unit('Auto'),
@@ -181,7 +181,7 @@ const FfiMsg = Union('FfiMsg', [
 // WIP
 const WindowEvent = Union('WindowEvent', [
   V.Struct('MouseMove', {
-    target: T.Scalar.U16
+    target: T.Scalar.USIZE
   }),
   V.Unit('MouseDown'),
   V.Unit('MouseUp'),

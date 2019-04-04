@@ -1,4 +1,4 @@
-use crate::api::{App, Event, WindowId};
+use crate::api::{App, Event, WindowId, Window};
 use crate::window::AppWindow;
 use glfw::{Context, Glfw, WindowEvent};
 use std::collections::BTreeMap;
@@ -27,7 +27,7 @@ impl TheApp {
     }
 }
 
-impl App<AppWindow> for TheApp {
+impl App for TheApp {
     fn get_next_event(&mut self) -> Option<Event> {
         // TODO: poll if we are animating
         // wait a bit otherwise (save battery)
@@ -63,7 +63,7 @@ impl App<AppWindow> for TheApp {
         id
     }
 
-    fn get_window(&mut self, id: WindowId) -> &mut AppWindow {
+    fn get_window_mut(&mut self, id: WindowId) -> &mut Window {
         &mut self.windows.get_mut(&id).expect("window not found").0
     }
 

@@ -1,10 +1,11 @@
 pub use crate::api::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Flex, Flow, Image, Rect,
-    Size, Text, SurfaceId
+    Size, Text, SurfaceId, Dimension, Scene
 };
-use crate::storage::{DenseStorage, SparseStorage};
-use std::fmt::Debug;
-use std::fmt::Formatter;
+use crate::layout::{YogaLayoutService, LayoutService};
+use crate::api::ComputedLayout;
+use std::collections::BTreeMap;
+use crate::storage::Storage;
 
 /// A tree of surfaces (UI elements) along with all of their layout/visual properties
 ///
@@ -33,138 +34,170 @@ use std::fmt::Formatter;
 ///
 /// And this is basically an attempt to implement a whole tree of surfaces (rootNode) as a
 /// "struct of arrays" which should make rendering way-faster (by being cpu cache-friendly)
-///
-/// Note that SurfaceData accessors reduce coupling on this internal structure
-pub struct Scene {
-    children: DenseStorage<SurfaceId, Vec<SurfaceId>>,
-    border_radii: SparseStorage<SurfaceId, BorderRadius>,
-    box_shadows: SparseStorage<SurfaceId, BoxShadow>,
-    background_colors: SparseStorage<SurfaceId, Color>,
-    texts: SparseStorage<SurfaceId, Text>,
-    images: SparseStorage<SurfaceId, Image>,
-    borders: SparseStorage<SurfaceId, Border>,
+pub struct ArrayScene {
+    // TODO: add vec of presence bitflags, so that we can quickly detect if surface has a border/shadow/... or not
+    // 1 cache line could speed up 64 surfaces
+    children: Vec<Vec<SurfaceId>>,
+    border_radii: BTreeMap<SurfaceId, BorderRadius>,
+    box_shadows: BTreeMap<SurfaceId, BoxShadow>,
+    background_colors: BTreeMap<SurfaceId, Color>,
+    texts: BTreeMap<SurfaceId, Text>,
+    images: BTreeMap<SurfaceId, Image>,
+    borders: BTreeMap<SurfaceId, Border>,
+    layout_service: YogaLayoutService,
+    computed_layouts: Vec<ComputedLayout>
 }
 
-// this is internal module, used by window, NOT an implementation of api::SceneUpdateContext,
-// it's just coincidental similarity
-impl Scene {
+impl ArrayScene {
     pub fn new() -> Self {
-        Scene {
-            children: DenseStorage::new(),
-            border_radii: SparseStorage::new(),
-            box_shadows: SparseStorage::new(),
-            background_colors: SparseStorage::new(),
-            texts: SparseStorage::new(),
-            images: SparseStorage::new(),
-            borders: SparseStorage::new(),
-        }
+        let mut scene = ArrayScene {
+            children: vec![],
+            border_radii: BTreeMap::new(),
+            box_shadows: BTreeMap::new(),
+            background_colors: BTreeMap::new(),
+            texts: BTreeMap::new(),
+            images: BTreeMap::new(),
+            borders: BTreeMap::new(),
+            layout_service: YogaLayoutService::new(),
+            computed_layouts: vec![],
+        };
+
+        // root
+        scene.create_surface();
+
+        scene
     }
 
-    pub fn create_surface(&mut self) -> SurfaceId {
-        self.children.insert(vec![]) as u16
+    pub fn set_layout_size(&mut self, width: f32, height: f32) {
+        self.layout_service.set_size(
+            0,
+            Size(
+                Dimension::Point(width),
+                Dimension::Point(height),
+            ),
+        );
     }
 
-    pub fn append_child(&mut self, parent: SurfaceId, child: SurfaceId) {
-        self.children.get_mut(parent).push(child);
-    }
-
-    pub fn insert_before(&mut self, parent: SurfaceId, child: SurfaceId, before: SurfaceId) {
-        let index = self.index_of(parent, before);
-        self.children.get_mut(parent).insert(index, child);
-    }
-
-    pub fn remove_child(&mut self, parent: SurfaceId, child: SurfaceId) {
-        let index = self.index_of(parent, child);
-        self.children.get_mut(parent).remove(index);
-    }
-
-    // layout props are currently handled by YogaLayoutService
-    // ideally we would store them here and just pass them to LayoutService but that's not
-    // how yoga works
-
-    pub fn set_border_radius(&mut self, surface: SurfaceId, border_radius: Option<BorderRadius>) {
-        self.border_radii.set(surface, border_radius);
-    }
-
-    pub fn set_box_shadow(&mut self, surface: SurfaceId, box_shadow: Option<BoxShadow>) {
-        self.box_shadows.set(surface, box_shadow);
-    }
-
-    pub fn set_background_color(&mut self, surface: SurfaceId, color: Option<Color>) {
-        self.background_colors.set(surface, color);
-    }
-
-    pub fn set_image(&mut self, surface: SurfaceId, image: Option<Image>) {
-        self.images.set(surface, image);
-    }
-
-    pub fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
-        self.texts.set(surface, text);
-    }
-
-    pub fn set_border(&mut self, surface: SurfaceId, border: Option<Border>) {
-        self.borders.set(surface, border);
+    pub fn calculate_layout(&mut self) {
+        self.computed_layouts = self.layout_service.get_computed_layouts(0)
     }
 
     fn index_of(&self, parent: SurfaceId, child: SurfaceId) -> usize {
-        self.children
-            .get(parent)
+        self.children[parent]
             .iter()
             .position(|id| *id == child)
-            .expect("not found")
-    }
-
-    pub fn get_surface_data(&self, surface: SurfaceId) -> SurfaceData {
-        SurfaceData {
-            scene: self,
-            id: surface,
-        }
+            .expect("child not found")
     }
 }
 
-pub struct SurfaceData<'a> {
-    scene: &'a Scene,
-    id: SurfaceId,
+impl Scene for ArrayScene {
+    fn create_surface(&mut self) -> SurfaceId {
+        let id = self.children.len();
+
+        self.layout_service.alloc();
+        self.children.push(vec![]);
+
+        id
+    }
+
+    fn children(&self, parent: SurfaceId) -> &[SurfaceId] {
+        &self.children[parent]
+    }
+
+    fn append_child(&mut self, parent: SurfaceId, child: SurfaceId) {
+        self.layout_service.append_child(parent, child);
+        self.children[parent].push(child);
+    }
+
+    fn insert_before(&mut self, parent: SurfaceId, child: SurfaceId, before: SurfaceId) {
+        let index = self.index_of(parent, before);
+        self.children[parent].insert(index, child);
+        self.layout_service.insert_at(parent, child, index as u32);
+    }
+
+    fn remove_child(&mut self, parent: SurfaceId, child: SurfaceId) {
+        let index = self.index_of(parent, child);
+        self.children[parent].remove(index);
+        self.layout_service.remove_child(parent, child);
+    }
+
+    fn set_size(&mut self, surface: SurfaceId, size: Size) {
+        self.layout_service.set_size(surface, size);
+    }
+
+    fn set_flex(&mut self, surface: SurfaceId, flex: Flex) {
+        self.layout_service.set_flex(surface, flex);
+    }
+
+    fn set_flow(&mut self, surface: SurfaceId, flow: Flow) {
+        self.layout_service.set_flow(surface, flow);
+    }
+
+    fn set_padding(&mut self, surface: SurfaceId, padding: Rect) {
+        self.layout_service.set_padding(surface, padding);
+    }
+
+    fn set_margin(&mut self, surface: SurfaceId, margin: Rect) {
+        self.layout_service.set_margin(surface, margin);
+    }
+
+    fn computed_layout(&self, surface: SurfaceId) -> &ComputedLayout {
+        &self.computed_layouts[surface]
+    }
+
+    fn border_radius(&self, surface: SurfaceId) -> Option<&BorderRadius> {
+        self.border_radii.get(&surface)
+    }
+
+    fn set_border_radius(&mut self, surface: SurfaceId, border_radius: Option<BorderRadius>) {
+        self.border_radii.set(surface, border_radius);
+    }
+
+    fn box_shadow(&self, surface: SurfaceId) -> Option<&BoxShadow> {
+        self.box_shadows.get(&surface)
+    }
+
+    fn set_box_shadow(&mut self, surface: SurfaceId, box_shadow: Option<BoxShadow>) {
+        self.box_shadows.set(surface, box_shadow);
+    }
+
+    fn background_color(&self, surface: SurfaceId) -> Option<&Color> {
+        self.background_colors.get(&surface)
+    }
+
+    fn set_background_color(&mut self, surface: SurfaceId, color: Option<Color>) {
+        self.background_colors.set(surface, color);
+    }
+
+    fn image(&self, surface: SurfaceId) -> Option<&Image> {
+        self.images.get(&surface)
+    }
+
+    fn set_image(&mut self, surface: SurfaceId, image: Option<Image>) {
+        self.images.set(surface, image);
+    }
+
+    fn text(&self, surface: SurfaceId) -> Option<&Text> {
+        self.texts.get(&surface)
+    }
+
+    fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
+        self.texts.set(surface, text.clone());
+        self.layout_service.set_text(surface, text);
+    }
+
+    fn border(&self, surface: SurfaceId) -> Option<&Border> {
+        self.borders.get(&surface)
+    }
+
+    fn set_border(&mut self, surface: SurfaceId, border: Option<Border>) {
+        self.borders.set(surface, border);
+        // TODO: layout_service.set_border
+    }
 }
 
-impl<'a> SurfaceData<'a> {
-    pub fn id(&self) -> SurfaceId {
-        self.id
-    }
-
-    pub fn border_radius(&self) -> Option<&'a BorderRadius> {
-        self.scene.border_radii.get(self.id)
-    }
-
-    pub fn box_shadow(&self) -> Option<&'a BoxShadow> {
-        self.scene.box_shadows.get(self.id)
-    }
-
-    pub fn background_color(&self) -> Option<&'a Color> {
-        self.scene.background_colors.get(self.id)
-    }
-
-    pub fn image(&self) -> Option<&'a Image> {
-        self.scene.images.get(self.id)
-    }
-
-    pub fn text(&self) -> Option<&'a Text> {
-        self.scene.texts.get(self.id)
-    }
-
-    pub fn border(&self) -> Option<&'a Border> {
-        self.scene.borders.get(self.id)
-    }
-
-    pub fn children(&'a self) -> impl Iterator<Item = SurfaceData<'a>> {
-        self.scene
-            .children
-            .get(self.id)
-            .iter()
-            .map(move |child_id| self.scene.get_surface_data(*child_id))
-    }
-}
-
+// TODO
+/*
 impl<'a> Debug for SurfaceData<'a> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         let children: Vec<SurfaceData> = self.children().map(|ch| ch).collect();
@@ -198,6 +231,8 @@ impl<'a> Debug for SurfaceData<'a> {
         Ok(())
     }
 }
+
+*/
 
 /*
 #[cfg(test)]
