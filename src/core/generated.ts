@@ -151,12 +151,12 @@ export interface UpdateSceneMsgSetFlow {
 
 export interface UpdateSceneMsgSetPadding {
   surface: SurfaceId
-  padding: Rect
+  padding: Dimensions
 }
 
 export interface UpdateSceneMsgSetMargin {
   surface: SurfaceId
-  margin: Rect
+  margin: Dimensions
 }
 
 export interface UpdateSceneMsgSetBoxShadow {
@@ -344,6 +344,23 @@ export module Size {
 }
 
 export interface Rect {
+  0: number
+  1: number
+  2: number
+  3: number
+  length: 4
+}
+
+export module Rect {
+  export const mk = (p0: number, p1: number, p2: number, p3: number): Rect => [
+    p0,
+    p1,
+    p2,
+    p3
+  ]
+}
+
+export interface Dimensions {
   0: Dimension
   1: Dimension
   2: Dimension
@@ -351,13 +368,13 @@ export interface Rect {
   length: 4
 }
 
-export module Rect {
+export module Dimensions {
   export const mk = (
     p0: Dimension,
     p1: Dimension,
     p2: Dimension,
     p3: Dimension
-  ): Rect => [p0, p1, p2, p3]
+  ): Dimensions => [p0, p1, p2, p3]
 }
 
 export interface Vector2f {

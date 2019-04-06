@@ -1,6 +1,6 @@
 use crate::api::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Image,
-    Text, SurfaceId, Scene
+    Text, SurfaceId, Scene, Rect
 };
 use crate::generated::Vector2f;
 use super::SceneRenderer;
@@ -149,8 +149,8 @@ impl SceneRenderer for WebrenderRenderer{
         //debug!("render\n{:#?}", surface);
 
         let surface = 0;
-        let (_, _, width, height) = scene.computed_layout(surface);
-        let content_size = LayoutSize::new(*width, *height);
+        let Rect(_, _, width, height) = scene.computed_layout(surface);
+        let content_size = LayoutSize::new(width, height);
         let pipeline_id = PIPELINE_ID;
 
         let builder = {
@@ -195,10 +195,10 @@ impl<'a> RenderContext<'a> {
         let parent_layout = self.layout;
         let parent_space_and_clip = self.space_and_clip;
 
-        let (x, y, width, height) = self.scene.computed_layout(surface);
+        let Rect(x, y, width, height) = self.scene.computed_layout(surface);
 
         self.layout = LayoutPrimitiveInfo::new(
-            LayoutRect::new(LayoutPoint::new(*x, *y), LayoutSize::new(*width, *height))
+            LayoutRect::new(LayoutPoint::new(x, y), LayoutSize::new(width, height))
                 .translate(&parent_layout.rect.origin.to_vector()),
         );
 

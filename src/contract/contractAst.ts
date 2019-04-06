@@ -13,6 +13,13 @@ const Dimension = Union('Dimension', [
 const Size = Tuple('Size', [T.RefTo(Dimension), T.RefTo(Dimension)])
 
 const Rect = Tuple('Rect', [
+  T.Scalar.F32,
+  T.Scalar.F32,
+  T.Scalar.F32,
+  T.Scalar.F32
+])
+
+const Dimensions = Tuple('Dimensions', [
   T.RefTo(Dimension),
   T.RefTo(Dimension),
   T.RefTo(Dimension),
@@ -139,11 +146,11 @@ const UpdateSceneMsg = Union('UpdateSceneMsg', [
   }),
   V.Struct('SetPadding', {
     surface: T.RefTo(SurfaceId),
-    padding: T.RefTo(Rect)
+    padding: T.RefTo(Dimensions)
   }),
   V.Struct('SetMargin', {
     surface: T.RefTo(SurfaceId),
-    margin: T.RefTo(Rect)
+    margin: T.RefTo(Dimensions)
   }),
   V.Struct('SetBoxShadow', {
     surface: T.RefTo(SurfaceId),
@@ -231,6 +238,7 @@ export const exampleEntries: EntryT[] = [
   Dimension,
   Size,
   Rect,
+  Dimensions,
   Vector2f,
   BorderRadius,
   BoxShadow,

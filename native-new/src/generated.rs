@@ -56,8 +56,8 @@ pub enum UpdateSceneMsg {
     SetSize { surface: SurfaceId, size: Size },
     SetFlex { surface: SurfaceId, flex: Flex },
     SetFlow { surface: SurfaceId, flow: Flow },
-    SetPadding { surface: SurfaceId, padding: Rect },
-    SetMargin { surface: SurfaceId, margin: Rect },
+    SetPadding { surface: SurfaceId, padding: Dimensions },
+    SetMargin { surface: SurfaceId, margin: Dimensions },
     SetBoxShadow { surface: SurfaceId, #[serde(rename = "boxShadow")] box_shadow: Option<BoxShadow> },
     SetBackgroundColor { surface: SurfaceId, color: Option<Color> },
     SetImage { surface: SurfaceId, image: Option<Image> },
@@ -165,7 +165,11 @@ pub struct Size(pub Dimension, pub Dimension);
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Rect(pub Dimension, pub Dimension, pub Dimension, pub Dimension);
+pub struct Rect(pub f32, pub f32, pub f32, pub f32);
+
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Dimensions(pub Dimension, pub Dimension, pub Dimension, pub Dimension);
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

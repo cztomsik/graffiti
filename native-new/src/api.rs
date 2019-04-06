@@ -55,11 +55,11 @@ pub trait Scene {
     fn set_size(&mut self, surface: SurfaceId, size: Size);
     fn set_flex(&mut self, surface: SurfaceId, flex: Flex);
     fn set_flow(&mut self, surface: SurfaceId, flow: Flow);
-    fn set_padding(&mut self, surface: SurfaceId, padding: Rect);
-    fn set_margin(&mut self, surface: SurfaceId, margin: Rect);
+    fn set_padding(&mut self, surface: SurfaceId, padding: Dimensions);
+    fn set_margin(&mut self, surface: SurfaceId, margin: Dimensions);
 
     // layout info
-    fn computed_layout(&self, surface: SurfaceId) -> &ComputedLayout;
+    fn computed_layout(&self, surface: SurfaceId) -> Rect;
 
     // layout/visual
     fn border_radius(&self, surface: SurfaceId) -> Option<&BorderRadius>;
@@ -78,11 +78,8 @@ pub trait Scene {
     fn set_border(&mut self, surface: SurfaceId, border: Option<Border>);
 }
 
-// TODO: should be in codegen (onLayout is going to receive this)
-pub type ComputedLayout = (f32, f32, f32, f32);
-
 // re-export some value objects
 pub use crate::generated::{
-    Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Dimension, Flex, Flow, Image,
+    Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Dimension, Dimensions, Flex, Flow, Image,
     Rect, Size, SurfaceId, Text, TextAlign, WindowId, FlexAlign, FlexDirection, FlexWrap, JustifyContent
 };

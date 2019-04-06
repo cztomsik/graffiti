@@ -6,60 +6,62 @@ use yoga::{
     Node as YogaNode, NodeRef, StyleUnit, Wrap,
 };
 
-use super::LayoutService;
+use super::LayoutTree;
 use crate::api::{
-    ComputedLayout, Dimension, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent,
-    Rect, Scene, Size, SurfaceId, Text,
+    Rect, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent,
+    Size, Text,
 };
 use crate::text::{PangoService, TextMeasurer};
 use crate::Id;
 use yoga::types::Justify;
 
-pub struct YogaLayoutService {
+pub struct YogaTree {
     yoga_nodes: Vec<YogaNode>,
     pango_service: PangoService,
 }
 
-impl<'svc> YogaLayoutService {
+impl YogaTree {
     pub fn new() -> Self {
-        YogaLayoutService {
+        YogaTree {
             yoga_nodes: vec![],
             pango_service: PangoService::new(),
         }
     }
+}
 
-    pub fn alloc(&mut self) {
+impl LayoutTree for YogaTree {
+    fn alloc(&mut self) {
         self.yoga_nodes.push(YogaNode::new())
     }
 
-    pub fn append_child(&mut self, parent: Id, child: Id) {
+    fn append_child(&mut self, parent: Id, child: Id) {
         let (parent, child) = get_two_muts(&mut self.yoga_nodes, parent, child);
 
         let index = parent.get_child_count();
         parent.insert_child(child, index);
     }
 
-    pub fn remove_child(&mut self, parent: Id, child: Id) {
+    fn remove_child(&mut self, parent: Id, child: Id) {
         let (parent, child) = get_two_muts(&mut self.yoga_nodes, parent, child);
 
         parent.remove_child(child);
     }
 
     // easier with index rather than with Id
-    pub fn insert_at(&mut self, parent: Id, child: Id, index: u32) {
+    fn insert_at(&mut self, parent: Id, child: Id, index: u32) {
         let (parent, child) = get_two_muts(&mut self.yoga_nodes, parent, child);
 
         parent.insert_child(child, index);
     }
 
-    pub fn set_size(&mut self, id: Id, size: Size) {
+    fn set_size(&mut self, id: Id, size: Size) {
         self.yoga_nodes[id].apply_styles(&vec![
             FlexStyle::Width(size.0.into()),
             FlexStyle::Height(size.1.into()),
         ])
     }
 
-    pub fn set_flex(&mut self, id: Id, flex: Flex) {
+    fn set_flex(&mut self, id: Id, flex: Flex) {
         self.yoga_nodes[id].apply_styles(&vec![
             FlexStyle::FlexGrow(flex.flex_grow.into()),
             FlexStyle::FlexShrink(flex.flex_shrink.into()),
@@ -67,7 +69,7 @@ impl<'svc> YogaLayoutService {
         ]);
     }
 
-    pub fn set_flow(&mut self, id: Id, flow: Flow) {
+    fn set_flow(&mut self, id: Id, flow: Flow) {
         self.yoga_nodes[id].apply_styles(&vec![
             FlexStyle::FlexDirection(flow.flex_direction.into()),
             FlexStyle::FlexWrap(flow.flex_wrap.into()),
@@ -77,7 +79,7 @@ impl<'svc> YogaLayoutService {
         ]);
     }
 
-    pub fn set_padding(&mut self, id: Id, padding: Rect) {
+    fn set_padding(&mut self, id: Id, padding: Dimensions) {
         self.yoga_nodes[id].apply_styles(&vec![
             FlexStyle::PaddingTop(padding.0.into()),
             FlexStyle::PaddingRight(padding.1.into()),
@@ -86,7 +88,7 @@ impl<'svc> YogaLayoutService {
         ]);
     }
 
-    pub fn set_margin(&mut self, id: Id, margin: Rect) {
+    fn set_margin(&mut self, id: Id, margin: Dimensions) {
         self.yoga_nodes[id].apply_styles(&vec![
             FlexStyle::MarginTop(margin.0.into()),
             FlexStyle::MarginRight(margin.1.into()),
@@ -95,7 +97,7 @@ impl<'svc> YogaLayoutService {
         ]);
     }
 
-    pub fn set_text(&'svc mut self, id: Id, text: Option<Text>) {
+    fn set_text(&mut self, id: Id, text: Option<Text>) {
         let node = &mut self.yoga_nodes[id];
 
         if let Some(text) = text {
@@ -119,23 +121,20 @@ impl<'svc> YogaLayoutService {
             node.set_context(None);
         }
     }
-}
 
-impl LayoutService for YogaLayoutService {
-    fn get_computed_layouts(&mut self, surface: SurfaceId) -> Vec<ComputedLayout> {
-        self.yoga_nodes[surface].calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
+    fn calculate(&mut self) {
+        self.yoga_nodes[0].calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
+    }
 
-        self.yoga_nodes
-            .iter()
-            .map(|n| {
-                (
-                    n.get_layout_left(),
-                    n.get_layout_top(),
-                    n.get_layout_width(),
-                    n.get_layout_height(),
-                )
-            })
-            .collect()
+    fn computed_layout(&self, id: Id) -> Rect {
+        let n = &self.yoga_nodes[id];
+
+        Rect(
+            n.get_layout_left(),
+            n.get_layout_top(),
+            n.get_layout_width(),
+            n.get_layout_height()
+        )
     }
 }
 

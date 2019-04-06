@@ -1,9 +1,9 @@
 pub use crate::api::{
-    Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Flex, Flow, Image, Rect,
-    Size, Text, SurfaceId, Dimension, Scene
+    Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Flex, Flow, Image,
+    Size, Text, SurfaceId, Dimension, Dimensions, Scene
 };
-use crate::layout::{YogaLayoutService, LayoutService};
-use crate::api::ComputedLayout;
+use crate::layout::{LayoutTree, YogaTree};
+use crate::api::Rect;
 use std::collections::BTreeMap;
 use crate::storage::Storage;
 
@@ -32,7 +32,9 @@ use crate::storage::Storage;
 ///
 ///     2. most of the data will be sparse which is not good for performance
 ///
-/// And this is basically an attempt to implement a whole tree of surfaces (rootNode) as a
+///     3. we often want to react on changes
+///
+/// This is an attempt to implement a whole tree of surfaces (rootNode) as a
 /// "struct of arrays" which should make rendering way-faster (by being cpu cache-friendly)
 pub struct ArrayScene {
     // TODO: add vec of presence bitflags, so that we can quickly detect if surface has a border/shadow/... or not
@@ -44,8 +46,7 @@ pub struct ArrayScene {
     texts: BTreeMap<SurfaceId, Text>,
     images: BTreeMap<SurfaceId, Image>,
     borders: BTreeMap<SurfaceId, Border>,
-    layout_service: YogaLayoutService,
-    computed_layouts: Vec<ComputedLayout>
+    layout_tree: YogaTree
 }
 
 impl ArrayScene {
@@ -58,8 +59,7 @@ impl ArrayScene {
             texts: BTreeMap::new(),
             images: BTreeMap::new(),
             borders: BTreeMap::new(),
-            layout_service: YogaLayoutService::new(),
-            computed_layouts: vec![],
+            layout_tree: YogaTree::new()
         };
 
         // root
@@ -69,7 +69,7 @@ impl ArrayScene {
     }
 
     pub fn set_layout_size(&mut self, width: f32, height: f32) {
-        self.layout_service.set_size(
+        self.layout_tree.set_size(
             0,
             Size(
                 Dimension::Point(width),
@@ -79,7 +79,7 @@ impl ArrayScene {
     }
 
     pub fn calculate_layout(&mut self) {
-        self.computed_layouts = self.layout_service.get_computed_layouts(0)
+        self.layout_tree.calculate();
     }
 
     fn index_of(&self, parent: SurfaceId, child: SurfaceId) -> usize {
@@ -94,7 +94,7 @@ impl Scene for ArrayScene {
     fn create_surface(&mut self) -> SurfaceId {
         let id = self.children.len();
 
-        self.layout_service.alloc();
+        self.layout_tree.alloc();
         self.children.push(vec![]);
 
         id
@@ -105,44 +105,44 @@ impl Scene for ArrayScene {
     }
 
     fn append_child(&mut self, parent: SurfaceId, child: SurfaceId) {
-        self.layout_service.append_child(parent, child);
+        self.layout_tree.append_child(parent, child);
         self.children[parent].push(child);
     }
 
     fn insert_before(&mut self, parent: SurfaceId, child: SurfaceId, before: SurfaceId) {
         let index = self.index_of(parent, before);
         self.children[parent].insert(index, child);
-        self.layout_service.insert_at(parent, child, index as u32);
+        self.layout_tree.insert_at(parent, child, index as u32);
     }
 
     fn remove_child(&mut self, parent: SurfaceId, child: SurfaceId) {
         let index = self.index_of(parent, child);
         self.children[parent].remove(index);
-        self.layout_service.remove_child(parent, child);
+        self.layout_tree.remove_child(parent, child);
     }
 
     fn set_size(&mut self, surface: SurfaceId, size: Size) {
-        self.layout_service.set_size(surface, size);
+        self.layout_tree.set_size(surface, size);
     }
 
     fn set_flex(&mut self, surface: SurfaceId, flex: Flex) {
-        self.layout_service.set_flex(surface, flex);
+        self.layout_tree.set_flex(surface, flex);
     }
 
     fn set_flow(&mut self, surface: SurfaceId, flow: Flow) {
-        self.layout_service.set_flow(surface, flow);
+        self.layout_tree.set_flow(surface, flow);
     }
 
-    fn set_padding(&mut self, surface: SurfaceId, padding: Rect) {
-        self.layout_service.set_padding(surface, padding);
+    fn set_padding(&mut self, surface: SurfaceId, padding: Dimensions) {
+        self.layout_tree.set_padding(surface, padding);
     }
 
-    fn set_margin(&mut self, surface: SurfaceId, margin: Rect) {
-        self.layout_service.set_margin(surface, margin);
+    fn set_margin(&mut self, surface: SurfaceId, margin: Dimensions) {
+        self.layout_tree.set_margin(surface, margin);
     }
 
-    fn computed_layout(&self, surface: SurfaceId) -> &ComputedLayout {
-        &self.computed_layouts[surface]
+    fn computed_layout(&self, surface: SurfaceId) -> Rect {
+        self.layout_tree.computed_layout(surface)
     }
 
     fn border_radius(&self, surface: SurfaceId) -> Option<&BorderRadius> {
@@ -183,7 +183,7 @@ impl Scene for ArrayScene {
 
     fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
         self.texts.set(surface, text.clone());
-        self.layout_service.set_text(surface, text);
+        self.layout_tree.set_text(surface, text);
     }
 
     fn border(&self, surface: SurfaceId) -> Option<&Border> {
