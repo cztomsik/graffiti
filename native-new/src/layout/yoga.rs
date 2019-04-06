@@ -55,14 +55,14 @@ impl LayoutTree for YogaTree {
     }
 
     fn set_size(&mut self, id: Id, size: Size) {
-        self.yoga_nodes[id].apply_styles(&vec![
+        self.yoga_nodes[id].apply_styles(&[
             FlexStyle::Width(size.0.into()),
             FlexStyle::Height(size.1.into()),
         ])
     }
 
     fn set_flex(&mut self, id: Id, flex: Flex) {
-        self.yoga_nodes[id].apply_styles(&vec![
+        self.yoga_nodes[id].apply_styles(&[
             FlexStyle::FlexGrow(flex.flex_grow.into()),
             FlexStyle::FlexShrink(flex.flex_shrink.into()),
             FlexStyle::FlexBasis(flex.flex_basis.into()),
@@ -70,7 +70,7 @@ impl LayoutTree for YogaTree {
     }
 
     fn set_flow(&mut self, id: Id, flow: Flow) {
-        self.yoga_nodes[id].apply_styles(&vec![
+        self.yoga_nodes[id].apply_styles(&[
             FlexStyle::FlexDirection(flow.flex_direction.into()),
             FlexStyle::FlexWrap(flow.flex_wrap.into()),
             FlexStyle::JustifyContent(flow.justify_content.into()),
@@ -80,7 +80,7 @@ impl LayoutTree for YogaTree {
     }
 
     fn set_padding(&mut self, id: Id, padding: Dimensions) {
-        self.yoga_nodes[id].apply_styles(&vec![
+        self.yoga_nodes[id].apply_styles(&[
             FlexStyle::PaddingTop(padding.0.into()),
             FlexStyle::PaddingRight(padding.1.into()),
             FlexStyle::PaddingBottom(padding.2.into()),
@@ -89,7 +89,7 @@ impl LayoutTree for YogaTree {
     }
 
     fn set_margin(&mut self, id: Id, margin: Dimensions) {
-        self.yoga_nodes[id].apply_styles(&vec![
+        self.yoga_nodes[id].apply_styles(&[
             FlexStyle::MarginTop(margin.0.into()),
             FlexStyle::MarginRight(margin.1.into()),
             FlexStyle::MarginBottom(margin.2.into()),
