@@ -307,15 +307,15 @@ export class NotSureWhat {
         return
       }
       case "MouseDown": {
-        const target = this.downTarget = this.moveTarget
+        const target = this.downTarget = event.value.target
         return this.dispatch(this.listeners.onMouseDown, target, { target })
       }
       case "MouseUp": {
-        const target = this.moveTarget
+        const target = event.value.target
 
         this.dispatch(this.listeners.onMouseUp, target, { target })
 
-        if (this.moveTarget === this.downTarget) {
+        if (target === this.downTarget) {
           this.dispatch(this.listeners.onClick, target, { target })
         }
 

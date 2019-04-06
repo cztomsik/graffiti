@@ -21,7 +21,7 @@ use webrender::api::{
     ImageDisplayItem, ImageFormat, ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect,
     LayoutSize, LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
     ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem, Transaction,
-    HitTestFlags, WorldPoint, ComplexClipRegion, ClipMode,
+    HitTestFlags, WorldPoint, ComplexClipRegion, ClipMode, ScrollLocation,
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 use webrender::{Renderer, RendererOptions};
@@ -130,8 +130,11 @@ impl WebrenderRenderer {
         tx.set_display_list(Epoch(0), None, self.layout_size, builder.finalize(), true);
         tx.generate_frame();
 
-        self.render_api.send_transaction(self.document_id, tx);
+        self.send_tx(tx);
+    }
 
+    fn send_tx(&mut self, tx: Transaction) {
+        self.render_api.send_transaction(self.document_id, tx);
         self.wait_for_frame();
     }
 
@@ -141,6 +144,17 @@ impl WebrenderRenderer {
 
         self.renderer.update();
         self.renderer.render(self.fb_size).ok();
+    }
+
+    pub fn scroll(&mut self, mouse_pos: (f32, f32), delta: (f32, f32)) {
+        let mut tx = Transaction::new();
+        let scroll_location = ScrollLocation::Delta(LayoutVector2D::new(delta.0, delta.1));
+        let cursor = WorldPoint::new(mouse_pos.0, mouse_pos.1);
+
+        tx.scroll(scroll_location, cursor);
+        tx.generate_frame();
+
+        self.send_tx(tx);
     }
 }
 

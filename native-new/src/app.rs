@@ -36,10 +36,10 @@ impl App for TheApp {
             self.glfw.wait_events_timeout(0.1);
         }
 
-        for (id, (window, events)) in self.windows.iter() {
+        for (id, (window, events)) in self.windows.iter_mut() {
             if let Ok((_, event)) = events.try_recv() {
                 return window
-                    .translate_event(event)
+                    .handle_event(event)
                     .map(|event| Event::WindowEvent { window: *id, event });
             }
         }

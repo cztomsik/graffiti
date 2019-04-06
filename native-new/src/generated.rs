@@ -32,8 +32,9 @@ pub enum Event {
 #[serde(tag = "tag", content = "value")]
 pub enum WindowEvent {
     MouseMove { target: usize },
-    MouseDown,
-    MouseUp,
+    MouseDown { target: usize },
+    MouseUp { target: usize },
+    Scroll { target: usize },
     KeyDown,
     KeyPress(u16),
     KeyUp,

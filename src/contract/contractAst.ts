@@ -190,8 +190,15 @@ const WindowEvent = Union('WindowEvent', [
   V.Struct('MouseMove', {
     target: T.Scalar.USIZE
   }),
-  V.Unit('MouseDown'),
-  V.Unit('MouseUp'),
+  V.Struct('MouseDown', {
+    target: T.Scalar.USIZE
+  }),
+  V.Struct('MouseUp', {
+    target: T.Scalar.USIZE
+  }),
+  V.Struct('Scroll', {
+    target: T.Scalar.USIZE
+  }),
 
   V.Unit('KeyDown'),
   V.NewType('KeyPress', T.Scalar.U16),

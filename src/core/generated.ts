@@ -54,8 +54,9 @@ export module Event {
 
 export type WindowEvent =
   | { tag: 'MouseMove'; value: WindowEventMouseMove }
-  | { tag: 'MouseDown' }
-  | { tag: 'MouseUp' }
+  | { tag: 'MouseDown'; value: WindowEventMouseDown }
+  | { tag: 'MouseUp'; value: WindowEventMouseUp }
+  | { tag: 'Scroll'; value: WindowEventScroll }
   | { tag: 'KeyDown' }
   | { tag: 'KeyPress'; value: number }
   | { tag: 'KeyUp' }
@@ -69,15 +70,38 @@ export interface WindowEventMouseMove {
   target: number
 }
 
+export interface WindowEventMouseDown {
+  target: number
+}
+
+export interface WindowEventMouseUp {
+  target: number
+}
+
+export interface WindowEventScroll {
+  target: number
+}
+
 export module WindowEvent {
   export const MouseMove = (value: WindowEventMouseMove): WindowEvent => ({
     tag: 'MouseMove',
     value
   })
 
-  export const MouseDown: WindowEvent = { tag: 'MouseDown' }
+  export const MouseDown = (value: WindowEventMouseDown): WindowEvent => ({
+    tag: 'MouseDown',
+    value
+  })
 
-  export const MouseUp: WindowEvent = { tag: 'MouseUp' }
+  export const MouseUp = (value: WindowEventMouseUp): WindowEvent => ({
+    tag: 'MouseUp',
+    value
+  })
+
+  export const Scroll = (value: WindowEventScroll): WindowEvent => ({
+    tag: 'Scroll',
+    value
+  })
 
   export const KeyDown: WindowEvent = { tag: 'KeyDown' }
 
