@@ -15,6 +15,7 @@ nav_order: 1
 
 ### OSX/MacOs
 `xcode-select --install`
+`brew install cmake pango`
 
 ### Win
 - [track here](https://github.com/cztomsik/node-webrender/issues/37) but it's a bit like never-ending story so any help would be very welcome.

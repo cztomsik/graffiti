@@ -1,5 +1,5 @@
 export type FfiMsg =
-  | { tag: 'GetNextEvent' }
+  | { tag: 'GetNextEvent'; value: boolean }
   | { tag: 'CreateWindow' }
   | { tag: 'UpdateScene'; value: FfiMsgUpdateScene }
 
@@ -9,7 +9,10 @@ export interface FfiMsgUpdateScene {
 }
 
 export module FfiMsg {
-  export const GetNextEvent: FfiMsg = { tag: 'GetNextEvent' }
+  export const GetNextEvent = (value: boolean): FfiMsg => ({
+    tag: 'GetNextEvent',
+    value
+  })
 
   export const CreateWindow: FfiMsg = { tag: 'CreateWindow' }
 

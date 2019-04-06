@@ -6,15 +6,16 @@ import { Hello } from './Hello'
 import { Counter } from './Counter'
 import { Calculator } from './Calculator'
 import { Hover } from './Hover'
+import { Bench } from './Bench'
 
-const examples = [Hello, Counter, Calculator, Hover].map(Comp => ({
+const examples = [Hello, Counter, Calculator, Hover, Bench].map(Comp => ({
   name: Comp.name,
   Comp,
   source: readFileSync(`${__dirname}/${Comp.name}.tsx`, 'utf-8')
 }))
 
 export function App() {
-  const [activeIndex, setActive] = useState(2)
+  const [activeIndex, setActive] = useState(4)
   const example = examples[activeIndex]
 
   return (

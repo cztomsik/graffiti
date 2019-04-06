@@ -177,7 +177,7 @@ const UpdateSceneMsg = Union('UpdateSceneMsg', [
 const WindowId = Alias('WindowId', T.Scalar.U16)
 
 const FfiMsg = Union('FfiMsg', [
-  V.Unit('GetNextEvent'),
+  V.NewType('GetNextEvent', T.Scalar.Bool),
   V.Unit('CreateWindow'),
   V.Struct('UpdateScene', {
     window: T.RefTo(WindowId),

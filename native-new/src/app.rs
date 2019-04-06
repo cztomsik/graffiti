@@ -28,10 +28,13 @@ impl TheApp {
 }
 
 impl App for TheApp {
-    fn get_next_event(&mut self) -> Option<Event> {
-        // TODO: poll if we are animating
-        // wait a bit otherwise (save battery)
-        self.glfw.wait_events_timeout(0.1);
+    fn get_next_event(&mut self, poll: bool) -> Option<Event> {
+        if poll {
+            self.glfw.poll_events()
+        } else {
+            // wait a bit otherwise (save battery)
+            self.glfw.wait_events_timeout(0.1);
+        }
 
         for (id, (window, events)) in self.windows.iter() {
             if let Ok((_, event)) = events.try_recv() {

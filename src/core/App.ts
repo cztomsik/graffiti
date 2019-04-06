@@ -4,6 +4,8 @@ import * as ffi from './nativeApi'
 
 export class App {
   windows: { [k: number]: Window } = {}
+  animating = false
+  animationFrames: Function[] = []
 
   constructor(private ffi) {}
 
@@ -27,8 +29,6 @@ export class App {
       // maybe we could use async_hooks to know if there was anything requested and if not,
       // just wait indefinitely
 
-      // TODO: in case we were animating, we should just poll
-      // (add timeout param to GetNextEvent)
       const event = this.getNextEvent()
 
       if (event !== undefined) {
@@ -37,7 +37,14 @@ export class App {
         }
       }
 
-      // TODO: raf
+      if (this.animating = this.animationFrames.length > 0) {
+        const frames = this.animationFrames
+        this.animationFrames = []
+
+        for (const cb of frames) {
+          cb()
+        }
+      }
 
       // TODO: inactive windows could be throttled, maybe even stopped
       // but we should keep HMR working (update in inactive window)
@@ -52,11 +59,15 @@ export class App {
   }
 
   getNextEvent(): Event | undefined {
-    const res = this.ffi.send(FfiMsg.GetNextEvent)
+    const res = this.ffi.send(FfiMsg.GetNextEvent(this.animating))
 
     if (res.tag === 'Event') {
       return res.value
     }
+  }
+
+  requestAnimationFrame(cb) {
+    this.animationFrames.push(cb)
   }
 }
 
@@ -65,7 +76,8 @@ export const APP: App = new Proxy({}, {
   get(holder: any, property) {
     if (!holder.INSTANCE) {
       ffi.init()
-      holder.INSTANCE = new App(ffi)
+      const app = holder.INSTANCE = new App(ffi)
+      global['requestAnimationFrame'] = app.requestAnimationFrame.bind(app)
     }
 
     return holder.INSTANCE[property]
