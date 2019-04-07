@@ -1,9 +1,9 @@
-use super::{
-    Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, ComputedLayout, Image,
-    RenderService, Text,
+use crate::api::{
+    Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Image,
+    Text, SurfaceId, Scene, Rect
 };
 use crate::generated::Vector2f;
-use crate::scene::{SurfaceId, SurfaceData};
+use super::SceneRenderer;
 use crate::temp;
 use crate::text::{LaidGlyph, PangoService, TextShaper};
 use gleam::gl::Gl;
@@ -21,12 +21,12 @@ use webrender::api::{
     ImageDisplayItem, ImageFormat, ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect,
     LayoutSize, LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
     ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem, Transaction,
-    HitTestFlags, WorldPoint, ComplexClipRegion, ClipMode,
+    HitTestFlags, WorldPoint, ComplexClipRegion, ClipMode, ScrollLocation,
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 use webrender::{Renderer, RendererOptions};
 
-pub struct WebrenderRenderService {
+pub struct WebrenderRenderer {
     text_shaper: PangoService,
 
     renderer: Renderer,
@@ -42,7 +42,7 @@ pub struct WebrenderRenderService {
     // _uploaded_images: BTreeMap<String, ImageKey>
 }
 
-impl WebrenderRenderService {
+impl WebrenderRenderer {
     pub fn new(gl: Rc<Gl>) -> Self {
         let fb_size = DeviceIntSize::new(1024, 768);
         let layout_size = LayoutSize::new(fb_size.width as f32, fb_size.height as f32);
@@ -52,7 +52,7 @@ impl WebrenderRenderService {
 
         Self::load_fonts(&mut render_api, document_id, &rx);
 
-        WebrenderRenderService {
+        WebrenderRenderer {
             // find out how to share one ref with YogaService
             text_shaper: PangoService::new(),
 
@@ -70,7 +70,7 @@ impl WebrenderRenderService {
     pub fn hit_test(&self, x: f32, y: f32) -> Option<SurfaceId> {
         let res = self.render_api.hit_test(self.document_id, Some(PIPELINE_ID), WorldPoint::new(x, y), HitTestFlags::empty());
 
-        res.items.get(0).map(|item| item.tag.1)
+        res.items.get(0).map(|item| item.tag.1 as usize)
     }
 
     pub fn resize() {}
@@ -130,8 +130,11 @@ impl WebrenderRenderService {
         tx.set_display_list(Epoch(0), None, self.layout_size, builder.finalize(), true);
         tx.generate_frame();
 
-        self.render_api.send_transaction(self.document_id, tx);
+        self.send_tx(tx);
+    }
 
+    fn send_tx(&mut self, tx: Transaction) {
+        self.render_api.send_transaction(self.document_id, tx);
         self.wait_for_frame();
     }
 
@@ -142,18 +145,31 @@ impl WebrenderRenderService {
         self.renderer.update();
         self.renderer.render(self.fb_size).ok();
     }
+
+    pub fn scroll(&mut self, mouse_pos: (f32, f32), delta: (f32, f32)) {
+        let mut tx = Transaction::new();
+        let scroll_location = ScrollLocation::Delta(LayoutVector2D::new(delta.0, delta.1));
+        let cursor = WorldPoint::new(mouse_pos.0, mouse_pos.1);
+
+        tx.scroll(scroll_location, cursor);
+        tx.generate_frame();
+
+        self.send_tx(tx);
+    }
 }
 
-impl RenderService for WebrenderRenderService {
-    fn render(&mut self, surface: &SurfaceData, computed_layouts: Vec<ComputedLayout>) {
-        debug!("render\n{:#?}", surface);
+impl SceneRenderer for WebrenderRenderer{
+    fn render(&mut self, scene: &dyn Scene) {
+        //debug!("render\n{:#?}", surface);
 
-        let content_size = LayoutSize::new(computed_layouts[0].2, computed_layouts[0].3);
+        let surface = 0;
+        let Rect(_, _, width, height) = scene.computed_layout(surface);
+        let content_size = LayoutSize::new(width, height);
         let pipeline_id = PIPELINE_ID;
 
         let builder = {
             let mut context = RenderContext {
-                computed_layouts,
+                scene,
                 render_api: &mut self.render_api,
                 text_shaper: &self.text_shaper,
 
@@ -177,7 +193,7 @@ impl RenderService for WebrenderRenderService {
 }
 
 struct RenderContext<'a> {
-    computed_layouts: Vec<ComputedLayout>,
+    scene: &'a dyn Scene,
     render_api: &'a mut RenderApi,
     text_shaper: &'a dyn TextShaper,
 
@@ -189,11 +205,11 @@ struct RenderContext<'a> {
 
 impl<'a> RenderContext<'a> {
     // TODO: scroll
-    fn render_surface(&mut self, surface: &SurfaceData) {
+    fn render_surface(&mut self, surface: SurfaceId) {
         let parent_layout = self.layout;
         let parent_space_and_clip = self.space_and_clip;
 
-        let (x, y, width, height) = self.computed_layouts[surface.id() as usize];
+        let Rect(x, y, width, height) = self.scene.computed_layout(surface);
 
         self.layout = LayoutPrimitiveInfo::new(
             LayoutRect::new(LayoutPoint::new(x, y), LayoutSize::new(width, height))
@@ -206,12 +222,12 @@ impl<'a> RenderContext<'a> {
         //
         // interactive components should set this even if they don't have a callback yet
         // (button should always match, not be click-through)
-        self.layout.tag = Some((0, surface.id()));
+        self.layout.tag = Some((0, surface as u16));
 
-        debug!("surface {} {:?}", surface.id(), self.layout.rect);
+        debug!("surface {} {:?}", surface, self.layout.rect);
 
         // shared, not directly rendered
-        if let Some(border_radius) = surface.border_radius() {
+        if let Some(border_radius) = self.scene.border_radius(surface) {
             self.border_radius = border_radius.clone().into();
 
             let clip_region = ComplexClipRegion::new(self.layout.clip_rect.clone(), self.border_radius, ClipMode::Clip);
@@ -223,7 +239,7 @@ impl<'a> RenderContext<'a> {
             self.border_radius = WRBorderRadius::zero();
         }
 
-        if let Some(box_shadow) = surface.box_shadow() {
+        if let Some(box_shadow) = self.scene.box_shadow(surface) {
             let Vector2f(x, y) = box_shadow.offset;
             let size = box_shadow.spread + box_shadow.blur;
             let layout = LayoutPrimitiveInfo::with_clip_rect(
@@ -240,28 +256,28 @@ impl<'a> RenderContext<'a> {
             );
         }
 
-        if let Some(color) = surface.background_color() {
+        if let Some(color) = self.scene.background_color(surface) {
             self.push(self.background_color(color.clone()));
         }
 
-        if let Some(image) = surface.image() {
+        if let Some(image) = self.scene.image(surface) {
             self.push(self.image(image.clone()));
         }
 
         // TODO: selections (should be below text)
 
-        if let Some(text) = surface.text() {
+        if let Some(text) = self.scene.text(surface) {
             let (item, glyphs) = self.text(text.clone());
 
             self.push(item);
             self.builder.push_iter(glyphs);
         }
 
-        for child_surface in surface.children() {
-            self.render_surface(&child_surface);
+        for child_surface in self.scene.children(surface) {
+            self.render_surface(*child_surface);
         }
 
-        if let Some(border) = surface.border() {
+        if let Some(border) = self.scene.border(surface) {
             self.push(self.border(border.clone()));
         }
 

@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "tag", content = "value")]
 pub enum FfiMsg {
-    GetNextEvent,
+    GetNextEvent(bool),
     CreateWindow,
     UpdateScene { window: WindowId, msgs: Vec<UpdateSceneMsg> },
 }
@@ -31,9 +31,10 @@ pub enum Event {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "tag", content = "value")]
 pub enum WindowEvent {
-    MouseMove { target: u16 },
-    MouseDown,
-    MouseUp,
+    MouseMove { target: usize },
+    MouseDown { target: usize },
+    MouseUp { target: usize },
+    Scroll { target: usize },
     KeyDown,
     KeyPress(u16),
     KeyUp,
@@ -56,8 +57,8 @@ pub enum UpdateSceneMsg {
     SetSize { surface: SurfaceId, size: Size },
     SetFlex { surface: SurfaceId, flex: Flex },
     SetFlow { surface: SurfaceId, flow: Flow },
-    SetPadding { surface: SurfaceId, padding: Rect },
-    SetMargin { surface: SurfaceId, margin: Rect },
+    SetPadding { surface: SurfaceId, padding: Dimensions },
+    SetMargin { surface: SurfaceId, margin: Dimensions },
     SetBoxShadow { surface: SurfaceId, #[serde(rename = "boxShadow")] box_shadow: Option<BoxShadow> },
     SetBackgroundColor { surface: SurfaceId, color: Option<Color> },
     SetImage { surface: SurfaceId, image: Option<Image> },
@@ -69,7 +70,7 @@ pub enum UpdateSceneMsg {
 pub type WindowId = u16;
 
 
-pub type SurfaceId = u16;
+pub type SurfaceId = usize;
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -165,7 +166,11 @@ pub struct Size(pub Dimension, pub Dimension);
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Rect(pub Dimension, pub Dimension, pub Dimension, pub Dimension);
+pub struct Rect(pub f32, pub f32, pub f32, pub f32);
+
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Dimensions(pub Dimension, pub Dimension, pub Dimension, pub Dimension);
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

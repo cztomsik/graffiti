@@ -1,5 +1,5 @@
 export type FfiMsg =
-  | { tag: 'GetNextEvent' }
+  | { tag: 'GetNextEvent'; value: boolean }
   | { tag: 'CreateWindow' }
   | { tag: 'UpdateScene'; value: FfiMsgUpdateScene }
 
@@ -9,7 +9,10 @@ export interface FfiMsgUpdateScene {
 }
 
 export module FfiMsg {
-  export const GetNextEvent: FfiMsg = { tag: 'GetNextEvent' }
+  export const GetNextEvent = (value: boolean): FfiMsg => ({
+    tag: 'GetNextEvent',
+    value
+  })
 
   export const CreateWindow: FfiMsg = { tag: 'CreateWindow' }
 
@@ -51,8 +54,9 @@ export module Event {
 
 export type WindowEvent =
   | { tag: 'MouseMove'; value: WindowEventMouseMove }
-  | { tag: 'MouseDown' }
-  | { tag: 'MouseUp' }
+  | { tag: 'MouseDown'; value: WindowEventMouseDown }
+  | { tag: 'MouseUp'; value: WindowEventMouseUp }
+  | { tag: 'Scroll'; value: WindowEventScroll }
   | { tag: 'KeyDown' }
   | { tag: 'KeyPress'; value: number }
   | { tag: 'KeyUp' }
@@ -66,15 +70,38 @@ export interface WindowEventMouseMove {
   target: number
 }
 
+export interface WindowEventMouseDown {
+  target: number
+}
+
+export interface WindowEventMouseUp {
+  target: number
+}
+
+export interface WindowEventScroll {
+  target: number
+}
+
 export module WindowEvent {
   export const MouseMove = (value: WindowEventMouseMove): WindowEvent => ({
     tag: 'MouseMove',
     value
   })
 
-  export const MouseDown: WindowEvent = { tag: 'MouseDown' }
+  export const MouseDown = (value: WindowEventMouseDown): WindowEvent => ({
+    tag: 'MouseDown',
+    value
+  })
 
-  export const MouseUp: WindowEvent = { tag: 'MouseUp' }
+  export const MouseUp = (value: WindowEventMouseUp): WindowEvent => ({
+    tag: 'MouseUp',
+    value
+  })
+
+  export const Scroll = (value: WindowEventScroll): WindowEvent => ({
+    tag: 'Scroll',
+    value
+  })
 
   export const KeyDown: WindowEvent = { tag: 'KeyDown' }
 
@@ -151,12 +178,12 @@ export interface UpdateSceneMsgSetFlow {
 
 export interface UpdateSceneMsgSetPadding {
   surface: SurfaceId
-  padding: Rect
+  padding: Dimensions
 }
 
 export interface UpdateSceneMsgSetMargin {
   surface: SurfaceId
-  margin: Rect
+  margin: Dimensions
 }
 
 export interface UpdateSceneMsgSetBoxShadow {
@@ -344,6 +371,23 @@ export module Size {
 }
 
 export interface Rect {
+  0: number
+  1: number
+  2: number
+  3: number
+  length: 4
+}
+
+export module Rect {
+  export const mk = (p0: number, p1: number, p2: number, p3: number): Rect => [
+    p0,
+    p1,
+    p2,
+    p3
+  ]
+}
+
+export interface Dimensions {
   0: Dimension
   1: Dimension
   2: Dimension
@@ -351,13 +395,13 @@ export interface Rect {
   length: 4
 }
 
-export module Rect {
+export module Dimensions {
   export const mk = (
     p0: Dimension,
     p1: Dimension,
     p2: Dimension,
     p3: Dimension
-  ): Rect => [p0, p1, p2, p3]
+  ): Dimensions => [p0, p1, p2, p3]
 }
 
 export interface Vector2f {

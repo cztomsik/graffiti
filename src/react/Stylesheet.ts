@@ -5,7 +5,7 @@ import {
   ImageStyle
 } from './react-native-types'
 import {
-  Rect,
+  Dimensions,
   Dimension,
   Size,
   FlexDirection,
@@ -204,13 +204,13 @@ function compile2(style: FlatStyle): SurfaceProps {
       alignItems: FlexAlign[FLEX_ALIGN[alignItems]],
       justifyContent: JustifyContent[JUSTIFY_CONTENT[justifyContent]]
     },
-    padding: Rect.mk(
+    padding: Dimensions.mk(
       parseDimension(paddingTop),
       parseDimension(paddingRight),
       parseDimension(paddingBottom),
       parseDimension(paddingLeft)
     ),
-    margin: Rect.mk(
+    margin: Dimensions.mk(
       parseDimension(marginTop),
       parseDimension(marginRight),
       parseDimension(marginBottom),

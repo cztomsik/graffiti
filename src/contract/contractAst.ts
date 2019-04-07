@@ -2,7 +2,7 @@ import { EntryT, EntryType, T, Variant as V } from 'ts-rust-bridge-codegen'
 
 const { Tuple, Enum, Struct, Union, Newtype, Alias } = EntryType
 
-const SurfaceId = Alias('SurfaceId', T.Scalar.U16)
+const SurfaceId = Alias('SurfaceId', T.Scalar.USIZE)
 
 const Dimension = Union('Dimension', [
   V.Unit('Auto'),
@@ -13,6 +13,13 @@ const Dimension = Union('Dimension', [
 const Size = Tuple('Size', [T.RefTo(Dimension), T.RefTo(Dimension)])
 
 const Rect = Tuple('Rect', [
+  T.Scalar.F32,
+  T.Scalar.F32,
+  T.Scalar.F32,
+  T.Scalar.F32
+])
+
+const Dimensions = Tuple('Dimensions', [
   T.RefTo(Dimension),
   T.RefTo(Dimension),
   T.RefTo(Dimension),
@@ -139,11 +146,11 @@ const UpdateSceneMsg = Union('UpdateSceneMsg', [
   }),
   V.Struct('SetPadding', {
     surface: T.RefTo(SurfaceId),
-    padding: T.RefTo(Rect)
+    padding: T.RefTo(Dimensions)
   }),
   V.Struct('SetMargin', {
     surface: T.RefTo(SurfaceId),
-    margin: T.RefTo(Rect)
+    margin: T.RefTo(Dimensions)
   }),
   V.Struct('SetBoxShadow', {
     surface: T.RefTo(SurfaceId),
@@ -170,7 +177,7 @@ const UpdateSceneMsg = Union('UpdateSceneMsg', [
 const WindowId = Alias('WindowId', T.Scalar.U16)
 
 const FfiMsg = Union('FfiMsg', [
-  V.Unit('GetNextEvent'),
+  V.NewType('GetNextEvent', T.Scalar.Bool),
   V.Unit('CreateWindow'),
   V.Struct('UpdateScene', {
     window: T.RefTo(WindowId),
@@ -181,10 +188,17 @@ const FfiMsg = Union('FfiMsg', [
 // WIP
 const WindowEvent = Union('WindowEvent', [
   V.Struct('MouseMove', {
-    target: T.Scalar.U16
+    target: T.Scalar.USIZE
   }),
-  V.Unit('MouseDown'),
-  V.Unit('MouseUp'),
+  V.Struct('MouseDown', {
+    target: T.Scalar.USIZE
+  }),
+  V.Struct('MouseUp', {
+    target: T.Scalar.USIZE
+  }),
+  V.Struct('Scroll', {
+    target: T.Scalar.USIZE
+  }),
 
   V.Unit('KeyDown'),
   V.NewType('KeyPress', T.Scalar.U16),
@@ -231,6 +245,7 @@ export const exampleEntries: EntryT[] = [
   Dimension,
   Size,
   Rect,
+  Dimensions,
   Vector2f,
   BorderRadius,
   BoxShadow,

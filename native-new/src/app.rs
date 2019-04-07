@@ -1,100 +1,76 @@
-use crate::api::{App, Event, WindowId};
-use crate::window::GlutinWindow;
-use glutin::{ContextBuilder, ContextTrait, ControlFlow, EventsLoop, WindowBuilder};
+use crate::api::{App, Event, WindowId, Window};
+use crate::window::AppWindow;
+use glfw::{Context, Glfw, WindowEvent};
 use std::collections::BTreeMap;
+use std::sync::mpsc::Receiver;
 
-// TODO: it's not wrong technically, but it might be confusing name (GlutinWindow too)
-pub struct GlutinApp {
-    events_loop: EventsLoop,
-    windows: BTreeMap<WindowId, GlutinWindow>,
-    native_ids: BTreeMap<glutin::WindowId, WindowId>,
-    next_window_id: WindowId
+pub struct TheApp {
+    glfw: Glfw,
+    windows: BTreeMap<WindowId, (AppWindow, Receiver<(f64, WindowEvent)>)>,
+    next_window_id: WindowId,
 }
 
-impl GlutinApp {
-    pub fn new() -> Self {
-        let events_loop = EventsLoop::new();
+impl TheApp {
+    pub fn init() -> Self {
+        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("could not init GLFW");
 
-        // start awaker thread
-        let proxy = events_loop.create_proxy();
-        let duration = std::time::Duration::from_millis(30);
-        std::thread::spawn(move || loop {
-            std::thread::sleep(duration);
+        glfw.window_hint(glfw::WindowHint::ContextVersion(3, 2));
+        glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
+        glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
 
-            if proxy.wakeup().is_err() {
-                break;
-            }
-        });
-
-        GlutinApp {
-            events_loop,
+        TheApp {
+            glfw,
             windows: BTreeMap::new(),
-            native_ids: BTreeMap::new(),
-            next_window_id: 1
+            //native_ids: BTreeMap::new(),
+            next_window_id: 1,
         }
     }
 }
 
-impl App<GlutinWindow> for GlutinApp {
-    fn get_next_event(&mut self) -> Option<Event> {
-        let mut result = None;
+impl App for TheApp {
+    fn get_next_event(&mut self, poll: bool) -> Option<Event> {
+        if poll {
+            self.glfw.poll_events()
+        } else {
+            // wait a bit otherwise (save battery)
+            self.glfw.wait_events_timeout(0.1);
+        }
 
-        let GlutinApp { events_loop, windows, native_ids, .. } = self;
-
-        // weird but necessary (we want to keep the control)
-        events_loop.run_forever(|e| match e {
-            glutin::Event::Awakened => ControlFlow::Break,
-            glutin::Event::WindowEvent { window_id, event } => {
-                let id = native_ids.get(&window_id).expect("got message for nonexistent window");
-                let window = windows.get(&id).unwrap();
-
-                if let Some(event) = window.translate_event(event) {
-                    result = Some(Event::WindowEvent {
-                        window: *id,
-                        event,
-                    });
-                }
-
-                ControlFlow::Break
+        for (id, (window, events)) in self.windows.iter_mut() {
+            if let Ok((_, event)) = events.try_recv() {
+                return window
+                    .handle_event(event)
+                    .map(|event| Event::WindowEvent { window: *id, event });
             }
-            _ => ControlFlow::Continue,
-        });
+        }
 
-        result
+        None
     }
 
     fn create_window(&mut self) -> WindowId {
-        let window_builder = WindowBuilder::new();
-        let glutin_context = ContextBuilder::new()
-            .build_windowed(window_builder, &self.events_loop)
-            .expect("couldn't create gl context");
+        let (mut glfw_window, events) = self
+            .glfw
+            .create_window(1024, 768, "stain", glfw::WindowMode::Windowed)
+            .expect("couldnt create GLFW window");
 
-        unsafe {
-            glutin_context
-                .make_current()
-                .expect("couldn't bind gl context with the current thread");
-        }
+        glfw_window.make_current();
+        glfw_window.set_all_polling(true);
 
-        let window = GlutinWindow::new(glutin_context);
         let id = self.next_window_id;
-        let native_id = window.id();
+        let window = AppWindow::new(glfw_window);
 
-        self.windows.insert(id, window);
-        self.native_ids.insert(native_id, id);
+        self.windows.insert(id, (window, events));
 
         self.next_window_id = self.next_window_id + 1;
 
         id
     }
 
-    fn get_window(&mut self, id: WindowId) -> &mut GlutinWindow {
-        self.windows.get_mut(&id).expect("window not found")
+    fn get_window_mut(&mut self, id: WindowId) -> &mut Window {
+        &mut self.windows.get_mut(&id).expect("window not found").0
     }
 
     fn destroy_window(&mut self, id: WindowId) {
-        let native_id = self.get_window(id).id();
-
         self.windows.remove(&id);
-        self.native_ids.remove(&native_id);
     }
 }

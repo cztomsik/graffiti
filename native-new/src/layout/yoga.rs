@@ -1,72 +1,76 @@
 #[cfg(test)]
 use ordered_float::OrderedFloat;
 use std::f32;
-use yoga::{Direction, FlexStyle, Node as YogaNode, StyleUnit, Context, Align, FlexDirection as YogaFlexDirection, Wrap, MeasureMode, NodeRef};
-
-use super::{LayoutService, ComputedLayout};
-use crate::api::{Dimension, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent,
-    Rect, Size, Text,
+use yoga::{
+    Align, Context, Direction, FlexDirection as YogaFlexDirection, FlexStyle, MeasureMode,
+    Node as YogaNode, NodeRef, StyleUnit, Wrap,
 };
-use crate::storage::DenseStorage;
-use crate::scene::SurfaceData;
+
+use super::LayoutTree;
+use crate::api::{
+    Rect, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent,
+    Size, Text,
+};
+use crate::text::{PangoService, TextMeasurer};
 use crate::Id;
 use yoga::types::Justify;
-use crate::text::{PangoService, TextMeasurer};
 
-pub struct YogaLayoutService {
-    yoga_nodes: DenseStorage<Id, YogaNode>,
-    pango_service: PangoService
+pub struct YogaTree {
+    yoga_nodes: Vec<YogaNode>,
+    pango_service: PangoService,
 }
 
-impl <'svc> YogaLayoutService {
+impl YogaTree {
     pub fn new() -> Self {
-        YogaLayoutService {
-            yoga_nodes: DenseStorage::new(),
-            pango_service: PangoService::new()
+        YogaTree {
+            yoga_nodes: vec![],
+            pango_service: PangoService::new(),
         }
     }
+}
 
-    pub fn alloc(&mut self) {
+impl LayoutTree for YogaTree {
+    fn alloc(&mut self) {
         self.yoga_nodes.push(YogaNode::new())
     }
 
-    pub fn append_child(&mut self, parent: Id, child: Id) {
-        let (parent, child) = self.yoga_nodes.get_two_muts(parent, child);
+    fn append_child(&mut self, parent: Id, child: Id) {
+        let (parent, child) = get_two_muts(&mut self.yoga_nodes, parent, child);
 
         let index = parent.get_child_count();
         parent.insert_child(child, index);
     }
 
-    pub fn remove_child(&mut self, parent: Id, child: Id) {
-        let (parent, child) = self.yoga_nodes.get_two_muts(parent, child);
+    fn remove_child(&mut self, parent: Id, child: Id) {
+        let (parent, child) = get_two_muts(&mut self.yoga_nodes, parent, child);
 
         parent.remove_child(child);
     }
 
     // easier with index rather than with Id
-    pub fn insert_at(&mut self, parent: Id, child: Id, index: u32) {
-        let (parent, child) = self.yoga_nodes.get_two_muts(parent, child);
+    fn insert_at(&mut self, parent: Id, child: Id, index: u32) {
+        let (parent, child) = get_two_muts(&mut self.yoga_nodes, parent, child);
 
         parent.insert_child(child, index);
     }
 
-    pub fn set_size(&mut self, id: Id, size: Size) {
-        self.yoga_nodes.get_mut(id).apply_styles(&vec![
+    fn set_size(&mut self, id: Id, size: Size) {
+        self.yoga_nodes[id].apply_styles(&[
             FlexStyle::Width(size.0.into()),
             FlexStyle::Height(size.1.into()),
         ])
     }
 
-    pub fn set_flex(&mut self, id: Id, flex: Flex) {
-        self.yoga_nodes.get_mut(id).apply_styles(&vec![
+    fn set_flex(&mut self, id: Id, flex: Flex) {
+        self.yoga_nodes[id].apply_styles(&[
             FlexStyle::FlexGrow(flex.flex_grow.into()),
             FlexStyle::FlexShrink(flex.flex_shrink.into()),
             FlexStyle::FlexBasis(flex.flex_basis.into()),
         ]);
     }
 
-    pub fn set_flow(&mut self, id: Id, flow: Flow) {
-        self.yoga_nodes.get_mut(id).apply_styles(&vec![
+    fn set_flow(&mut self, id: Id, flow: Flow) {
+        self.yoga_nodes[id].apply_styles(&[
             FlexStyle::FlexDirection(flow.flex_direction.into()),
             FlexStyle::FlexWrap(flow.flex_wrap.into()),
             FlexStyle::JustifyContent(flow.justify_content.into()),
@@ -75,8 +79,8 @@ impl <'svc> YogaLayoutService {
         ]);
     }
 
-    pub fn set_padding(&mut self, id: Id, padding: Rect) {
-        self.yoga_nodes.get_mut(id).apply_styles(&vec![
+    fn set_padding(&mut self, id: Id, padding: Dimensions) {
+        self.yoga_nodes[id].apply_styles(&[
             FlexStyle::PaddingTop(padding.0.into()),
             FlexStyle::PaddingRight(padding.1.into()),
             FlexStyle::PaddingBottom(padding.2.into()),
@@ -84,8 +88,8 @@ impl <'svc> YogaLayoutService {
         ]);
     }
 
-    pub fn set_margin(&mut self, id: Id, margin: Rect) {
-        self.yoga_nodes.get_mut(id).apply_styles(&vec![
+    fn set_margin(&mut self, id: Id, margin: Dimensions) {
+        self.yoga_nodes[id].apply_styles(&[
             FlexStyle::MarginTop(margin.0.into()),
             FlexStyle::MarginRight(margin.1.into()),
             FlexStyle::MarginBottom(margin.2.into()),
@@ -93,8 +97,8 @@ impl <'svc> YogaLayoutService {
         ]);
     }
 
-    pub fn set_text(&'svc mut self, id: Id, text: Option<Text>) {
-        let node = self.yoga_nodes.get_mut(id);
+    fn set_text(&mut self, id: Id, text: Option<Text>) {
+        let node = &mut self.yoga_nodes[id];
 
         if let Some(text) = text {
             // TODO: this should be done better
@@ -102,37 +106,35 @@ impl <'svc> YogaLayoutService {
             // yoga context is dropped but Box<Any> does not know which destructor to call
             // so the memory will be freed but no destructors will be called, actually
             // which is not an issue right now but it's certainly not a good way
-            let text_measurer: &'static PangoService = unsafe { std::mem::transmute(&self.pango_service) };
+            let text_measurer: &'static PangoService =
+                unsafe { std::mem::transmute(&self.pango_service) };
 
             node.set_measure_func(Some(measure_text_node));
-            node.set_context(Some(Context::new(MeasureContext { text_measurer, text })));
+            node.set_context(Some(Context::new(MeasureContext {
+                text_measurer,
+                text,
+            })));
 
             node.mark_dirty();
         } else {
             node.set_measure_func(None);
             node.set_context(None);
         }
-
     }
-}
 
-impl LayoutService for YogaLayoutService {
-    fn get_computed_layouts(&mut self, surface: &SurfaceData) -> Vec<ComputedLayout> {
-        self.yoga_nodes
-            .get_mut(surface.id())
-            .calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
+    fn calculate(&mut self) {
+        self.yoga_nodes[0].calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
+    }
 
-        self.yoga_nodes
-            .iter()
-            .map(|n| {
-                (
-                    n.get_layout_left(),
-                    n.get_layout_top(),
-                    n.get_layout_width(),
-                    n.get_layout_height(),
-                )
-            })
-            .collect()
+    fn computed_layout(&self, id: Id) -> Rect {
+        let n = &self.yoga_nodes[id];
+
+        Rect(
+            n.get_layout_left(),
+            n.get_layout_top(),
+            n.get_layout_width(),
+            n.get_layout_height()
+        )
     }
 }
 
@@ -144,12 +146,14 @@ extern "C" fn measure_text_node(
     _hm: MeasureMode,
 ) -> yoga::Size {
     let ctx = YogaNode::get_context(&node_ref).expect("no context found");
-    let ctx = ctx.downcast_ref::<MeasureContext>().expect("not a measure context");
+    let ctx = ctx
+        .downcast_ref::<MeasureContext>()
+        .expect("not a measure context");
 
     let max_width = match wm {
         MeasureMode::Exactly => Some(w),
         MeasureMode::AtMost => Some(w),
-        MeasureMode::Undefined => None
+        MeasureMode::Undefined => None,
     };
 
     let (width, height) = ctx.text_measurer.measure_text(&ctx.text, max_width);
@@ -157,7 +161,7 @@ extern "C" fn measure_text_node(
     let width = match wm {
         MeasureMode::Exactly => w,
         MeasureMode::AtMost => width,
-        MeasureMode::Undefined => width
+        MeasureMode::Undefined => width,
     };
 
     let size = yoga::Size { width, height };
@@ -169,7 +173,7 @@ extern "C" fn measure_text_node(
 
 struct MeasureContext<'svc> {
     pub text_measurer: &'svc PangoService,
-    pub text: Text
+    pub text: Text,
 }
 
 impl Into<StyleUnit> for Dimension {
@@ -229,6 +233,19 @@ impl Into<Wrap> for FlexWrap {
             FlexWrap::NoWrap => Wrap::NoWrap,
         }
     }
+}
+
+// mutably borrow two items at once
+pub fn get_two_muts<T>(vec: &mut Vec<T>, first: usize, second: usize) -> (&mut T, &mut T) {
+    let len = vec.len();
+
+    assert!(first < len);
+    assert!(second < len);
+    assert_ne!(first, second);
+
+    let ptr = vec.as_mut_ptr();
+
+    unsafe { (&mut *ptr.add(first), &mut *ptr.add(second)) }
 }
 
 #[cfg(test)]
