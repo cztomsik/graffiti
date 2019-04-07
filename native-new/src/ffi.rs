@@ -1,6 +1,7 @@
-use crate::api::{App};
+use crate::api::App;
 use crate::app::TheApp;
-use crate::generated::{FfiMsg, UpdateSceneMsg, FfiResult};
+use crate::generated::{FfiMsg, FfiResult, UpdateSceneMsg};
+use bincode::deserialize;
 use serde_json;
 use std::io::prelude::Write;
 
@@ -25,7 +26,7 @@ pub extern "C" fn init() {
 pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
     // get slice of bytes & try to deserialize
     let msg = unsafe { std::slice::from_raw_parts(data, len as usize) };
-    let msg: FfiMsg = serde_json::from_slice(msg).expect("invalid message");
+    let msg: FfiMsg = deserialize(msg).expect("invalid message"); // serde_json::from_slice(msg).expect("invalid message");
 
     debug!("Msg {:#?}", &msg);
 
@@ -104,9 +105,7 @@ fn handle_msg(app: &mut TheApp, msg: FfiMsg, result: &mut FfiResult) {
                     UpdateSceneMsg::SetBackgroundColor { surface, color } => {
                         ctx.set_background_color(surface, color)
                     }
-                    UpdateSceneMsg::SetImage { surface, image } => {
-                        ctx.set_image(surface, image)
-                    }
+                    UpdateSceneMsg::SetImage { surface, image } => ctx.set_image(surface, image),
                     UpdateSceneMsg::SetText { surface, text } => ctx.set_text(surface, text),
                     UpdateSceneMsg::SetBorder { surface, border } => {
                         ctx.set_border(surface, border)

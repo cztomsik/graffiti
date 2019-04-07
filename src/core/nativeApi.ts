@@ -1,8 +1,11 @@
 import { FfiMsg, FfiResult } from './generated'
+import { writeFfiMsg } from './serialization.generated'
+import { Sink } from 'ts-rust-bridge-bincode'
 
-const ref = require('ref')
-const ffi = require('ffi')
-const util = require('util')
+import * as ref from 'ref'
+// const ref = require('ref')
+import * as ffi from 'ffi'
+// import * as util from 'util'
 
 // define lib
 const lib = ffi.Library(
@@ -19,13 +22,24 @@ const lib = ffi.Library(
 
 export const init = () => lib.init()
 
+let sink: Sink = {
+  arr: new Uint8Array(1024),
+  pos: 0
+}
+
 export function send(msg: FfiMsg) {
   //console.log(util.inspect(msg, { depth: 4 }))
 
   // prepare buffer with msg
-  let msgBuf = Buffer.from(JSON.stringify(msg))
+  // let msgBuf = Buffer.from(JSON.stringify(msg))
 
+  sink.pos = 0
+  sink = writeFfiMsg(sink, msg)
+
+  // this will create just a view on top existing array buffer.
+  const msgBuf = Buffer.from(sink.arr.buffer, 0, sink.pos)
   // alloc some mem for result
+  // TODO why allocate anything here?
   const resBuf = Buffer.alloc(1024, ' ')
 
   // send (sync)

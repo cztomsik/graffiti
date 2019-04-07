@@ -4,7 +4,6 @@ use serde::{Serialize, Deserialize};
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(tag = "tag", content = "value")]
 pub enum FfiMsg {
     GetNextEvent(bool),
     CreateWindow,
@@ -47,7 +46,6 @@ pub enum WindowEvent {
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(tag = "tag", content = "value")]
 pub enum UpdateSceneMsg {
     Alloc,
     AppendChild { parent: SurfaceId, child: SurfaceId },
@@ -153,7 +151,6 @@ pub struct Flex {
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(tag = "tag", content = "value")]
 pub enum Dimension {
     Auto,
     Point(f32),

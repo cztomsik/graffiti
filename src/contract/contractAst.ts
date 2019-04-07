@@ -4,11 +4,15 @@ const { Tuple, Enum, Struct, Union, Newtype, Alias } = EntryType
 
 const SurfaceId = Alias('SurfaceId', T.Scalar.USIZE)
 
-const Dimension = Union('Dimension', [
-  V.Unit('Auto'),
-  V.NewType('Point', T.Scalar.F32),
-  V.NewType('Percent', T.Scalar.F32)
-])
+const Dimension = Union(
+  'Dimension',
+  [
+    V.Unit('Auto'),
+    V.NewType('Point', T.Scalar.F32),
+    V.NewType('Percent', T.Scalar.F32)
+  ],
+  { tagAnnotation: false }
+)
 
 const Size = Tuple('Size', [T.RefTo(Dimension), T.RefTo(Dimension)])
 
@@ -113,119 +117,139 @@ const Text = Struct('Text', {
   text: T.Scalar.Str
 })
 
-const UpdateSceneMsg = Union('UpdateSceneMsg', [
-  V.Unit('Alloc'),
-  V.Struct('AppendChild', {
-    parent: T.RefTo(SurfaceId),
-    child: T.RefTo(SurfaceId)
-  }),
-  V.Struct('InsertBefore', {
-    parent: T.RefTo(SurfaceId),
-    child: T.RefTo(SurfaceId),
-    before: T.RefTo(SurfaceId)
-  }),
-  V.Struct('RemoveChild', {
-    parent: T.RefTo(SurfaceId),
-    child: T.RefTo(SurfaceId)
-  }),
-  V.Struct('SetBorderRadius', {
-    surface: T.RefTo(SurfaceId),
-    borderRadius: T.Option(T.RefTo(BorderRadius))
-  }),
-  V.Struct('SetSize', {
-    surface: T.RefTo(SurfaceId),
-    size: T.RefTo(Size)
-  }),
-  V.Struct('SetFlex', {
-    surface: T.RefTo(SurfaceId),
-    flex: T.RefTo(Flex)
-  }),
-  V.Struct('SetFlow', {
-    surface: T.RefTo(SurfaceId),
-    flow: T.RefTo(Flow)
-  }),
-  V.Struct('SetPadding', {
-    surface: T.RefTo(SurfaceId),
-    padding: T.RefTo(Dimensions)
-  }),
-  V.Struct('SetMargin', {
-    surface: T.RefTo(SurfaceId),
-    margin: T.RefTo(Dimensions)
-  }),
-  V.Struct('SetBoxShadow', {
-    surface: T.RefTo(SurfaceId),
-    boxShadow: T.Option(T.RefTo(BoxShadow))
-  }),
-  V.Struct('SetBackgroundColor', {
-    surface: T.RefTo(SurfaceId),
-    color: T.Option(T.RefTo(Color))
-  }),
-  V.Struct('SetImage', {
-    surface: T.RefTo(SurfaceId),
-    image: T.Option(T.RefTo(Image))
-  }),
-  V.Struct('SetText', {
-    surface: T.RefTo(SurfaceId),
-    text: T.Option(T.RefTo(Text))
-  }),
-  V.Struct('SetBorder', {
-    surface: T.RefTo(SurfaceId),
-    border: T.Option(T.RefTo(Border))
-  })
-])
+const UpdateSceneMsg = Union(
+  'UpdateSceneMsg',
+  [
+    V.Unit('Alloc'),
+    V.Struct('AppendChild', {
+      parent: T.RefTo(SurfaceId),
+      child: T.RefTo(SurfaceId)
+    }),
+    V.Struct('InsertBefore', {
+      parent: T.RefTo(SurfaceId),
+      child: T.RefTo(SurfaceId),
+      before: T.RefTo(SurfaceId)
+    }),
+    V.Struct('RemoveChild', {
+      parent: T.RefTo(SurfaceId),
+      child: T.RefTo(SurfaceId)
+    }),
+    V.Struct('SetBorderRadius', {
+      surface: T.RefTo(SurfaceId),
+      borderRadius: T.Option(T.RefTo(BorderRadius))
+    }),
+    V.Struct('SetSize', {
+      surface: T.RefTo(SurfaceId),
+      size: T.RefTo(Size)
+    }),
+    V.Struct('SetFlex', {
+      surface: T.RefTo(SurfaceId),
+      flex: T.RefTo(Flex)
+    }),
+    V.Struct('SetFlow', {
+      surface: T.RefTo(SurfaceId),
+      flow: T.RefTo(Flow)
+    }),
+    V.Struct('SetPadding', {
+      surface: T.RefTo(SurfaceId),
+      padding: T.RefTo(Dimensions)
+    }),
+    V.Struct('SetMargin', {
+      surface: T.RefTo(SurfaceId),
+      margin: T.RefTo(Dimensions)
+    }),
+    V.Struct('SetBoxShadow', {
+      surface: T.RefTo(SurfaceId),
+      boxShadow: T.Option(T.RefTo(BoxShadow))
+    }),
+    V.Struct('SetBackgroundColor', {
+      surface: T.RefTo(SurfaceId),
+      color: T.Option(T.RefTo(Color))
+    }),
+    V.Struct('SetImage', {
+      surface: T.RefTo(SurfaceId),
+      image: T.Option(T.RefTo(Image))
+    }),
+    V.Struct('SetText', {
+      surface: T.RefTo(SurfaceId),
+      text: T.Option(T.RefTo(Text))
+    }),
+    V.Struct('SetBorder', {
+      surface: T.RefTo(SurfaceId),
+      border: T.Option(T.RefTo(Border))
+    })
+  ],
+  { tagAnnotation: false }
+)
 
 const WindowId = Alias('WindowId', T.Scalar.U16)
 
-const FfiMsg = Union('FfiMsg', [
-  V.NewType('GetNextEvent', T.Scalar.Bool),
-  V.Unit('CreateWindow'),
-  V.Struct('UpdateScene', {
-    window: T.RefTo(WindowId),
-    msgs: T.Vec(T.RefTo(UpdateSceneMsg))
-  })
-])
+const FfiMsg = Union(
+  'FfiMsg',
+  [
+    V.NewType('GetNextEvent', T.Scalar.Bool),
+    V.Unit('CreateWindow'),
+    V.Struct('UpdateScene', {
+      window: T.RefTo(WindowId),
+      msgs: T.Vec(T.RefTo(UpdateSceneMsg))
+    })
+  ],
+  { tagAnnotation: false }
+)
 
 // WIP
-const WindowEvent = Union('WindowEvent', [
-  V.Struct('MouseMove', {
-    target: T.Scalar.USIZE
-  }),
-  V.Struct('MouseDown', {
-    target: T.Scalar.USIZE
-  }),
-  V.Struct('MouseUp', {
-    target: T.Scalar.USIZE
-  }),
-  V.Struct('Scroll', {
-    target: T.Scalar.USIZE
-  }),
+const WindowEvent = Union(
+  'WindowEvent',
+  [
+    V.Struct('MouseMove', {
+      target: T.Scalar.USIZE
+    }),
+    V.Struct('MouseDown', {
+      target: T.Scalar.USIZE
+    }),
+    V.Struct('MouseUp', {
+      target: T.Scalar.USIZE
+    }),
+    V.Struct('Scroll', {
+      target: T.Scalar.USIZE
+    }),
 
-  V.Unit('KeyDown'),
-  V.NewType('KeyPress', T.Scalar.U16),
-  V.Unit('KeyUp'),
+    V.Unit('KeyDown'),
+    V.NewType('KeyPress', T.Scalar.U16),
+    V.Unit('KeyUp'),
 
-  V.Unit('Focus'),
-  V.Unit('Blur'),
+    V.Unit('Focus'),
+    V.Unit('Blur'),
 
-  V.Unit('Resize'),
-  V.Unit('Close'),
+    V.Unit('Resize'),
+    V.Unit('Close'),
 
-  // TODO: temp
-  V.Unit('Unknown')
-])
+    // TODO: temp
+    V.Unit('Unknown')
+  ],
+  { tagAnnotation: true }
+)
 
-const Event = Union('Event', [
-  V.Struct('WindowEvent', {
-    window: T.RefTo(WindowId),
-    event: T.RefTo(WindowEvent)
-  })
-])
+const Event = Union(
+  'Event',
+  [
+    V.Struct('WindowEvent', {
+      window: T.RefTo(WindowId),
+      event: T.RefTo(WindowEvent)
+    })
+  ],
+  { tagAnnotation: true }
+)
 
-const FfiResult = Union('FfiResult', [
-  V.Unit('Nothing'),
-  V.NewType('Event', T.RefTo(Event)),
-  V.NewType('WindowId', T.RefTo(WindowId))
-])
+const FfiResult = Union(
+  'FfiResult',
+  [
+    V.Unit('Nothing'),
+    V.NewType('Event', T.RefTo(Event)),
+    V.NewType('WindowId', T.RefTo(WindowId))
+  ],
+  { tagAnnotation: true }
+)
 
 export const exampleEntries: EntryT[] = [
   FfiMsg,
