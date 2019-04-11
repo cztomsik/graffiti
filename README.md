@@ -55,6 +55,9 @@ const styles = StyleSheet.create({
 </div>
 <br>
 
+## Status
+Please note that we are still finishing major rewrite which started almost 2 months ago (yeah, I know but it was really needed) so some features which has been there originally are now missing, and docs are off (a lot). That said, we've also gained some other cool features along the way (text-align, images, shadow). As with other hobby projects, there are no ETAs, but it's very close now. Follow me on my [twitter](https://twitter.com/cztomsik) to get notified :-)
+
 ## Why it's interesting
 - quick to setup, apart from rust & few libs, it should be just one `npm install` away
 - can be combined with most of the libraries you already know (react, mobx, lodash, ...)

@@ -60,6 +60,7 @@ pub trait Scene {
 
     // layout info
     fn computed_layout(&self, surface: SurfaceId) -> Rect;
+    fn text_layout(&self, surface: SurfaceId) -> LaidText;
 
     // layout/visual
     fn border_radius(&self, surface: SurfaceId) -> Option<&BorderRadius>;
@@ -83,3 +84,4 @@ pub use crate::generated::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Dimension, Dimensions, Flex, Flow, Image,
     Rect, Size, SurfaceId, Text, TextAlign, WindowId, FlexAlign, FlexDirection, FlexWrap, JustifyContent
 };
+use crate::text::LaidText;
