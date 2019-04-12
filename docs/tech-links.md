@@ -50,11 +50,26 @@ Quote from WR API roadmap:
 
 Which can be relevant for the project
 
+---
+
+### Meeting notes from Toronto 2019
+
+https://github.com/servo/webrender/wiki/2019-Toronto
+
+---
+
+### clipping & positioning (design)
+https://github.com/servo/webrender/blob/e16ab884672151fbdebc149479f9bfdecd1da216/webrender/doc/CLIPPING_AND_POSITIONING.md
+
+---
+
 ### Other projects/repos related to webrender
 - [servo](https://github.com/servo/servo)
 - [azul](https://github.com/maps4print/azul)
 - [limn](https://github.com/christolliday/limn)
 - [stylish](https://github.com/Thinkofname/stylish)
+
+---
 
 ## ReactNative
 

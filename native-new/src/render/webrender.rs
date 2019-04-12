@@ -16,12 +16,13 @@ use std::sync::mpsc::{channel, Receiver};
 use webrender::api::{
     AddImage, AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius,
     BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
-    BoxShadowDisplayItem, ColorF, ColorU, DeviceIntSize, DisplayListBuilder, DocumentId, Epoch,
+    BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, DocumentId, Epoch,
     FontInstanceKey, GlyphInstance, ImageData, ImageDescriptor,
-    ImageDisplayItem, ImageFormat, ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect,
-    LayoutSize, LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
+    ImageDisplayItem, ImageFormat, ImageRendering, LayoutPrimitiveInfo,
+    NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
     ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem, Transaction,
-    HitTestFlags, WorldPoint, ComplexClipRegion, ClipMode, ScrollLocation,
+    HitTestFlags, ComplexClipRegion, ClipMode, ScrollLocation,
+    units::{LayoutPoint, LayoutSize, LayoutVector2D, WorldPoint, LayoutRect, FramebufferIntSize}
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 use webrender::{Renderer, RendererOptions};
@@ -33,7 +34,7 @@ pub struct WebrenderRenderer {
     rx: Receiver<()>,
 
     pub layout_size: LayoutSize,
-    fb_size: DeviceIntSize,
+    fb_size: FramebufferIntSize,
     // so that we can reuse already uploaded images
     // this can be (periodically) cleaned up by simply going through all keys and
     // looking what has (not) been used in the last render (and can be evicted)
@@ -42,10 +43,10 @@ pub struct WebrenderRenderer {
 
 impl WebrenderRenderer {
     pub fn new(gl: Rc<Gl>) -> Self {
-        let fb_size = DeviceIntSize::new(1024, 768);
+        let fb_size = FramebufferIntSize::new(1024, 768);
         let layout_size = LayoutSize::new(fb_size.width as f32, fb_size.height as f32);
 
-        let (renderer, mut render_api, rx) = Self::init_webrender(gl);
+        let (renderer, mut render_api, rx) = Self::init_webrender(gl, fb_size);
         let document_id = render_api.add_document(fb_size, 0);
 
         Self::load_fonts(&mut render_api, document_id, &rx);
@@ -70,7 +71,7 @@ impl WebrenderRenderer {
 
     pub fn resize() {}
 
-    fn init_webrender(gl: Rc<Gl>) -> (Renderer, RenderApi, Receiver<()>) {
+    fn init_webrender(gl: Rc<Gl>, fb_size: FramebufferIntSize) -> (Renderer, RenderApi, Receiver<()>) {
         // so that we can block until the frame is actually rendered
         let (tx, rx) = channel();
 
@@ -82,6 +83,7 @@ impl WebrenderRenderer {
                 ..RendererOptions::default()
             },
             None,
+            fb_size
         )
         .expect("couldn't init webrender");
         let render_api = sender.create_api();

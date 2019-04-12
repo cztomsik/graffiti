@@ -44,12 +44,15 @@ impl TextLayoutAlgo for PangoService {
         let mut layout_iter = layout.get_iter().expect("couldnt get LayoutIter");
         let mut glyphs = vec![];
 
-        // It's ugly, but to my extent the only way to get `x`, `glyph_index` and `line_index`
-        // so we can do proper line-height text layout
-        // I've tried many times and it's unlikely that there is better way
+        // Ugly, but to my extent the only way to get `x`, `glyph_index` and `line_index`
+        // together so we can do proper line-height text layout
+        // I've tried many times and it's unlikely that there is a better way
+        //
+        // BTW: Integrating pango was mistake (it would have been far easier to do text layout myself)
+        // (so instead of fixing bugs in this we should rather focus on our own impl)
         for line_i in 0..lines {
             if let Some(run) = layout_iter.get_run_readonly() {
-                unsafe {
+            unsafe {
                     let (_, run): (usize, &PangoGlyphItem) = std::mem::transmute(run);
 
                     for i in 0..(*run.glyphs).num_glyphs {
@@ -64,11 +67,15 @@ impl TextLayoutAlgo for PangoService {
 
                         layout_iter.next_char();
                     }
-                }
-            }
 
-            if !layout_iter.next_char() {
-                break;
+                    // somehow related to \n
+                    if layout_iter.get_run_readonly().is_none() {
+                        layout_iter.next_char();
+                    }
+                }
+            } else {
+                // empty lines?
+                layout_iter.next_char();
             }
         }
 
