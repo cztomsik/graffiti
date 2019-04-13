@@ -11,20 +11,23 @@ use crate::api::{
     Rect, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent,
     Size, Text,
 };
-use crate::text::{PangoService, TextMeasurer};
+use crate::text::{PangoService, TextLayoutAlgo, LaidText};
 use crate::Id;
 use yoga::types::Justify;
+use std::collections::BTreeMap;
 
 pub struct YogaTree {
     yoga_nodes: Vec<YogaNode>,
-    pango_service: PangoService,
+    text_layout_algo: PangoService,
+    text_layouts: BTreeMap<Id, LaidText>
 }
 
 impl YogaTree {
     pub fn new() -> Self {
         YogaTree {
             yoga_nodes: vec![],
-            pango_service: PangoService::new(),
+            text_layout_algo: PangoService::new(),
+            text_layouts: BTreeMap::new()
         }
     }
 }
@@ -97,28 +100,21 @@ impl LayoutTree for YogaTree {
         ]);
     }
 
-    fn set_text(&mut self, id: Id, text: Option<Text>) {
+    fn set_text<'svc>(&mut self, id: Id, text: Option<Text>) {
+        // yoganode context has static lifetime and we need to access pango and text_layouts somehow
+        // should be safe but I might be wrong OFC
+        let tree_ref: &'static mut YogaTree = get_static_ref(self);
+
         let node = &mut self.yoga_nodes[id];
 
         if let Some(text) = text {
-            // TODO: this should be done better
-            // needed because yoga context has static lifetime
-            // yoga context is dropped but Box<Any> does not know which destructor to call
-            // so the memory will be freed but no destructors will be called, actually
-            // which is not an issue right now but it's certainly not a good way
-            let text_measurer: &'static PangoService =
-                unsafe { std::mem::transmute(&self.pango_service) };
-
             node.set_measure_func(Some(measure_text_node));
-            node.set_context(Some(Context::new(MeasureContext {
-                text_measurer,
-                text,
-            })));
-
             node.mark_dirty();
+            node.set_context(Some(Context::new(MeasureContext(tree_ref, id, text))));
         } else {
             node.set_measure_func(None);
             node.set_context(None);
+            self.text_layouts.remove(&id);
         }
     }
 
@@ -136,6 +132,10 @@ impl LayoutTree for YogaTree {
             n.get_layout_height()
         )
     }
+
+    fn text_layout(&self, id: Id) -> LaidText {
+        self.text_layouts.get(&id).expect("no text on the surface").clone()
+    }
 }
 
 extern "C" fn measure_text_node(
@@ -145,9 +145,9 @@ extern "C" fn measure_text_node(
     _h: f32,
     _hm: MeasureMode,
 ) -> yoga::Size {
-    let ctx = YogaNode::get_context(&node_ref).expect("no context found");
-    let ctx = ctx
-        .downcast_ref::<MeasureContext>()
+    let ctx = YogaNode::get_context_mut(&node_ref).expect("no context found");
+    let MeasureContext(tree, id, text) = ctx
+        .downcast_mut::<MeasureContext>()
         .expect("not a measure context");
 
     let max_width = match wm {
@@ -156,25 +156,27 @@ extern "C" fn measure_text_node(
         MeasureMode::Undefined => None,
     };
 
-    let (width, height) = ctx.text_measurer.measure_text(&ctx.text, max_width);
+    let layout = tree.text_layout_algo.layout_text(&text, max_width);
 
     let width = match wm {
         MeasureMode::Exactly => w,
-        MeasureMode::AtMost => width,
-        MeasureMode::Undefined => width,
+        MeasureMode::AtMost => layout.width,
+        MeasureMode::Undefined => layout.width,
     };
 
-    let size = yoga::Size { width, height };
+    let size = yoga::Size { width, height: (layout.lines as f32) * text.line_height };
 
-    debug!("measure {:?}", (&ctx.text.text, w, wm, &size));
+    // save the result so it can be queried later
+    tree.text_layouts.insert(*id, layout);
 
     size
 }
 
-struct MeasureContext<'svc> {
-    pub text_measurer: &'svc PangoService,
-    pub text: Text,
-}
+struct MeasureContext (
+    pub &'static mut YogaTree,
+    pub Id,
+    pub Text
+);
 
 impl Into<StyleUnit> for Dimension {
     fn into(self) -> StyleUnit {
@@ -246,6 +248,10 @@ pub fn get_two_muts<T>(vec: &mut Vec<T>, first: usize, second: usize) -> (&mut T
     let ptr = vec.as_mut_ptr();
 
     unsafe { (&mut *ptr.add(first), &mut *ptr.add(second)) }
+}
+
+pub fn get_static_ref(tree: &mut YogaTree) -> &'static mut YogaTree {
+    unsafe { std::mem::transmute(tree) }
 }
 
 #[cfg(test)]

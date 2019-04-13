@@ -1,14 +1,12 @@
-use super::{TextMeasurer, TextShaper};
+use super::{LaidGlyph, LaidText, TextLayoutAlgo};
 use crate::api::{Text, TextAlign};
 use pango::prelude::*;
-use pango::{WrapMode, Alignment, GlyphItem};
+use pango::{Alignment, WrapMode};
 use pangocairo::FontMap;
-use crate::text::LaidGlyph;
-use std::ffi::c_void;
-use std::os::raw::c_int;
+use pango_sys::*;
 
 pub struct PangoService {
-    pango_context: pango::Context
+    pango_context: pango::Context,
 }
 
 impl PangoService {
@@ -17,9 +15,7 @@ impl PangoService {
         let pango_context = pango::Context::new();
         pango_context.set_font_map(&font_map);
 
-        PangoService {
-            pango_context
-        }
+        PangoService { pango_context }
     }
 
     fn get_layout(&self, text: &Text) -> pango::Layout {
@@ -32,70 +28,62 @@ impl PangoService {
         layout.set_wrap(WrapMode::Word);
         layout.set_text(&text.text);
         layout.set_alignment(text.align.clone().into());
-        layout.set_spacing(to_scale(text.line_height - text.font_size));
 
         layout
     }
 }
 
-impl TextMeasurer for PangoService {
-    fn measure_text(&self, text: &Text, max_width: Option<f32>) -> (f32, f32) {
+impl TextLayoutAlgo for PangoService {
+    fn layout_text(&mut self, text: &Text, max_width: Option<f32>) -> LaidText {
         let layout = self.get_layout(text);
         layout.set_width(to_scale(max_width.unwrap_or(-1.)));
 
-        let (width, _height) = layout.get_pixel_size();
+        let lines = layout.get_line_count();
+        let cap_height = from_scale(layout.get_line(0).map(|l| l.get_extents().0.height).unwrap_or(0));
+        let baseline = cap_height + ((text.line_height - cap_height) / 2.);
+        let mut layout_iter = layout.get_iter().expect("couldnt get LayoutIter");
+        let mut glyphs = vec![];
 
-        let size = (width as f32, layout.get_line_count() as f32 * text.line_height);
+        // Ugly, but to my extent the only way to get `x`, `glyph_index` and `line_index`
+        // together so we can do proper line-height text layout
+        // I've tried many times and it's unlikely that there is a better way
+        //
+        // BTW: Integrating pango was mistake (it would have been far easier to do text layout myself)
+        // (so instead of fixing bugs in this we should rather focus on our own impl)
+        for line_i in 0..lines {
+            if let Some(run) = layout_iter.get_run_readonly() {
+            unsafe {
+                    let (_, run): (usize, &PangoGlyphItem) = std::mem::transmute(run);
 
-        debug!("measure {:?}", (&text.text, &size));
+                    for i in 0..(*run.glyphs).num_glyphs {
+                        let glyph_index = (*(*(*run).glyphs).glyphs.offset(i as isize)).glyph;
+                        let extents = layout_iter.get_char_extents();
 
-        size
-    }
-}
+                        glyphs.push(LaidGlyph {
+                            glyph_index,
+                            x: from_scale(extents.x),
+                            y: (line_i as f32 * text.line_height) + baseline
+                        });
 
-impl TextShaper for PangoService {
-    fn shape_text(&self, text: &Text, size: (f32, f32)) -> Vec<LaidGlyph> {
-        let layout = self.get_layout(text);
-        layout.set_width(to_scale(size.0));
-        layout.set_height(to_scale(size.1));
-
-        let mut laid_glyphs = Vec::new();
-        let mut layout_iter = layout.get_iter().expect("couldn't get LayoutIter");
-
-        'outer: loop {
-            match layout_iter.get_run_readonly() {
-                Some(run) => {
-                    unsafe {
-                        let run = get_ffi_run(run).glyphs;
-
-                        for i in 0..(*run).num_glyphs {
-                            let extents = layout_iter.get_char_extents();
-                            let info = (*run).glyphs.offset(i as isize);
-
-                            laid_glyphs.push(LaidGlyph {
-                                glyph_index: (*info).glyph,
-                                x: from_scale(extents.x),
-                                y: from_scale(extents.y)
-                            });
-
-                            layout_iter.next_char();
-                        }
+                        layout_iter.next_char();
                     }
 
-                },
-                None => {
-                    if !layout_iter.next_run() {
-                        if !layout_iter.next_line() {
-                            break 'outer;
-                        }
+                    // somehow related to \n
+                    if layout_iter.get_run_readonly().is_none() {
+                        layout_iter.next_char();
                     }
                 }
-            };
+            } else {
+                // empty lines?
+                layout_iter.next_char();
+            }
         }
 
-        debug!("shape text {:#?}", (&text.text, &laid_glyphs));
-
-        laid_glyphs
+        LaidText {
+            lines,
+            width: layout.get_pixel_size().0 as f32,
+            glyphs,
+        }
     }
 }
 
@@ -110,40 +98,6 @@ fn to_scale(v: f32) -> i32 {
 
 fn to_scale_f64(v: f32) -> f64 {
     (v as f64) * (pango::SCALE as f64)
-}
-
-unsafe fn get_ffi_run(run: GlyphItem) -> &'static PangoGlyphItem {
-    let (_, run): (usize, &PangoGlyphItem) = std::mem::transmute(run);
-
-    run
-}
-
-#[repr(C)]
-pub struct PangoGlyphItem {
-    pub item: *mut c_void,
-    pub glyphs: *mut PangoGlyphString,
-}
-
-#[repr(C)]
-pub struct PangoGlyphString {
-    pub num_glyphs: c_int,
-    pub glyphs: *mut PangoGlyphInfo,
-    pub log_clusters: *mut c_int,
-    pub space: c_int,
-}
-
-#[repr(C)]
-pub struct PangoGlyphInfo {
-    pub glyph: u32,
-    pub geometry: PangoGlyphGeometry,
-    pub attr: u32,
-}
-
-#[repr(C)]
-pub struct PangoGlyphGeometry {
-    pub width: i32,
-    pub x_offset: i32,
-    pub y_offset: i32,
 }
 
 impl Into<Alignment> for TextAlign {
@@ -163,7 +117,7 @@ mod tests {
 
     #[test]
     fn test() {
-        let svc = PangoService::new();
+        let mut svc = PangoService::new();
 
         let text = Text {
             color: Color(0, 0, 0, 1),
@@ -173,14 +127,13 @@ mod tests {
             text: "Hello world\n\nHello".into()
         };
 
-        let measure = svc.measure_text(&text, 100.);
-        println!("measure {:#?}", &measure);
+        let res = svc.layout_text(&text, Some(100.));
 
+        println!("layout_text {:#?}", &res);
 
-        let res = svc.shape_text(&text, (100., 150.));
-        println!("{:#?}", &res);
+        assert_eq!(res.lines, 3);
 
-        // few checks without depending on available fonts and/or dpi
+        let res = res.glyphs;
 
         assert_eq!(res.len(), 16);
         assert_eq!(res[0].x, 0.);

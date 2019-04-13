@@ -5,7 +5,7 @@ use crate::api::{
 use crate::generated::Vector2f;
 use super::SceneRenderer;
 use crate::temp;
-use crate::text::{LaidGlyph, PangoService, TextShaper};
+use crate::text::{LaidGlyph, LaidText};
 use gleam::gl::Gl;
 use image;
 use image::GenericImageView;
@@ -16,26 +16,25 @@ use std::sync::mpsc::{channel, Receiver};
 use webrender::api::{
     AddImage, AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius,
     BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
-    BoxShadowDisplayItem, ColorF, ColorU, DeviceIntSize, DisplayListBuilder, DocumentId, Epoch,
+    BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, DocumentId, Epoch,
     FontInstanceKey, GlyphInstance, ImageData, ImageDescriptor,
-    ImageDisplayItem, ImageFormat, ImageRendering, LayoutPoint, LayoutPrimitiveInfo, LayoutRect,
-    LayoutSize, LayoutVector2D, NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
+    ImageDisplayItem, ImageFormat, ImageRendering, LayoutPrimitiveInfo,
+    NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
     ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem, Transaction,
-    HitTestFlags, WorldPoint, ComplexClipRegion, ClipMode, ScrollLocation,
+    HitTestFlags, ComplexClipRegion, ClipMode, ScrollLocation,
+    units::{LayoutPoint, LayoutSize, LayoutVector2D, WorldPoint, LayoutRect, FramebufferIntSize}
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 use webrender::{Renderer, RendererOptions};
 
 pub struct WebrenderRenderer {
-    text_shaper: PangoService,
-
     renderer: Renderer,
     render_api: RenderApi,
     document_id: DocumentId,
     rx: Receiver<()>,
 
     pub layout_size: LayoutSize,
-    fb_size: DeviceIntSize,
+    fb_size: FramebufferIntSize,
     // so that we can reuse already uploaded images
     // this can be (periodically) cleaned up by simply going through all keys and
     // looking what has (not) been used in the last render (and can be evicted)
@@ -44,18 +43,15 @@ pub struct WebrenderRenderer {
 
 impl WebrenderRenderer {
     pub fn new(gl: Rc<Gl>) -> Self {
-        let fb_size = DeviceIntSize::new(1024, 768);
+        let fb_size = FramebufferIntSize::new(1024, 768);
         let layout_size = LayoutSize::new(fb_size.width as f32, fb_size.height as f32);
 
-        let (renderer, mut render_api, rx) = Self::init_webrender(gl);
+        let (renderer, mut render_api, rx) = Self::init_webrender(gl, fb_size);
         let document_id = render_api.add_document(fb_size, 0);
 
         Self::load_fonts(&mut render_api, document_id, &rx);
 
         WebrenderRenderer {
-            // find out how to share one ref with YogaService
-            text_shaper: PangoService::new(),
-
             renderer,
             render_api,
             document_id,
@@ -75,7 +71,7 @@ impl WebrenderRenderer {
 
     pub fn resize() {}
 
-    fn init_webrender(gl: Rc<Gl>) -> (Renderer, RenderApi, Receiver<()>) {
+    fn init_webrender(gl: Rc<Gl>, fb_size: FramebufferIntSize) -> (Renderer, RenderApi, Receiver<()>) {
         // so that we can block until the frame is actually rendered
         let (tx, rx) = channel();
 
@@ -87,6 +83,7 @@ impl WebrenderRenderer {
                 ..RendererOptions::default()
             },
             None,
+            fb_size
         )
         .expect("couldn't init webrender");
         let render_api = sender.create_api();
@@ -106,7 +103,7 @@ impl WebrenderRenderer {
         tx.add_raw_font(font_key, font, font_index as u32);
 
         // TODO: support any size
-        for font_size in [10, 12, 14, 16, 20, 24, 34, 40, 48].iter() {
+        for font_size in [10, 12, 14, 16, 20, 24, 34, 40, 48, 60, 96].iter() {
             tx.add_font_instance(
                 FontInstanceKey(font_key.0, *font_size),
                 font_key,
@@ -171,7 +168,6 @@ impl SceneRenderer for WebrenderRenderer{
             let mut context = RenderContext {
                 scene,
                 render_api: &mut self.render_api,
-                text_shaper: &self.text_shaper,
 
                 builder: DisplayListBuilder::with_capacity(
                     pipeline_id,
@@ -195,7 +191,6 @@ impl SceneRenderer for WebrenderRenderer{
 struct RenderContext<'a> {
     scene: &'a dyn Scene,
     render_api: &'a mut RenderApi,
-    text_shaper: &'a dyn TextShaper,
 
     builder: DisplayListBuilder,
     border_radius: WRBorderRadius,
@@ -267,7 +262,7 @@ impl<'a> RenderContext<'a> {
         // TODO: selections (should be below text)
 
         if let Some(text) = self.scene.text(surface) {
-            let (item, glyphs) = self.text(text.clone());
+            let (item, glyphs) = self.text(text.clone(), self.scene.text_layout(surface));
 
             self.push(item);
             self.builder.push_iter(glyphs);
@@ -351,19 +346,11 @@ impl<'a> RenderContext<'a> {
         })
     }
 
-    // TODO: cache, free, refactor, etc.
-    // (this is rather PoC)
     // TODO: clip should be enough big to contain `y` and similar characters
-    fn text(&self, text: Text) -> (SpecificDisplayItem, Vec<GlyphInstance>) {
-        let [width, height] = self.layout.rect.size.to_array();
+    fn text(&self, text: Text, laid_text: LaidText) -> (SpecificDisplayItem, Vec<GlyphInstance>) {
         let [text_x, text_y] = self.layout.rect.origin.to_array();
 
-        // y is from the bottom, I think it should be y + ((text.line_height + text.font_size) / 2)
-        // but this works better (no idea why)
-        let text_y = text_y + (text.line_height / 2.) + (text.font_size / 2.7);
-
-        let glyphs = self.text_shaper.shape_text(&text, (width, height));
-        let glyphs = glyphs
+        let glyphs = laid_text.glyphs
             .iter()
             .map(|LaidGlyph { glyph_index, x, y }| GlyphInstance {
                 index: *glyph_index,

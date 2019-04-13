@@ -6,6 +6,7 @@ use crate::layout::{LayoutTree, YogaTree};
 use crate::api::Rect;
 use std::collections::BTreeMap;
 use crate::storage::Storage;
+use crate::text::LaidText;
 
 /// A tree of surfaces (UI elements) along with all of their layout/visual properties
 ///
@@ -143,6 +144,10 @@ impl Scene for ArrayScene {
 
     fn computed_layout(&self, surface: SurfaceId) -> Rect {
         self.layout_tree.computed_layout(surface)
+    }
+
+    fn text_layout(&self, surface: SurfaceId) -> LaidText {
+        self.layout_tree.text_layout(surface)
     }
 
     fn border_radius(&self, surface: SurfaceId) -> Option<&BorderRadius> {

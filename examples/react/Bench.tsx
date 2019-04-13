@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 import { View, Text, Button, StyleSheet } from '../../src/react'
 
 const Bench = () => {
-  const LIMIT = 100
+  const LIMIT = 200
   const bench = useBench(LIMIT)
 
   return (
@@ -45,6 +45,7 @@ function useBench(limit) {
         if (bench.num === limit) {
           bench.time = Date.now() - bench.start
           forceUpdate(0)
+          bench.running = false
           return
         }
 
@@ -52,6 +53,7 @@ function useBench(limit) {
         requestAnimationFrame(loop)
       }
 
+      bench.running = true
       bench.num = 0
       bench.start = Date.now()
 
