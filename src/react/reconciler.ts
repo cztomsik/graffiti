@@ -15,7 +15,7 @@ import { SceneContext } from '../core'
 import { NOOP, IDENTITY } from '../core/utils'
 import { WindowEvent } from '../core/generated';
 import { ViewProps, StyleProp } from './react-native-types'
-import StyleSheet, { SurfaceProps } from './Stylesheet';
+import StyleSheet, { SurfaceProps, compileFlatStyle } from './Stylesheet';
 import { isEqual } from 'lodash'
 
 let ctx: SceneContext = null
@@ -128,7 +128,7 @@ function styleEqual(a: StyleProp<any>, b: StyleProp<any>): boolean {
 function setProp(surface, prop, value) {
   if (prop === 'style') {
     //TODO: setStyle(surface, value)
-    const { _surfaceProps } = StyleSheet.flatten(value)
+    const _surfaceProps = compileFlatStyle(StyleSheet.flatten(value))
     patchStyle(surface, _surfaceProps, ctx['surfaceProps'][surface])
     ctx['surfaceProps'][surface] = _surfaceProps
   }
