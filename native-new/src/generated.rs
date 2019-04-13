@@ -12,7 +12,6 @@ pub enum FfiMsg {
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(tag = "tag", content = "value")]
 pub enum FfiResult {
     Nothing,
     Event(Event),
@@ -21,14 +20,12 @@ pub enum FfiResult {
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(tag = "tag", content = "value")]
 pub enum Event {
     WindowEvent { window: WindowId, event: WindowEvent },
 }
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(tag = "tag", content = "value")]
 pub enum WindowEvent {
     MouseMove { target: usize },
     MouseDown { target: usize },

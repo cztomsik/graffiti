@@ -1,7 +1,7 @@
 use crate::api::App;
 use crate::app::TheApp;
 use crate::generated::{FfiMsg, FfiResult, UpdateSceneMsg};
-use bincode::deserialize;
+use bincode::{deserialize, serialize, serialize_into};
 use serde_json;
 use std::io::prelude::Write;
 
@@ -41,9 +41,12 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
                 // TODO: bincode
                 // TODO: find a way to avoid memcpy
                 // (it's not possible to use to_writer, because it takes ownership and so it would free the vec & the data)
-                let data = serde_json::to_vec(&result).expect("couldn't serialize result");
+                // let data = serde_json::to_vec(&result).expect("couldn't serialize result");
+                let data = serialize(&result).expect("couldn't serialize result");
                 let mut writer = Vec::from_raw_parts(result_ptr, 0, 1024);
                 writer.write(&data[..]).unwrap();
+
+                // serialize_into(writer, &result).unwrap();
                 Box::leak(Box::new(writer));
             }
         }

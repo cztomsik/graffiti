@@ -14,7 +14,7 @@
     "ffi": "^2.3.0",
     "lodash": "^4.17.11",
     "ref": "^1.3.5",
-    "ts-rust-bridge-bincode": "0.2.0"
+    "ts-rust-bridge-bincode": "0.3.0"
   },
   "files": [
     "src",
@@ -45,7 +45,7 @@
     "react-reconciler": "^0.20.4",
     "scheduler": "^0.13.6",
     "ts-node": "^8.0.3",
-    "ts-rust-bridge-codegen": "0.3.2",
+    "ts-rust-bridge-codegen": "0.4.0",
     "typescript": "^3.4.1",
     "ws": "^6.2.1"
   }

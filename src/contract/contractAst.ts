@@ -227,7 +227,7 @@ const WindowEvent = Union(
     // TODO: temp
     V.Unit('Unknown')
   ],
-  { tagAnnotation: true }
+  { tagAnnotation: false }
 )
 
 const Event = Union(
@@ -238,7 +238,7 @@ const Event = Union(
       event: T.RefTo(WindowEvent)
     })
   ],
-  { tagAnnotation: true }
+  { tagAnnotation: false }
 )
 
 const FfiResult = Union(
@@ -248,7 +248,7 @@ const FfiResult = Union(
     V.NewType('Event', T.RefTo(Event)),
     V.NewType('WindowId', T.RefTo(WindowId))
   ],
-  { tagAnnotation: true }
+  { tagAnnotation: false }
 )
 
 export const exampleEntries: EntryT[] = [
