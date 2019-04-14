@@ -5,6 +5,7 @@ nav_order: 95
 # How does it work
 
 ## Overview
+  - for drawing, we are using [webrender](https://github.com/servo/webrender) library, despite its name, it has very little to do with web, it doesn't do flexbox, nor text layout
   - webrender is about drawing as many rects and glyphs as possible (in parallel) using GPU
   - conceptually, every frame has to be drawn from scratch (in correct order), yet it's faster than usual approach
   - drawing UI on GPU is very different from classic approach, we implement few shader programs and then we "just" fill big buffers of floats
@@ -12,7 +13,7 @@ nav_order: 95
   - webrender does this for us and provides an api
 
 ## webrender api
-  - webrender retains some info about the scene so it can do scrolling/zooming and hitbox testing for us (without rebuilding the scene), so it is not entirely stateless but I wouldn't call it retained-mode either (we don't directly manage any instances of anything)
+  - webrender retains some info about the scene so it can do scrolling/zooming and hitbox testing for us (without rebuilding the scene), so it is not entirely stateless but I wouldn't call it retained-mode either (we don't hold instances of anything)
   - api is useful for font-loading, text measurements, font glyph resolving but also for sending **transactions**
   - nothing is rendered unless transaction is sent (and async **processed**, which is when we swap buffers, etc.)
   - even scrolling/zooming has to be sent in trasaction
