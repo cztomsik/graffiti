@@ -1,11 +1,10 @@
 import { FfiMsg, FfiResult } from './generated'
 import { writeFfiMsg } from './serialization.generated'
+import { readFfiResult } from './deserialization.generated'
 import { Sink } from 'ts-rust-bridge-bincode'
 
 import * as ref from 'ref'
-// const ref = require('ref')
 import * as ffi from 'ffi'
-// import * as util from 'util'
 
 // define lib
 const lib = ffi.Library(
@@ -27,6 +26,8 @@ let sink: Sink = {
   pos: 0
 }
 
+const resBuf = Buffer.alloc(1024, 0)
+
 export function send(msg: FfiMsg) {
   //console.log(util.inspect(msg, { depth: 4 }))
 
@@ -40,13 +41,12 @@ export function send(msg: FfiMsg) {
   const msgBuf = Buffer.from(sink.arr.buffer, 0, sink.pos)
   // alloc some mem for result
   // TODO why allocate anything here?
-  const resBuf = Buffer.alloc(1024, ' ')
 
   // send (sync)
   lib.send(msgBuf, msgBuf.length, resBuf)
 
-  const res: FfiResult = JSON.parse(resBuf.toString('utf-8'))
+  const res: FfiResult = readFfiResult({ arr: resBuf, pos: 0 })
 
-  //console.log(res)
+  // console.log(res)
   return res
 }

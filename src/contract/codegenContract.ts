@@ -2,7 +2,8 @@ import {
   schema2rust,
   schema2ts,
   ast2ts,
-  schema2serializers
+  schema2serializers,
+  schema2deserializers
 } from 'ts-rust-bridge-codegen'
 import * as fs from 'fs'
 import { format } from 'prettier'
@@ -11,6 +12,7 @@ import { exampleEntries as contract } from './contractAst'
 
 const typescriptDefFile = __dirname + '/../core/generated.ts'
 const typescriptSerFile = __dirname + '/../core/serialization.generated.ts'
+const typescriptDeserFile = __dirname + '/../core/deserialization.generated.ts'
 const rustDefFil = __dirname + '/../../native-new/src/generated.rs'
 
 const rustContent = `
@@ -34,6 +36,16 @@ ${ast2ts(
 ).join('\n\n')}
 `
 
+const tsDeserContent = `
+${ast2ts(
+  schema2deserializers({
+    entries: contract,
+    typesDeclarationFile: `./generated`,
+    pathToBincodeLib: 'ts-rust-bridge-bincode'
+  })
+).join('\n\n')}
+`
+
 const prettierOptions = JSON.parse(
   fs.readFileSync(__dirname + '/../../.prettierrc').toString()
 )
@@ -47,3 +59,4 @@ const pretty = (content: string) =>
 fs.writeFileSync(rustDefFil, rustContent)
 fs.writeFileSync(typescriptDefFile, pretty(tsContent))
 fs.writeFileSync(typescriptSerFile, pretty(tsSerContent))
+fs.writeFileSync(typescriptDeserFile, pretty(tsDeserContent))
