@@ -26,8 +26,8 @@ pub trait Window {
     fn render(&mut self);
 
     // platform-specific (and optional)
-    //fn set_size(&mut self, _width: u32, _height: u32) {}
-    //fn set_title(&mut self, _title: &str) {}
+    fn set_size(&mut self, _width: i32, _height: i32) {}
+    fn set_title(&mut self, _title: &str) {}
     fn show(&mut self) {}
     fn hide(&mut self) {}
 }

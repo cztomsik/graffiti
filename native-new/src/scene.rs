@@ -69,12 +69,12 @@ impl ArrayScene {
         scene
     }
 
-    pub fn set_layout_size(&mut self, width: f32, height: f32) {
+    pub fn set_layout_size(&mut self, size: (f32, f32)) {
         self.layout_tree.set_size(
             0,
             Size(
-                Dimension::Point(width),
-                Dimension::Point(height),
+                Dimension::Point(size.0),
+                Dimension::Point(size.1),
             ),
         );
     }

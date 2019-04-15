@@ -21,7 +21,6 @@ impl TheApp {
         TheApp {
             glfw,
             windows: BTreeMap::new(),
-            //native_ids: BTreeMap::new(),
             next_window_id: 1,
         }
     }
@@ -62,6 +61,9 @@ impl App for TheApp {
         self.windows.insert(id, (window, events));
 
         self.next_window_id = self.next_window_id + 1;
+
+        // vsync off (for now)
+        self.glfw.set_swap_interval(glfw::SwapInterval::None);
 
         id
     }
