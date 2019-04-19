@@ -184,19 +184,6 @@ const UpdateSceneMsg = Union(
 
 const WindowId = Alias('WindowId', T.Scalar.U16)
 
-const FfiMsg = Union(
-  'FfiMsg',
-  [
-    V.NewType('GetNextEvent', T.Scalar.Bool),
-    V.Unit('CreateWindow'),
-    V.Struct('UpdateScene', {
-      window: T.RefTo(WindowId),
-      msgs: T.Vec(T.RefTo(UpdateSceneMsg))
-    })
-  ],
-  { tagAnnotation: false }
-)
-
 // WIP
 const WindowEvent = Union(
   'WindowEvent',
@@ -245,8 +232,21 @@ const FfiResult = Union(
   'FfiResult',
   [
     V.Unit('Nothing'),
-    V.NewType('Event', T.RefTo(Event)),
+    V.NewType('Events', T.Vec(T.RefTo(Event))),
     V.NewType('WindowId', T.RefTo(WindowId))
+  ],
+  { tagAnnotation: false }
+)
+
+const FfiMsg = Union(
+  'FfiMsg',
+  [
+    V.NewType('GetEvents', T.Scalar.Bool),
+    V.Unit('CreateWindow'),
+    V.Struct('UpdateScene', {
+      window: T.RefTo(WindowId),
+      msgs: T.Vec(T.RefTo(UpdateSceneMsg))
+    })
   ],
   { tagAnnotation: false }
 )

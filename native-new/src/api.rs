@@ -9,7 +9,7 @@
 ///
 /// in future it might provide some app-related things (notifications, icon highlighting, ...)
 pub trait App {
-    fn get_next_event(&mut self, poll: bool) -> Option<Event>;
+    fn get_events(&mut self, poll: bool) -> Vec<Event>;
 
     fn create_window(&mut self) -> WindowId;
     fn get_window_mut(&mut self, id: WindowId) -> &mut Window;

@@ -1,5 +1,5 @@
 export type FfiMsg =
-  | { tag: 'GetNextEvent'; value: boolean }
+  | { tag: 'GetEvents'; value: boolean }
   | { tag: 'CreateWindow' }
   | { tag: 'UpdateScene'; value: FfiMsg_UpdateScene }
 
@@ -9,8 +9,8 @@ export interface FfiMsg_UpdateScene {
 }
 
 export module FfiMsg {
-  export const GetNextEvent = (value: boolean): FfiMsg => ({
-    tag: 'GetNextEvent',
+  export const GetEvents = (value: boolean): FfiMsg => ({
+    tag: 'GetEvents',
     value
   })
 
@@ -24,13 +24,16 @@ export module FfiMsg {
 
 export type FfiResult =
   | { tag: 'Nothing' }
-  | { tag: 'Event'; value: Event }
+  | { tag: 'Events'; value: Array<Event> }
   | { tag: 'WindowId'; value: WindowId }
 
 export module FfiResult {
   export const Nothing: FfiResult = { tag: 'Nothing' }
 
-  export const Event = (value: Event): FfiResult => ({ tag: 'Event', value })
+  export const Events = (value: Array<Event>): FfiResult => ({
+    tag: 'Events',
+    value
+  })
 
   export const WindowId = (value: WindowId): FfiResult => ({
     tag: 'WindowId',
