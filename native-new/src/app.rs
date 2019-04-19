@@ -1,4 +1,4 @@
-use crate::api::{App, Event, WindowId, Window};
+use crate::api::{App, Event, Window, WindowId};
 use crate::window::AppWindow;
 use glfw::{Context, Glfw, WindowEvent};
 use std::collections::BTreeMap;
@@ -16,19 +16,20 @@ impl TheApp {
 
         glfw.window_hint(glfw::WindowHint::ContextVersion(3, 2));
         glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
-        glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
+        glfw.window_hint(glfw::WindowHint::OpenGlProfile(
+            glfw::OpenGlProfileHint::Core,
+        ));
 
         TheApp {
             glfw,
             windows: BTreeMap::new(),
-            //native_ids: BTreeMap::new(),
             next_window_id: 1,
         }
     }
 }
 
 impl App for TheApp {
-    fn get_next_event(&mut self, poll: bool) -> Option<Event> {
+    fn get_events(&mut self, poll: bool) -> Vec<Event> {
         if poll {
             self.glfw.poll_events()
         } else {
@@ -36,15 +37,18 @@ impl App for TheApp {
             self.glfw.wait_events_timeout(0.1);
         }
 
-        for (id, (window, events)) in self.windows.iter_mut() {
-            if let Ok((_, event)) = events.try_recv() {
-                return window
-                    .handle_event(event)
-                    .map(|event| Event::WindowEvent { window: *id, event });
-            }
-        }
-
-        None
+        // go through all windows, handle their events, collect all the resulting events and wrap them along with respective window_id
+        self.windows
+            .iter_mut()
+            .flat_map(|(id, (window, events))| {
+                glfw::flush_messages(events)
+                    .filter_map(move |(_, e)| window.handle_event(e))
+                    .map(move |e| Event::WindowEvent {
+                        window: *id,
+                        event: e,
+                    })
+            })
+            .collect()
     }
 
     fn create_window(&mut self) -> WindowId {
@@ -62,6 +66,9 @@ impl App for TheApp {
         self.windows.insert(id, (window, events));
 
         self.next_window_id = self.next_window_id + 1;
+
+        // vsync off (for now)
+        self.glfw.set_swap_interval(glfw::SwapInterval::None);
 
         id
     }

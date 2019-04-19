@@ -65,6 +65,9 @@ import {
 const writeVecUpdateSceneMsg = (sink: Sink, val: Array<UpdateSceneMsg>): Sink =>
   write_seq(sink, val, writeUpdateSceneMsg)
 
+const writeVecEvent = (sink: Sink, val: Array<Event>): Sink =>
+  write_seq(sink, val, writeEvent)
+
 const writeOptBorderRadius = (
   sink: Sink,
   val: (BorderRadius) | undefined
@@ -87,7 +90,7 @@ const writeOptBorder = (sink: Sink, val: (Border) | undefined): Sink =>
 
 export const writeFfiMsg = (sink: Sink, val: FfiMsg): Sink => {
   switch (val.tag) {
-    case 'GetNextEvent':
+    case 'GetEvents':
       return write_bool(write_u32(sink, 0), val.value)
     case 'CreateWindow':
       return write_u32(sink, 1)
@@ -105,8 +108,8 @@ export const writeFfiResult = (sink: Sink, val: FfiResult): Sink => {
   switch (val.tag) {
     case 'Nothing':
       return write_u32(sink, 0)
-    case 'Event':
-      return writeEvent(write_u32(sink, 1), val.value)
+    case 'Events':
+      return writeVecEvent(write_u32(sink, 1), val.value)
     case 'WindowId':
       return writeWindowId(write_u32(sink, 2), val.value)
   }

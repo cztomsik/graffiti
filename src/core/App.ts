@@ -29,9 +29,7 @@ export class App {
       // maybe we could use async_hooks to know if there was anything requested and if not,
       // just wait indefinitely
 
-      const event = this.getNextEvent()
-
-      if (event !== undefined) {
+      for (const event of this.getEvents()) {
         if (event.tag === 'WindowEvent') {
           this.windows[event.value.window].handleEvent(event.value.event)
         }
@@ -58,10 +56,10 @@ export class App {
     runLoop()
   }
 
-  getNextEvent(): Event | undefined {
-    const res = this.ffi.send(FfiMsg.GetNextEvent(this.animating))
+  getEvents(): Event[] {
+    const res = this.ffi.send(FfiMsg.GetEvents(this.animating))
 
-    if (res.tag === 'Event') {
+    if (res.tag === 'Events') {
       return res.value
     }
   }

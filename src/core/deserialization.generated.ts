@@ -65,6 +65,8 @@ import {
 const readVecUpdateSceneMsg = (sink: Sink): Array<UpdateSceneMsg> =>
   read_seq(sink, readUpdateSceneMsg)
 
+const readVecEvent = (sink: Sink): Array<Event> => read_seq(sink, readEvent)
+
 const readOptBorderRadius = (sink: Sink): (BorderRadius) | undefined =>
   read_opt(sink, readBorderRadius)
 
@@ -85,7 +87,7 @@ const readOptBorder = (sink: Sink): (Border) | undefined =>
 export const readFfiMsg = (sink: Sink): FfiMsg => {
   switch (read_u32(sink)) {
     case 0:
-      return FfiMsg.GetNextEvent(read_bool(sink))
+      return FfiMsg.GetEvents(read_bool(sink))
     case 1:
       return FfiMsg.CreateWindow
     case 2:
@@ -105,7 +107,7 @@ export const readFfiResult = (sink: Sink): FfiResult => {
     case 0:
       return FfiResult.Nothing
     case 1:
-      return FfiResult.Event(readEvent(sink))
+      return FfiResult.Events(readVecEvent(sink))
     case 2:
       return FfiResult.WindowId(readWindowId(sink))
   }

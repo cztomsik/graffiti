@@ -9,7 +9,7 @@
 ///
 /// in future it might provide some app-related things (notifications, icon highlighting, ...)
 pub trait App {
-    fn get_next_event(&mut self, poll: bool) -> Option<Event>;
+    fn get_events(&mut self, poll: bool) -> Vec<Event>;
 
     fn create_window(&mut self) -> WindowId;
     fn get_window_mut(&mut self, id: WindowId) -> &mut Window;
@@ -26,8 +26,8 @@ pub trait Window {
     fn render(&mut self);
 
     // platform-specific (and optional)
-    //fn set_size(&mut self, _width: u32, _height: u32) {}
-    //fn set_title(&mut self, _title: &str) {}
+    fn set_size(&mut self, _width: i32, _height: i32) {}
+    fn set_title(&mut self, _title: &str) {}
     fn show(&mut self) {}
     fn hide(&mut self) {}
 }

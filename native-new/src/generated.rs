@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum FfiMsg {
-    GetNextEvent(bool),
+    GetEvents(bool),
     CreateWindow,
     UpdateScene { window: WindowId, msgs: Vec<UpdateSceneMsg> },
 }
@@ -14,7 +14,7 @@ pub enum FfiMsg {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum FfiResult {
     Nothing,
-    Event(Event),
+    Events(Vec<Event>),
     WindowId(WindowId),
 }
 

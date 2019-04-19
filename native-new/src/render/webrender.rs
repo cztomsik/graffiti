@@ -4,7 +4,6 @@ use crate::api::{
 };
 use crate::generated::Vector2f;
 use super::SceneRenderer;
-use crate::temp;
 use crate::text::{LaidGlyph, LaidText};
 use gleam::gl::Gl;
 use image;
@@ -12,7 +11,7 @@ use image::GenericImageView;
 use std::fs::File;
 use std::io::prelude::*;
 use std::rc::Rc;
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use webrender::api::{
     AddImage, AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius,
     BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
@@ -21,7 +20,7 @@ use webrender::api::{
     ImageDisplayItem, ImageFormat, ImageRendering, LayoutPrimitiveInfo,
     NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
     ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem, Transaction,
-    HitTestFlags, ComplexClipRegion, ClipMode, ScrollLocation,
+    HitTestFlags, ComplexClipRegion, ClipMode, ScrollLocation, RenderNotifier,
     units::{LayoutPoint, LayoutSize, LayoutVector2D, WorldPoint, LayoutRect, FramebufferIntSize}
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
@@ -33,7 +32,6 @@ pub struct WebrenderRenderer {
     document_id: DocumentId,
     rx: Receiver<()>,
 
-    pub layout_size: LayoutSize,
     fb_size: FramebufferIntSize,
     // so that we can reuse already uploaded images
     // this can be (periodically) cleaned up by simply going through all keys and
@@ -42,10 +40,8 @@ pub struct WebrenderRenderer {
 }
 
 impl WebrenderRenderer {
-    pub fn new(gl: Rc<Gl>) -> Self {
-        let fb_size = FramebufferIntSize::new(1024, 768);
-        let layout_size = LayoutSize::new(fb_size.width as f32, fb_size.height as f32);
-
+    pub fn new(gl: Rc<Gl>, fb_size: (i32, i32)) -> Self {
+        let fb_size = FramebufferIntSize::new(fb_size.0, fb_size.1);
         let (renderer, mut render_api, rx) = Self::init_webrender(gl, fb_size);
         let document_id = render_api.add_document(fb_size, 0);
 
@@ -57,7 +53,6 @@ impl WebrenderRenderer {
             document_id,
             rx,
 
-            layout_size,
             fb_size,
         }
     }
@@ -69,15 +64,13 @@ impl WebrenderRenderer {
         res.items.get(0).map(|item| item.tag.1 as usize)
     }
 
-    pub fn resize() {}
-
     fn init_webrender(gl: Rc<Gl>, fb_size: FramebufferIntSize) -> (Renderer, RenderApi, Receiver<()>) {
         // so that we can block until the frame is actually rendered
         let (tx, rx) = channel();
 
         let (renderer, sender) = Renderer::new(
             gl,
-            Box::new(temp::Notifier(tx)),
+            Box::new(SyncNotifier(tx)),
             RendererOptions {
                 device_pixel_ratio: 1.0,
                 ..RendererOptions::default()
@@ -119,12 +112,12 @@ impl WebrenderRenderer {
         rx.recv().ok();
     }
 
-    fn send_frame(&mut self, builder: DisplayListBuilder) {
+    fn send_frame(&mut self, builder: DisplayListBuilder, viewport_size: LayoutSize) {
         let mut tx = Transaction::new();
 
         // according to https://github.com/servo/webrender/wiki/Path-to-the-Screen
         tx.set_root_pipeline(PIPELINE_ID);
-        tx.set_display_list(Epoch(0), None, self.layout_size, builder.finalize(), true);
+        tx.set_display_list(Epoch(0), None, viewport_size, builder.finalize(), true);
         tx.generate_frame();
 
         self.send_tx(tx);
@@ -152,6 +145,11 @@ impl WebrenderRenderer {
         tx.generate_frame();
 
         self.send_tx(tx);
+    }
+
+    pub fn resize(&mut self, fb_size: (i32, i32), dpi: f32) {
+        self.fb_size = FramebufferIntSize::new(fb_size.0, fb_size.1);
+        self.render_api.set_document_view(self.document_id, self.fb_size.into(), dpi);
     }
 }
 
@@ -184,7 +182,7 @@ impl SceneRenderer for WebrenderRenderer{
             context.builder
         };
 
-        self.send_frame(builder)
+        self.send_frame(builder, content_size);
     }
 }
 
@@ -211,12 +209,7 @@ impl<'a> RenderContext<'a> {
                 .translate(&parent_layout.rect.origin.to_vector()),
         );
 
-        // TODO: surface flag
-        // components/surfaces should be explicit about if they want to receive pointer events or not
-        // ommitting tag works a bit like bubbling (closest parent is matched)
-        //
-        // interactive components should set this even if they don't have a callback yet
-        // (button should always match, not be click-through)
+        // everything will receive events (important for onMouseLeave)
         self.layout.tag = Some((0, surface as u16));
 
         debug!("surface {} {:?}", surface, self.layout.rect);
@@ -441,6 +434,28 @@ impl Into<WRBorderStyle> for BorderStyle {
             BorderStyle::None => WRBorderStyle::None,
             BorderStyle::Solid => WRBorderStyle::Solid,
         }
+    }
+}
+
+pub struct SyncNotifier(pub Sender<()>);
+
+impl RenderNotifier for SyncNotifier {
+    fn clone(&self) -> Box<RenderNotifier> {
+        return Box::new(SyncNotifier(self.0.clone()));
+    }
+
+    fn wake_up(&self) {
+        self.0.send(()).ok();
+    }
+
+    fn new_frame_ready(
+        &self,
+        _document_id: DocumentId,
+        _scrolled: bool,
+        _composite_needed: bool,
+        _render_time_ns: Option<u64>,
+    ) {
+        self.wake_up();
     }
 }
 

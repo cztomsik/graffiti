@@ -33,10 +33,10 @@ type FlatStyle = ViewStyle & TextStyle & ImageStyle
 
 const create = (obj: Styles): Styles => {
   for (const k in obj) {
-    compile(obj[k], '' + ++lastId)
+    Object.freeze(obj[k])
   }
 
-  return obj as any
+  return obj
 }
 
 const flatten: typeof RNStyleSheet.flatten = styles => {
@@ -45,82 +45,16 @@ const flatten: typeof RNStyleSheet.flatten = styles => {
   return Array.isArray(styles) ? Object.assign({}, ...styles.map(flatten)) : styles
 }
 
-const cachingFlatten: typeof flatten = styles => {
-  const id = []
-    .concat(styles)
-    .filter(Boolean)
-    .map(s => s._id || JSON.stringify(s))
-    .join('-')
-
-  let res = CACHE.get(id)
-
-  if (res === undefined) {
-    res = flatten(styles)
-    compile(res, id)
-  }
-
-  return res
-}
-
-const compile = (style, id: string) => {
-  // could happen if the same anonymous style was passed again but it was evicted from cache few moments ago
-  if (style._id !== undefined) {
-    CACHE.set(id, style)
-    return
-  }
-
-  style._surfaceProps = compile2(style)
-
-  Object.defineProperty(style, '_id', {
-    // so it does not propagate through Object.assign
-    enumerable: false,
-    value: id
-  })
-
-  CACHE.set(id, Object.freeze(style))
-}
-
-const CACHE = new Map<String, any>()
-let cleanThreshold = 100
-let lastId = 0
-
-// periodically check if cache is not full
-// & optionally remove few anonymous styles
-const cleanCache = () => {
-  if (CACHE.size < cleanThreshold) {
-    return
-  }
-
-  let removed = 0
-
-  for (const k of CACHE.keys()) {
-    // is this anonymous style?
-    if (k.indexOf('{') !== -1) {
-      CACHE.delete(k)
-
-      // remove at most 10 items
-      if (++removed >= 10) {
-        break
-      }
-    }
-  }
-
-  // make the cache little bigger
-  cleanThreshold += 5
-}
-
-setInterval(cleanCache, 5000)
-
 const StyleSheet = {
   compose: (left, right) => (left && right ? [left, right] : left || right),
   // note that react-native does not return numbers anymore,
-  flatten: cachingFlatten,
+  flatten,
   create
 }
 
 export default StyleSheet
 
-function compile2(style: FlatStyle): SurfaceProps {
+export function compileFlatStyle(style: FlatStyle): SurfaceProps {
   const {
     width = 'auto',
     height = 'auto',

@@ -11,7 +11,6 @@ mod render;
 mod storage;
 mod ffi;
 mod generated;
-mod temp;
 
 // temporarily here until we make respective parts generic
 pub type Id = generated::SurfaceId;

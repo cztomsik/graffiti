@@ -55,10 +55,8 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
 
 fn handle_msg(app: &mut TheApp, msg: FfiMsg, result: &mut FfiResult) {
     match msg {
-        FfiMsg::GetNextEvent(poll) => {
-            if let Some(event) = app.get_next_event(poll) {
-                *result = FfiResult::Event(event);
-            }
+        FfiMsg::GetEvents(poll) => {
+            *result = FfiResult::Events(app.get_events(poll))
         }
         FfiMsg::CreateWindow => {
             let id = app.create_window();

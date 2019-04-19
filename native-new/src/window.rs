@@ -11,7 +11,6 @@ pub struct AppWindow {
     glfw_window: GlfwWindow,
     scene: ArrayScene,
     renderer: WebrenderRenderer,
-    // TODO: size (so we can resize)
     mouse_pos: (f32, f32)
 }
 
@@ -19,12 +18,14 @@ impl AppWindow {
     pub fn new(mut glfw_window: GlfwWindow) -> Self {
         let gl = unsafe { GlFns::load_with(|addr| glfw_window.get_proc_address(addr)) };
 
-        let window = AppWindow {
+        let mut window = AppWindow {
             glfw_window,
             scene: ArrayScene::new(),
-            renderer: WebrenderRenderer::new(gl),
+            renderer: WebrenderRenderer::new(gl, (0, 0)),
             mouse_pos: (0., 0.)
         };
+
+        window.update_sizes();
 
         window
     }
@@ -58,7 +59,10 @@ impl AppWindow {
                 },
                 //glutin::WindowEvent::ReceivedCharacter(ch) => WindowEvent::KeyPress(ch as u16),
                 //glutin::WindowEvent::CloseRequested => WindowEvent::Close,
-                //glutin::WindowEvent::Resized(..) => WindowEvent::Resize,
+                glfw::WindowEvent::FramebufferSize(_, _) => {
+                    self.update_sizes();
+                    WindowEvent::Resize
+                },
                 _ => WindowEvent::Unknown,
             }),
         }
@@ -81,6 +85,17 @@ impl AppWindow {
         self.renderer.scroll(self.mouse_pos, delta);
         self.glfw_window.swap_buffers();
     }
+
+    fn update_sizes(&mut self) {
+        let w_size = self.glfw_window.get_size();
+        let fb_size = self.glfw_window.get_framebuffer_size();
+        let dpi = (w_size.0 as f32) / (fb_size.0 as f32);
+
+        self.renderer.resize(fb_size, dpi);
+        self.scene.set_layout_size(((w_size.0 as f32) * dpi, (w_size.1 as f32) * dpi));
+
+        self.render();
+    }
 }
 
 impl Window for AppWindow {
@@ -89,13 +104,19 @@ impl Window for AppWindow {
     }
 
     fn render(&mut self) {
-        // TODO: set on resize
-        let layout_size = self.renderer.layout_size;
-        self.scene.set_layout_size(layout_size.width, layout_size.height);
         self.scene.calculate_layout();
 
         self.glfw_window.make_current();
         self.renderer.render(&self.scene);
         self.glfw_window.swap_buffers();
+    }
+
+    fn set_size(&mut self, width: i32, height: i32) {
+        self.glfw_window.set_size(width, height);
+        self.update_sizes();
+    }
+
+    fn set_title(&mut self, title: &str) {
+        self.glfw_window.set_title(title);
     }
 }
