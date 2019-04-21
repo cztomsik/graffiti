@@ -132,6 +132,7 @@ export type UpdateSceneMsg =
   | { tag: 'InsertBefore'; value: UpdateSceneMsg_InsertBefore }
   | { tag: 'RemoveChild'; value: UpdateSceneMsg_RemoveChild }
   | { tag: 'SetBorderRadius'; value: UpdateSceneMsg_SetBorderRadius }
+  | { tag: 'SetOverflow'; value: UpdateSceneMsg_SetOverflow }
   | { tag: 'SetSize'; value: UpdateSceneMsg_SetSize }
   | { tag: 'SetFlex'; value: UpdateSceneMsg_SetFlex }
   | { tag: 'SetFlow'; value: UpdateSceneMsg_SetFlow }
@@ -162,6 +163,11 @@ export interface UpdateSceneMsg_RemoveChild {
 export interface UpdateSceneMsg_SetBorderRadius {
   surface: SurfaceId
   borderRadius: (BorderRadius) | undefined
+}
+
+export interface UpdateSceneMsg_SetOverflow {
+  surface: SurfaceId
+  overflow: Overflow
 }
 
 export interface UpdateSceneMsg_SetSize {
@@ -232,6 +238,10 @@ export module UpdateSceneMsg {
   export const SetBorderRadius = (
     value: UpdateSceneMsg_SetBorderRadius
   ): UpdateSceneMsg => ({ tag: 'SetBorderRadius', value })
+
+  export const SetOverflow = (
+    value: UpdateSceneMsg_SetOverflow
+  ): UpdateSceneMsg => ({ tag: 'SetOverflow', value })
 
   export const SetSize = (value: UpdateSceneMsg_SetSize): UpdateSceneMsg => ({
     tag: 'SetSize',
@@ -361,6 +371,12 @@ export module Dimension {
     tag: 'Percent',
     value
   })
+}
+
+export enum Overflow {
+  Visible = 'Visible',
+  Hidden = 'Hidden',
+  Scroll = 'Scroll'
 }
 
 export interface Size {

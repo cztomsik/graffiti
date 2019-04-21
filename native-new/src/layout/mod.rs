@@ -1,4 +1,4 @@
-use crate::api::{SurfaceId, Rect, Size, Flex, Flow, Dimensions, Text};
+use crate::api::{SurfaceId, Rect, Size, Flex, Flow, Dimensions, Text, Overflow};
 use crate::text::LaidText;
 
 /// Tree of layout nodes along with respective calculations
@@ -24,6 +24,8 @@ pub trait LayoutTree {
     fn calculate(&mut self);
     fn computed_layout(&self, node_id: NodeId) -> Rect;
     fn text_layout(&self, node_id: NodeId) -> LaidText;
+    fn set_overflow(&mut self, node_id: NodeId, overflow: Overflow);
+    fn scroll_frame(&self, surface: SurfaceId) -> Option<(f32, f32)>;
 }
 
 type NodeId = SurfaceId;

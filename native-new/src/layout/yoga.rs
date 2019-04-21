@@ -9,7 +9,7 @@ use yoga::{
 use super::LayoutTree;
 use crate::api::{
     Rect, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent,
-    Size, Text,
+    Size, Text, Overflow
 };
 use crate::text::{PangoService, TextLayoutAlgo, LaidText};
 use crate::Id;
@@ -136,6 +136,18 @@ impl LayoutTree for YogaTree {
     fn text_layout(&self, id: Id) -> LaidText {
         self.text_layouts.get(&id).expect("no text on the surface").clone()
     }
+
+    fn set_overflow(&mut self, id: Id, overflow: Overflow) {
+        self.yoga_nodes[id].set_overflow(overflow.into());
+    }
+
+    fn scroll_frame(&self, id: Id) -> Option<(f32, f32)> {
+        match self.yoga_nodes[id].get_overflow() {
+            // TODO: real inner size
+            yoga::Overflow::Scroll => Some((1000., 1000.)),
+            _ => None
+        }
+    }
 }
 
 extern "C" fn measure_text_node(
@@ -237,6 +249,16 @@ impl Into<Wrap> for FlexWrap {
     }
 }
 
+impl Into<yoga::Overflow> for Overflow {
+    fn into(self) -> yoga::Overflow {
+        match self {
+            Overflow::Visible => yoga::Overflow::Visible,
+            Overflow::Hidden => yoga::Overflow::Hidden,
+            Overflow::Scroll => yoga::Overflow::Scroll
+        }
+    }
+}
+
 // mutably borrow two items at once
 pub fn get_two_muts<T>(vec: &mut Vec<T>, first: usize, second: usize) -> (&mut T, &mut T) {
     let len = vec.len();
@@ -254,6 +276,7 @@ pub fn get_static_ref(tree: &mut YogaTree) -> &'static mut YogaTree {
     unsafe { std::mem::transmute(tree) }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -296,3 +319,4 @@ mod tests {
         );
     }
 }
+*/

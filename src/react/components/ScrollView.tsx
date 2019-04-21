@@ -17,7 +17,7 @@ const ScrollView: React.SFC<ScrollViewProps> = (props) => {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
-    //overflow: '?'
+    overflow: 'scroll'
   }
 })
 

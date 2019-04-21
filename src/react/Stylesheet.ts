@@ -2,7 +2,7 @@ import {
   RNStyleSheet,
   ViewStyle,
   TextStyle,
-  ImageStyle
+  ImageStyle,
 } from './react-native-types'
 import {
   Dimensions,
@@ -20,6 +20,7 @@ import {
   BoxShadow,
   Border,
   Color,
+  Overflow,
   Image
 } from '../core/generated'
 import { parseColor } from '../core/utils'
@@ -31,7 +32,7 @@ type Styles = {
 
 type FlatStyle = ViewStyle & TextStyle & ImageStyle
 
-const create = (obj: Styles): Styles => {
+const create: typeof RNStyleSheet.create = obj => {
   for (const k in obj) {
     Object.freeze(obj[k])
   }
@@ -45,11 +46,24 @@ const flatten: typeof RNStyleSheet.flatten = styles => {
   return Array.isArray(styles) ? Object.assign({}, ...styles.map(flatten)) : styles
 }
 
-const StyleSheet = {
-  compose: (left, right) => (left && right ? [left, right] : left || right),
+// any is needed here because TS is too dumb
+const absoluteFillObject: any = {
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  top: 0,
+  bottom: 0
+}
+
+const StyleSheet: typeof RNStyleSheet = {
   // note that react-native does not return numbers anymore,
   flatten,
-  create
+  create,
+
+  setStyleAttributePreprocessor: () => void(0),
+  hairlineWidth: 1,
+  absoluteFillObject,
+  absoluteFill: create(absoluteFillObject)
 }
 
 export default StyleSheet
@@ -67,6 +81,7 @@ export function compileFlatStyle(style: FlatStyle): SurfaceProps {
     alignSelf = 'auto',
     justifyContent = 'flex-start',
     flexWrap = 'no-wrap',
+    // FlexStyle contains 'scroll' too, but ImageStyle does not
     overflow = 'visible',
 
     shadowColor,
@@ -125,6 +140,7 @@ export function compileFlatStyle(style: FlatStyle): SurfaceProps {
   } = rest2
 
   return {
+    overflow: Overflow[OVERFLOW[overflow]],
     size: Size.mk(parseDimension(width), parseDimension(height)),
     flex: {
       flexGrow,
@@ -206,6 +222,12 @@ function parseDimension(value?: string | number): Dimension {
   return Dimension.Point(parseFloat(value))
 }
 
+const OVERFLOW = {
+  visible: 'Visible',
+  hidden: 'Hidden',
+  scroll: 'Scroll'
+}
+
 const FLEX_DIRECTION = {
   column: 'Column',
   'column-reverse': 'ColumnReverse',
@@ -241,6 +263,7 @@ const JUSTIFY_CONTENT = {
 }
 
 export interface SurfaceProps {
+  overflow?: Overflow,
   size?: Size
   flex?: Flex
   flow?: Flow

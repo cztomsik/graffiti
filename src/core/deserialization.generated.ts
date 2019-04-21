@@ -17,6 +17,8 @@ import {
   UpdateSceneMsg_RemoveChild,
   BorderRadius,
   UpdateSceneMsg_SetBorderRadius,
+  Overflow,
+  UpdateSceneMsg_SetOverflow,
   Size,
   UpdateSceneMsg_SetSize,
   Flex,
@@ -193,26 +195,28 @@ export const readUpdateSceneMsg = (sink: Sink): UpdateSceneMsg => {
         readUpdateSceneMsg_SetBorderRadius(sink)
       )
     case 5:
-      return UpdateSceneMsg.SetSize(readUpdateSceneMsg_SetSize(sink))
+      return UpdateSceneMsg.SetOverflow(readUpdateSceneMsg_SetOverflow(sink))
     case 6:
-      return UpdateSceneMsg.SetFlex(readUpdateSceneMsg_SetFlex(sink))
+      return UpdateSceneMsg.SetSize(readUpdateSceneMsg_SetSize(sink))
     case 7:
-      return UpdateSceneMsg.SetFlow(readUpdateSceneMsg_SetFlow(sink))
+      return UpdateSceneMsg.SetFlex(readUpdateSceneMsg_SetFlex(sink))
     case 8:
-      return UpdateSceneMsg.SetPadding(readUpdateSceneMsg_SetPadding(sink))
+      return UpdateSceneMsg.SetFlow(readUpdateSceneMsg_SetFlow(sink))
     case 9:
-      return UpdateSceneMsg.SetMargin(readUpdateSceneMsg_SetMargin(sink))
+      return UpdateSceneMsg.SetPadding(readUpdateSceneMsg_SetPadding(sink))
     case 10:
-      return UpdateSceneMsg.SetBoxShadow(readUpdateSceneMsg_SetBoxShadow(sink))
+      return UpdateSceneMsg.SetMargin(readUpdateSceneMsg_SetMargin(sink))
     case 11:
+      return UpdateSceneMsg.SetBoxShadow(readUpdateSceneMsg_SetBoxShadow(sink))
+    case 12:
       return UpdateSceneMsg.SetBackgroundColor(
         readUpdateSceneMsg_SetBackgroundColor(sink)
       )
-    case 12:
-      return UpdateSceneMsg.SetImage(readUpdateSceneMsg_SetImage(sink))
     case 13:
-      return UpdateSceneMsg.SetText(readUpdateSceneMsg_SetText(sink))
+      return UpdateSceneMsg.SetImage(readUpdateSceneMsg_SetImage(sink))
     case 14:
+      return UpdateSceneMsg.SetText(readUpdateSceneMsg_SetText(sink))
+    case 15:
       return UpdateSceneMsg.SetBorder(readUpdateSceneMsg_SetBorder(sink))
   }
   throw new Error('bad variant index for UpdateSceneMsg')
@@ -249,6 +253,14 @@ const readUpdateSceneMsg_SetBorderRadius = (
   const surface = readSurfaceId(sink)
   const borderRadius = readOptBorderRadius(sink)
   return { surface, borderRadius }
+}
+
+const readUpdateSceneMsg_SetOverflow = (
+  sink: Sink
+): UpdateSceneMsg_SetOverflow => {
+  const surface = readSurfaceId(sink)
+  const overflow = readOverflow(sink)
+  return { surface, overflow }
 }
 
 const readUpdateSceneMsg_SetSize = (sink: Sink): UpdateSceneMsg_SetSize => {
@@ -396,6 +408,15 @@ export const readDimension = (sink: Sink): Dimension => {
   }
   throw new Error('bad variant index for Dimension')
 }
+
+const OverflowReverseMap: Overflow[] = [
+  Overflow.Visible,
+  Overflow.Hidden,
+  Overflow.Scroll
+]
+
+export const readOverflow = (sink: Sink): Overflow =>
+  OverflowReverseMap[read_u32(sink)]
 
 export const readSize = (sink: Sink): Size =>
   Size.mk(readDimension(sink), readDimension(sink))

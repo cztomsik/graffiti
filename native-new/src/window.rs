@@ -63,6 +63,7 @@ impl AppWindow {
                     self.update_sizes();
                     WindowEvent::Resize
                 },
+                glfw::WindowEvent::Close => WindowEvent::Close,
                 _ => WindowEvent::Unknown,
             }),
         }
