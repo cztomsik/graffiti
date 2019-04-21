@@ -274,7 +274,10 @@ impl<'a> RenderContext<'a> {
                 LayoutVector2D::zero()
             );
 
-            //self.push()
+            // we need to push something which will receive hit-test events for the whole "area"
+            // otherwise scroll would not work in "empty" spaces
+            // TODO: stacking context would be probably better
+            self.builder.push_item(&self.background_color(Color(0, 0, 0, 0)), &self.layout, &self.space_and_clip);
         }
 
         for child_surface in self.scene.children(surface) {
