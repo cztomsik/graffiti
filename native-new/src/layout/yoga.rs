@@ -142,9 +142,21 @@ impl LayoutTree for YogaTree {
     }
 
     fn scroll_frame(&self, id: Id) -> Option<(f32, f32)> {
-        match self.yoga_nodes[id].get_overflow() {
-            // TODO: real inner size
-            yoga::Overflow::Scroll => Some((1000., 1000.)),
+        let node = &self.yoga_nodes[id];
+
+        match node.get_overflow() {
+            yoga::Overflow::Scroll => match node.get_child_count() {
+                1 => {
+                    let child: YogaNode = unsafe { std::mem::transmute(node.get_child(0)) };
+                    let width = child.get_layout_width();
+                    let height = child.get_layout_height();
+                    std::mem::forget(child);
+
+                    Some((width, height))
+                },
+                // it shouldn't be that hard but it's not on the list
+                _ => unimplemented!("for now we only support overflow: 'scroll' for ScrollView which always has one child")
+            },
             _ => None
         }
     }
