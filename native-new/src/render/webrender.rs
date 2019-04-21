@@ -213,20 +213,6 @@ impl<'a> RenderContext<'a> {
 
         debug!("surface {} {:?}", surface, self.layout.rect);
 
-        if let Some((width, height)) = self.scene.scroll_frame(surface) {
-            debug!("scroll_frame {:?}", (&width, &height, &self.space_and_clip, &self.layout.clip_rect));
-            self.space_and_clip = self.builder.define_scroll_frame(
-                &self.space_and_clip,
-                Some(ExternalScrollId(surface as u64, PIPELINE_ID)),
-                LayoutSize::new(width, height).into(),
-                self.layout.clip_rect,
-                vec![],
-                None,
-                ScrollSensitivity::ScriptAndInputEvents,
-                LayoutVector2D::zero()
-            );
-        }
-
         // shared, not directly rendered
         if let Some(border_radius) = self.scene.border_radius(surface) {
             self.border_radius = border_radius.clone().into();
@@ -273,6 +259,22 @@ impl<'a> RenderContext<'a> {
 
             self.push(item);
             self.builder.push_iter(glyphs);
+        }
+
+        if let Some((width, height)) = self.scene.scroll_frame(surface) {
+            debug!("scroll_frame {:?}", (&width, &height, &self.space_and_clip, &self.layout.clip_rect));
+            self.space_and_clip = self.builder.define_scroll_frame(
+                &self.space_and_clip,
+                Some(ExternalScrollId(surface as u64, PIPELINE_ID)),
+                LayoutSize::new(width, height).into(),
+                self.layout.clip_rect,
+                vec![],
+                None,
+                ScrollSensitivity::ScriptAndInputEvents,
+                LayoutVector2D::zero()
+            );
+
+            //self.push()
         }
 
         for child_surface in self.scene.children(surface) {
