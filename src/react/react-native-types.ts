@@ -25,6 +25,13 @@ declare module 'react-native' {
   }
 
   interface ViewProps {
+    // TODO: only els with tabindex should be focusable
+    tabindex?: number
+    onFocus?: (ev) => void
+    onBlur?: (ev) => void
+    onKeyDown?: (ev) => void
+    onKeyUp?: (ev) => void
+    onKeyPress?: (ev) => void
     onClick?: (ev) => void
     onMouseMove?: (ev) => void
     onMouseOver?: (ev) => void

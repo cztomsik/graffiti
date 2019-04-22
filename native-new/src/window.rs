@@ -64,6 +64,13 @@ impl AppWindow {
                     WindowEvent::Resize
                 },
                 glfw::WindowEvent::Close => WindowEvent::Close,
+                glfw::WindowEvent::Key(_key, _scancode, action, _modifiers) => match action {
+                    glfw::Action::Press => WindowEvent::KeyDown,
+                    glfw::Action::Release => WindowEvent::KeyUp,
+                    // TODO: not sure if we need it
+                    glfw::Action::Repeat => WindowEvent::Unknown
+                },
+                glfw::WindowEvent::Char(ch) => WindowEvent::KeyPress(ch as u16),
                 _ => WindowEvent::Unknown,
             }),
         }

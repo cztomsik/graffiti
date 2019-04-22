@@ -273,6 +273,11 @@ function createReconciler(cfg) {
 //   - and we want it to be stateless
 export class NotSureWhat {
   listeners: EventListeners = {
+    onFocus: [],
+    onBlur: [],
+    onKeyDown: [],
+    onKeyUp: [],
+    onKeyPress: [],
     onMouseMove: [],
     onMouseOver: [],
     onMouseOut: [],
@@ -282,6 +287,8 @@ export class NotSureWhat {
   }
   moveTarget = 0
   downTarget = 0
+  // TODO: only els with tabindex should be focusable
+  focusTarget = 0
 
   constructor(private parents) {
     // root
@@ -301,7 +308,7 @@ export class NotSureWhat {
       case 'Close': {
         return process.exit(0)
       }
-      case "MouseMove": {
+      case 'MouseMove': {
         const prevTarget = this.moveTarget
         const target = this.moveTarget = event.value.target
         this.dispatch(this.listeners.onMouseMove, target, { target })
@@ -313,20 +320,32 @@ export class NotSureWhat {
 
         return
       }
-      case "MouseDown": {
+      case 'MouseDown': {
         const target = this.downTarget = event.value.target
         return this.dispatch(this.listeners.onMouseDown, target, { target })
       }
-      case "MouseUp": {
+      case 'MouseUp': {
         const target = event.value.target
 
         this.dispatch(this.listeners.onMouseUp, target, { target })
 
         if (target === this.downTarget) {
+          if (target !== this.focusTarget) {
+            this.dispatch(this.listeners.onBlur, this.focusTarget, { target: this.focusTarget })
+            this.focusTarget = target
+            this.dispatch(this.listeners.onFocus, target, { target })
+          }
+
           this.dispatch(this.listeners.onClick, target, { target })
         }
 
         return
+      }
+      case 'KeyPress': {
+        const target  = this.focusTarget
+        const key = String.fromCharCode(event.value)
+
+        this.dispatch(this.listeners.onKeyPress, target, { target, key })
       }
     }
   }
@@ -352,6 +371,11 @@ export class NotSureWhat {
 
 // events we support
 interface EventMap {
+  onFocus: FocusEvent
+  onBlur: FocusEvent
+  onKeyDown: KeyboardEvent
+  onKeyUp: KeyboardEvent
+  onKeyPress: KeyboardEvent
   onMouseMove: MouseEvent,
   onMouseOver: MouseEvent,
   onMouseOut: MouseEvent,
