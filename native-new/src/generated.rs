@@ -49,6 +49,7 @@ pub enum UpdateSceneMsg {
     InsertBefore { parent: SurfaceId, child: SurfaceId, before: SurfaceId },
     RemoveChild { parent: SurfaceId, child: SurfaceId },
     SetBorderRadius { surface: SurfaceId, #[serde(rename = "borderRadius")] border_radius: Option<BorderRadius> },
+    SetOverflow { surface: SurfaceId, overflow: Overflow },
     SetSize { surface: SurfaceId, size: Size },
     SetFlex { surface: SurfaceId, flex: Flex },
     SetFlow { surface: SurfaceId, flow: Flow },
@@ -152,6 +153,14 @@ pub enum Dimension {
     Auto,
     Point(f32),
     Percent(f32),
+}
+
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub enum Overflow {
+    Visible,
+    Hidden,
+    Scroll,
 }
 
 

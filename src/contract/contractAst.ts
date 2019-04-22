@@ -117,6 +117,14 @@ const Text = Struct('Text', {
   text: T.Scalar.Str
 })
 
+const Overflow = Enum('Overflow', {
+  variants: [
+    'Visible',
+    'Hidden',
+    'Scroll'
+  ]
+})
+
 const UpdateSceneMsg = Union(
   'UpdateSceneMsg',
   [
@@ -137,6 +145,10 @@ const UpdateSceneMsg = Union(
     V.Struct('SetBorderRadius', {
       surface: T.RefTo(SurfaceId),
       borderRadius: T.Option(T.RefTo(BorderRadius))
+    }),
+    V.Struct('SetOverflow', {
+      surface: T.RefTo(SurfaceId),
+      overflow: T.RefTo(Overflow)
     }),
     V.Struct('SetSize', {
       surface: T.RefTo(SurfaceId),
@@ -267,6 +279,7 @@ export const exampleEntries: EntryT[] = [
   Flow,
   Flex,
   Dimension,
+  Overflow,
   Size,
   Rect,
   Dimensions,

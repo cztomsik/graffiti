@@ -149,6 +149,10 @@ function patchStyle(surface, props: SurfaceProps, oldProps: SurfaceProps) {
     ctx.setSize(surface, props.size)
   }
 
+  if (props.overflow !== oldProps.overflow) {
+    ctx.setOverflow(surface, props.overflow)
+  }
+
   if (props.flex !== oldProps.flex) {
     ctx.setFlex(surface, props.flex)
   }
@@ -294,6 +298,9 @@ export class NotSureWhat {
     console.log(event)
 
     switch (event.tag) {
+      case 'Close': {
+        return process.exit(0)
+      }
       case "MouseMove": {
         const prevTarget = this.moveTarget
         const target = this.moveTarget = event.value.target

@@ -41,6 +41,10 @@ export class SceneContext {
     this.sceneMsgs.push(U.SetSize({ surface, size }))
   }
 
+  setOverflow(surface, overflow) {
+    this.sceneMsgs.push(U.SetOverflow({ surface, overflow }))
+  }
+
   setFlex(surface, flex) {
     this.sceneMsgs.push(U.SetFlex({ surface, flex }))
   }

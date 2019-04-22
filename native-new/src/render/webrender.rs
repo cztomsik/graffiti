@@ -20,7 +20,7 @@ use webrender::api::{
     ImageDisplayItem, ImageFormat, ImageRendering, LayoutPrimitiveInfo,
     NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
     ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem, Transaction,
-    HitTestFlags, ComplexClipRegion, ClipMode, ScrollLocation, RenderNotifier,
+    HitTestFlags, ComplexClipRegion, ClipMode, ScrollLocation, RenderNotifier, ScrollSensitivity, ExternalScrollId,
     units::{LayoutPoint, LayoutSize, LayoutVector2D, WorldPoint, LayoutRect, FramebufferIntSize}
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
@@ -138,7 +138,7 @@ impl WebrenderRenderer {
 
     pub fn scroll(&mut self, mouse_pos: (f32, f32), delta: (f32, f32)) {
         let mut tx = Transaction::new();
-        let scroll_location = ScrollLocation::Delta(LayoutVector2D::new(delta.0, delta.1));
+        let scroll_location = ScrollLocation::Delta(LayoutVector2D::new(delta.0 * SCROLL_FACTOR, delta.1 * SCROLL_FACTOR));
         let cursor = WorldPoint::new(mouse_pos.0, mouse_pos.1);
 
         tx.scroll(scroll_location, cursor);
@@ -197,7 +197,6 @@ struct RenderContext<'a> {
 }
 
 impl<'a> RenderContext<'a> {
-    // TODO: scroll
     fn render_surface(&mut self, surface: SurfaceId) {
         let parent_layout = self.layout;
         let parent_space_and_clip = self.space_and_clip;
@@ -253,12 +252,32 @@ impl<'a> RenderContext<'a> {
         }
 
         // TODO: selections (should be below text)
+        // (or it could be just overlay with inverse color "effect")
 
         if let Some(text) = self.scene.text(surface) {
             let (item, glyphs) = self.text(text.clone(), self.scene.text_layout(surface));
 
             self.push(item);
             self.builder.push_iter(glyphs);
+        }
+
+        if let Some((width, height)) = self.scene.scroll_frame(surface) {
+            debug!("scroll_frame {:?}", (&width, &height, &self.space_and_clip, &self.layout.clip_rect));
+            self.space_and_clip = self.builder.define_scroll_frame(
+                &self.space_and_clip,
+                Some(ExternalScrollId(surface as u64, PIPELINE_ID)),
+                LayoutSize::new(width, height).into(),
+                self.layout.clip_rect,
+                vec![],
+                None,
+                ScrollSensitivity::ScriptAndInputEvents,
+                LayoutVector2D::zero()
+            );
+
+            // we need to push something which will receive hit-test events for the whole "area"
+            // otherwise scroll would not work in "empty" spaces
+            // TODO: stacking context would be probably better
+            self.builder.push_item(&self.background_color(Color(0, 0, 0, 0)), &self.layout, &self.space_and_clip);
         }
 
         for child_surface in self.scene.children(surface) {
@@ -393,6 +412,9 @@ impl<'a> RenderContext<'a> {
 static PIPELINE_ID: PipelineId = PipelineId(0, 0);
 
 static BUILDER_CAPACITY: usize = 512 * 1024;
+
+// no idea but it's very slow otherwise
+static SCROLL_FACTOR: f32 = 5.0;
 
 impl Into<ColorF> for Color {
     fn into(self) -> ColorF {

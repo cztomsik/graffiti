@@ -1,6 +1,6 @@
 pub use crate::api::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Flex, Flow, Image,
-    Size, Text, SurfaceId, Dimension, Dimensions, Scene
+    Size, Text, SurfaceId, Dimension, Dimensions, Scene, Overflow
 };
 use crate::layout::{LayoutTree, YogaTree};
 use crate::api::Rect;
@@ -150,12 +150,20 @@ impl Scene for ArrayScene {
         self.layout_tree.text_layout(surface)
     }
 
+    fn scroll_frame(&self, surface: SurfaceId) -> Option<(f32, f32)> {
+        self.layout_tree.scroll_frame(surface)
+    }
+
     fn border_radius(&self, surface: SurfaceId) -> Option<&BorderRadius> {
         self.border_radii.get(&surface)
     }
 
     fn set_border_radius(&mut self, surface: SurfaceId, border_radius: Option<BorderRadius>) {
         self.border_radii.set(surface, border_radius);
+    }
+
+    fn set_overflow(&mut self, surface: SurfaceId, overflow: Overflow) {
+        self.layout_tree.set_overflow(surface, overflow);
     }
 
     fn box_shadow(&self, surface: SurfaceId) -> Option<&BoxShadow> {

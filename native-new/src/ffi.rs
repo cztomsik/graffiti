@@ -90,6 +90,7 @@ fn handle_msg(app: &mut TheApp, msg: FfiMsg, result: &mut FfiResult) {
                         surface,
                         border_radius,
                     } => ctx.set_border_radius(surface, border_radius),
+                    UpdateSceneMsg::SetOverflow { surface, overflow } => ctx.set_overflow(surface, overflow),
                     UpdateSceneMsg::SetSize { surface, size } => ctx.set_size(surface, size),
                     UpdateSceneMsg::SetFlow { surface, flow } => ctx.set_flow(surface, flow),
                     UpdateSceneMsg::SetFlex { surface, flex } => ctx.set_flex(surface, flex),

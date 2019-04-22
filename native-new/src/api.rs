@@ -61,10 +61,12 @@ pub trait Scene {
     // layout info
     fn computed_layout(&self, surface: SurfaceId) -> Rect;
     fn text_layout(&self, surface: SurfaceId) -> LaidText;
+    fn scroll_frame(&self, surface: SurfaceId) -> Option<(f32, f32)>;
 
     // layout/visual
     fn border_radius(&self, surface: SurfaceId) -> Option<&BorderRadius>;
     fn set_border_radius(&mut self, surface: SurfaceId, border_radius: Option<BorderRadius>);
+    fn set_overflow(&mut self, surface: SurfaceId, overflow: Overflow);
 
     // visual props
     fn box_shadow(&self, surface: SurfaceId) -> Option<&BoxShadow>;
@@ -82,6 +84,6 @@ pub trait Scene {
 // re-export some value objects
 pub use crate::generated::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Dimension, Dimensions, Flex, Flow, Image,
-    Rect, Size, SurfaceId, Text, TextAlign, WindowId, FlexAlign, FlexDirection, FlexWrap, JustifyContent
+    Rect, Size, SurfaceId, Text, TextAlign, WindowId, FlexAlign, FlexDirection, FlexWrap, JustifyContent, Overflow
 };
 use crate::text::LaidText;

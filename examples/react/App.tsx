@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useState } from 'react'
 import { readFileSync } from 'fs'
-import { View, Text, FlatList } from '../../src/react'
+import { View, Text, FlatList, ScrollView } from '../../src/react'
 import { Hello } from './Hello'
 import { Counter } from './Counter'
 import { Calculator } from './Calculator'
@@ -45,9 +45,9 @@ export function App() {
           <example.Comp />
         </View>
 
-        <View style={{ flex: 1.5, padding: 20, backgroundColor: '#222233' }}>
+        <ScrollView style={{ flex: 1.5, padding: 20, backgroundColor: '#222233' }}>
           <Text style={{ color: '#ffffcc' }}>{example.source}</Text>
-        </View>
+        </ScrollView>
       </View>
     </View>
   )

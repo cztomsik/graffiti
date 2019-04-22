@@ -17,6 +17,8 @@ import {
   UpdateSceneMsg_RemoveChild,
   BorderRadius,
   UpdateSceneMsg_SetBorderRadius,
+  Overflow,
+  UpdateSceneMsg_SetOverflow,
   Size,
   UpdateSceneMsg_SetSize,
   Flex,
@@ -188,29 +190,31 @@ export const writeUpdateSceneMsg = (sink: Sink, val: UpdateSceneMsg): Sink => {
       return writeUpdateSceneMsg_RemoveChild(write_u32(sink, 3), val.value)
     case 'SetBorderRadius':
       return writeUpdateSceneMsg_SetBorderRadius(write_u32(sink, 4), val.value)
+    case 'SetOverflow':
+      return writeUpdateSceneMsg_SetOverflow(write_u32(sink, 5), val.value)
     case 'SetSize':
-      return writeUpdateSceneMsg_SetSize(write_u32(sink, 5), val.value)
+      return writeUpdateSceneMsg_SetSize(write_u32(sink, 6), val.value)
     case 'SetFlex':
-      return writeUpdateSceneMsg_SetFlex(write_u32(sink, 6), val.value)
+      return writeUpdateSceneMsg_SetFlex(write_u32(sink, 7), val.value)
     case 'SetFlow':
-      return writeUpdateSceneMsg_SetFlow(write_u32(sink, 7), val.value)
+      return writeUpdateSceneMsg_SetFlow(write_u32(sink, 8), val.value)
     case 'SetPadding':
-      return writeUpdateSceneMsg_SetPadding(write_u32(sink, 8), val.value)
+      return writeUpdateSceneMsg_SetPadding(write_u32(sink, 9), val.value)
     case 'SetMargin':
-      return writeUpdateSceneMsg_SetMargin(write_u32(sink, 9), val.value)
+      return writeUpdateSceneMsg_SetMargin(write_u32(sink, 10), val.value)
     case 'SetBoxShadow':
-      return writeUpdateSceneMsg_SetBoxShadow(write_u32(sink, 10), val.value)
+      return writeUpdateSceneMsg_SetBoxShadow(write_u32(sink, 11), val.value)
     case 'SetBackgroundColor':
       return writeUpdateSceneMsg_SetBackgroundColor(
-        write_u32(sink, 11),
+        write_u32(sink, 12),
         val.value
       )
     case 'SetImage':
-      return writeUpdateSceneMsg_SetImage(write_u32(sink, 12), val.value)
+      return writeUpdateSceneMsg_SetImage(write_u32(sink, 13), val.value)
     case 'SetText':
-      return writeUpdateSceneMsg_SetText(write_u32(sink, 13), val.value)
+      return writeUpdateSceneMsg_SetText(write_u32(sink, 14), val.value)
     case 'SetBorder':
-      return writeUpdateSceneMsg_SetBorder(write_u32(sink, 14), val.value)
+      return writeUpdateSceneMsg_SetBorder(write_u32(sink, 15), val.value)
   }
 }
 
@@ -234,6 +238,11 @@ const writeUpdateSceneMsg_SetBorderRadius = (
   sink: Sink,
   { surface, borderRadius }: UpdateSceneMsg_SetBorderRadius
 ): Sink => writeOptBorderRadius(writeSurfaceId(sink, surface), borderRadius)
+
+const writeUpdateSceneMsg_SetOverflow = (
+  sink: Sink,
+  { surface, overflow }: UpdateSceneMsg_SetOverflow
+): Sink => writeOverflow(writeSurfaceId(sink, surface), overflow)
 
 const writeUpdateSceneMsg_SetSize = (
   sink: Sink,
@@ -368,6 +377,15 @@ export const writeDimension = (sink: Sink, val: Dimension): Sink => {
       return write_f32(write_u32(sink, 2), val.value)
   }
 }
+
+const OverflowMap: { [key: string]: number } = {
+  Visible: 0,
+  Hidden: 1,
+  Scroll: 2
+}
+
+export const writeOverflow = (sink: Sink, val: Overflow): Sink =>
+  write_u32(sink, OverflowMap[val])
 
 export const writeSize = (sink: Sink, val: Size): Sink =>
   writeDimension(writeDimension(sink, val[0]), val[1])

@@ -68,7 +68,7 @@ impl App for TheApp {
         self.next_window_id = self.next_window_id + 1;
 
         // vsync off (for now)
-        self.glfw.set_swap_interval(glfw::SwapInterval::None);
+        //self.glfw.set_swap_interval(glfw::SwapInterval::None);
 
         id
     }
