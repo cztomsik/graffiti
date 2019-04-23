@@ -22,6 +22,7 @@ export {
 declare module 'react-native' {
   interface ViewStyle {
     backgroundImageUrl?: string
+    shadowSpread?: number
   }
 
   interface ViewProps {

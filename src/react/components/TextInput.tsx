@@ -18,19 +18,23 @@ const TextInput = (props: TextInputProps) => {
 
 const styles = StyleSheet.create({
   input: {
+    paddingVertical: 6,
     paddingHorizontal: 12,
-    borderColor: '#cccccc',
+    borderColor: '#cde',
     borderRadius: 4,
     borderWidth: 1
   },
 
   active: {
-    borderColor: '#8888ee'
+    borderColor: '#8bf',
+    shadowSpread: 3,
+    shadowRadius: 0,
+    shadowColor: '#07f4'
   },
 
   text: {
-    lineHeight: 38,
-    color: '#666666'
+    lineHeight: 24,
+    color: '#556'
   }
 })
 

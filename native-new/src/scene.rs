@@ -204,8 +204,8 @@ impl Scene for ArrayScene {
     }
 
     fn set_border(&mut self, surface: SurfaceId, border: Option<Border>) {
-        self.borders.set(surface, border);
-        // TODO: layout_service.set_border
+        self.borders.set(surface, border.clone());
+        self.layout_tree.set_border(surface, border);
     }
 }
 

@@ -238,8 +238,10 @@ impl<'a> RenderContext<'a> {
             );
             self.builder.push_item(
                 &self.box_shadow(box_shadow.clone()),
+                // TODO: (outset) shadow shouldn't have tag (& receive events)
                 &layout,
-                &self.space_and_clip,
+                // note that we are using parent clip (shadow should be clipped by parent not by us)
+                &parent_space_and_clip,
             );
         }
 
@@ -280,12 +282,14 @@ impl<'a> RenderContext<'a> {
             self.builder.push_item(&self.background_color(Color(0, 0, 0, 0)), &self.layout, &self.space_and_clip);
         }
 
-        for child_surface in self.scene.children(surface) {
-            self.render_surface(*child_surface);
-        }
-
         if let Some(border) = self.scene.border(surface) {
             self.push(self.border(border.clone()));
+            // TODO: children should be in (possibly rounded) clip too so they can't overdraw border
+        }
+
+        // children has to be "on top" because of hitbox testing
+        for child_surface in self.scene.children(surface) {
+            self.render_surface(*child_surface);
         }
 
         // restore layout

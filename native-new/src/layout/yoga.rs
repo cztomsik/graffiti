@@ -9,7 +9,7 @@ use yoga::{
 use super::LayoutTree;
 use crate::api::{
     Rect, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent,
-    Size, Text, Overflow
+    Size, Text, Overflow, Border
 };
 use crate::text::{PangoService, TextLayoutAlgo, LaidText};
 use crate::Id;
@@ -89,6 +89,17 @@ impl LayoutTree for YogaTree {
             FlexStyle::PaddingBottom(padding.2.into()),
             FlexStyle::PaddingLeft(padding.3.into()),
         ]);
+    }
+
+    fn set_border(&mut self, id: Id, border: Option<Border>) {
+        let widths = border.map_or([0., 0., 0., 0.], |b| [b.top.width, b.right.width, b.bottom.width, b.left.width]);
+
+        self.yoga_nodes[id].apply_styles(&[
+            FlexStyle::BorderTop(widths[0].into()),
+            FlexStyle::BorderRight(widths[1].into()),
+            FlexStyle::BorderBottom(widths[2].into()),
+            FlexStyle::BorderLeft(widths[3].into())
+        ])
     }
 
     fn set_margin(&mut self, id: Id, margin: Dimensions) {

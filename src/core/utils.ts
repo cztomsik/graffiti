@@ -3,23 +3,48 @@ import { Color } from '.';
 export const NOOP = () => undefined
 export const IDENTITY = v => v
 
-export const remove = (arr: any[], item: any) =>
-  arr.splice(arr.indexOf(item), 1)
-
-// TODO: rgb(), rgba(), hex short
+// TODO: rgb(), rgba()
+// https://docs.rs/crate/cssparser/0.25.3/source/src/color.rs
 export const parseColor = (str: string): Color => {
-  let res = COLOR_CACHE.get(str)
-
-  if (res === undefined) {
-    COLOR_CACHE.set(str, res = [
-      parseHex(str.slice(1, 3)),
-      parseHex(str.slice(3, 5)),
-      parseHex(str.slice(5, 7)),
-      255
-    ])
+  if (str[0] === '#') {
+    return parseHash(str.slice(1))
   }
 
-  return res
+  throw new Error('only colors starting with # are supported')
+}
+
+export const parseHash = (str: string): Color => {
+  let alpha = 255
+
+  switch (str.length) {
+    // rgba
+    case 8:
+      alpha = parseHex(str.slice(7, 9))
+
+    case 6:
+      return [
+        parseHex(str.slice(0, 2)),
+        parseHex(str.slice(2, 4)),
+        parseHex(str.slice(4, 6)),
+        alpha
+      ]
+
+    // short alpha
+    case 4:
+      alpha = parseHex(str.slice(3, 4)) * 17
+
+    // short
+    case 3:
+      return [
+        parseHex(str.slice(0, 1)) * 17,
+        parseHex(str.slice(1, 2)) * 17,
+        parseHex(str.slice(2, 3)) * 17,
+        alpha
+      ]
+
+    default:
+      throw new Error('invalid color')
+  }
 }
 
 export const parseHex = (str: string) => parseInt(str, 16)
