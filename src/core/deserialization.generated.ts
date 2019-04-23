@@ -141,11 +141,11 @@ export const readWindowEvent = (sink: Sink): WindowEvent => {
     case 3:
       return WindowEvent.Scroll(readWindowEvent_Scroll(sink))
     case 4:
-      return WindowEvent.KeyDown
+      return WindowEvent.KeyDown(read_u16(sink))
     case 5:
       return WindowEvent.KeyPress(read_u16(sink))
     case 6:
-      return WindowEvent.KeyUp
+      return WindowEvent.KeyUp(read_u16(sink))
     case 7:
       return WindowEvent.Focus
     case 8:

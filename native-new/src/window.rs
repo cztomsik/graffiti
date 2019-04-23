@@ -64,6 +64,13 @@ impl AppWindow {
                     WindowEvent::Resize
                 },
                 glfw::WindowEvent::Close => WindowEvent::Close,
+                // TODO: repeat works for some keys but for some it doesn't
+                // not sure if it's specific for mac (special chars overlay)
+                glfw::WindowEvent::Key(_key, scancode, action, _modifiers) => match action {
+                    glfw::Action::Release => WindowEvent::KeyUp(scancode as u16),
+                    _ => WindowEvent::KeyDown(scancode as u16)
+                },
+                glfw::WindowEvent::Char(ch) => WindowEvent::KeyPress(ch as u16),
                 _ => WindowEvent::Unknown,
             }),
         }

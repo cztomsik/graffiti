@@ -258,7 +258,8 @@ function createReconciler(cfg) {
 }
 
 
-// events
+// events (TODO: separate to own module, it is going to grow)
+//
 // it shouldn't be here but I don't want to put it to the core yet and it needs to know
 // about hiearchy because of bubbling
 //
@@ -273,6 +274,11 @@ function createReconciler(cfg) {
 //   - and we want it to be stateless
 export class NotSureWhat {
   listeners: EventListeners = {
+    onFocus: [],
+    onBlur: [],
+    onKeyDown: [],
+    onKeyUp: [],
+    onKeyPress: [],
     onMouseMove: [],
     onMouseOver: [],
     onMouseOut: [],
@@ -282,6 +288,8 @@ export class NotSureWhat {
   }
   moveTarget = 0
   downTarget = 0
+  // TODO: only els with tabindex should be focusable
+  focusTarget = 0
 
   constructor(private parents) {
     // root
@@ -301,7 +309,7 @@ export class NotSureWhat {
       case 'Close': {
         return process.exit(0)
       }
-      case "MouseMove": {
+      case 'MouseMove': {
         const prevTarget = this.moveTarget
         const target = this.moveTarget = event.value.target
         this.dispatch(this.listeners.onMouseMove, target, { target })
@@ -313,19 +321,44 @@ export class NotSureWhat {
 
         return
       }
-      case "MouseDown": {
+      case 'MouseDown': {
         const target = this.downTarget = event.value.target
         return this.dispatch(this.listeners.onMouseDown, target, { target })
       }
-      case "MouseUp": {
+      case 'MouseUp': {
         const target = event.value.target
 
         this.dispatch(this.listeners.onMouseUp, target, { target })
 
         if (target === this.downTarget) {
+          if (target !== this.focusTarget) {
+            this.dispatch(this.listeners.onBlur, this.focusTarget, { target: this.focusTarget })
+            this.focusTarget = target
+            this.dispatch(this.listeners.onFocus, target, { target })
+          }
+
           this.dispatch(this.listeners.onClick, target, { target })
         }
 
+        return
+      }
+
+      // keydown - char is yet not known, scancode maps to physical os-dependent key, repeats
+      // keypress - char is known, repeats
+      // keydown - key is up, after action, can be prevented
+      // beforeinput - event.data contains new chars, may be empty when removing
+      // input - like input, but after update (not sure if it's possible to do this on this level)
+      case 'KeyDown': {
+        const target  = this.focusTarget
+        const code = getKeyCode(event.value)
+        this.dispatch(this.listeners.onKeyDown, target, { target, code })
+        return
+      }
+      case 'KeyPress': {
+        const target  = this.focusTarget
+        const key = String.fromCharCode(event.value)
+
+        this.dispatch(this.listeners.onKeyPress, target, { target, key })
         return
       }
     }
@@ -350,8 +383,20 @@ export class NotSureWhat {
   }
 }
 
+// TODO: https://w3c.github.io/uievents-code/#keyboard-key-codes
+function getKeyCode(scancode) {
+  switch (scancode) {
+    case 51: return 'Backspace'
+  }
+}
+
 // events we support
 interface EventMap {
+  onFocus: FocusEvent
+  onBlur: FocusEvent
+  onKeyDown: KeyboardEvent
+  onKeyUp: KeyboardEvent
+  onKeyPress: KeyboardEvent
   onMouseMove: MouseEvent,
   onMouseOver: MouseEvent,
   onMouseOut: MouseEvent,

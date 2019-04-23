@@ -1,4 +1,4 @@
-use crate::api::{SurfaceId, Rect, Size, Flex, Flow, Dimensions, Text, Overflow};
+use crate::api::{SurfaceId, Rect, Size, Flex, Flow, Dimensions, Text, Overflow, Border};
 use crate::text::LaidText;
 
 /// Tree of layout nodes along with respective calculations
@@ -18,6 +18,7 @@ pub trait LayoutTree {
     fn set_flex(&mut self, node_id: NodeId, flex: Flex);
     fn set_flow(&mut self, node_id: NodeId, flow: Flow);
     fn set_padding(&mut self, node_id: NodeId, padding: Dimensions);
+    fn set_border(&mut self, node_id: NodeId, border: Option<Border>);
     fn set_margin(&mut self, node_id: NodeId, margin: Dimensions);
     fn set_text(&mut self, node_id: NodeId, text: Option<Text>);
 

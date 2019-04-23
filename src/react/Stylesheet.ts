@@ -30,9 +30,9 @@ type Styles = {
   [key: string]: FlatStyle
 }
 
-type FlatStyle = ViewStyle & TextStyle & ImageStyle
+type FlatStyle = ViewStyle | (TextStyle & ImageStyle)
 
-const create: typeof RNStyleSheet.create = obj => {
+const create = (obj: Styles) => {
   for (const k in obj) {
     Object.freeze(obj[k])
   }
@@ -55,7 +55,7 @@ const absoluteFillObject: any = {
   bottom: 0
 }
 
-const StyleSheet: typeof RNStyleSheet = {
+const StyleSheet = {
   // note that react-native does not return numbers anymore,
   flatten,
   create,
@@ -63,7 +63,7 @@ const StyleSheet: typeof RNStyleSheet = {
   setStyleAttributePreprocessor: () => void(0),
   hairlineWidth: 1,
   absoluteFillObject,
-  absoluteFill: create(absoluteFillObject)
+  absoluteFill: absoluteFillObject as any
 }
 
 export default StyleSheet
@@ -88,6 +88,7 @@ export function compileFlatStyle(style: FlatStyle): SurfaceProps {
     //shadowOffset,
     //shadowOpacity,
     shadowRadius = 0,
+    shadowSpread = 0,
     backgroundColor,
     backgroundImageUrl,
     // TODO: BorderStyle
@@ -172,7 +173,7 @@ export function compileFlatStyle(style: FlatStyle): SurfaceProps {
     boxShadow: shadowColor
       ? {
           blur: shadowRadius,
-          spread: 0,
+          spread: shadowSpread,
           color: parseColor(shadowColor),
           offset: Vector2f.mk(0, 0)
         }

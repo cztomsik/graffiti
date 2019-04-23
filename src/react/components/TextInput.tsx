@@ -1,77 +1,65 @@
 import * as React from 'react'
-import { useState, useRef, useContext } from 'react'
+import { useState, useCallback } from 'react'
 import { TextInputProps } from '../react-native-types'
-import TouchableWithoutFeedback from './TouchableWithoutFeedback';
+import View from './View';
 import { Text } from './Text';
 import StyleSheet from '../Stylesheet';
-import { ControlManagerContext } from '../ControlManager';
-
-// TODO: reconsider if layout should be coupled to Surface, drawing custom shapes (caret) would have been much easier
-
-// empty text would collapse (consider minWidth)
-const HOLDER = ' '
 
 const TextInput = (props: TextInputProps) => {
-  const textInput = useTextInput(props.value, props.onChangeText)
+  const [active, setActive] = useState(false)
+  const textInput = useTextValue(props.value, props.onChangeText)
 
   return (
-    <TouchableWithoutFeedback style={styles.input} onPress={textInput.focus}>
-      <Text>{props.value || HOLDER}</Text>
-    </TouchableWithoutFeedback>
+    <View style={[styles.input, active && styles.active, props.style]} {...textInput} onFocus={() => setActive(true)} onBlur={() => setActive(false)}>
+      <Text style={styles.text}>{props.value}</Text>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
   input: {
-    borderColor: '#cccccc',
-    borderBottomWidth: 1
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderColor: '#cde',
+    borderRadius: 4,
+    borderWidth: 1
+  },
+
+  active: {
+    borderColor: '#8bf',
+    shadowSpread: 3,
+    shadowRadius: 0,
+    shadowColor: '#07f4'
+  },
+
+  text: {
+    lineHeight: 24,
+    color: '#556'
   }
 })
 
 export default TextInput
 
-
-const useTextInput = (value, onChange) => {
-  const controlManager = useContext(ControlManagerContext)
-  const textInputRef = useRef(undefined)
-
-  if (textInputRef.current === undefined) {
-    textInputRef.current = createTextInput(controlManager)
-  }
-
-  const textInput = textInputRef.current
-
-  textInput.value = value
-  textInput.onChange = onChange
-
-  return textInput
-}
-
-const createTextInput = (controlManager) => {
-  const handler = {
-    keyPress: (e) => {
-      // backspace
-      if (e.ch === '\u007f') {
-        return textInput.onChange(textInput.value = textInput.value.slice(0, -1))
-      }
-
-      if ( ! e.ch) {
+// this is very basic for now
+export const useTextValue = (value, onChange) => {
+  const onKeyPress = e => {
+      if ( ! e.key) {
         return
       }
 
-      textInput.onChange(textInput.value = textInput.value + e.ch)
-    },
-    focus: () => {},
-    blur: () => {}
+      onChange(value + e.key)
   }
 
-  const textInput = {
-    value: '',
-    onChange: (str) => {},
-    focus: () => controlManager.focus(handler),
-    // TODO: only if we're focused
-    blur: () => controlManager.blur()
+  const onKeyDown = e => {
+    if (e.code === 'Backspace') {
+      // TODO: caret position
+      onChange(value.slice(0, -1))
+    }
   }
 
-  return textInput
+  return {
+    value,
+    onKeyDown,
+    onKeyPress
+  }
 }

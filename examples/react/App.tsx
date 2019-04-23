@@ -15,7 +15,7 @@ const examples = [Hello, Counter, Calculator, Hover, Bench].map(Comp => ({
 }))
 
 export function App() {
-  const [activeIndex, setActive] = useState(4)
+  const [activeIndex, setActive] = useState(0)
   const example = examples[activeIndex]
 
   return (
@@ -45,7 +45,7 @@ export function App() {
           <example.Comp />
         </View>
 
-        <ScrollView style={{ flex: 1.5, padding: 20, backgroundColor: '#222233' }}>
+        <ScrollView key={example.source} style={{ flex: 1.5, padding: 20, backgroundColor: '#222233' }}>
           <Text style={{ color: '#ffffcc' }}>{example.source}</Text>
         </ScrollView>
       </View>

@@ -140,11 +140,11 @@ export const writeWindowEvent = (sink: Sink, val: WindowEvent): Sink => {
     case 'Scroll':
       return writeWindowEvent_Scroll(write_u32(sink, 3), val.value)
     case 'KeyDown':
-      return write_u32(sink, 4)
+      return write_u16(write_u32(sink, 4), val.value)
     case 'KeyPress':
       return write_u16(write_u32(sink, 5), val.value)
     case 'KeyUp':
-      return write_u32(sink, 6)
+      return write_u16(write_u32(sink, 6), val.value)
     case 'Focus':
       return write_u32(sink, 7)
     case 'Blur':
