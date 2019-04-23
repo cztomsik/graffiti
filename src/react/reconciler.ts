@@ -258,7 +258,8 @@ function createReconciler(cfg) {
 }
 
 
-// events
+// events (TODO: separate to own module, it is going to grow)
+//
 // it shouldn't be here but I don't want to put it to the core yet and it needs to know
 // about hiearchy because of bubbling
 //
@@ -341,11 +342,24 @@ export class NotSureWhat {
 
         return
       }
+
+      // keydown - char is yet not known, scancode maps to physical os-dependent key, repeats
+      // keypress - char is known, repeats
+      // keydown - key is up, after action, can be prevented
+      // beforeinput - event.data contains new chars, may be empty when removing
+      // input - like input, but after update (not sure if it's possible to do this on this level)
+      case 'KeyDown': {
+        const target  = this.focusTarget
+        const code = getKeyCode(event.value)
+        this.dispatch(this.listeners.onKeyDown, target, { target, code })
+        return
+      }
       case 'KeyPress': {
         const target  = this.focusTarget
         const key = String.fromCharCode(event.value)
 
         this.dispatch(this.listeners.onKeyPress, target, { target, key })
+        return
       }
     }
   }
@@ -366,6 +380,13 @@ export class NotSureWhat {
 
       id = this.parents[id]
     }
+  }
+}
+
+// TODO: https://w3c.github.io/uievents-code/#keyboard-key-codes
+function getKeyCode(scancode) {
+  switch (scancode) {
+    case 51: return 'Backspace'
   }
 }
 

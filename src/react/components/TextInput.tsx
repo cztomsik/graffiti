@@ -42,22 +42,24 @@ export default TextInput
 
 // this is very basic for now
 export const useTextValue = (value, onChange) => {
-  const onKeyPress = useCallback((e) => {
-      // backspace
-      if (e.key === '\u007f') {
-        // TODO: caret position
-        return onChange(value.slice(0, -1))
-      }
-
+  const onKeyPress = e => {
       if ( ! e.key) {
         return
       }
 
       onChange(value + e.key)
-  }, [value])
+  }
+
+  const onKeyDown = e => {
+    if (e.code === 'Backspace') {
+      // TODO: caret position
+      onChange(value.slice(0, -1))
+    }
+  }
 
   return {
     value,
+    onKeyDown,
     onKeyPress
   }
 }

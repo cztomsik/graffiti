@@ -213,9 +213,9 @@ const WindowEvent = Union(
       target: T.Scalar.USIZE
     }),
 
-    V.Unit('KeyDown'),
+    V.NewType('KeyDown', T.Scalar.U16),
     V.NewType('KeyPress', T.Scalar.U16),
-    V.Unit('KeyUp'),
+    V.NewType('KeyUp', T.Scalar.U16),
 
     V.Unit('Focus'),
     V.Unit('Blur'),

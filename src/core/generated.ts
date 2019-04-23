@@ -60,9 +60,9 @@ export type WindowEvent =
   | { tag: 'MouseDown'; value: WindowEvent_MouseDown }
   | { tag: 'MouseUp'; value: WindowEvent_MouseUp }
   | { tag: 'Scroll'; value: WindowEvent_Scroll }
-  | { tag: 'KeyDown' }
+  | { tag: 'KeyDown'; value: number }
   | { tag: 'KeyPress'; value: number }
-  | { tag: 'KeyUp' }
+  | { tag: 'KeyUp'; value: number }
   | { tag: 'Focus' }
   | { tag: 'Blur' }
   | { tag: 'Resize' }
@@ -106,14 +106,17 @@ export module WindowEvent {
     value
   })
 
-  export const KeyDown: WindowEvent = { tag: 'KeyDown' }
+  export const KeyDown = (value: number): WindowEvent => ({
+    tag: 'KeyDown',
+    value
+  })
 
   export const KeyPress = (value: number): WindowEvent => ({
     tag: 'KeyPress',
     value
   })
 
-  export const KeyUp: WindowEvent = { tag: 'KeyUp' }
+  export const KeyUp = (value: number): WindowEvent => ({ tag: 'KeyUp', value })
 
   export const Focus: WindowEvent = { tag: 'Focus' }
 
