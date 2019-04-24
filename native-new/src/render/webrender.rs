@@ -2,7 +2,7 @@ use crate::api::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Image,
     Text, SurfaceId, Scene, Rect
 };
-use crate::generated::Vector2f;
+use crate::generated::{Vector2f, TextAlign};
 use super::SceneRenderer;
 use crate::text::{LaidGlyph, LaidText};
 use gleam::gl::Gl;
@@ -364,7 +364,12 @@ impl<'a> RenderContext<'a> {
 
     // TODO: clip should be enough big to contain `y` and similar characters
     fn text(&self, text: Text, laid_text: LaidText) -> (SpecificDisplayItem, Vec<GlyphInstance>) {
-        let [text_x, text_y] = self.layout.rect.origin.to_array();
+        let [mut text_x, text_y] = self.layout.rect.origin.to_array();
+        // TODO: text-right
+
+        if let TextAlign::Center = text.align {
+            text_x = text_x + (self.layout.rect.size.width - laid_text.width) / 2.;
+        }
 
         let glyphs = laid_text.glyphs
             .iter()

@@ -205,6 +205,8 @@ extern "C" fn measure_text_node(
     // save the result so it can be queried later
     tree.text_layouts.insert(*id, layout);
 
+    debug!("measure {:?}", (id, &text.text, &size));
+
     size
 }
 
