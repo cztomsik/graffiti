@@ -348,15 +348,25 @@ export const writeJustifyContent = (sink: Sink, val: JustifyContent): Sink =>
 
 export const writeFlow = (
   sink: Sink,
-  { flexDirection, flexWrap, alignContent, alignItems, justifyContent }: Flow
+  {
+    flexDirection,
+    flexWrap,
+    alignContent,
+    alignItems,
+    alignSelf,
+    justifyContent
+  }: Flow
 ): Sink =>
   writeJustifyContent(
     writeFlexAlign(
       writeFlexAlign(
-        writeFlexWrap(writeFlexDirection(sink, flexDirection), flexWrap),
-        alignContent
+        writeFlexAlign(
+          writeFlexWrap(writeFlexDirection(sink, flexDirection), flexWrap),
+          alignContent
+        ),
+        alignItems
       ),
-      alignItems
+      alignSelf
     ),
     justifyContent
   )

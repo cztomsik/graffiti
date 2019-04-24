@@ -438,8 +438,8 @@ impl Into<WRBorderRadius> for BorderRadius {
         WRBorderRadius {
             top_left: LayoutSize::new(self.0, self.0),
             top_right: LayoutSize::new(self.1, self.1),
-            bottom_right: LayoutSize::new(self.2, self.2),
-            bottom_left: LayoutSize::new(self.3, self.3),
+            bottom_left: LayoutSize::new(self.2, self.2),
+            bottom_right: LayoutSize::new(self.3, self.3),
         }
     }
 }

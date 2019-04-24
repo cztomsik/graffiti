@@ -79,6 +79,7 @@ impl LayoutTree for YogaTree {
             FlexStyle::JustifyContent(flow.justify_content.into()),
             FlexStyle::AlignContent(flow.align_content.into()),
             FlexStyle::AlignItems(flow.align_items.into()),
+            FlexStyle::AlignSelf(flow.align_self.into()),
         ]);
     }
 

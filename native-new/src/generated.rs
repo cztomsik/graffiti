@@ -128,6 +128,9 @@ pub struct Flow {
     #[serde(rename = "alignItems")]
     pub align_items: FlexAlign,
 
+    #[serde(rename = "alignSelf")]
+    pub align_self: FlexAlign,
+
     #[serde(rename = "justifyContent")]
     pub justify_content: JustifyContent,
 
