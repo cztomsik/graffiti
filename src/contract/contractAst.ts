@@ -67,6 +67,7 @@ const Flow = Struct('Flow', {
   flexWrap: T.RefTo(FlexWrap),
   alignContent: T.RefTo(FlexAlign),
   alignItems: T.RefTo(FlexAlign),
+  alignSelf: T.RefTo(FlexAlign),
   justifyContent: T.RefTo(JustifyContent)
 })
 

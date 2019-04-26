@@ -7,15 +7,16 @@ import { Counter } from './Counter'
 import { Calculator } from './Calculator'
 import { Hover } from './Hover'
 import { Bench } from './Bench'
+import { Messages } from './Messages'
 
-const examples = [Hello, Counter, Calculator, Hover, Bench].map(Comp => ({
+const examples = [Hello, Counter, Calculator, Hover, Bench, Messages].map(Comp => ({
   name: Comp.name,
   Comp,
   source: readFileSync(`${__dirname}/${Comp.name}.tsx`, 'utf-8')
 }))
 
 export function App() {
-  const [activeIndex, setActive] = useState(0)
+  const [activeIndex, setActive] = useState(5)
   const example = examples[activeIndex]
 
   return (
@@ -34,9 +35,8 @@ export function App() {
           flex: 0,
           width: 240,
           padding: 20,
-          //borderRightWidth: 1,
-          //borderStyle: 'solid',
-          //borderRightColor: '#cccccc'
+          borderRightWidth: 1,
+          borderRightColor: '#cccccc'
         }}
       />
 
@@ -46,7 +46,7 @@ export function App() {
         </View>
 
         <ScrollView key={example.source} style={{ flex: 1.5, padding: 20, backgroundColor: '#222233' }}>
-          <Text style={{ color: '#ffffcc' }}>{example.source}</Text>
+          <Text style={{ color: '#ffffcc', lineHeight: 27 }}>{example.source}</Text>
         </ScrollView>
       </View>
     </View>

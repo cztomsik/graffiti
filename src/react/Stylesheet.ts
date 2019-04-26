@@ -153,6 +153,7 @@ export function compileFlatStyle(style: FlatStyle): SurfaceProps {
       flexWrap: FlexWrap[FLEX_WRAP[flexWrap]],
       alignContent: FlexAlign[FLEX_ALIGN[alignContent]],
       alignItems: FlexAlign[FLEX_ALIGN[alignItems]],
+      alignSelf: FlexAlign[FLEX_ALIGN[alignSelf]],
       justifyContent: JustifyContent[JUSTIFY_CONTENT[justifyContent]]
     },
     padding: Dimensions.mk(
@@ -167,8 +168,8 @@ export function compileFlatStyle(style: FlatStyle): SurfaceProps {
       parseDimension(marginBottom),
       parseDimension(marginLeft)
     ),
-    borderRadius: (borderTopLeftRadius || borderTopRightRadius || borderBottomLeftRadius || borderBottomLeftRadius) ?[
-      borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomLeftRadius
+    borderRadius: (borderTopLeftRadius || borderTopRightRadius || borderBottomLeftRadius || borderBottomRightRadius) ?[
+      borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomRightRadius
     ] :undefined,
     boxShadow: shadowColor
       ? {

@@ -351,6 +351,7 @@ export interface Flow {
   flexWrap: FlexWrap
   alignContent: FlexAlign
   alignItems: FlexAlign
+  alignSelf: FlexAlign
   justifyContent: JustifyContent
 }
 

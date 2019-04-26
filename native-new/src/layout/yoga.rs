@@ -79,6 +79,7 @@ impl LayoutTree for YogaTree {
             FlexStyle::JustifyContent(flow.justify_content.into()),
             FlexStyle::AlignContent(flow.align_content.into()),
             FlexStyle::AlignItems(flow.align_items.into()),
+            FlexStyle::AlignSelf(flow.align_self.into()),
         ]);
     }
 
@@ -203,6 +204,8 @@ extern "C" fn measure_text_node(
 
     // save the result so it can be queried later
     tree.text_layouts.insert(*id, layout);
+
+    debug!("measure {:?}", (id, &text.text, &size));
 
     size
 }

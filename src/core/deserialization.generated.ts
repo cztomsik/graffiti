@@ -386,8 +386,16 @@ export const readFlow = (sink: Sink): Flow => {
   const flexWrap = readFlexWrap(sink)
   const alignContent = readFlexAlign(sink)
   const alignItems = readFlexAlign(sink)
+  const alignSelf = readFlexAlign(sink)
   const justifyContent = readJustifyContent(sink)
-  return { flexDirection, flexWrap, alignContent, alignItems, justifyContent }
+  return {
+    flexDirection,
+    flexWrap,
+    alignContent,
+    alignItems,
+    alignSelf,
+    justifyContent
+  }
 }
 
 export const readFlex = (sink: Sink): Flex => {

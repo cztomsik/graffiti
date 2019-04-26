@@ -44,6 +44,9 @@ impl TextLayoutAlgo for PangoService {
         let mut layout_iter = layout.get_iter().expect("couldnt get LayoutIter");
         let mut glyphs = vec![];
 
+        // start_x is important because of text-align (short text would be rendered at the side)
+        let start_x = layout.get_pixel_extents().0.x as f32;
+
         // Ugly, but to my extent the only way to get `x`, `glyph_index` and `line_index`
         // together so we can do proper line-height text layout
         // I've tried many times and it's unlikely that there is a better way
@@ -61,7 +64,7 @@ impl TextLayoutAlgo for PangoService {
 
                         glyphs.push(LaidGlyph {
                             glyph_index,
-                            x: from_scale(extents.x),
+                            x: from_scale(extents.x) - start_x,
                             y: (line_i as f32 * text.line_height) + baseline
                         });
 
@@ -78,6 +81,8 @@ impl TextLayoutAlgo for PangoService {
                 layout_iter.next_char();
             }
         }
+
+        debug!("glyphs {:?}", (&text.text, &glyphs));
 
         LaidText {
             lines,
