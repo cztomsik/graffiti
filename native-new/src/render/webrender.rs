@@ -263,12 +263,20 @@ impl<'a> RenderContext<'a> {
             self.builder.push_iter(glyphs);
         }
 
+        if let Some(border) = self.scene.border(surface) {
+            self.push(self.border(border.clone()));
+            // TODO: children should be in (possibly rounded) clip too so they can't overdraw border (or padding)
+        }
+
         if let Some((width, height)) = self.scene.scroll_frame(surface) {
             debug!("scroll_frame {:?}", (&width, &height, &self.space_and_clip, &self.layout.clip_rect));
+
+            let area_rect = LayoutRect::new(self.layout.rect.origin.clone(), LayoutSize::new(width, height));
+
             self.space_and_clip = self.builder.define_scroll_frame(
                 &self.space_and_clip,
                 Some(ExternalScrollId(surface as u64, PIPELINE_ID)),
-                LayoutSize::new(width, height).into(),
+                area_rect,
                 self.layout.clip_rect,
                 vec![],
                 None,
@@ -279,12 +287,9 @@ impl<'a> RenderContext<'a> {
             // we need to push something which will receive hit-test events for the whole "area"
             // otherwise scroll would not work in "empty" spaces
             // TODO: stacking context would be probably better
-            self.builder.push_item(&self.background_color(Color(0, 0, 0, 0)), &self.layout, &self.space_and_clip);
-        }
-
-        if let Some(border) = self.scene.border(surface) {
-            self.push(self.border(border.clone()));
-            // TODO: children should be in (possibly rounded) clip too so they can't overdraw border
+            let mut layout = LayoutPrimitiveInfo::new(area_rect);
+            layout.tag = self.layout.tag;
+            self.builder.push_item(&self.background_color(Color(0, 0, 0, 0)), &layout, &self.space_and_clip);
         }
 
         // children has to be "on top" because of hitbox testing
