@@ -23,7 +23,7 @@ export function TemperatureConverter() {
       <NumInput value={fahrenheit} onChangeText={inputFahrenheit} />
       <Text>Fahrenheit</Text>
 
-      <Text style={{ margin: 10 }}>
+      <Text style={{ width: '100%', margin: 10 }}>
         Enter number into either of the above, the other value will be recomputed instantly
       </Text>
     </View>

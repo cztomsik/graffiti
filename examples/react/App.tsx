@@ -10,15 +10,16 @@ import { Hover } from './Hover'
 import { Bench } from './Bench'
 import { Messages } from './Messages'
 import { ImageExample } from './ImageExample'
+import { HackerNews } from './HackerNews'
 
-const examples = [Hello, Counter, TemperatureConverter, Calculator, Hover, Bench, Messages, ImageExample].map(Comp => ({
+const examples = [Hello, Counter, TemperatureConverter, Calculator, Hover, Bench, Messages, ImageExample, HackerNews].map(Comp => ({
   name: Comp.name,
   Comp,
   source: readFileSync(`${__dirname}/${Comp.name}.tsx`, 'utf-8')
 }))
 
 export function App() {
-  const [activeIndex, setActive] = useState(2)
+  const [activeIndex, setActive] = useState(8)
   const example = examples[activeIndex]
 
   return (
