@@ -259,8 +259,12 @@ impl<'a> RenderContext<'a> {
         if let Some(text) = self.scene.text(surface) {
             let (item, glyphs) = self.text(text.clone(), self.scene.text_layout(surface));
 
-            self.push(item);
-            self.builder.push_iter(glyphs);
+            // webrender has a limit on how long the text item can be
+            // TODO: use the const from webrender (couldn't find it quickly)
+            for glyphs in glyphs.chunks(2000) {
+                self.push(item.clone());
+                self.builder.push_iter(glyphs);
+            }
         }
 
         if let Some(border) = self.scene.border(surface) {
