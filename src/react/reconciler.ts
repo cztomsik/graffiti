@@ -386,6 +386,7 @@ export class NotSureWhat {
 // TODO: https://w3c.github.io/uievents-code/#keyboard-key-codes
 function getKeyCode(scancode) {
   switch (scancode) {
+    case 36: return 'Enter'
     case 51: return 'Backspace'
   }
 }

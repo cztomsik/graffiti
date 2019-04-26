@@ -38,7 +38,6 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
 
                 handle_msg(app, msg, &mut result);
 
-                // TODO: bincode
                 // TODO: find a way to avoid memcpy
                 // (it's not possible to use to_writer, because it takes ownership and so it would free the vec & the data)
                 // let data = serde_json::to_vec(&result).expect("couldn't serialize result");

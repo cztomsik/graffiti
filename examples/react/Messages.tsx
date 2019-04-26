@@ -9,18 +9,32 @@ import {
   TextInput
 } from '../../src/react'
 
-const messages = [
-  { text: 'Hello' },
-  { text: 'World' },
-  { text: '...' },
+const initialMessages = [
+  { text: 'Hello world!' },
+  { text: 'Lorem ipsum' },
+  { text: 'Dolor sit amet' },
   { text: 'lorem' },
   { text: 'ipsum' },
-  { text: 'lorem' },
-  { text: 'ipsum' }
+  { text: 'dolor' },
+  { text: 'sit amet' },
+  { text: 'lorem ipsum' },
+  { text: 'dolor' },
+  { text: 'sit amet' },
+  { text: 'lorem ipsum' }
 ]
 
 export function Messages() {
   const [text, setText] = useState('')
+  const [messages, setMessages] = useState(initialMessages)
+  const send = () => {
+    setMessages([...messages, { text }])
+    setText('')
+  }
+  const sendOnEnter = (e) => {
+    if (e.code === 'Enter') {
+      send()
+    }
+  }
 
   return (
     <View style={{ flex: 1, width: 400 }}>
@@ -32,9 +46,9 @@ export function Messages() {
         contentContainerStyle={{ alignItems: 'flex-start' }}
       />
 
-      <View style={{ flexDirection: 'row', marginTop: 10 }}>
+      <View style={{ flexDirection: 'row', marginTop: 10 }} onKeyDown={sendOnEnter}>
         <TextInput style={styles.input} value={text} onChangeText={setText} />
-        <Button title="Send" onPress={() => setText('')} />
+        <Button title="Send" onPress={send} />
       </View>
     </View>
   )
@@ -59,7 +73,7 @@ const styles = StyleSheet.create({
 
   msgMe: {
     alignSelf: 'flex-end',
-    backgroundColor: '#00f',
+    backgroundColor: '#07f',
     borderTopLeftRadius: 14,
     borderBottomLeftRadius: 14
   },
