@@ -4,19 +4,22 @@ import { readFileSync } from 'fs'
 import { View, Text, FlatList, ScrollView } from '../../src/react'
 import { Hello } from './Hello'
 import { Counter } from './Counter'
+import { TemperatureConverter } from './TemperatureConverter';
 import { Calculator } from './Calculator'
 import { Hover } from './Hover'
 import { Bench } from './Bench'
 import { Messages } from './Messages'
+import { ImageExample } from './ImageExample'
+import { HackerNews } from './HackerNews'
 
-const examples = [Hello, Counter, Calculator, Hover, Bench, Messages].map(Comp => ({
+const examples = [Hello, Counter, TemperatureConverter, Calculator, Hover, Bench, Messages, ImageExample, HackerNews].map(Comp => ({
   name: Comp.name,
   Comp,
   source: readFileSync(`${__dirname}/${Comp.name}.tsx`, 'utf-8')
 }))
 
 export function App() {
-  const [activeIndex, setActive] = useState(5)
+  const [activeIndex, setActive] = useState(8)
   const example = examples[activeIndex]
 
   return (
@@ -33,7 +36,7 @@ export function App() {
         )}
         style={{
           flex: 0,
-          width: 240,
+          width: 250,
           padding: 20,
           borderRightWidth: 1,
           borderRightColor: '#cccccc'
@@ -45,7 +48,7 @@ export function App() {
           <example.Comp />
         </View>
 
-        <ScrollView key={example.source} style={{ flex: 1.5, padding: 20, backgroundColor: '#222233' }}>
+        <ScrollView key={example.name} style={{ flex: 1.25, padding: 20, backgroundColor: '#222233' }}>
           <Text style={{ color: '#ffffcc', lineHeight: 27 }}>{example.source}</Text>
         </ScrollView>
       </View>

@@ -1,6 +1,7 @@
 import { WindowId, FfiMsg, FfiResult, Event } from "./generated";
 import { Window } from "./Window";
 import * as ffi from './nativeApi'
+import { performance } from 'perf_hooks'
 
 export class App {
   windows: { [k: number]: Window } = {}
@@ -36,11 +37,12 @@ export class App {
       }
 
       if (this.animating = this.animationFrames.length > 0) {
+        const timestamp = performance.now()
         const frames = this.animationFrames
         this.animationFrames = []
 
         for (const cb of frames) {
-          cb()
+          cb(timestamp)
         }
       }
 

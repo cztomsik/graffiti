@@ -1,12 +1,10 @@
 import * as React from 'react'
-import { useState } from 'react'
-import { View, Button, Text, TextInput } from '../../src/react'
+import { View, Text } from '../../src/react'
 
 export function Hello() {
-  const [value, setValue] = useState('test')
-
-  return <View>
-    <TextInput value={value} onChangeText={setValue} style={{ marginBottom: 20 }} />
-    <Text>Hello {value}</Text>
-  </View>
+  return (
+    <View>
+      <Text>Hello world</Text>
+    </View>
+  )
 }

@@ -9,7 +9,7 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    console.error(error, info);
+    console.log('ERR', error, info);
   }
 
   render() {
@@ -24,8 +24,14 @@ class ErrorBoundary extends React.Component {
         <Text style={styles.headerText}>Error</Text>
 
         <Text style={styles.messageText}>{e.message}</Text>
+
+        <Text style={styles.messageText}>{e.stack}</Text>
       </View>
     )
+  }
+
+  static wrap(vnode) {
+    return <this>{vnode}</this>
   }
 }
 

@@ -30,37 +30,41 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
 
     debug!("Msg {:#?}", &msg);
 
-    unsafe {
+    // try to handle the message
+    let maybe_err = std::panic::catch_unwind(|| unsafe {
         match APP {
-            None => {}
-            Some(ref mut app) => {
-                let mut result = FfiResult::Nothing;
-
-                handle_msg(app, msg, &mut result);
-
-                // TODO: bincode
-                // TODO: find a way to avoid memcpy
-                // (it's not possible to use to_writer, because it takes ownership and so it would free the vec & the data)
-                // let data = serde_json::to_vec(&result).expect("couldn't serialize result");
-                let data = serialize(&result).expect("couldn't serialize result");
-                let mut writer = Vec::from_raw_parts(result_ptr, 0, 1024);
-                writer.write(&data[..]).unwrap();
-
-                // serialize_into(writer, &result).unwrap();
-                Box::leak(Box::new(writer));
-            }
+            None => FfiResult::Nothing,
+            Some(ref mut app) => handle_msg(app, msg),
         }
+    });
+
+    let result = maybe_err.unwrap_or_else(|err| {
+        error!("err {:?}", err);
+
+        // TODO: result error
+        FfiResult::Nothing
+    });
+
+    // serialize & write the result
+    unsafe {
+        // TODO: find a way to avoid memcpy
+        // (it's not possible to use to_writer, because it takes ownership and so it would free the vec & the data)
+        // let data = serde_json::to_vec(&result).expect("couldn't serialize result");
+        let data = serialize(&result).expect("couldn't serialize result");
+        let mut writer = Vec::from_raw_parts(result_ptr, 0, 1024);
+        writer.write(&data[..]).unwrap();
+
+        // serialize_into(writer, &result).unwrap();
+        Box::leak(Box::new(writer));
     }
 }
 
-fn handle_msg(app: &mut TheApp, msg: FfiMsg, result: &mut FfiResult) {
+fn handle_msg(app: &mut TheApp, msg: FfiMsg) -> FfiResult {
     match msg {
-        FfiMsg::GetEvents(poll) => {
-            *result = FfiResult::Events(app.get_events(poll))
-        }
+        FfiMsg::GetEvents(poll) => FfiResult::Events(app.get_events(poll)),
         FfiMsg::CreateWindow => {
             let id = app.create_window();
-            *result = FfiResult::WindowId(id);
+            FfiResult::WindowId(id)
         }
         FfiMsg::UpdateScene { window, msgs } => {
             let window = app.get_window_mut(window);
@@ -90,7 +94,9 @@ fn handle_msg(app: &mut TheApp, msg: FfiMsg, result: &mut FfiResult) {
                         surface,
                         border_radius,
                     } => ctx.set_border_radius(surface, border_radius),
-                    UpdateSceneMsg::SetOverflow { surface, overflow } => ctx.set_overflow(surface, overflow),
+                    UpdateSceneMsg::SetOverflow { surface, overflow } => {
+                        ctx.set_overflow(surface, overflow)
+                    }
                     UpdateSceneMsg::SetSize { surface, size } => ctx.set_size(surface, size),
                     UpdateSceneMsg::SetFlow { surface, flow } => ctx.set_flow(surface, flow),
                     UpdateSceneMsg::SetFlex { surface, flex } => ctx.set_flex(surface, flex),
@@ -116,6 +122,7 @@ fn handle_msg(app: &mut TheApp, msg: FfiMsg, result: &mut FfiResult) {
             }
 
             window.render();
+            FfiResult::Nothing
         }
     }
 }

@@ -13,6 +13,7 @@ const Button = (props: ButtonProps) =>
 
 const styles = StyleSheet.create({
   button: {
+    justifyContent: 'space-around',
     backgroundColor: '#2196F3',
     paddingHorizontal: 10,
     borderRadius: 2

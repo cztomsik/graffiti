@@ -160,8 +160,8 @@ impl LayoutTree for YogaTree {
             yoga::Overflow::Scroll => match node.get_child_count() {
                 1 => {
                     let child: YogaNode = unsafe { std::mem::transmute(node.get_child(0)) };
-                    let width = child.get_layout_width();
-                    let height = child.get_layout_height();
+                    let width = child.get_layout_width() + node.get_layout_padding_left() + node.get_layout_padding_right();
+                    let height = child.get_layout_height() + node.get_layout_padding_top() + node.get_layout_padding_bottom();
                     std::mem::forget(child);
 
                     Some((width, height))

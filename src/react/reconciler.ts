@@ -17,6 +17,7 @@ import { WindowEvent } from '../core/generated';
 import { ViewProps, StyleProp } from './react-native-types'
 import StyleSheet, { SurfaceProps, compileFlatStyle } from './Stylesheet';
 import { isEqual } from 'lodash'
+import ErrorBoundary from './ErrorBoundary';
 
 let ctx: SceneContext = null
 
@@ -39,6 +40,8 @@ const reconciler = createReconciler({
 })
 
 export function render(vnode, window, cb?) {
+  vnode = ErrorBoundary.wrap(vnode)
+
   if (window._reactRoot === undefined) {
     window._reactRoot = reconciler.createContainer(window, false, false)
 
@@ -386,6 +389,7 @@ export class NotSureWhat {
 // TODO: https://w3c.github.io/uievents-code/#keyboard-key-codes
 function getKeyCode(scancode) {
   switch (scancode) {
+    case 36: return 'Enter'
     case 51: return 'Backspace'
   }
 }

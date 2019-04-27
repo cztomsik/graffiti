@@ -43,7 +43,7 @@ export const parseHash = (str: string): Color => {
       ]
 
     default:
-      throw new Error('invalid color')
+      throw new Error(`invalid color #${str}`)
   }
 }
 
