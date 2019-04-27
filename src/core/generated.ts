@@ -304,14 +304,12 @@ export interface Color {
   length: 4
 }
 
-export module Color {
-  export const mk = (p0: number, p1: number, p2: number, p3: number): Color => [
-    p0,
-    p1,
-    p2,
-    p3
-  ]
-}
+export const Color = (
+  p0: number,
+  p1: number,
+  p2: number,
+  p3: number
+): Color => [p0, p1, p2, p3]
 
 export enum FlexDirection {
   Column = 'Column',
@@ -389,9 +387,7 @@ export interface Size {
   length: 2
 }
 
-export module Size {
-  export const mk = (p0: Dimension, p1: Dimension): Size => [p0, p1]
-}
+export const Size = (p0: Dimension, p1: Dimension): Size => [p0, p1]
 
 export interface Rect {
   0: number
@@ -401,14 +397,12 @@ export interface Rect {
   length: 4
 }
 
-export module Rect {
-  export const mk = (p0: number, p1: number, p2: number, p3: number): Rect => [
-    p0,
-    p1,
-    p2,
-    p3
-  ]
-}
+export const Rect = (p0: number, p1: number, p2: number, p3: number): Rect => [
+  p0,
+  p1,
+  p2,
+  p3
+]
 
 export interface Dimensions {
   0: Dimension
@@ -418,14 +412,12 @@ export interface Dimensions {
   length: 4
 }
 
-export module Dimensions {
-  export const mk = (
-    p0: Dimension,
-    p1: Dimension,
-    p2: Dimension,
-    p3: Dimension
-  ): Dimensions => [p0, p1, p2, p3]
-}
+export const Dimensions = (
+  p0: Dimension,
+  p1: Dimension,
+  p2: Dimension,
+  p3: Dimension
+): Dimensions => [p0, p1, p2, p3]
 
 export interface Vector2f {
   0: number
@@ -433,9 +425,7 @@ export interface Vector2f {
   length: 2
 }
 
-export module Vector2f {
-  export const mk = (p0: number, p1: number): Vector2f => [p0, p1]
-}
+export const Vector2f = (p0: number, p1: number): Vector2f => [p0, p1]
 
 export interface BorderRadius {
   0: number
@@ -445,14 +435,12 @@ export interface BorderRadius {
   length: 4
 }
 
-export module BorderRadius {
-  export const mk = (
-    p0: number,
-    p1: number,
-    p2: number,
-    p3: number
-  ): BorderRadius => [p0, p1, p2, p3]
-}
+export const BorderRadius = (
+  p0: number,
+  p1: number,
+  p2: number,
+  p3: number
+): BorderRadius => [p0, p1, p2, p3]
 
 export interface BoxShadow {
   color: Color
