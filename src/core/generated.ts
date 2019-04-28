@@ -24,11 +24,14 @@ export module FfiMsg {
 
 export type FfiResult =
   | { tag: 'Nothing' }
+  | { tag: 'Error'; value: string }
   | { tag: 'Events'; value: Array<Event> }
   | { tag: 'WindowId'; value: WindowId }
 
 export module FfiResult {
   export const Nothing: FfiResult = { tag: 'Nothing' }
+
+  export const Error = (value: string): FfiResult => ({ tag: 'Error', value })
 
   export const Events = (value: Array<Event>): FfiResult => ({
     tag: 'Events',

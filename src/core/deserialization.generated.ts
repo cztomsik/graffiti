@@ -54,12 +54,12 @@ import {
   read_u32,
   read_bool,
   read_seq,
+  read_str,
   read_u64,
   read_u16,
   read_opt,
   read_u8,
   read_f32,
-  read_str,
   Sink,
   Deserializer
 } from 'ts-binary'
@@ -109,8 +109,10 @@ export const readFfiResult = (sink: Sink): FfiResult => {
     case 0:
       return FfiResult.Nothing
     case 1:
-      return FfiResult.Events(readVecEvent(sink))
+      return FfiResult.Error(read_str(sink))
     case 2:
+      return FfiResult.Events(readVecEvent(sink))
+    case 3:
       return FfiResult.WindowId(readWindowId(sink))
   }
   throw new Error('bad variant index for FfiResult')

@@ -39,10 +39,11 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
     });
 
     let result = maybe_err.unwrap_or_else(|err| {
+        let err = err.downcast::<String>().unwrap_or(Box::new("Unknown".into()));
+
         error!("err {:?}", err);
 
-        // TODO: result error
-        FfiResult::Nothing
+        FfiResult::Error(*err)
     });
 
     // serialize & write the result
