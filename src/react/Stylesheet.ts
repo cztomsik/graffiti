@@ -2,7 +2,7 @@ import {
   RNStyleSheet,
   ViewStyle,
   TextStyle,
-  ImageStyle,
+  ImageStyle
 } from './react-native-types'
 import {
   Dimensions,
@@ -43,7 +43,9 @@ const create = (obj: Styles) => {
 const flatten: typeof RNStyleSheet.flatten = styles => {
   styles = styles || undefined
 
-  return Array.isArray(styles) ? Object.assign({}, ...styles.map(flatten)) : styles
+  return Array.isArray(styles)
+    ? Object.assign({}, ...styles.map(flatten))
+    : styles
 }
 
 // any is needed here because TS is too dumb
@@ -60,7 +62,7 @@ const StyleSheet = {
   flatten,
   create,
 
-  setStyleAttributePreprocessor: () => void(0),
+  setStyleAttributePreprocessor: () => void 0,
   hairlineWidth: 1,
   absoluteFillObject,
   absoluteFill: absoluteFillObject as any
@@ -142,7 +144,7 @@ export function compileFlatStyle(style: FlatStyle): SurfaceProps {
 
   return {
     overflow: Overflow[OVERFLOW[overflow]],
-    size: Size.mk(parseDimension(width), parseDimension(height)),
+    size: Size(parseDimension(width), parseDimension(height)),
     flex: {
       flexGrow,
       flexShrink,
@@ -156,27 +158,36 @@ export function compileFlatStyle(style: FlatStyle): SurfaceProps {
       alignSelf: FlexAlign[FLEX_ALIGN[alignSelf]],
       justifyContent: JustifyContent[JUSTIFY_CONTENT[justifyContent]]
     },
-    padding: Dimensions.mk(
+    padding: Dimensions(
       parseDimension(paddingTop),
       parseDimension(paddingRight),
       parseDimension(paddingBottom),
       parseDimension(paddingLeft)
     ),
-    margin: Dimensions.mk(
+    margin: Dimensions(
       parseDimension(marginTop),
       parseDimension(marginRight),
       parseDimension(marginBottom),
       parseDimension(marginLeft)
     ),
-    borderRadius: (borderTopLeftRadius || borderTopRightRadius || borderBottomLeftRadius || borderBottomRightRadius) ?[
-      borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomRightRadius
-    ] :undefined,
+    borderRadius:
+      borderTopLeftRadius ||
+      borderTopRightRadius ||
+      borderBottomLeftRadius ||
+      borderBottomRightRadius
+        ? [
+            borderTopLeftRadius,
+            borderTopRightRadius,
+            borderBottomLeftRadius,
+            borderBottomRightRadius
+          ]
+        : undefined,
     boxShadow: shadowColor
       ? {
           blur: shadowRadius,
           spread: shadowSpread,
           color: parseColor(shadowColor),
-          offset: Vector2f.mk(0, 0)
+          offset: Vector2f(0, 0)
         }
       : undefined,
     backgroundColor: backgroundColor ? parseColor(backgroundColor) : undefined,
@@ -265,7 +276,7 @@ const JUSTIFY_CONTENT = {
 }
 
 export interface SurfaceProps {
-  overflow?: Overflow,
+  overflow?: Overflow
   size?: Size
   flex?: Flex
   flow?: Flow

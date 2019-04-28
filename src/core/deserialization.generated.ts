@@ -62,7 +62,7 @@ import {
   read_str,
   Sink,
   Deserializer
-} from 'ts-rust-bridge-bincode'
+} from 'ts-binary'
 
 const readVecUpdateSceneMsg = (sink: Sink): Array<UpdateSceneMsg> =>
   read_seq(sink, readUpdateSceneMsg)
@@ -334,7 +334,7 @@ export const readWindowId: Deserializer<WindowId> = read_u16
 export const readSurfaceId: Deserializer<SurfaceId> = read_u64
 
 export const readColor = (sink: Sink): Color =>
-  Color.mk(read_u8(sink), read_u8(sink), read_u8(sink), read_u8(sink))
+  Color(read_u8(sink), read_u8(sink), read_u8(sink), read_u8(sink))
 
 const FlexDirectionReverseMap: FlexDirection[] = [
   FlexDirection.Column,
@@ -427,13 +427,13 @@ export const readOverflow = (sink: Sink): Overflow =>
   OverflowReverseMap[read_u32(sink)]
 
 export const readSize = (sink: Sink): Size =>
-  Size.mk(readDimension(sink), readDimension(sink))
+  Size(readDimension(sink), readDimension(sink))
 
 export const readRect = (sink: Sink): Rect =>
-  Rect.mk(read_f32(sink), read_f32(sink), read_f32(sink), read_f32(sink))
+  Rect(read_f32(sink), read_f32(sink), read_f32(sink), read_f32(sink))
 
 export const readDimensions = (sink: Sink): Dimensions =>
-  Dimensions.mk(
+  Dimensions(
     readDimension(sink),
     readDimension(sink),
     readDimension(sink),
@@ -441,15 +441,10 @@ export const readDimensions = (sink: Sink): Dimensions =>
   )
 
 export const readVector2f = (sink: Sink): Vector2f =>
-  Vector2f.mk(read_f32(sink), read_f32(sink))
+  Vector2f(read_f32(sink), read_f32(sink))
 
 export const readBorderRadius = (sink: Sink): BorderRadius =>
-  BorderRadius.mk(
-    read_f32(sink),
-    read_f32(sink),
-    read_f32(sink),
-    read_f32(sink)
-  )
+  BorderRadius(read_f32(sink), read_f32(sink), read_f32(sink), read_f32(sink))
 
 export const readBoxShadow = (sink: Sink): BoxShadow => {
   const color = readColor(sink)

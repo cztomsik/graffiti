@@ -16,7 +16,6 @@ const typescriptDeserFile = __dirname + '/../core/deserialization.generated.ts'
 const rustDefFil = __dirname + '/../../native-new/src/generated.rs'
 
 const rustContent = `
-use bincode;
 use serde::{Serialize, Deserialize};
 
 ${schema2rust(contract).join('\n')}
@@ -30,8 +29,7 @@ const tsSerContent = `
 ${ast2ts(
   schema2serializers({
     entries: contract,
-    typesDeclarationFile: `./generated`,
-    pathToBincodeLib: 'ts-rust-bridge-bincode'
+    typesDeclarationFile: `./generated`
   })
 ).join('\n\n')}
 `
@@ -40,8 +38,7 @@ const tsDeserContent = `
 ${ast2ts(
   schema2deserializers({
     entries: contract,
-    typesDeclarationFile: `./generated`,
-    pathToBincodeLib: 'ts-rust-bridge-bincode'
+    typesDeclarationFile: `./generated`
   })
 ).join('\n\n')}
 `

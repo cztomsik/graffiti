@@ -61,8 +61,8 @@ import {
   write_f32,
   write_str,
   Sink,
-  SerFunc
-} from 'ts-rust-bridge-bincode'
+  Serializer
+} from 'ts-binary'
 
 const writeVecUpdateSceneMsg = (sink: Sink, val: Array<UpdateSceneMsg>): Sink =>
   write_seq(sink, val, writeUpdateSceneMsg)
@@ -294,9 +294,9 @@ const writeUpdateSceneMsg_SetBorder = (
   { surface, border }: UpdateSceneMsg_SetBorder
 ): Sink => writeOptBorder(writeSurfaceId(sink, surface), border)
 
-export const writeWindowId: SerFunc<WindowId> = write_u16
+export const writeWindowId: Serializer<WindowId> = write_u16
 
-export const writeSurfaceId: SerFunc<SurfaceId> = write_u64
+export const writeSurfaceId: Serializer<SurfaceId> = write_u64
 
 export const writeColor = (sink: Sink, val: Color): Sink =>
   write_u8(write_u8(write_u8(write_u8(sink, val[0]), val[1]), val[2]), val[3])
