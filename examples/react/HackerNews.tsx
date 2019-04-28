@@ -28,7 +28,7 @@ export function HackerNews() {
     <View style={{ flex: 1, flexDirection: 'row' }}>
       {(submissions && selection) ? (
         <>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 2 }}>
             <FlatList
               data={submissions}
               renderItem={({ item, index }) => (
@@ -44,7 +44,7 @@ export function HackerNews() {
             <Button title="Next page" onPress={() => setPage(page + 1)} />
           </View>
 
-          <View style={{ flex: 2, marginLeft: 10 }}>
+          <View style={{ flex: 3, marginLeft: 10 }}>
             <SubmissionDetail submission={selection} />
           </View>
         </>
@@ -61,15 +61,17 @@ const SubmissionListItem = ({
   onClick
 }) => (
   <View style={[styles.item, active && styles.itemActive]} onClick={onClick}>
-    <Text>{title}</Text>
-    <Text>{time_ago}</Text>
-    <Text>{comments_count} comments</Text>
+    <Text style={styles.itemTitle}>{title}</Text>
+    <View style={styles.rowBetween}>
+      <Text style={styles.meta}>{comments_count} comments</Text>
+      <Text style={styles.meta}>{time_ago}</Text>
+    </View>
   </View>
 )
 
 const SubmissionDetail = ({ submission: { title } }) => (
   <View>
-    <Text>{title}</Text>
+    <Text style={styles.heading}>{title}</Text>
 
     <Text>TODO: load & show detail</Text>
   </View>
@@ -82,6 +84,25 @@ const styles = StyleSheet.create({
 
   itemActive: {
     backgroundColor: '#eee'
+  },
+
+  itemTitle: {
+    lineHeight: 20
+  },
+
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  },
+
+  meta: {
+    fontSize: 12,
+    lineHeight: 14,
+    color: '#666'
+  },
+
+  heading: {
+    fontSize: 24
   }
 })
 
