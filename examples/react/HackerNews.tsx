@@ -6,7 +6,8 @@ import {
   Text,
   FlatList,
   StyleSheet,
-  ActivityIndicator
+  ActivityIndicator,
+  Linking
 } from '../../src/react'
 import * as http from 'http'
 
@@ -26,7 +27,7 @@ export function HackerNews() {
 
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
-      {(submissions && selection) ? (
+      {submissions && selection ? (
         <>
           <View style={{ flex: 2 }}>
             <FlatList
@@ -69,13 +70,40 @@ const SubmissionListItem = ({
   </View>
 )
 
-const SubmissionDetail = ({ submission: { title } }) => (
-  <View>
-    <Text style={styles.heading}>{title}</Text>
+const SubmissionDetail = ({ submission: { title, id, url } }) => {
+  const [detail, setDetail] = useState(null)
 
-    <Text>TODO: load & show detail</Text>
-  </View>
-)
+  useEffect(() => {
+    setDetail(null)
+    getJSON(`http://node-hnapi.herokuapp.com/item/${id}`).then(setDetail)
+  }, [id])
+
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={styles.heading}>{title}</Text>
+      <Text
+        style={[styles.meta, styles.link]}
+        onClick={() => Linking.openURL(url)}
+      >
+        {url}
+      </Text>
+
+      {/* TODO: this is far from being useful, actually */}
+      {detail ? (
+        <FlatList
+          data={detail.comments}
+          renderItem={({ item, index }: any) => (
+            <View key={index} style={{ margin: 10 }}>
+              <Text style={{ lineHeight: 18 }}>{item.content}</Text>
+            </View>
+          )}
+        />
+      ) : (
+        <ActivityIndicator />
+      )}
+    </View>
+  )
+}
 
 const styles = StyleSheet.create({
   item: {
@@ -87,7 +115,8 @@ const styles = StyleSheet.create({
   },
 
   itemTitle: {
-    lineHeight: 20
+    lineHeight: 18,
+    marginBottom: 5
   },
 
   rowBetween: {
@@ -96,9 +125,13 @@ const styles = StyleSheet.create({
   },
 
   meta: {
-    fontSize: 12,
-    lineHeight: 14,
+    fontSize: 14,
+    lineHeight: 18,
     color: '#666'
+  },
+
+  link: {
+    color: '#00f'
   },
 
   heading: {
