@@ -71,20 +71,18 @@ export class App {
   }
 }
 
-// lazy created (and shared) App instance
-export const APP: App = new Proxy({}, {
-  get(holder: any, property) {
-    if (!holder.INSTANCE) {
-      ffi.init()
-      const app = holder.INSTANCE = new App(ffi)
-      global['requestAnimationFrame'] = app.requestAnimationFrame.bind(app)
+let APP = undefined
+
+export function getApp({ autoCreate = true, autoRun = true } = {}) {
+  if ((APP === undefined) && autoCreate) {
+    ffi.init()
+    APP = new App(ffi)
+    global['requestAnimationFrame'] = APP.requestAnimationFrame.bind(APP)
+
+    if (autoRun) {
+      APP.run()
     }
-
-    return holder.INSTANCE[property]
-  },
-
-  // needed for method calls
-  set(holder, property, value) {
-    return Reflect.set(holder.INSTANCE, property, value)
   }
-})
+
+  return APP
+}
