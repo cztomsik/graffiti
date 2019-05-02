@@ -75,7 +75,7 @@ const SubmissionDetail = ({ submission: { title, id, url } }) => {
 
   useEffect(() => {
     setDetail(null)
-    getJSON(`http://node-hnapi.herokuapp.com/item/${id}`).then(setDetail)
+    getJSON(`http://node-hnapi.herokuapp.com/item/${id}`).then(stripHtml).then(setDetail)
   }, [id])
 
   return (
@@ -94,6 +94,7 @@ const SubmissionDetail = ({ submission: { title, id, url } }) => {
           data={detail.comments}
           renderItem={({ item, index }: any) => (
             <View key={index} style={{ margin: 10 }}>
+              <Text style={styles.meta}>{item.user}</Text>
               <Text style={{ lineHeight: 18 }}>{item.content}</Text>
             </View>
           )}
@@ -149,4 +150,19 @@ const getJSON = url => {
       res.on('end', () => resolve(JSON.parse(data)))
     })
   }) as Promise<any>
+}
+
+const ENTITIES = {
+  quot: '"',
+  amp: '&',
+  gt: '>',
+  lt: '<'
+}
+
+const stripHtml = item => {
+  for (const c of item.comments || []) {
+    c.content = c.content.replace(/<\/?[^>]*>/g, '').replace(/&#x([\dA-F]+);/g, (str, hex) => String.fromCharCode(parseInt(hex, 16))).replace(/&(\w+);/g, (str, name) => ENTITIES[name])
+  }
+
+  return item
 }

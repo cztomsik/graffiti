@@ -1,3 +1,6 @@
+/// Note that webrender API is not stable and we need to catch up often so this
+/// won't ever be perfect.
+
 use crate::api::{
     Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Image,
     Text, SurfaceId, Scene, Rect
@@ -17,11 +20,11 @@ use webrender::api::{
     BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
     BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, DocumentId, Epoch,
     FontInstanceKey, GlyphInstance, ImageData, ImageDescriptor,
-    ImageDisplayItem, ImageFormat, ImageRendering, LayoutPrimitiveInfo,
-    NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
-    ResourceUpdate, SpaceAndClipInfo, SpecificDisplayItem, TextDisplayItem, Transaction,
+    ImageDisplayItem, ImageFormat, ImageRendering, CommonItemProperties,
+    NormalBorder, PipelineId, RectangleDisplayItem, RenderApi, ClipId,
+    ResourceUpdate, SpaceAndClipInfo, DisplayItem, TextDisplayItem, Transaction,
     HitTestFlags, ComplexClipRegion, ClipMode, ScrollLocation, RenderNotifier, ScrollSensitivity, ExternalScrollId,
-    units::{LayoutPoint, LayoutSize, LayoutVector2D, WorldPoint, LayoutRect, FramebufferIntSize}
+    units::{LayoutPoint, LayoutSize, LayoutVector2D, WorldPoint, LayoutRect, DeviceIntSize}
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 use webrender::{Renderer, RendererOptions};
@@ -32,7 +35,7 @@ pub struct WebrenderRenderer {
     document_id: DocumentId,
     rx: Receiver<()>,
 
-    fb_size: FramebufferIntSize,
+    device_size: DeviceIntSize,
     // so that we can reuse already uploaded images
     // this can be (periodically) cleaned up by simply going through all keys and
     // looking what has (not) been used in the last render (and can be evicted)
@@ -40,10 +43,10 @@ pub struct WebrenderRenderer {
 }
 
 impl WebrenderRenderer {
-    pub fn new(gl: Rc<Gl>, fb_size: (i32, i32)) -> Self {
-        let fb_size = FramebufferIntSize::new(fb_size.0, fb_size.1);
-        let (renderer, mut render_api, rx) = Self::init_webrender(gl, fb_size);
-        let document_id = render_api.add_document(fb_size, 0);
+    pub fn new(gl: Rc<Gl>, device_size: (i32, i32)) -> Self {
+        let device_size = DeviceIntSize::new(device_size.0, device_size.1);
+        let (renderer, mut render_api, rx) = Self::init_webrender(gl, device_size);
+        let document_id = render_api.add_document(device_size, 0);
 
         Self::load_fonts(&mut render_api, document_id, &rx);
 
@@ -53,7 +56,7 @@ impl WebrenderRenderer {
             document_id,
             rx,
 
-            fb_size,
+            device_size,
         }
     }
 
@@ -64,7 +67,7 @@ impl WebrenderRenderer {
         res.items.get(0).map(|item| item.tag.1 as usize)
     }
 
-    fn init_webrender(gl: Rc<Gl>, fb_size: FramebufferIntSize) -> (Renderer, RenderApi, Receiver<()>) {
+    fn init_webrender(gl: Rc<Gl>, start_size: DeviceIntSize) -> (Renderer, RenderApi, Receiver<()>) {
         // so that we can block until the frame is actually rendered
         let (tx, rx) = channel();
 
@@ -76,7 +79,7 @@ impl WebrenderRenderer {
                 ..RendererOptions::default()
             },
             None,
-            fb_size
+            start_size
         )
         .expect("couldn't init webrender");
         let render_api = sender.create_api();
@@ -133,7 +136,7 @@ impl WebrenderRenderer {
         self.rx.recv().ok();
 
         self.renderer.update();
-        self.renderer.render(self.fb_size).ok();
+        self.renderer.render(self.device_size).ok();
     }
 
     pub fn scroll(&mut self, mouse_pos: (f32, f32), delta: (f32, f32)) {
@@ -147,9 +150,9 @@ impl WebrenderRenderer {
         self.send_tx(tx);
     }
 
-    pub fn resize(&mut self, fb_size: (i32, i32), dpi: f32) {
-        self.fb_size = FramebufferIntSize::new(fb_size.0, fb_size.1);
-        self.render_api.set_document_view(self.document_id, self.fb_size.into(), dpi);
+    pub fn resize(&mut self, device_size: (i32, i32), dpi: f32) {
+        self.device_size = DeviceIntSize::new(device_size.0, device_size.1);
+        self.render_api.set_document_view(self.document_id, self.device_size.into(), dpi);
     }
 }
 
@@ -173,8 +176,7 @@ impl SceneRenderer for WebrenderRenderer{
                     BUILDER_CAPACITY,
                 ),
                 border_radius: WRBorderRadius::zero(),
-                layout: LayoutPrimitiveInfo::new(content_size.into()),
-                space_and_clip: SpaceAndClipInfo::root_scroll(PIPELINE_ID),
+                layout: CommonItemProperties::new(content_size.into(), SpaceAndClipInfo::root_scroll(PIPELINE_ID))
             };
 
             context.render_surface(surface);
@@ -192,56 +194,44 @@ struct RenderContext<'a> {
 
     builder: DisplayListBuilder,
     border_radius: WRBorderRadius,
-    layout: LayoutPrimitiveInfo,
-    space_and_clip: SpaceAndClipInfo,
+    layout: CommonItemProperties
 }
 
 impl<'a> RenderContext<'a> {
     fn render_surface(&mut self, surface: SurfaceId) {
         let parent_layout = self.layout;
-        let parent_space_and_clip = self.space_and_clip;
+        let parent_space_and_clip = SpaceAndClipInfo { spatial_id: parent_layout.spatial_id, clip_id: parent_layout.clip_id };
 
         let Rect(x, y, width, height) = self.scene.computed_layout(surface);
 
-        self.layout = LayoutPrimitiveInfo::new(
+        self.layout = CommonItemProperties::new(
             LayoutRect::new(LayoutPoint::new(x, y), LayoutSize::new(width, height))
-                .translate(&parent_layout.rect.origin.to_vector()),
+                .translate(&parent_layout.clip_rect.origin.to_vector()),
+            parent_space_and_clip
         );
 
         // everything will receive events (important for onMouseLeave)
-        self.layout.tag = Some((0, surface as u16));
+        self.layout.hit_info = Some((0, surface as u16));
 
-        debug!("surface {} {:?}", surface, self.layout.rect);
+        debug!("surface {} {:?}", surface, self.layout.clip_rect);
 
         // shared, not directly rendered
         if let Some(border_radius) = self.scene.border_radius(surface) {
             self.border_radius = border_radius.clone().into();
 
             let clip_region = ComplexClipRegion::new(self.layout.clip_rect.clone(), self.border_radius, ClipMode::Clip);
-            let clip_id = self.builder.define_clip(&self.space_and_clip, self.layout.clip_rect, vec![clip_region], None);
+            let clip_id = self.builder.define_clip(&parent_space_and_clip, self.layout.clip_rect, vec![clip_region], None);
 
-            self.space_and_clip = self.space_and_clip.clone();
-            self.space_and_clip.clip_id = clip_id;
+            self.layout.clip_id = clip_id;
         } else {
             self.border_radius = WRBorderRadius::zero();
         }
 
+        // TODO: (outset) shadow shouldn't have tag (& receive events)
+        // note that we are using parent clip (shadow should be clipped by parent not by us)
         if let Some(box_shadow) = self.scene.box_shadow(surface) {
-            let Vector2f(x, y) = box_shadow.offset;
-            let size = box_shadow.spread + box_shadow.blur;
-            let layout = LayoutPrimitiveInfo::with_clip_rect(
-                self.layout.rect,
-                self.layout
-                    .rect
-                    .translate(&TypedVector2D::new(x, y))
-                    .inflate(size, size),
-            );
             self.builder.push_item(
-                &self.box_shadow(box_shadow.clone()),
-                // TODO: (outset) shadow shouldn't have tag (& receive events)
-                &layout,
-                // note that we are using parent clip (shadow should be clipped by parent not by us)
-                &parent_space_and_clip,
+                &self.box_shadow(box_shadow, parent_space_and_clip.clip_id)
             );
         }
 
@@ -273,12 +263,12 @@ impl<'a> RenderContext<'a> {
         }
 
         if let Some((width, height)) = self.scene.scroll_frame(surface) {
-            debug!("scroll_frame {:?}", (&width, &height, &self.space_and_clip, &self.layout.clip_rect));
+            debug!("scroll_frame {:?}", (&width, &height, &self.layout));
 
-            let area_rect = LayoutRect::new(self.layout.rect.origin.clone(), LayoutSize::new(width, height));
+            let area_rect = LayoutRect::new(self.layout.clip_rect.origin.clone(), LayoutSize::new(width, height));
 
-            self.space_and_clip = self.builder.define_scroll_frame(
-                &self.space_and_clip,
+            let space_and_clip = self.builder.define_scroll_frame(
+                &SpaceAndClipInfo { clip_id: self.layout.clip_id, spatial_id: self.layout.spatial_id },
                 Some(ExternalScrollId(surface as u64, PIPELINE_ID)),
                 area_rect,
                 self.layout.clip_rect,
@@ -287,13 +277,14 @@ impl<'a> RenderContext<'a> {
                 ScrollSensitivity::ScriptAndInputEvents,
                 LayoutVector2D::zero()
             );
+            let hit_info = self.layout.hit_info;
+            self.layout = CommonItemProperties::new(area_rect, space_and_clip);
+            self.layout.hit_info = hit_info;
 
             // we need to push something which will receive hit-test events for the whole "area"
             // otherwise scroll would not work in "empty" spaces
             // TODO: stacking context would be probably better
-            let mut layout = LayoutPrimitiveInfo::new(area_rect);
-            layout.tag = self.layout.tag;
-            self.builder.push_item(&self.background_color(Color(0, 0, 0, 0)), &layout, &self.space_and_clip);
+            self.builder.push_item(&self.background_color(Color(0, 0, 0, 0)));
         }
 
         // children has to be "on top" because of hitbox testing
@@ -303,15 +294,26 @@ impl<'a> RenderContext<'a> {
 
         // restore layout
         self.layout = parent_layout;
-        self.space_and_clip = parent_space_and_clip;
     }
 
-    fn box_shadow(&self, box_shadow: BoxShadow) -> SpecificDisplayItem {
-        SpecificDisplayItem::BoxShadow(BoxShadowDisplayItem {
+    fn box_shadow(&self, box_shadow: &BoxShadow, parent_clip_id: ClipId) -> DisplayItem {
+        let Vector2f(x, y) = box_shadow.offset;
+        let size = box_shadow.spread + box_shadow.blur;
+
+        DisplayItem::BoxShadow(BoxShadowDisplayItem {
+            common: CommonItemProperties {
+                clip_rect:
+                    self.layout
+                        .clip_rect
+                        .translate(&TypedVector2D::new(x, y))
+                        .inflate(size, size),
+                clip_id: parent_clip_id,
+                ..self.layout
+            },
             color: box_shadow.color.clone().into(),
 
-            box_bounds: self.layout.rect,
-            offset: box_shadow.offset.into(),
+            box_bounds: self.layout.clip_rect,
+            offset: box_shadow.offset.clone().into(),
             blur_radius: box_shadow.blur,
             spread_radius: box_shadow.spread,
             border_radius: self.border_radius.clone().into(),
@@ -321,14 +323,15 @@ impl<'a> RenderContext<'a> {
         })
     }
 
-    fn background_color(&self, color: Color) -> SpecificDisplayItem {
-        SpecificDisplayItem::Rectangle(RectangleDisplayItem {
+    fn background_color(&self, color: Color) -> DisplayItem {
+        DisplayItem::Rectangle(RectangleDisplayItem {
+            common: self.layout,
             color: color.into(),
         })
     }
 
     // TODO: refactor, cache, free + hook to make loading possible from node.js (http)
-    fn image(&self, image: Image) -> SpecificDisplayItem {
+    fn image(&self, image: Image) -> DisplayItem {
         let image_key = {
             let mut f = File::open(image.url).expect("couldn't open file");
             let mut buffer = Vec::new();
@@ -361,9 +364,11 @@ impl<'a> RenderContext<'a> {
             key
         };
 
-        SpecificDisplayItem::Image(ImageDisplayItem {
+        DisplayItem::Image(ImageDisplayItem {
+            common: self.layout,
+            bounds: self.layout.clip_rect,
             image_key,
-            stretch_size: self.layout.rect.size.into(),
+            stretch_size: self.layout.clip_rect.size.into(),
             tile_spacing: TypedSize2D::zero(),
             image_rendering: ImageRendering::Auto,
             alpha_type: AlphaType::PremultipliedAlpha,
@@ -372,12 +377,12 @@ impl<'a> RenderContext<'a> {
     }
 
     // TODO: clip should be enough big to contain `y` and similar characters
-    fn text(&self, text: Text, laid_text: LaidText) -> (SpecificDisplayItem, Vec<GlyphInstance>) {
-        let [mut text_x, text_y] = self.layout.rect.origin.to_array();
+    fn text(&self, text: Text, laid_text: LaidText) -> (DisplayItem, Vec<GlyphInstance>) {
+        let [mut text_x, text_y] = self.layout.clip_rect.origin.to_array();
         // TODO: text-right
 
         if let TextAlign::Center = text.align {
-            text_x = text_x + (self.layout.rect.size.width - laid_text.width) / 2.;
+            text_x = text_x + (self.layout.clip_rect.size.width - laid_text.width) / 2.;
         }
 
         let glyphs = laid_text.glyphs
@@ -390,7 +395,9 @@ impl<'a> RenderContext<'a> {
 
         let font_key = FontInstanceKey::new(self.render_api.get_namespace_id(), text.font_size as u32);
 
-        let item = SpecificDisplayItem::Text(TextDisplayItem {
+        let item = DisplayItem::Text(TextDisplayItem {
+            common: self.layout,
+            bounds: self.layout.clip_rect,
             font_key,
             color: text.color.clone().into(),
             glyph_options: None,
@@ -399,8 +406,10 @@ impl<'a> RenderContext<'a> {
         (item, glyphs)
     }
 
-    fn border(&self, border: Border) -> SpecificDisplayItem {
-        SpecificDisplayItem::Border(BorderDisplayItem {
+    fn border(&self, border: Border) -> DisplayItem {
+        DisplayItem::Border(BorderDisplayItem {
+            common: self.layout,
+            bounds: self.layout.clip_rect,
             widths: TypedSideOffsets2D::new(
                 border.top.width,
                 border.right.width,
@@ -418,11 +427,11 @@ impl<'a> RenderContext<'a> {
         })
     }
 
-    fn push(&mut self, item: SpecificDisplayItem) {
+    fn push(&mut self, item: DisplayItem) {
         debug!("push {:?}", &item);
 
         self.builder
-            .push_item(&item, &self.layout, &self.space_and_clip);
+            .push_item(&item);
     }
 }
 
@@ -510,7 +519,7 @@ mod tests {
 
         SurfaceContext {
             border_radius: BorderRadius(0., 0., 0., 0.),
-            layout: LayoutPrimitiveInfo::new(LayoutSize::new(100., 100.).into()),
+            layout: CommonItemProperties::new(LayoutSize::new(100., 100.).into()),
         }
     }
 
@@ -521,7 +530,7 @@ mod tests {
 
         assert_eq!(
             ctx.background_color(color.clone()),
-            SpecificDisplayItem::Rectangle(RectangleDisplayItem {
+            DisplayItem::Rectangle(RectangleDisplayItem {
                 color: color.into()
             })
         );
@@ -545,7 +554,7 @@ mod tests {
 
         assert_eq!(
             ctx.box_shadow(box_shadow),
-            SpecificDisplayItem::BoxShadow(BoxShadowDisplayItem {
+            DisplayItem::BoxShadow(BoxShadowDisplayItem {
                 box_bounds,
                 offset: offset.into(),
                 color: color.into(),
