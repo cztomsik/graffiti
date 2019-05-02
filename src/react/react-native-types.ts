@@ -25,7 +25,7 @@ declare module 'react-native' {
     shadowSpread?: number
   }
 
-  interface ViewProps {
+  interface CommonProps {
     // TODO: only els with tabindex should be focusable
     tabindex?: number
     onFocus?: (ev) => void
@@ -39,9 +39,11 @@ declare module 'react-native' {
     onMouseOut?: (ev) => void
   }
 
+  interface ViewProps extends CommonProps {}
+
   type TextValue = string | number | null | undefined | false
 
-  interface TextProps {
+  interface TextProps extends CommonProps {
     children?: TextValue | TextValue[]
   }
 }

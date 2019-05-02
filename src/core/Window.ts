@@ -17,7 +17,7 @@ export class Window {
   }
 
   handleEvent(event: WindowEvent) {
-    console.log(event)
+    this.sceneContext.events.handleWindowEvent(event)
   }
 
   setSize(width: number, height: number) {

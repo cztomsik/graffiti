@@ -1,9 +1,9 @@
 import * as React from 'react'
-import { APP } from '../../src/core'
+import { getApp } from '../../src/core'
 import { render } from '../../src/react'
 import { App } from './App';
 
-const window = APP.createWindow()
+const window = getApp().createWindow()
 
 let Root = App
 
@@ -18,5 +18,3 @@ if ('hot' in module) {
 }
 
 renderRoot()
-
-APP.run()

@@ -245,6 +245,7 @@ const FfiResult = Union(
   'FfiResult',
   [
     V.Unit('Nothing'),
+    V.NewType('Error', T.Scalar.Str),
     V.NewType('Events', T.Vec(T.RefTo(Event))),
     V.NewType('WindowId', T.RefTo(WindowId))
   ],

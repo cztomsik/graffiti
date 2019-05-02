@@ -13,6 +13,7 @@ pub enum FfiMsg {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum FfiResult {
     Nothing,
+    Error(String),
     Events(Vec<Event>),
     WindowId(WindowId),
 }

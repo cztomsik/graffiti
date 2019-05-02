@@ -54,12 +54,12 @@ import {
   write_u32,
   write_bool,
   write_seq,
+  write_str,
   write_u64,
   write_u16,
   write_opt,
   write_u8,
   write_f32,
-  write_str,
   Sink,
   Serializer
 } from 'ts-binary'
@@ -110,10 +110,12 @@ export const writeFfiResult = (sink: Sink, val: FfiResult): Sink => {
   switch (val.tag) {
     case 'Nothing':
       return write_u32(sink, 0)
+    case 'Error':
+      return write_str(write_u32(sink, 1), val.value)
     case 'Events':
-      return writeVecEvent(write_u32(sink, 1), val.value)
+      return writeVecEvent(write_u32(sink, 2), val.value)
     case 'WindowId':
-      return writeWindowId(write_u32(sink, 2), val.value)
+      return writeWindowId(write_u32(sink, 3), val.value)
   }
 }
 

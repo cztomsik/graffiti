@@ -47,6 +47,10 @@ export function send(msg: FfiMsg) {
 
   const res: FfiResult = readFfiResult({ arr: resBuf, pos: 0 })
 
+  if (res.tag === 'Error') {
+    throw new Error(res.value)
+  }
+
   // console.log(res)
   return res
 }

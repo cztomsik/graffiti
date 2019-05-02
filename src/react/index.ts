@@ -1,3 +1,6 @@
+import * as Linking from './Linking'
+export { Linking }
+
 export { default as StyleSheet } from './Stylesheet'
 export { render } from './reconciler'
 export { ControlManagerContext } from './ControlManager'
