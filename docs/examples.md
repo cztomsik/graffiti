@@ -10,26 +10,17 @@ nav_order: 7
 git clone https://github.com/cztomsik/node-webrender
 cd node-webrender
 npm install
-npx ts-node -T example/<file>
+npm run example
 ```
 
-## [hello.ts](https://github.com/cztomsik/node-webrender/tree/master/example/hello.ts)
-![hello](./images/hello.png)
-
-## [react-hello.tsx](https://github.com/cztomsik/node-webrender/tree/master/example/react-hello.tsx)
+## [react-hello.tsx](https://github.com/cztomsik/node-webrender/tree/master/examples/react/Hello.tsx)
 ![react-hello](./images/react-hello.png)
 
-## [react-counter.tsx](https://github.com/cztomsik/node-webrender/tree/master/example/react-counter.tsx)
+## [react-counter.tsx](https://github.com/cztomsik/node-webrender/tree/master/examples/react/Counter.tsx)
 ![react-counter](./images/react-counter.png)
 
-## [react-calculator.tsx](https://github.com/cztomsik/node-webrender/tree/master/example/react-calculator.tsx)
+## [react-calculator.tsx](https://github.com/cztomsik/node-webrender/tree/master/examples/react/Calculator.tsx)
 ![react-calculator](./images/react-calculator.png)
-
-## [react-flatlist.tsx](https://github.com/cztomsik/node-webrender/tree/master/example/react-flatlist.tsx)
-![react-flatlist](./images/react-flatlist.png)
-
-## [react-wordwrap.tsx](https://github.com/cztomsik/node-webrender/tree/master/example/react-wordwrap.tsx)
-![react-wordwrap](./images/react-wordwrap.png)
 
 
 ---

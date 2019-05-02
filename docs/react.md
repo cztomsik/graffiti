@@ -9,7 +9,7 @@ You don't need typescript but it's probably the most comfortable way to start.
 mkdir hello-app
 cd hello-app
 npm init -y
-npm i node-webrender react@next react-reconciler@next yoga-layout
+npm i node-webrender react@next react-reconciler@next
 npm i ts-node typescript --save-dev
 ```
 
@@ -17,7 +17,7 @@ Then you can create `main.tsx` with:
 
 ```js
 import * as React from 'react'
-import { Window } from 'node-webrender'
+import { getApp } from 'node-webrender'
 import { render, View, Text } from 'node-webrender/lib/react'
 
 const App = () =>
@@ -25,7 +25,7 @@ const App = () =>
     <Text>Hello</Text>
   </View>
 
-render(<App />, new Window("Hello"))
+render(<App />, getApp().createWindow())
 ```
 
 and it should show some text if you run it with `npx ts-node -O '{"jsx": "react"}' main.tsx`.
