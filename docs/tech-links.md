@@ -12,6 +12,14 @@ Curated content about WR
 
 ---
 
+### FirefoxGraphics github org
+
+There are standup notes with links to some tech documents, and other interesting stuff related to webrender & firefox.
+
+https://github.com/FirefoxGraphics
+
+---
+
 ### The whole web at maximum FPS: How WebRender gets rid of jank
 
 Amazing intro to Webrenderer by Lin Clark.
