@@ -8,8 +8,6 @@ aux_links:
     - "https://gitter.im/node-webrender/community"
   "GitHub":
     - "//github.com/cztomsik/stain"
-  "Patreon":
-    - "https://www.patreon.com/cztomsik"
 
 # actually, it's this + /project_name
 url: //tomsik.cz
