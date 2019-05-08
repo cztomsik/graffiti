@@ -33,10 +33,10 @@
   },
   "devDependencies": {
     "@types/ffi": "^0.2.2",
-    "@types/node": "^10.14.5",
+    "@types/node": "^10.14.6",
     "@types/prettier": "^1.16.3",
-    "@types/react": "^16.8.14",
-    "@types/react-native": "^0.57.47",
+    "@types/react": "^16.8.17",
+    "@types/react-native": "^0.57.53",
     "@types/ref": "0.0.28",
     "@types/yoga-layout": "^1.9.1",
     "hot-module-replacement": "^3.0.3",
@@ -47,7 +47,7 @@
     "scheduler": "^0.13.6",
     "ts-node": "^8.1.0",
     "ts-rust-bridge-codegen": "0.5.0",
-    "typescript": "^3.4.4",
+    "typescript": "^3.4.5",
     "ws": "^6.2.1"
   }
 }

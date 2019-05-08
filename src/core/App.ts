@@ -73,7 +73,7 @@ export class App {
 
 let APP = undefined
 
-export function getApp({ autoCreate = true, autoRun = true } = {}) {
+export function getApp({ autoCreate = true, autoRun = true } = {}): App {
   if ((APP === undefined) && autoCreate) {
     ffi.init()
     APP = new App(ffi)

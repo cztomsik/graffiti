@@ -30,5 +30,3 @@ export class Window {
   // it's not clear if close() should just call handler so that app can show
   // confirmation or if it should force the close, etc. let's leave it for later
 }
-
-export const __callbacks = []
