@@ -3,7 +3,6 @@ export { Linking }
 
 export { default as StyleSheet } from './Stylesheet'
 export { render } from './reconciler'
-export { ControlManagerContext } from './ControlManager'
 
 export { ActivityIndicator } from './components/ActivityIndicator'
 export { ScrollView } from './components/ScrollView'
