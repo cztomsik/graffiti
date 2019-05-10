@@ -55,7 +55,8 @@ const styles = StyleSheet.create({
   mark: {
     alignSelf: 'center',
     marginLeft: 7,
-    width: 27,
+    // TODO: measure is not called if width is set
+    // width: 27,
     color: '#ffffff',
     fontSize: 12,
     lineHeight: 20

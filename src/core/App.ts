@@ -10,11 +10,11 @@ export class App {
 
   constructor(private ffi) {}
 
-  createWindow() {
+  createWindow(WndClass = Window) {
     const res = this.ffi.send(FfiMsg.CreateWindow)
 
     const id = res.value
-    const window = new Window(id)
+    const window = new WndClass(id)
 
     this.windows[id] = window
 
