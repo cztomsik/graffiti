@@ -1,3 +1,5 @@
+import { camelCase } from "../utils";
+
 export class CSSStyleDeclaration {
   getPropertyValue(name) {
     return this[camelCase(name)]
@@ -11,5 +13,3 @@ export class CSSStyleDeclaration {
     delete this[camelCase(name)]
   }
 }
-
-const camelCase = name => name.replace(/\-[a-zA-Z]/g, match => match.slice(1).toUpperCase())

@@ -74,3 +74,6 @@ We use [webrender](https://github.com/servo/webrender) for the actual drawing, y
 ## Documentation
 Please refer to respective sub-page on the
 [project website](http://tomsik.cz/stain)
+
+## License
+This project is [MIT licensed](./LICENSE). By contributing to this project, you also agree that your contributions will be licensed under the MIT license.

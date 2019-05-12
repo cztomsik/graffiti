@@ -3,6 +3,7 @@ import { TextAlign, Dimension } from '../core/generated'
 import { EventTarget } from './events/EventTarget'
 import { CSSStyleDeclaration } from './styles/CSSStyleDeclaration';
 import { compileFlatStyle } from '../react/Stylesheet';
+import { camelCase } from './utils';
 
 class Node extends EventTarget {
   readonly childNodes: Node[] = []
@@ -113,7 +114,7 @@ class Node extends EventTarget {
 }
 
 export class Document extends Node {
-  _els: Element[] = [,]
+  _els: Element[] = [this as any]
 
   documentElement = this.createElement('html')
   head = this.createElement('head')
@@ -149,6 +150,10 @@ export class Document extends Node {
     return new TextNode(text)
   }
 
+  getElementById(id) {
+    return this._els.find(el => el.id === id)
+  }
+
   _getEl(_nativeId) {
     return this._els[_nativeId]
   }
@@ -162,7 +167,8 @@ export class Document extends Node {
   }
 }
 
-class Element extends Node {
+export class Element extends Node {
+  id?
   _style = new CSSStyleDeclaration()
 
   constructor(public ownerDocument, public tagName, public _nativeId) {
@@ -188,6 +194,26 @@ class Element extends Node {
         return Reflect.set(target, property, value)
       }
     })
+  }
+
+  setAttribute(name, value) {
+    this[camelCase(name)] = value
+  }
+
+  removeAttribute(name) {
+    delete this[camelCase(name)]
+  }
+
+  getBoundingClientRect() {
+    return { x: 0, left: 0, y: 0, top: 0, width: 100, height: 100 }
+  }
+
+  get offsetWidth() {
+    return 0
+  }
+
+  get offsetHeight() {
+    return 0
   }
 }
 

@@ -9,3 +9,4 @@ import { Window } from './Window'
 global['window'] = getApp().createWindow(Window)
 global['self'] = window
 global['document'] = window.document
+global['navigator'] = window.navigator

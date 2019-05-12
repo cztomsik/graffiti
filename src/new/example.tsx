@@ -1,4 +1,4 @@
-// npx ts-node -r ./global.ts hello.tsx
+// node -r ts-node/register -r ./global.ts example.tsx
 
 import * as React from 'preact'
 import { useState } from 'preact/hooks'

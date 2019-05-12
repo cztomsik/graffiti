@@ -1,11 +1,21 @@
-import { Document } from "./Document";
+import { Document, Element } from "./Document";
 import { Window as OldWnd } from '../core'
 import { WindowEvent } from "../core/generated";
 import { Event } from "./events/Event";
 import { EventTarget } from "./events/EventTarget";
+import { mixin } from "./utils";
+import { Storage } from "./Storage";
 
 export class Window extends OldWnd {
   document = new Document(this.sceneContext)
+  listeners = {}
+  //screen = { width: 1024, height: 768 }
+  //location = { href: '' }
+  //navigator = {}
+  localStorage = new Storage()
+
+  //HTMLIFrameElement = class extends Element {}
+  //Image = class extends Element {}
 
   handleEvent(event: WindowEvent) {
     console.log(event)
@@ -26,4 +36,4 @@ export class Window extends OldWnd {
   }
 }
 
-Object.assign(Window.prototype, EventTarget.prototype)
+mixin(Window, EventTarget)
