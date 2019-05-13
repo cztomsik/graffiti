@@ -3,7 +3,7 @@ nav_order: 0
 ---
 
 # Project status
-We are currently doing major rewrite after which we will mark it as 1.0 release.
+We are currently doing major rewrite after which we will mark it as 1.0 release. After that it might be considered good enough for some simple apps.
 
 ## Known issues
 - negative dimensions will block forever (WR will not generate a frame)
