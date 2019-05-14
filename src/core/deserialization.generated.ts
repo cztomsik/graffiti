@@ -15,29 +15,19 @@ import {
   UpdateSceneMsg_AppendChild,
   UpdateSceneMsg_InsertBefore,
   UpdateSceneMsg_RemoveChild,
-  BorderRadius,
-  UpdateSceneMsg_SetBorderRadius,
-  Overflow,
-  UpdateSceneMsg_SetOverflow,
+  StyleProp,
+  UpdateSceneMsg_SetStyleProp,
   Size,
-  UpdateSceneMsg_SetSize,
   Flex,
-  UpdateSceneMsg_SetFlex,
   Flow,
-  UpdateSceneMsg_SetFlow,
   Dimensions,
-  UpdateSceneMsg_SetPadding,
-  UpdateSceneMsg_SetMargin,
-  BoxShadow,
-  UpdateSceneMsg_SetBoxShadow,
-  Color,
-  UpdateSceneMsg_SetBackgroundColor,
-  Image,
-  UpdateSceneMsg_SetImage,
-  Text,
-  UpdateSceneMsg_SetText,
+  BorderRadius,
   Border,
-  UpdateSceneMsg_SetBorder,
+  BoxShadow,
+  Color,
+  Image,
+  Text,
+  Overflow,
   FlexDirection,
   FlexWrap,
   FlexAlign,
@@ -64,27 +54,21 @@ import {
   Deserializer
 } from 'ts-binary'
 
-const readVecUpdateSceneMsg = (sink: Sink): Array<UpdateSceneMsg> =>
-  read_seq(sink, readUpdateSceneMsg)
+const readVecUpdateSceneMsg = (sink: Sink): Array<UpdateSceneMsg> => read_seq(sink, readUpdateSceneMsg)
 
 const readVecEvent = (sink: Sink): Array<Event> => read_seq(sink, readEvent)
 
-const readOptBorderRadius = (sink: Sink): (BorderRadius) | undefined =>
-  read_opt(sink, readBorderRadius)
+const readOptBorderRadius = (sink: Sink): (BorderRadius) | undefined => read_opt(sink, readBorderRadius)
 
-const readOptBoxShadow = (sink: Sink): (BoxShadow) | undefined =>
-  read_opt(sink, readBoxShadow)
+const readOptBorder = (sink: Sink): (Border) | undefined => read_opt(sink, readBorder)
 
-const readOptColor = (sink: Sink): (Color) | undefined =>
-  read_opt(sink, readColor)
+const readOptBoxShadow = (sink: Sink): (BoxShadow) | undefined => read_opt(sink, readBoxShadow)
 
-const readOptImage = (sink: Sink): (Image) | undefined =>
-  read_opt(sink, readImage)
+const readOptColor = (sink: Sink): (Color) | undefined => read_opt(sink, readColor)
+
+const readOptImage = (sink: Sink): (Image) | undefined => read_opt(sink, readImage)
 
 const readOptText = (sink: Sink): (Text) | undefined => read_opt(sink, readText)
-
-const readOptBorder = (sink: Sink): (Border) | undefined =>
-  read_opt(sink, readBorder)
 
 export const readFfiMsg = (sink: Sink): FfiMsg => {
   switch (read_u32(sink)) {
@@ -193,150 +177,71 @@ export const readUpdateSceneMsg = (sink: Sink): UpdateSceneMsg => {
     case 3:
       return UpdateSceneMsg.RemoveChild(readUpdateSceneMsg_RemoveChild(sink))
     case 4:
-      return UpdateSceneMsg.SetBorderRadius(
-        readUpdateSceneMsg_SetBorderRadius(sink)
-      )
-    case 5:
-      return UpdateSceneMsg.SetOverflow(readUpdateSceneMsg_SetOverflow(sink))
-    case 6:
-      return UpdateSceneMsg.SetSize(readUpdateSceneMsg_SetSize(sink))
-    case 7:
-      return UpdateSceneMsg.SetFlex(readUpdateSceneMsg_SetFlex(sink))
-    case 8:
-      return UpdateSceneMsg.SetFlow(readUpdateSceneMsg_SetFlow(sink))
-    case 9:
-      return UpdateSceneMsg.SetPadding(readUpdateSceneMsg_SetPadding(sink))
-    case 10:
-      return UpdateSceneMsg.SetMargin(readUpdateSceneMsg_SetMargin(sink))
-    case 11:
-      return UpdateSceneMsg.SetBoxShadow(readUpdateSceneMsg_SetBoxShadow(sink))
-    case 12:
-      return UpdateSceneMsg.SetBackgroundColor(
-        readUpdateSceneMsg_SetBackgroundColor(sink)
-      )
-    case 13:
-      return UpdateSceneMsg.SetImage(readUpdateSceneMsg_SetImage(sink))
-    case 14:
-      return UpdateSceneMsg.SetText(readUpdateSceneMsg_SetText(sink))
-    case 15:
-      return UpdateSceneMsg.SetBorder(readUpdateSceneMsg_SetBorder(sink))
+      return UpdateSceneMsg.SetStyleProp(readUpdateSceneMsg_SetStyleProp(sink))
   }
   throw new Error('bad variant index for UpdateSceneMsg')
 }
 
-const readUpdateSceneMsg_AppendChild = (
-  sink: Sink
-): UpdateSceneMsg_AppendChild => {
+const readUpdateSceneMsg_AppendChild = (sink: Sink): UpdateSceneMsg_AppendChild => {
   const parent = readSurfaceId(sink)
   const child = readSurfaceId(sink)
   return { parent, child }
 }
 
-const readUpdateSceneMsg_InsertBefore = (
-  sink: Sink
-): UpdateSceneMsg_InsertBefore => {
+const readUpdateSceneMsg_InsertBefore = (sink: Sink): UpdateSceneMsg_InsertBefore => {
   const parent = readSurfaceId(sink)
   const child = readSurfaceId(sink)
   const before = readSurfaceId(sink)
   return { parent, child, before }
 }
 
-const readUpdateSceneMsg_RemoveChild = (
-  sink: Sink
-): UpdateSceneMsg_RemoveChild => {
+const readUpdateSceneMsg_RemoveChild = (sink: Sink): UpdateSceneMsg_RemoveChild => {
   const parent = readSurfaceId(sink)
   const child = readSurfaceId(sink)
   return { parent, child }
 }
 
-const readUpdateSceneMsg_SetBorderRadius = (
-  sink: Sink
-): UpdateSceneMsg_SetBorderRadius => {
+const readUpdateSceneMsg_SetStyleProp = (sink: Sink): UpdateSceneMsg_SetStyleProp => {
   const surface = readSurfaceId(sink)
-  const borderRadius = readOptBorderRadius(sink)
-  return { surface, borderRadius }
+  const prop = readStyleProp(sink)
+  return { surface, prop }
 }
 
-const readUpdateSceneMsg_SetOverflow = (
-  sink: Sink
-): UpdateSceneMsg_SetOverflow => {
-  const surface = readSurfaceId(sink)
-  const overflow = readOverflow(sink)
-  return { surface, overflow }
-}
-
-const readUpdateSceneMsg_SetSize = (sink: Sink): UpdateSceneMsg_SetSize => {
-  const surface = readSurfaceId(sink)
-  const size = readSize(sink)
-  return { surface, size }
-}
-
-const readUpdateSceneMsg_SetFlex = (sink: Sink): UpdateSceneMsg_SetFlex => {
-  const surface = readSurfaceId(sink)
-  const flex = readFlex(sink)
-  return { surface, flex }
-}
-
-const readUpdateSceneMsg_SetFlow = (sink: Sink): UpdateSceneMsg_SetFlow => {
-  const surface = readSurfaceId(sink)
-  const flow = readFlow(sink)
-  return { surface, flow }
-}
-
-const readUpdateSceneMsg_SetPadding = (
-  sink: Sink
-): UpdateSceneMsg_SetPadding => {
-  const surface = readSurfaceId(sink)
-  const padding = readDimensions(sink)
-  return { surface, padding }
-}
-
-const readUpdateSceneMsg_SetMargin = (sink: Sink): UpdateSceneMsg_SetMargin => {
-  const surface = readSurfaceId(sink)
-  const margin = readDimensions(sink)
-  return { surface, margin }
-}
-
-const readUpdateSceneMsg_SetBoxShadow = (
-  sink: Sink
-): UpdateSceneMsg_SetBoxShadow => {
-  const surface = readSurfaceId(sink)
-  const boxShadow = readOptBoxShadow(sink)
-  return { surface, boxShadow }
-}
-
-const readUpdateSceneMsg_SetBackgroundColor = (
-  sink: Sink
-): UpdateSceneMsg_SetBackgroundColor => {
-  const surface = readSurfaceId(sink)
-  const color = readOptColor(sink)
-  return { surface, color }
-}
-
-const readUpdateSceneMsg_SetImage = (sink: Sink): UpdateSceneMsg_SetImage => {
-  const surface = readSurfaceId(sink)
-  const image = readOptImage(sink)
-  return { surface, image }
-}
-
-const readUpdateSceneMsg_SetText = (sink: Sink): UpdateSceneMsg_SetText => {
-  const surface = readSurfaceId(sink)
-  const text = readOptText(sink)
-  return { surface, text }
-}
-
-const readUpdateSceneMsg_SetBorder = (sink: Sink): UpdateSceneMsg_SetBorder => {
-  const surface = readSurfaceId(sink)
-  const border = readOptBorder(sink)
-  return { surface, border }
+export const readStyleProp = (sink: Sink): StyleProp => {
+  switch (read_u32(sink)) {
+    case 0:
+      return StyleProp.Size(readSize(sink))
+    case 1:
+      return StyleProp.Flex(readFlex(sink))
+    case 2:
+      return StyleProp.Flow(readFlow(sink))
+    case 3:
+      return StyleProp.Padding(readDimensions(sink))
+    case 4:
+      return StyleProp.Margin(readDimensions(sink))
+    case 5:
+      return StyleProp.BorderRadius(readOptBorderRadius(sink))
+    case 6:
+      return StyleProp.Border(readOptBorder(sink))
+    case 7:
+      return StyleProp.BoxShadow(readOptBoxShadow(sink))
+    case 8:
+      return StyleProp.BackgroundColor(readOptColor(sink))
+    case 9:
+      return StyleProp.Image(readOptImage(sink))
+    case 10:
+      return StyleProp.Text(readOptText(sink))
+    case 11:
+      return StyleProp.Overflow(readOverflow(sink))
+  }
+  throw new Error('bad variant index for StyleProp')
 }
 
 export const readWindowId: Deserializer<WindowId> = read_u16
 
 export const readSurfaceId: Deserializer<SurfaceId> = read_u64
 
-export const readColor = (sink: Sink): Color =>
-  Color(read_u8(sink), read_u8(sink), read_u8(sink), read_u8(sink))
+export const readColor = (sink: Sink): Color => Color(read_u8(sink), read_u8(sink), read_u8(sink), read_u8(sink))
 
 const FlexDirectionReverseMap: FlexDirection[] = [
   FlexDirection.Column,
@@ -345,17 +250,11 @@ const FlexDirectionReverseMap: FlexDirection[] = [
   FlexDirection.RowReverse
 ]
 
-export const readFlexDirection = (sink: Sink): FlexDirection =>
-  FlexDirectionReverseMap[read_u32(sink)]
+export const readFlexDirection = (sink: Sink): FlexDirection => FlexDirectionReverseMap[read_u32(sink)]
 
-const FlexWrapReverseMap: FlexWrap[] = [
-  FlexWrap.NoWrap,
-  FlexWrap.Wrap,
-  FlexWrap.WrapReverse
-]
+const FlexWrapReverseMap: FlexWrap[] = [FlexWrap.NoWrap, FlexWrap.Wrap, FlexWrap.WrapReverse]
 
-export const readFlexWrap = (sink: Sink): FlexWrap =>
-  FlexWrapReverseMap[read_u32(sink)]
+export const readFlexWrap = (sink: Sink): FlexWrap => FlexWrapReverseMap[read_u32(sink)]
 
 const FlexAlignReverseMap: FlexAlign[] = [
   FlexAlign.Auto,
@@ -368,8 +267,7 @@ const FlexAlignReverseMap: FlexAlign[] = [
   FlexAlign.SpaceAround
 ]
 
-export const readFlexAlign = (sink: Sink): FlexAlign =>
-  FlexAlignReverseMap[read_u32(sink)]
+export const readFlexAlign = (sink: Sink): FlexAlign => FlexAlignReverseMap[read_u32(sink)]
 
 const JustifyContentReverseMap: JustifyContent[] = [
   JustifyContent.FlexStart,
@@ -380,8 +278,7 @@ const JustifyContentReverseMap: JustifyContent[] = [
   JustifyContent.SpaceEvenly
 ]
 
-export const readJustifyContent = (sink: Sink): JustifyContent =>
-  JustifyContentReverseMap[read_u32(sink)]
+export const readJustifyContent = (sink: Sink): JustifyContent => JustifyContentReverseMap[read_u32(sink)]
 
 export const readFlow = (sink: Sink): Flow => {
   const flexDirection = readFlexDirection(sink)
@@ -390,14 +287,7 @@ export const readFlow = (sink: Sink): Flow => {
   const alignItems = readFlexAlign(sink)
   const alignSelf = readFlexAlign(sink)
   const justifyContent = readJustifyContent(sink)
-  return {
-    flexDirection,
-    flexWrap,
-    alignContent,
-    alignItems,
-    alignSelf,
-    justifyContent
-  }
+  return { flexDirection, flexWrap, alignContent, alignItems, alignSelf, justifyContent }
 }
 
 export const readFlex = (sink: Sink): Flex => {
@@ -419,31 +309,18 @@ export const readDimension = (sink: Sink): Dimension => {
   throw new Error('bad variant index for Dimension')
 }
 
-const OverflowReverseMap: Overflow[] = [
-  Overflow.Visible,
-  Overflow.Hidden,
-  Overflow.Scroll
-]
+const OverflowReverseMap: Overflow[] = [Overflow.Visible, Overflow.Hidden, Overflow.Scroll]
 
-export const readOverflow = (sink: Sink): Overflow =>
-  OverflowReverseMap[read_u32(sink)]
+export const readOverflow = (sink: Sink): Overflow => OverflowReverseMap[read_u32(sink)]
 
-export const readSize = (sink: Sink): Size =>
-  Size(readDimension(sink), readDimension(sink))
+export const readSize = (sink: Sink): Size => Size(readDimension(sink), readDimension(sink))
 
-export const readRect = (sink: Sink): Rect =>
-  Rect(read_f32(sink), read_f32(sink), read_f32(sink), read_f32(sink))
+export const readRect = (sink: Sink): Rect => Rect(read_f32(sink), read_f32(sink), read_f32(sink), read_f32(sink))
 
 export const readDimensions = (sink: Sink): Dimensions =>
-  Dimensions(
-    readDimension(sink),
-    readDimension(sink),
-    readDimension(sink),
-    readDimension(sink)
-  )
+  Dimensions(readDimension(sink), readDimension(sink), readDimension(sink), readDimension(sink))
 
-export const readVector2f = (sink: Sink): Vector2f =>
-  Vector2f(read_f32(sink), read_f32(sink))
+export const readVector2f = (sink: Sink): Vector2f => Vector2f(read_f32(sink), read_f32(sink))
 
 export const readBorderRadius = (sink: Sink): BorderRadius =>
   BorderRadius(read_f32(sink), read_f32(sink), read_f32(sink), read_f32(sink))
@@ -461,14 +338,9 @@ export const readImage = (sink: Sink): Image => {
   return { url }
 }
 
-const TextAlignReverseMap: TextAlign[] = [
-  TextAlign.Left,
-  TextAlign.Center,
-  TextAlign.Right
-]
+const TextAlignReverseMap: TextAlign[] = [TextAlign.Left, TextAlign.Center, TextAlign.Right]
 
-export const readTextAlign = (sink: Sink): TextAlign =>
-  TextAlignReverseMap[read_u32(sink)]
+export const readTextAlign = (sink: Sink): TextAlign => TextAlignReverseMap[read_u32(sink)]
 
 export const readText = (sink: Sink): Text => {
   const color = readColor(sink)
@@ -494,10 +366,6 @@ export const readBorderSide = (sink: Sink): BorderSide => {
   return { width, style, color }
 }
 
-const BorderStyleReverseMap: BorderStyle[] = [
-  BorderStyle.None,
-  BorderStyle.Solid
-]
+const BorderStyleReverseMap: BorderStyle[] = [BorderStyle.None, BorderStyle.Solid]
 
-export const readBorderStyle = (sink: Sink): BorderStyle =>
-  BorderStyleReverseMap[read_u32(sink)]
+export const readBorderStyle = (sink: Sink): BorderStyle => BorderStyleReverseMap[read_u32(sink)]

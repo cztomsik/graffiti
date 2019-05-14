@@ -1,6 +1,6 @@
 use crate::api::App;
 use crate::app::TheApp;
-use crate::generated::{FfiMsg, FfiResult, UpdateSceneMsg};
+use crate::generated::{FfiMsg, FfiResult, StyleProp, UpdateSceneMsg};
 use bincode::{deserialize, serialize, serialize_into};
 use serde_json;
 use std::io::prelude::Write;
@@ -39,7 +39,9 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
     });
 
     let result = maybe_err.unwrap_or_else(|err| {
-        let err = err.downcast::<String>().unwrap_or(Box::new("Unknown".into()));
+        let err = err
+            .downcast::<String>()
+            .unwrap_or(Box::new("Unknown".into()));
 
         error!("err {:?}", err);
 
@@ -91,34 +93,24 @@ fn handle_msg(app: &mut TheApp, msg: FfiMsg) -> FfiResult {
                     UpdateSceneMsg::RemoveChild { parent, child } => {
                         ctx.remove_child(parent, child)
                     }
-                    UpdateSceneMsg::SetBorderRadius {
-                        surface,
-                        border_radius,
-                    } => ctx.set_border_radius(surface, border_radius),
-                    UpdateSceneMsg::SetOverflow { surface, overflow } => {
-                        ctx.set_overflow(surface, overflow)
-                    }
-                    UpdateSceneMsg::SetSize { surface, size } => ctx.set_size(surface, size),
-                    UpdateSceneMsg::SetFlow { surface, flow } => ctx.set_flow(surface, flow),
-                    UpdateSceneMsg::SetFlex { surface, flex } => ctx.set_flex(surface, flex),
-                    UpdateSceneMsg::SetPadding { surface, padding } => {
-                        ctx.set_padding(surface, padding)
-                    }
-                    UpdateSceneMsg::SetMargin { surface, margin } => {
-                        ctx.set_margin(surface, margin)
-                    }
-                    UpdateSceneMsg::SetBoxShadow {
-                        surface,
-                        box_shadow,
-                    } => ctx.set_box_shadow(surface, box_shadow),
-                    UpdateSceneMsg::SetBackgroundColor { surface, color } => {
-                        ctx.set_background_color(surface, color)
-                    }
-                    UpdateSceneMsg::SetImage { surface, image } => ctx.set_image(surface, image),
-                    UpdateSceneMsg::SetText { surface, text } => ctx.set_text(surface, text),
-                    UpdateSceneMsg::SetBorder { surface, border } => {
-                        ctx.set_border(surface, border)
-                    }
+                    UpdateSceneMsg::SetStyleProp { surface, prop } => match prop {
+                        StyleProp::BorderRadius(border_radius) => {
+                            ctx.set_border_radius(surface, border_radius)
+                        }
+                        StyleProp::Overflow(overflow) => ctx.set_overflow(surface, overflow),
+                        StyleProp::Size(size) => ctx.set_size(surface, size),
+                        StyleProp::Flow(flow) => ctx.set_flow(surface, flow),
+                        StyleProp::Flex(flex) => ctx.set_flex(surface, flex),
+                        StyleProp::Padding(padding) => ctx.set_padding(surface, padding),
+                        StyleProp::Margin(margin) => ctx.set_margin(surface, margin),
+                        StyleProp::BoxShadow(box_shadow) => ctx.set_box_shadow(surface, box_shadow),
+                        StyleProp::BackgroundColor(color) => {
+                            ctx.set_background_color(surface, color)
+                        }
+                        StyleProp::Image(image) => ctx.set_image(surface, image),
+                        StyleProp::Text(text) => ctx.set_text(surface, text),
+                        StyleProp::Border(border) => ctx.set_border(surface, border),
+                    },
                 }
             }
 

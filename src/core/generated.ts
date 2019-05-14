@@ -9,17 +9,11 @@ export interface FfiMsg_UpdateScene {
 }
 
 export module FfiMsg {
-  export const GetEvents = (value: boolean): FfiMsg => ({
-    tag: 'GetEvents',
-    value
-  })
+  export const GetEvents = (value: boolean): FfiMsg => ({ tag: 'GetEvents', value })
 
   export const CreateWindow: FfiMsg = { tag: 'CreateWindow' }
 
-  export const UpdateScene = (value: FfiMsg_UpdateScene): FfiMsg => ({
-    tag: 'UpdateScene',
-    value
-  })
+  export const UpdateScene = (value: FfiMsg_UpdateScene): FfiMsg => ({ tag: 'UpdateScene', value })
 }
 
 export type FfiResult =
@@ -33,15 +27,9 @@ export module FfiResult {
 
   export const Error = (value: string): FfiResult => ({ tag: 'Error', value })
 
-  export const Events = (value: Array<Event>): FfiResult => ({
-    tag: 'Events',
-    value
-  })
+  export const Events = (value: Array<Event>): FfiResult => ({ tag: 'Events', value })
 
-  export const WindowId = (value: WindowId): FfiResult => ({
-    tag: 'WindowId',
-    value
-  })
+  export const WindowId = (value: WindowId): FfiResult => ({ tag: 'WindowId', value })
 }
 
 export type Event = { tag: 'WindowEvent'; value: Event_WindowEvent }
@@ -52,10 +40,7 @@ export interface Event_WindowEvent {
 }
 
 export module Event {
-  export const WindowEvent = (value: Event_WindowEvent): Event => ({
-    tag: 'WindowEvent',
-    value
-  })
+  export const WindowEvent = (value: Event_WindowEvent): Event => ({ tag: 'WindowEvent', value })
 }
 
 export type WindowEvent =
@@ -89,35 +74,17 @@ export interface WindowEvent_Scroll {
 }
 
 export module WindowEvent {
-  export const MouseMove = (value: WindowEvent_MouseMove): WindowEvent => ({
-    tag: 'MouseMove',
-    value
-  })
+  export const MouseMove = (value: WindowEvent_MouseMove): WindowEvent => ({ tag: 'MouseMove', value })
 
-  export const MouseDown = (value: WindowEvent_MouseDown): WindowEvent => ({
-    tag: 'MouseDown',
-    value
-  })
+  export const MouseDown = (value: WindowEvent_MouseDown): WindowEvent => ({ tag: 'MouseDown', value })
 
-  export const MouseUp = (value: WindowEvent_MouseUp): WindowEvent => ({
-    tag: 'MouseUp',
-    value
-  })
+  export const MouseUp = (value: WindowEvent_MouseUp): WindowEvent => ({ tag: 'MouseUp', value })
 
-  export const Scroll = (value: WindowEvent_Scroll): WindowEvent => ({
-    tag: 'Scroll',
-    value
-  })
+  export const Scroll = (value: WindowEvent_Scroll): WindowEvent => ({ tag: 'Scroll', value })
 
-  export const KeyDown = (value: number): WindowEvent => ({
-    tag: 'KeyDown',
-    value
-  })
+  export const KeyDown = (value: number): WindowEvent => ({ tag: 'KeyDown', value })
 
-  export const KeyPress = (value: number): WindowEvent => ({
-    tag: 'KeyPress',
-    value
-  })
+  export const KeyPress = (value: number): WindowEvent => ({ tag: 'KeyPress', value })
 
   export const KeyUp = (value: number): WindowEvent => ({ tag: 'KeyUp', value })
 
@@ -137,18 +104,7 @@ export type UpdateSceneMsg =
   | { tag: 'AppendChild'; value: UpdateSceneMsg_AppendChild }
   | { tag: 'InsertBefore'; value: UpdateSceneMsg_InsertBefore }
   | { tag: 'RemoveChild'; value: UpdateSceneMsg_RemoveChild }
-  | { tag: 'SetBorderRadius'; value: UpdateSceneMsg_SetBorderRadius }
-  | { tag: 'SetOverflow'; value: UpdateSceneMsg_SetOverflow }
-  | { tag: 'SetSize'; value: UpdateSceneMsg_SetSize }
-  | { tag: 'SetFlex'; value: UpdateSceneMsg_SetFlex }
-  | { tag: 'SetFlow'; value: UpdateSceneMsg_SetFlow }
-  | { tag: 'SetPadding'; value: UpdateSceneMsg_SetPadding }
-  | { tag: 'SetMargin'; value: UpdateSceneMsg_SetMargin }
-  | { tag: 'SetBoxShadow'; value: UpdateSceneMsg_SetBoxShadow }
-  | { tag: 'SetBackgroundColor'; value: UpdateSceneMsg_SetBackgroundColor }
-  | { tag: 'SetImage'; value: UpdateSceneMsg_SetImage }
-  | { tag: 'SetText'; value: UpdateSceneMsg_SetText }
-  | { tag: 'SetBorder'; value: UpdateSceneMsg_SetBorder }
+  | { tag: 'SetStyleProp'; value: UpdateSceneMsg_SetStyleProp }
 
 export interface UpdateSceneMsg_AppendChild {
   parent: SurfaceId
@@ -166,133 +122,61 @@ export interface UpdateSceneMsg_RemoveChild {
   child: SurfaceId
 }
 
-export interface UpdateSceneMsg_SetBorderRadius {
+export interface UpdateSceneMsg_SetStyleProp {
   surface: SurfaceId
-  borderRadius: (BorderRadius) | undefined
-}
-
-export interface UpdateSceneMsg_SetOverflow {
-  surface: SurfaceId
-  overflow: Overflow
-}
-
-export interface UpdateSceneMsg_SetSize {
-  surface: SurfaceId
-  size: Size
-}
-
-export interface UpdateSceneMsg_SetFlex {
-  surface: SurfaceId
-  flex: Flex
-}
-
-export interface UpdateSceneMsg_SetFlow {
-  surface: SurfaceId
-  flow: Flow
-}
-
-export interface UpdateSceneMsg_SetPadding {
-  surface: SurfaceId
-  padding: Dimensions
-}
-
-export interface UpdateSceneMsg_SetMargin {
-  surface: SurfaceId
-  margin: Dimensions
-}
-
-export interface UpdateSceneMsg_SetBoxShadow {
-  surface: SurfaceId
-  boxShadow: (BoxShadow) | undefined
-}
-
-export interface UpdateSceneMsg_SetBackgroundColor {
-  surface: SurfaceId
-  color: (Color) | undefined
-}
-
-export interface UpdateSceneMsg_SetImage {
-  surface: SurfaceId
-  image: (Image) | undefined
-}
-
-export interface UpdateSceneMsg_SetText {
-  surface: SurfaceId
-  text: (Text) | undefined
-}
-
-export interface UpdateSceneMsg_SetBorder {
-  surface: SurfaceId
-  border: (Border) | undefined
+  prop: StyleProp
 }
 
 export module UpdateSceneMsg {
   export const Alloc: UpdateSceneMsg = { tag: 'Alloc' }
 
-  export const AppendChild = (
-    value: UpdateSceneMsg_AppendChild
-  ): UpdateSceneMsg => ({ tag: 'AppendChild', value })
+  export const AppendChild = (value: UpdateSceneMsg_AppendChild): UpdateSceneMsg => ({ tag: 'AppendChild', value })
 
-  export const InsertBefore = (
-    value: UpdateSceneMsg_InsertBefore
-  ): UpdateSceneMsg => ({ tag: 'InsertBefore', value })
+  export const InsertBefore = (value: UpdateSceneMsg_InsertBefore): UpdateSceneMsg => ({ tag: 'InsertBefore', value })
 
-  export const RemoveChild = (
-    value: UpdateSceneMsg_RemoveChild
-  ): UpdateSceneMsg => ({ tag: 'RemoveChild', value })
+  export const RemoveChild = (value: UpdateSceneMsg_RemoveChild): UpdateSceneMsg => ({ tag: 'RemoveChild', value })
 
-  export const SetBorderRadius = (
-    value: UpdateSceneMsg_SetBorderRadius
-  ): UpdateSceneMsg => ({ tag: 'SetBorderRadius', value })
+  export const SetStyleProp = (value: UpdateSceneMsg_SetStyleProp): UpdateSceneMsg => ({ tag: 'SetStyleProp', value })
+}
 
-  export const SetOverflow = (
-    value: UpdateSceneMsg_SetOverflow
-  ): UpdateSceneMsg => ({ tag: 'SetOverflow', value })
+export type StyleProp =
+  | { tag: 'Size'; value: Size }
+  | { tag: 'Flex'; value: Flex }
+  | { tag: 'Flow'; value: Flow }
+  | { tag: 'Padding'; value: Dimensions }
+  | { tag: 'Margin'; value: Dimensions }
+  | { tag: 'BorderRadius'; value: (BorderRadius) | undefined }
+  | { tag: 'Border'; value: (Border) | undefined }
+  | { tag: 'BoxShadow'; value: (BoxShadow) | undefined }
+  | { tag: 'BackgroundColor'; value: (Color) | undefined }
+  | { tag: 'Image'; value: (Image) | undefined }
+  | { tag: 'Text'; value: (Text) | undefined }
+  | { tag: 'Overflow'; value: Overflow }
 
-  export const SetSize = (value: UpdateSceneMsg_SetSize): UpdateSceneMsg => ({
-    tag: 'SetSize',
-    value
-  })
+export module StyleProp {
+  export const Size = (value: Size): StyleProp => ({ tag: 'Size', value })
 
-  export const SetFlex = (value: UpdateSceneMsg_SetFlex): UpdateSceneMsg => ({
-    tag: 'SetFlex',
-    value
-  })
+  export const Flex = (value: Flex): StyleProp => ({ tag: 'Flex', value })
 
-  export const SetFlow = (value: UpdateSceneMsg_SetFlow): UpdateSceneMsg => ({
-    tag: 'SetFlow',
-    value
-  })
+  export const Flow = (value: Flow): StyleProp => ({ tag: 'Flow', value })
 
-  export const SetPadding = (
-    value: UpdateSceneMsg_SetPadding
-  ): UpdateSceneMsg => ({ tag: 'SetPadding', value })
+  export const Padding = (value: Dimensions): StyleProp => ({ tag: 'Padding', value })
 
-  export const SetMargin = (
-    value: UpdateSceneMsg_SetMargin
-  ): UpdateSceneMsg => ({ tag: 'SetMargin', value })
+  export const Margin = (value: Dimensions): StyleProp => ({ tag: 'Margin', value })
 
-  export const SetBoxShadow = (
-    value: UpdateSceneMsg_SetBoxShadow
-  ): UpdateSceneMsg => ({ tag: 'SetBoxShadow', value })
+  export const BorderRadius = (value: (BorderRadius) | undefined): StyleProp => ({ tag: 'BorderRadius', value })
 
-  export const SetBackgroundColor = (
-    value: UpdateSceneMsg_SetBackgroundColor
-  ): UpdateSceneMsg => ({ tag: 'SetBackgroundColor', value })
+  export const Border = (value: (Border) | undefined): StyleProp => ({ tag: 'Border', value })
 
-  export const SetImage = (value: UpdateSceneMsg_SetImage): UpdateSceneMsg => ({
-    tag: 'SetImage',
-    value
-  })
+  export const BoxShadow = (value: (BoxShadow) | undefined): StyleProp => ({ tag: 'BoxShadow', value })
 
-  export const SetText = (value: UpdateSceneMsg_SetText): UpdateSceneMsg => ({
-    tag: 'SetText',
-    value
-  })
+  export const BackgroundColor = (value: (Color) | undefined): StyleProp => ({ tag: 'BackgroundColor', value })
 
-  export const SetBorder = (
-    value: UpdateSceneMsg_SetBorder
-  ): UpdateSceneMsg => ({ tag: 'SetBorder', value })
+  export const Image = (value: (Image) | undefined): StyleProp => ({ tag: 'Image', value })
+
+  export const Text = (value: (Text) | undefined): StyleProp => ({ tag: 'Text', value })
+
+  export const Overflow = (value: Overflow): StyleProp => ({ tag: 'Overflow', value })
 }
 
 export type WindowId = number
@@ -307,12 +191,7 @@ export interface Color {
   length: 4
 }
 
-export const Color = (
-  p0: number,
-  p1: number,
-  p2: number,
-  p3: number
-): Color => [p0, p1, p2, p3]
+export const Color = (p0: number, p1: number, p2: number, p3: number): Color => [p0, p1, p2, p3]
 
 export enum FlexDirection {
   Column = 'Column',
@@ -362,20 +241,14 @@ export interface Flex {
   flexBasis: Dimension
 }
 
-export type Dimension =
-  | { tag: 'Auto' }
-  | { tag: 'Point'; value: number }
-  | { tag: 'Percent'; value: number }
+export type Dimension = { tag: 'Auto' } | { tag: 'Point'; value: number } | { tag: 'Percent'; value: number }
 
 export module Dimension {
   export const Auto: Dimension = { tag: 'Auto' }
 
   export const Point = (value: number): Dimension => ({ tag: 'Point', value })
 
-  export const Percent = (value: number): Dimension => ({
-    tag: 'Percent',
-    value
-  })
+  export const Percent = (value: number): Dimension => ({ tag: 'Percent', value })
 }
 
 export enum Overflow {
@@ -400,12 +273,7 @@ export interface Rect {
   length: 4
 }
 
-export const Rect = (p0: number, p1: number, p2: number, p3: number): Rect => [
-  p0,
-  p1,
-  p2,
-  p3
-]
+export const Rect = (p0: number, p1: number, p2: number, p3: number): Rect => [p0, p1, p2, p3]
 
 export interface Dimensions {
   0: Dimension
@@ -415,12 +283,7 @@ export interface Dimensions {
   length: 4
 }
 
-export const Dimensions = (
-  p0: Dimension,
-  p1: Dimension,
-  p2: Dimension,
-  p3: Dimension
-): Dimensions => [p0, p1, p2, p3]
+export const Dimensions = (p0: Dimension, p1: Dimension, p2: Dimension, p3: Dimension): Dimensions => [p0, p1, p2, p3]
 
 export interface Vector2f {
   0: number
@@ -438,12 +301,7 @@ export interface BorderRadius {
   length: 4
 }
 
-export const BorderRadius = (
-  p0: number,
-  p1: number,
-  p2: number,
-  p3: number
-): BorderRadius => [p0, p1, p2, p3]
+export const BorderRadius = (p0: number, p1: number, p2: number, p3: number): BorderRadius => [p0, p1, p2, p3]
 
 export interface BoxShadow {
   color: Color

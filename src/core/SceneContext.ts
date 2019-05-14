@@ -1,4 +1,4 @@
-import { UpdateSceneMsg as U, FfiMsg } from './generated'
+import { UpdateSceneMsg as U, StyleProp as S, FfiMsg } from './generated'
 import { send } from './nativeApi'
 import { NotSureWhat } from './events/NotSureWhat';
 
@@ -41,56 +41,53 @@ export class SceneContext {
   }
 
   setSize(surface, size) {
-    this.sceneMsgs.push(U.SetSize({ surface, size }))
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Size(size) }))
   }
 
   setOverflow(surface, overflow) {
-    this.sceneMsgs.push(U.SetOverflow({ surface, overflow }))
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Overflow(overflow) }))
   }
 
   setFlex(surface, flex) {
-    this.sceneMsgs.push(U.SetFlex({ surface, flex }))
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Flex(flex) }))
   }
 
   setFlow(surface, flow) {
-    this.sceneMsgs.push(U.SetFlow({ surface, flow }))
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Flow(flow) }))
   }
 
   setPadding(surface, padding) {
-    this.sceneMsgs.push(U.SetPadding({ surface, padding }))
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Padding(padding) }))
   }
 
   setMargin(surface, margin) {
-    this.sceneMsgs.push(U.SetMargin({ surface, margin }))
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Margin(margin) }))
   }
 
   setBorderRadius(surface, borderRadius) {
-    this.sceneMsgs.push(U.SetBorderRadius({ surface, borderRadius }))
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.BorderRadius(borderRadius) }))
   }
 
   setBoxShadow(surface, boxShadow) {
-    this.sceneMsgs.push(U.SetBoxShadow({ surface, boxShadow }))
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.BoxShadow(boxShadow) }))
   }
 
   setBackgroundColor(surface, color) {
     this.sceneMsgs.push(
-      U.SetBackgroundColor({
-        surface,
-        color
-      })
+      U.SetStyleProp({ surface, prop: S.BackgroundColor(color) })
     )
   }
 
   setImage(surface, image) {
-    this.sceneMsgs.push(U.SetImage({ surface, image }))
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Image(image) }))
   }
 
   setText(surface, text) {
-    this.sceneMsgs.push(U.SetText({ surface, text }))
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Text(text) }))
   }
 
   setBorder(surface, border) {
-    this.sceneMsgs.push(U.SetBorder({ surface, border }))
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Border(border) }))
   }
 
   flush() {
