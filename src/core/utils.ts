@@ -1,8 +1,17 @@
-import { Color } from '.';
+import { Color } from "./generated";
 
 export const NOOP = () => undefined
 export const IDENTITY = v => v
 
+export const camelCase = name => name.replace(/\-[a-zA-Z]/g, match => match.slice(1).toUpperCase())
+
+export const mixin = (targetClass, mixinClass) => {
+  Object.getOwnPropertyNames(mixinClass.prototype).forEach(name => {
+    Object.defineProperty(targetClass.prototype, name, Object.getOwnPropertyDescriptor(mixinClass.prototype, name))
+  })
+}
+
+// TODO: move to ../styles/
 // TODO: rgb(), rgba()
 // https://docs.rs/crate/cssparser/0.25.3/source/src/color.rs
 export const parseColor = (str: string): Color => {
@@ -48,5 +57,3 @@ export const parseHash = (str: string): Color => {
 }
 
 export const parseHex = (str: string) => parseInt(str, 16)
-
-const COLOR_CACHE = new Map<string, Color>()

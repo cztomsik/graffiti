@@ -13,7 +13,7 @@ function Counter() {
 
   return (
     <div onClick={inc} style={{ padding: 20 }}>
-      <div style={{ backgroundColor: '#ccc' }}>
+      <div style={{ backgroundColor: '#ccc', ...(count % 2 === 0 && { backgroundColor: '#f00' }) }}>
         <span>Click me {count}</span>
       </div>
     </div>

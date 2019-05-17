@@ -2,13 +2,15 @@
 nav_order: 0
 ---
 # Scope of the project
-The point of this project is to provide platform for developing desktop applications in a way which is familiar to web developers but not necessarily the same. We **are not recreating** browser here, some of the features simply don't make sense for desktop apps and/or would have been very hard to implement. 
+The point of this project is to provide platform for developing desktop and TV applications in a way which is familiar to web developers but not necessarily the same. We **are not recreating** browser here, some of the features simply don't make sense for desktop apps and/or would have been very hard to implement.
 
 Moreover, some (innerHTML, cookies, frames) are in fact **undesired** for desktop applications and leaving them out **avoids some security concerns** you'd otherwise have to audit yourself (notably XSS & CSRF)
 
 Note that just like in electron you can directly communicate with your database without exposing any server locally.
 
 ## Notable limitations
+Note that there's also [react-native](./react-native.md) API.
+
 The table below provides some info about what's left out completely, what can be done with plain `nodejs` or with some 3rd party module from `npm`. Some of them might be introduced in the future but don't have any false hopes.
 
 Note that you can always use/implement native module for anything.
@@ -19,7 +21,7 @@ Note that you can always use/implement native module for anything.
 | RTL, vertical langs | N/A |
 | canvas, webgl       | N/A |
 | SVG                 | N/A |
-| HTML5 els, inputs   | N/A |
+| HTML5 els           | N/A |
 
 | DOM               |     |
 |-------------------|-----|

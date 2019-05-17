@@ -1,3 +1,5 @@
+// TODO: just use import * as RN from 'react-native' everywhere and move all extensions to index.ts
+
 // typescript should not require('react-native') at all if only types are used
 export {
   StyleProp,

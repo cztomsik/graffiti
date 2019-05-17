@@ -1,5 +1,5 @@
 import { WindowId, FfiMsg, FfiResult, Event } from "./generated";
-import { Window } from "./Window";
+import { Window } from "../dom/Window";
 import * as ffi from './nativeApi'
 import { performance } from 'perf_hooks'
 
@@ -10,11 +10,11 @@ export class App {
 
   constructor(private ffi) {}
 
-  createWindow(WndClass = Window) {
+  createWindow() {
     const res = this.ffi.send(FfiMsg.CreateWindow)
 
     const id = res.value
-    const window = new WndClass(id)
+    const window = new Window(id)
 
     this.windows[id] = window
 
@@ -49,7 +49,7 @@ export class App {
       // TODO: inactive windows could be throttled, maybe even stopped
       // but we should keep HMR working (update in inactive window)
       for (const windowId in this.windows) {
-        this.windows[windowId].getSceneContext().flush()
+        this.windows[windowId].sceneContext.flush()
       }
 
       setTimeout(runLoop)
