@@ -1,34 +1,22 @@
 import { Node } from "./Node";
 import { camelCase } from "../core/utils";
+import { StylePropertyMap } from "../styles/CSS";
+import { CSSStyleDeclaration } from "../styles/CSSStyleDeclaration";
+import { Document } from "./Document";
 
 export class Element extends Node {
   id?
-  _style = new CSSStyleDeclaration()
+  attributeStyleMap = new StylePropertyMap()
+  style = new CSSStyleDeclaration(this.attributeStyleMap)
 
-  constructor(public ownerDocument, public tagName, public _nativeId) {
+  constructor(public ownerDocument: Document, public tagName, public _nativeId) {
     super(ownerDocument, Node.ELEMENT_NODE, _nativeId)
   }
 
-  // bubble events
+  // so the events can bubble
   // @see EventTarget
   _getTheParent() {
     return this.parentElement
-  }
-
-  get style() {
-    return new Proxy(this._style, {
-      set: (target, property, value) => {
-        requestAnimationFrame(() => {
-          const { flex, padding, backgroundColor } = compileFlatStyle(this._style as any)
-
-          this.ownerDocument._scene.setFlex(this._nativeId, flex)
-          this.ownerDocument._scene.setPadding(this._nativeId, padding)
-          this.ownerDocument._scene.setBackgroundColor(this._nativeId, backgroundColor)
-        })
-
-        return Reflect.set(target, property, value)
-      }
-    })
   }
 
   setAttribute(name, value) {
@@ -37,6 +25,15 @@ export class Element extends Node {
 
   removeAttribute(name) {
     delete this[camelCase(name)]
+  }
+
+  querySelector(selectors: string): Element | null {
+    return this.querySelectorAll(selectors)[0] || null
+  }
+
+  // TODO: sizzle.js?
+  querySelectorAll(selectors: string): Element[] {
+    return []
   }
 
   getBoundingClientRect() {

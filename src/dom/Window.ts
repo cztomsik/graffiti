@@ -7,7 +7,7 @@ import { SceneContext } from "../core/SceneContext";
 
 export class Window {
   sceneContext = new SceneContext(this.id)
-  document = new Document(this.sceneContext)
+  document = new Document(this)
   listeners = {}
   //screen = { width: 1024, height: 768 }
   //location = { href: '' }
@@ -28,14 +28,6 @@ export class Window {
         this.document._getEl(event.value.target).dispatchEvent(new Event('click'))
       }
     }
-  }
-
-  // preact does some golfing with `on<event> in window` to detect casing so we pretend to have these props too
-  // https://github.com/developit/preact/blob/a23b921391545fce712dfc92ea200f35158207d0/src/diff/props.js#L79
-  //
-  // TODO: we can use this opportunity to also explicitly unsupport on* props (and maybe a lots of others)
-  set onclick(v) {
-    throw new Error('unsupported')
   }
 }
 

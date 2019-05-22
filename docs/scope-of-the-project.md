@@ -22,6 +22,7 @@ Note that you can always use/implement native module for anything.
 | canvas, webgl       | N/A |
 | SVG                 | N/A |
 | HTML5 els           | N/A |
+| style validations   | N/A |
 
 | DOM               |     |
 |-------------------|-----|
@@ -36,6 +37,7 @@ Note that you can always use/implement native module for anything.
 | layout                  | flexbox-only |
 | CSSOM                   | minimal      |
 | word-break, white-space | N/A          |
+| getComputedStyle()      | N/A          |
 
 | Web API               |        |
 |-----------------------|--------|

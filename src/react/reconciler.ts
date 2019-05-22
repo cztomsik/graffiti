@@ -16,6 +16,7 @@ import { ViewProps, StyleProp } from './react-native-types'
 import StyleSheet from './Stylesheet';
 import { isEqual } from 'lodash'
 import ErrorBoundary from './ErrorBoundary';
+import { Element } from '../dom/Element';
 
 const reconciler = createReconciler({
   createInstance,
@@ -39,9 +40,6 @@ export function render(vnode, window, cb?) {
 
   if (window._reactRoot === undefined) {
     window._reactRoot = reconciler.createContainer(window, false, false)
-
-    const ctx = window.getSceneContext()
-    ctx['surfaceProps'] = [{}]
   }
 
   return reconciler.updateContainer(vnode, window._reactRoot, null, cb)
@@ -70,7 +68,7 @@ function update(surface, props: ViewProps, oldProps: ViewProps) {
       const prev = oldProps[k]
 
       if (v !== prev) {
-        setProp(surface, k, v, prev[k])
+        setProp(surface, k, v, prev)
       }
     }
   }
@@ -94,7 +92,8 @@ function styleEqual(a: StyleProp<any>, b: StyleProp<any>): boolean {
   return isEqual(a, b)
 }
 
-function setProp(el, prop, value, prev) {
+function setProp(el: Element, prop, value, prev) {
+  // TODO: typed CSSOM
   if (prop === 'style') {
     // check if it is equal first (& skip if no update is necessary)
     if (styleEqual(value, prev)) {
@@ -102,20 +101,24 @@ function setProp(el, prop, value, prev) {
     }
 
     const flatStyle = StyleSheet.flatten(value)
+    const prevFlatStyle = StyleSheet.flatten(prev)
 
     // remove missing props
-    for (const k in flatStyle) {
-      if (!(k in el.style)) {
-        el.style[k] = undefined
+    for (const k in prevFlatStyle) {
+      if (!(k in flatStyle)) {
+        delete el.style[k]
       }
     }
 
     // TODO: RN style shorthands work differently (order)
-    Object.assign(el.style, flatStyle)
+    for (const k in flatStyle) {
+      el.style[k] = typeof flatStyle[k] === 'number' ?`${flatStyle[k]}px` :flatStyle[k]
+    }
   }
 
+  // TODO: move
   if (prop === '_text') {
-    ctx.setText(surface, value ?value :undefined)
+    el.ownerDocument._scene.setText(el._nativeId, value ?value :undefined)
   }
 
   // listeners

@@ -1,4 +1,3 @@
-import { SceneContext } from '../core/SceneContext'
 import { TextAlign, Dimension } from '../core/generated'
 import { Node } from './Node';
 import { Element } from './Element';
@@ -26,10 +25,10 @@ export class Document extends Node {
   createElement(tagName: string) {
     let SpecificElement = Element
 
-    switch (tagName) {
-      case 'span':
-        SpecificElement = SpanElement
-    }
+    //switch (tagName) {
+    //  case 'span':
+    //    SpecificElement = HTMLSpanElement
+    //}
 
     const el = new SpecificElement(this, tagName, this._scene.createSurface())
     this._els.push(el)
@@ -42,7 +41,16 @@ export class Document extends Node {
   }
 
   getElementById(id) {
+    // return this.querySelector(`#${id}`)
     return this._els.find(el => el.id === id)
+  }
+
+  querySelector(selectors: string) {
+    return this.documentElement.querySelector(selectors)
+  }
+
+  querySelectorAll(selectors: string) {
+    return this.documentElement.querySelectorAll(selectors)
   }
 
   _getEl(_nativeId) {
