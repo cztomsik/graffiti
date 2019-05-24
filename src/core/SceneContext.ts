@@ -1,4 +1,4 @@
-import { UpdateSceneMsg as U, StyleProp as S, FfiMsg } from './generated'
+import { UpdateSceneMsg as U, FfiMsg, StyleProp } from './generated'
 import { send } from './nativeApi'
 import { NotSureWhat } from './events/NotSureWhat';
 
@@ -40,54 +40,8 @@ export class SceneContext {
     this.parents[child] = parent
   }
 
-  setSize(surface, size) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Size(size) }))
-  }
-
-  setOverflow(surface, overflow) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Overflow(overflow) }))
-  }
-
-  setFlex(surface, flex) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Flex(flex) }))
-  }
-
-  setFlow(surface, flow) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Flow(flow) }))
-  }
-
-  setPadding(surface, padding) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Padding(padding) }))
-  }
-
-  setMargin(surface, margin) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Margin(margin) }))
-  }
-
-  setBorderRadius(surface, borderRadius) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.BorderRadius(borderRadius) }))
-  }
-
-  setBoxShadow(surface, boxShadow) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.BoxShadow(boxShadow) }))
-  }
-
-  setBackgroundColor(surface, color) {
-    this.sceneMsgs.push(
-      U.SetStyleProp({ surface, prop: S.BackgroundColor(color) })
-    )
-  }
-
-  setImage(surface, image) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Image(image) }))
-  }
-
-  setText(surface, text) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Text(text) }))
-  }
-
-  setBorder(surface, border) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop: S.Border(border) }))
+  setStyleProp(surface, prop: StyleProp) {
+    this.sceneMsgs.push(U.SetStyleProp({ surface, prop }))
   }
 
   flush() {

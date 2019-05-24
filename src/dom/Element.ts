@@ -1,13 +1,11 @@
-import { Node } from "./Node";
-import { camelCase } from "../core/utils";
-import { StylePropertyMap } from "../styles/CSS";
-import { CSSStyleDeclaration } from "../styles/CSSStyleDeclaration";
-import { Document } from "./Document";
+import { Node } from './Node'
+import { camelCase, EMPTY_OBJ } from '../core/utils'
+import { Document } from './Document'
+import { diffStyle } from '../styles/diff'
 
 export class Element extends Node {
   id?
-  attributeStyleMap = new StylePropertyMap()
-  style = new CSSStyleDeclaration(this.attributeStyleMap)
+  _style = EMPTY_OBJ
 
   constructor(public ownerDocument: Document, public tagName, public _nativeId) {
     super(ownerDocument, Node.ELEMENT_NODE, _nativeId)
@@ -25,6 +23,12 @@ export class Element extends Node {
 
   removeAttribute(name) {
     delete this[camelCase(name)]
+  }
+
+  _updateStyle(style) {
+    for (const styleProp of diffStyle(style, this._style)) {
+      this.ownerDocument._scene.setStyleProp(this._nativeId, styleProp)
+    }
   }
 
   querySelector(selectors: string): Element | null {

@@ -17,6 +17,7 @@ import StyleSheet from './Stylesheet';
 import { isEqual } from 'lodash'
 import ErrorBoundary from './ErrorBoundary';
 import { Element } from '../dom/Element';
+import * as g from '../core/generated';
 
 const reconciler = createReconciler({
   createInstance,
@@ -93,32 +94,13 @@ function styleEqual(a: StyleProp<any>, b: StyleProp<any>): boolean {
 }
 
 function setProp(el: Element, prop, value, prev) {
-  // TODO: typed CSSOM
   if (prop === 'style') {
     // check if it is equal first (& skip if no update is necessary)
     if (styleEqual(value, prev)) {
       return
     }
 
-    const flatStyle = StyleSheet.flatten(value)
-    const prevFlatStyle = StyleSheet.flatten(prev)
-
-    // remove missing props
-    for (const k in prevFlatStyle) {
-      if (!(k in flatStyle)) {
-        delete el.style[k]
-      }
-    }
-
-    // TODO: RN style shorthands work differently (order)
-    for (const k in flatStyle) {
-      el.style[k] = typeof flatStyle[k] === 'number' ?`${flatStyle[k]}px` :flatStyle[k]
-    }
-  }
-
-  // TODO: move
-  if (prop === '_text') {
-    el.ownerDocument._scene.setText(el._nativeId, value ?value :undefined)
+    el._updateStyle(StyleSheet.flatten(value))
   }
 
   // listeners

@@ -9,6 +9,8 @@ export const ERR = (...msgs) => {
   throw new Error(msgs.join(' '))
 }
 
+export const EMPTY_OBJ = Object.freeze({})
+
 export const camelCase = name => name.replace(/\-[a-zA-Z]/g, match => match.slice(1).toUpperCase())
 export const kebabCase = name => name.replace(/[A-Z]/g, match => '-' + match.toLowerCase())
 export const pascalCase = name => ((name = camelCase(name)), name[0].toUpperCase() + name.slice(1))

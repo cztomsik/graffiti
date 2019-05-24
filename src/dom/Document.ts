@@ -1,4 +1,4 @@
-import { TextAlign, Dimension } from '../core/generated'
+import { TextAlign, Dimension, StyleProp } from '../core/generated'
 import { Node } from './Node';
 import { Element } from './Element';
 import { Text } from './Text';
@@ -16,6 +16,9 @@ export class Document extends Node {
     super(null, Node.DOCUMENT_NODE, 0)
     this.documentElement.appendChild(this.body)
     this._scene.appendChild(0, this.documentElement._nativeId)
+
+    this.documentElement._updateStyle({ flex: 1 })
+    this.body._updateStyle({ flex: 1 })
   }
 
   get parentNode() {
@@ -63,33 +66,5 @@ export class Document extends Node {
 
   _setParent(_nativeId, _parentId) {
     this._scene.parents[_nativeId] = _parentId
-  }
-}
-
-class SpanElement extends Element {
-  // only text nodes
-  appendChild(child: /* TextNode */ any) {
-    this.removeChild(child)
-    this.childNodes.push(child)
-    child.parentNode = this
-    this.updateText()
-  }
-
-  removeChild(child) {
-    const index = this.childNodes.indexOf(child)
-
-    if (~index) {
-      this.childNodes.splice(index, 1)
-    }
-  }
-
-  updateText() {
-    this.ownerDocument._scene.setText(this._nativeId, {
-      color: [0, 0, 0, 255],
-      fontSize: 16,
-      lineHeight: 30,
-      align: TextAlign.Left,
-      text: this.childNodes.map(tn => tn['data']).join('')
-    })
   }
 }
