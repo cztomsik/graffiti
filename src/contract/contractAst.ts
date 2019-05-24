@@ -126,6 +126,25 @@ const Overflow = Enum('Overflow', {
   ]
 })
 
+const StyleProp = Union(
+  'StyleProp',
+  [
+    V.NewType('Size', T.RefTo(Size)),
+    V.NewType('Flex', T.RefTo(Flex)),
+    V.NewType('Flow', T.RefTo(Flow)),
+    V.NewType('Padding', T.RefTo(Dimensions)),
+    V.NewType('Margin', T.RefTo(Dimensions)),
+    V.NewType('BorderRadius', T.Option(T.RefTo(BorderRadius))),
+    V.NewType('Border', T.Option(T.RefTo(Border))),
+    V.NewType('BoxShadow', T.Option(T.RefTo(BoxShadow))),
+    V.NewType('BackgroundColor', T.Option(T.RefTo(Color))),
+    V.NewType('Image', T.Option(T.RefTo(Image))),
+    V.NewType('Text', T.Option(T.RefTo(Text))),
+    V.NewType('Overflow', T.RefTo(Overflow)),
+  ],
+  { tagAnnotation: false }
+)
+
 const UpdateSceneMsg = Union(
   'UpdateSceneMsg',
   [
@@ -143,54 +162,10 @@ const UpdateSceneMsg = Union(
       parent: T.RefTo(SurfaceId),
       child: T.RefTo(SurfaceId)
     }),
-    V.Struct('SetBorderRadius', {
+    V.Struct('SetStyleProp', {
       surface: T.RefTo(SurfaceId),
-      borderRadius: T.Option(T.RefTo(BorderRadius))
+      prop: T.RefTo(StyleProp)
     }),
-    V.Struct('SetOverflow', {
-      surface: T.RefTo(SurfaceId),
-      overflow: T.RefTo(Overflow)
-    }),
-    V.Struct('SetSize', {
-      surface: T.RefTo(SurfaceId),
-      size: T.RefTo(Size)
-    }),
-    V.Struct('SetFlex', {
-      surface: T.RefTo(SurfaceId),
-      flex: T.RefTo(Flex)
-    }),
-    V.Struct('SetFlow', {
-      surface: T.RefTo(SurfaceId),
-      flow: T.RefTo(Flow)
-    }),
-    V.Struct('SetPadding', {
-      surface: T.RefTo(SurfaceId),
-      padding: T.RefTo(Dimensions)
-    }),
-    V.Struct('SetMargin', {
-      surface: T.RefTo(SurfaceId),
-      margin: T.RefTo(Dimensions)
-    }),
-    V.Struct('SetBoxShadow', {
-      surface: T.RefTo(SurfaceId),
-      boxShadow: T.Option(T.RefTo(BoxShadow))
-    }),
-    V.Struct('SetBackgroundColor', {
-      surface: T.RefTo(SurfaceId),
-      color: T.Option(T.RefTo(Color))
-    }),
-    V.Struct('SetImage', {
-      surface: T.RefTo(SurfaceId),
-      image: T.Option(T.RefTo(Image))
-    }),
-    V.Struct('SetText', {
-      surface: T.RefTo(SurfaceId),
-      text: T.Option(T.RefTo(Text))
-    }),
-    V.Struct('SetBorder', {
-      surface: T.RefTo(SurfaceId),
-      border: T.Option(T.RefTo(Border))
-    })
   ],
   { tagAnnotation: false }
 )
@@ -271,6 +246,7 @@ export const exampleEntries: EntryT[] = [
   Event,
   WindowEvent,
   UpdateSceneMsg,
+  StyleProp,
   WindowId,
   SurfaceId,
   Color,

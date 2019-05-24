@@ -24,11 +24,6 @@ nav_order: 95
 ### drawing from JS
   - one obvious way would be to send JSON (or something) to native, parse it and build the display list on every UI change
     - this is simple and it would actually work but it's also very wasteful because everything has to be visited, generated, serialized, sent and parsed over and over again
-  - another approach could be to implement some kind of DOM api which could be then used from JS
+  - another approach could be to implement some kind of native DOM api (like browser) which could be then used from JS
     - which sounds good at first but native is really a whole different world and just getting it right is a lot of work, not to mention there's always some overhead so it's impossible to tell if this would be any faster
-  - in this light, IPC is not that bad if we can improve it
-    - for example, we could have a (window-local) vector of all display items in their creation order
-    - any UI change would send JSON (or something) to replace display item in-place (so it's like a bucket)
-    - to generate a display list we just need indices of those items
-    - this could/should be fast because everything is in the same area of memory so it should go through CPU caches
-    - we can also separate the layout (position and dimensions) which will further reduce the need for updates
+  - instead, what we do is that we have some minimal DOM-like API in javascript and we only send diffs to native

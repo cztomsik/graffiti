@@ -11,66 +11,44 @@ import * as Reconciler from 'react-reconciler'
 import * as scheduler from 'scheduler'
 import initDevtools from './devtools'
 
-import { SceneContext } from '../core'
 import { NOOP, IDENTITY } from '../core/utils'
 import { ViewProps, StyleProp } from './react-native-types'
-import StyleSheet, { SurfaceProps, compileFlatStyle } from './Stylesheet';
+import StyleSheet from './Stylesheet';
 import { isEqual } from 'lodash'
 import ErrorBoundary from './ErrorBoundary';
-
-let ctx: SceneContext = null
+import { Element } from '../dom/Element';
+import * as g from '../core/generated';
 
 const reconciler = createReconciler({
-  prepareForCommit,
   createInstance,
   appendInitialChild: appendChild,
   appendChild,
   appendChildToContainer: (window, child) =>
-    appendChild(window.rootSurface, child),
+    appendChild(window.document.body, child),
   commitUpdate: (surface, window, type, oldProps, newProps, handle) =>
     update(surface, newProps, oldProps),
   insertBefore,
   insertInContainerBefore: (window, child, before) =>
-    insertBefore(window.rootSurface, child, before),
+    insertBefore(window.document.body, child, before),
   removeChild,
   removeChildFromContainer: (window, child) =>
-    removeChild(window.rootSurface, child),
-  resetAfterCommit
+    removeChild(window.document.body, child),
 })
 
 export function render(vnode, window, cb?) {
+  // TODO: causes some err with react-devtools
   vnode = ErrorBoundary.wrap(vnode)
 
   if (window._reactRoot === undefined) {
     window._reactRoot = reconciler.createContainer(window, false, false)
-
-    const ctx = window.getSceneContext()
-    ctx['surfaceProps'] = [{}]
   }
-
-  // initial update
-  prepareForCommit(window)
 
   return reconciler.updateContainer(vnode, window._reactRoot, null, cb)
 }
 
-function prepareForCommit(window) {
-  // prepareForCommit is called before any update but also before initial
-  // append. I'd love to do this better but I have no idea what reconciler
-  // actually calls and when (and if it's not going to change in next version)
-  ctx = window.getSceneContext()
-}
-
 function createInstance(type, props, window) {
-  // because it might be null if we are creating instance after listener was fired
-  ctx = window.getSceneContext()
-
-  let id = ctx.createSurface()
-
-  ctx['surfaceProps'].push({})
-  update(id, props, {})
-
-  return id
+  let el = window.document.createElement(type)
+  return update(el, props, {}), el
 }
 
 function update(surface, props: ViewProps, oldProps: ViewProps) {
@@ -84,7 +62,6 @@ function update(surface, props: ViewProps, oldProps: ViewProps) {
   //
   // there is usually just a few keys (style + children)
 
-
   // update existing props with new values
   for (const k in props) {
     if (k !== 'children') {
@@ -92,14 +69,7 @@ function update(surface, props: ViewProps, oldProps: ViewProps) {
       const prev = oldProps[k]
 
       if (v !== prev) {
-        // check if style is equal first (& skip if no update is necessary)
-        if (k === 'style') {
-          if (styleEqual(v, prev)) {
-            continue
-          }
-        }
-
-        setProp(surface, k, v)
+        setProp(surface, k, v, prev)
       }
     }
   }
@@ -108,7 +78,7 @@ function update(surface, props: ViewProps, oldProps: ViewProps) {
   if (oldProps !== undefined) {
     for (const k in oldProps) {
       if (k !== 'children' && !(k in props)) {
-        setProp(surface, k, null)
+        setProp(surface, k, null, undefined)
       }
     }
   }
@@ -123,85 +93,40 @@ function styleEqual(a: StyleProp<any>, b: StyleProp<any>): boolean {
   return isEqual(a, b)
 }
 
-function setProp(surface, prop, value) {
+function setProp(el: Element, prop, value, prev) {
   if (prop === 'style') {
-    //TODO: setStyle(surface, value)
-    const _surfaceProps = compileFlatStyle(StyleSheet.flatten(value))
-    patchStyle(surface, _surfaceProps, ctx['surfaceProps'][surface])
-    ctx['surfaceProps'][surface] = _surfaceProps
-  }
+    // check if it is equal first (& skip if no update is necessary)
+    if (styleEqual(value, prev)) {
+      return
+    }
 
-  if (prop === '_text') {
-    ctx.setText(surface, value ?value :undefined)
+    el._updateStyle(StyleSheet.flatten(value))
   }
 
   // listeners
   if (prop[0] === 'o' && prop[1] === 'n') {
-    ctx.events.setEventListener(surface, prop, value === 'undefined' ?NOOP :value)
-  }
-}
+    const type = prop.slice(2).toLowerCase()
 
-// TODO: diff style composition first (like we do with props) - most of them are the same and usually shallow
-function patchStyle(surface, props: SurfaceProps, oldProps: SurfaceProps) {
-  if (props.size !== oldProps.size) {
-    ctx.setSize(surface, props.size)
-  }
+    if (prev) {
+      el.removeEventListener(type, prev)
+    }
 
-  if (props.overflow !== oldProps.overflow) {
-    ctx.setOverflow(surface, props.overflow)
-  }
-
-  if (props.flex !== oldProps.flex) {
-    ctx.setFlex(surface, props.flex)
-  }
-
-  if (props.flow !== oldProps.flow) {
-    ctx.setFlow(surface, props.flow)
-  }
-
-  if (props.padding !== oldProps.padding) {
-    ctx.setPadding(surface, props.padding)
-  }
-
-  if (props.margin !== oldProps.margin) {
-    ctx.setMargin(surface, props.margin)
-  }
-
-  if (props.borderRadius !== oldProps.borderRadius) {
-    ctx.setBorderRadius(surface, props.borderRadius)
-  }
-
-  if (props.boxShadow !== oldProps.boxShadow) {
-    ctx.setBoxShadow(surface, props.boxShadow)
-  }
-
-  if (props.backgroundColor !== oldProps.backgroundColor) {
-    ctx.setBackgroundColor(surface, props.backgroundColor)
-  }
-
-  if (props.image !== oldProps.image) {
-    ctx.setImage(surface, props.image)
-  }
-
-  if (props.border !== oldProps.border) {
-    ctx.setBorder(surface, props.border)
+    if (value) {
+      el.addEventListener(type, value)
+    }
   }
 }
 
 function appendChild(parent, child) {
-  ctx.appendChild(parent, child)
+  parent.appendChild(child)
 }
 
 function removeChild(parent, child) {
-  ctx.removeChild(parent, child)
+  parent.removeChild(child)
 }
 
 function insertBefore(parent, child, before) {
-  ctx.insertBefore(parent, child, before)
-}
-
-function resetAfterCommit(window) {
-  ctx = null
+  parent.insertBefore(child, before)
 }
 
 declare global {
@@ -250,6 +175,8 @@ function createReconciler(cfg) {
     hideTextInstance: NOOP,
     unhideInstance: NOOP,
     unhideTextInstance: NOOP,
+    prepareForCommit: NOOP,
+    resetAfterCommit: NOOP,
 
     ...cfg
   })

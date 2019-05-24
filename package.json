@@ -40,6 +40,7 @@
     "@types/ref": "0.0.28",
     "@types/yoga-layout": "^1.9.1",
     "hot-module-replacement": "^3.0.3",
+    "preact": "^10.0.0-beta.1",
     "prettier": "^1.17.0",
     "react": "^16.8.6",
     "react-devtools-core": "^3.6.1",

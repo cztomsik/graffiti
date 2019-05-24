@@ -48,18 +48,24 @@ pub enum UpdateSceneMsg {
     AppendChild { parent: SurfaceId, child: SurfaceId },
     InsertBefore { parent: SurfaceId, child: SurfaceId, before: SurfaceId },
     RemoveChild { parent: SurfaceId, child: SurfaceId },
-    SetBorderRadius { surface: SurfaceId, #[serde(rename = "borderRadius")] border_radius: Option<BorderRadius> },
-    SetOverflow { surface: SurfaceId, overflow: Overflow },
-    SetSize { surface: SurfaceId, size: Size },
-    SetFlex { surface: SurfaceId, flex: Flex },
-    SetFlow { surface: SurfaceId, flow: Flow },
-    SetPadding { surface: SurfaceId, padding: Dimensions },
-    SetMargin { surface: SurfaceId, margin: Dimensions },
-    SetBoxShadow { surface: SurfaceId, #[serde(rename = "boxShadow")] box_shadow: Option<BoxShadow> },
-    SetBackgroundColor { surface: SurfaceId, color: Option<Color> },
-    SetImage { surface: SurfaceId, image: Option<Image> },
-    SetText { surface: SurfaceId, text: Option<Text> },
-    SetBorder { surface: SurfaceId, border: Option<Border> },
+    SetStyleProp { surface: SurfaceId, prop: StyleProp },
+}
+
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub enum StyleProp {
+    Size(Size),
+    Flex(Flex),
+    Flow(Flow),
+    Padding(Dimensions),
+    Margin(Dimensions),
+    BorderRadius(Option<BorderRadius>),
+    Border(Option<Border>),
+    BoxShadow(Option<BoxShadow>),
+    BackgroundColor(Option<Color>),
+    Image(Option<Image>),
+    Text(Option<Text>),
+    Overflow(Overflow),
 }
 
 
