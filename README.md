@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
 <br>
 
 ## Status
-Please note that we are still finishing major rewrite which started almost 2 months ago (yeah, I know but it was really needed) so some features which has been there originally are now missing, and docs are off (a lot). That said, we've also gained some other cool features along the way (text-align, images, shadow). As with other hobby projects, there are no ETAs, but it's very close now. Follow me on my [twitter](https://twitter.com/cztomsik) to get notified :-)
+Please note that we are still finishing major rewrite which started almost 3 months ago (yeah, I know but it was really needed) so the docs are off (a lot). That said, we've also gained some other cool features along the way (text-align, images, shadow). As with other hobby projects, there are no ETAs, but it's very close now. Follow me on my [twitter](https://twitter.com/cztomsik) to get notified :-)
 
 ## Why it's interesting
 - quick to setup, apart from rust & few libs, it should be just one `npm install` away
@@ -66,8 +66,6 @@ Please note that we are still finishing major rewrite which started almost 2 mon
 - bundle can be made using already established and mature tools (ncc + electron-builder)
 - low memory footprint (when compared to electron)
 - the language & platform you already know (when compared to flutter)
-
-We use [webrender](https://github.com/servo/webrender) for the actual drawing, yet there is **no DOM**, so we can be faster and use (much) less memory. [Read more here](./docs/webrender.md)
 
 ---
 

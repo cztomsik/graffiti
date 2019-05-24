@@ -1,8 +1,10 @@
-export class Text {
-  _data
-  parentNode?
+import { Node } from "./Node";
 
-  constructor(data) {
+export class Text extends Node {
+  _data
+
+  constructor(doc, data) {
+    super(doc, Node.TEXT_NODE, -1)
     this._data = data
   }
 
@@ -14,7 +16,7 @@ export class Text {
     this._data = text
 
     if (this.parentNode) {
-      this.parentNode.updateText()
+      //this.parentNode.updateText()
     }
   }
 }

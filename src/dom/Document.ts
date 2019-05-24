@@ -40,7 +40,7 @@ export class Document extends Node {
   }
 
   createTextNode(text: string): Text {
-    return new Text(text)
+    return new Text(this, text)
   }
 
   getElementById(id) {

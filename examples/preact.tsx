@@ -1,4 +1,4 @@
-// node -r ts-node/register -r ./global.ts example.tsx
+// node -r ts-node/register -r ./src/new/global.ts examples/preact.tsx
 
 import * as React from 'preact'
 import { useState } from 'preact/hooks'
@@ -13,8 +13,7 @@ function Counter() {
 
   return (
     <div onClick={inc} style={{ padding: 20 }}>
-      <div style={{ backgroundColor: '#ccc', ...(count % 2 === 0 && { backgroundColor: '#f00' }) }}>
-        <span>Click me {count}</span>
+      <div style={{ content: 'Hello', backgroundColor: '#ccc', ...(count % 2 === 0 && { backgroundColor: '#f00' }) }}>
       </div>
     </div>
   )

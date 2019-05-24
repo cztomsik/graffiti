@@ -31,6 +31,16 @@ export class Element extends Node {
     }
   }
 
+  // minimal impl just to get preact working
+  get style() {
+    return new Proxy(
+      { setProperty: (prop, value) => this._updateStyle({ ...this._style, [camelCase(prop)]: value }) },
+      {
+        set: (target, prop, value) => (target.setProperty(prop, value), true)
+      }
+    )
+  }
+
   querySelector(selectors: string): Element | null {
     return this.querySelectorAll(selectors)[0] || null
   }

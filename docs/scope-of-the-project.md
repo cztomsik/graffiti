@@ -2,9 +2,9 @@
 nav_order: 0
 ---
 # Scope of the project
-The point of this project is to provide platform for developing desktop and TV applications in a way which is familiar to web developers but not necessarily the same. We **are not recreating** browser here, some of the features simply don't make sense for desktop apps and/or would have been very hard to implement.
+The point of this project is to provide platform for developing desktop and TV applications in a way which is familiar to web developers but not necessarily the same. We **are not recreating** browser here, some of the features simply don't make sense for such apps and/or would have been very hard to implement.
 
-Moreover, some (innerHTML, cookies, frames) are in fact **undesired** for desktop applications and leaving them out **avoids some security concerns** you'd otherwise have to audit yourself (notably XSS & CSRF)
+Moreover, some features (innerHTML, cookies, frames) are in fact **undesired** and leaving them out **avoids some security concerns** you'd otherwise have to audit yourself (notably XSS & CSRF)
 
 Note that just like in electron you can directly communicate with your database without exposing any server locally.
 
