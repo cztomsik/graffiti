@@ -29,6 +29,7 @@ export class Element extends Node {
     for (const styleProp of diffStyle(style, this._style)) {
       this.ownerDocument._scene.setStyleProp(this._nativeId, styleProp)
     }
+    this._style = style
   }
 
   // minimal impl just to get preact working

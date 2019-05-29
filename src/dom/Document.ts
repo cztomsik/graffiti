@@ -6,19 +6,26 @@ import { Window } from './Window';
 
 export class Document extends Node {
   _scene = this.defaultView.sceneContext
-  _els: Element[] = [this as any]
+  _els: Element[] = [new Element(this, 'html', 0)]
 
-  documentElement = this.createElement('html')
+  // title is only defined here, not on the window itself
+  title = ''
+
+  documentElement = this._els[0]
   head = this.createElement('head')
   body = this.createElement('body')
 
+  activeElement
+  // last time over for enter/leave
+  _overElement
+  // mousedown origin
+  _clickedElement
+
   constructor(public defaultView: Window) {
     super(null, Node.DOCUMENT_NODE, 0)
-    this.documentElement.appendChild(this.body)
-    this._scene.appendChild(0, this.documentElement._nativeId)
 
-    this.documentElement._updateStyle({ flex: 1 })
     this.body._updateStyle({ flex: 1 })
+    this.documentElement.appendChild(this.body)
   }
 
   get parentNode() {
