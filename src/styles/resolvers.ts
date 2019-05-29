@@ -152,7 +152,7 @@ export default {
 
   Text: ({ content, fontSize = 16, color = '#000000', lineHeight = 30, textAlign = 'left' }) =>
     g.StyleProp.Text(
-      content
+      typeof content === 'string'
         ? {
             fontSize,
             color: parseColor(color),
