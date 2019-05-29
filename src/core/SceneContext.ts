@@ -1,6 +1,5 @@
 import { UpdateSceneMsg as U, FfiMsg, StyleProp } from './generated'
 import { send } from './nativeApi'
-import { NotSureWhat } from './events/NotSureWhat';
 
 /**
  * Provides indirect mutation api for the scene, so that we can freely change an
@@ -14,14 +13,12 @@ export class SceneContext {
   // TODO: consider ordering related things together (structural, layout, visual changes)
   sceneMsgs = []
   parents = []
-  events = new NotSureWhat(this.parents)
 
   constructor(private windowId) {}
 
   createSurface() {
     this.sceneMsgs.push(U.Alloc)
     this.parents[this.nextId] = 0
-    this.events.alloc()
     return this.nextId++
   }
 
