@@ -1,7 +1,7 @@
 ---
 nav_order: 96
 ---
-# Design decision
+# Design decisions
 This is rather internal (for me and contributors) page to document decisions what has already been made
 (and why).
 
