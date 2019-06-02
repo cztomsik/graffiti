@@ -14,7 +14,7 @@ nav_order: 95
 
 ## webrender api
   - webrender retains some info about the scene so it can do scrolling/zooming and hitbox testing for us (without rebuilding the scene), so it is not entirely stateless but I wouldn't call it retained-mode either (we don't hold instances of anything)
-  - api is useful for font-loading, text measurements, font glyph resolving but also for sending **transactions**
+  - api mostly useful for sending **transactions**
   - nothing is rendered unless transaction is sent (and async **processed**, which is when we swap buffers, etc.)
   - even scrolling/zooming has to be sent in trasaction
   - transaction can also "set" **display list** which is how scene will get rebuilt and re-rendered eventually
@@ -27,3 +27,7 @@ nav_order: 95
   - another approach could be to implement some kind of native DOM api (like browser) which could be then used from JS
     - which sounds good at first but native is really a whole different world and just getting it right is a lot of work, not to mention there's always some overhead so it's impossible to tell if this would be any faster
   - instead, what we do is that we have some minimal DOM-like API in javascript and we only send diffs to native
+    - should be fast enough
+    - only tiny subset is actually needed to support major frameworks
+    - everything else can be batched/async
+  
