@@ -1,9 +1,9 @@
 import {
-  RNStyleSheet,
+  StyleSheet as RNStyleSheet,
   ViewStyle,
   TextStyle,
   ImageStyle
-} from './react-native-types'
+} from 'react-native'
 
 // needed for Stylesheet.create() autocompletion
 type Styles = {

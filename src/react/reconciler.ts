@@ -12,12 +12,11 @@ import * as scheduler from 'scheduler'
 import initDevtools from './devtools'
 
 import { NOOP, IDENTITY } from '../core/utils'
-import { ViewProps, StyleProp } from './react-native-types'
+import { ViewProps, StyleProp } from 'react-native'
 import StyleSheet from './Stylesheet';
 import { isEqual } from 'lodash'
 import ErrorBoundary from './ErrorBoundary';
 import { Element } from '../dom/Element';
-import * as g from '../core/generated';
 
 const reconciler = createReconciler({
   createInstance,

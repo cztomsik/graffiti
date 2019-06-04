@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ButtonProps } from '../react-native-types'
+import { ButtonProps } from 'react-native'
 import View from './View';
 import { Text } from './Text';
 import StyleSheet from '../Stylesheet';

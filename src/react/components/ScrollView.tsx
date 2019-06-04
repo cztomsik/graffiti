@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ScrollViewProps } from '../react-native-types'
+import { ScrollViewProps } from 'react-native'
 import StyleSheet from '../Stylesheet';
 import View from './View';
 

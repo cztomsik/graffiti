@@ -4,7 +4,7 @@ import {
   ImageProps,
   ImageSourcePropType,
   ImageURISource
-} from '../react-native-types'
+} from 'react-native'
 
 export function Image(props: ImageProps) {
   if (!isUriSource(props.source)) {

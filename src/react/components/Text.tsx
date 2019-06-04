@@ -1,8 +1,5 @@
 import * as React from 'react'
-import { TextProps } from '../react-native-types'
-import { parseColor } from '../../core/utils'
-import { TextAlign } from '../../core/generated';
-import StyleSheet from '../Stylesheet';
+import { TextProps } from 'react-native'
 import View from './View'
 
 // we might make it native (host) comp in the future but for now we want to
