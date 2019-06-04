@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { SwitchProps } from '../react-native-types'
+import { SwitchProps } from 'react-native'
 import View from './View';
 import { Text } from './Text';
 import TouchableWithoutFeedback from './TouchableWithoutFeedback';

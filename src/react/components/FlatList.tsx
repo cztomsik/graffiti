@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { FlatListProps } from '../react-native-types'
+import { FlatListProps } from 'react-native'
 import { ScrollView } from './ScrollView';
 
 const noopSeparators = {

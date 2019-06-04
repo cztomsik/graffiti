@@ -1,6 +1,6 @@
 import * as React from 'react'
-import { useState, useCallback } from 'react'
-import { TextInputProps } from '../react-native-types'
+import { useState } from 'react'
+import { TextInputProps } from 'react-native'
 import View from './View';
 import { Text } from './Text';
 import StyleSheet from '../Stylesheet';
