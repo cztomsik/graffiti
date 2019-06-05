@@ -1,13 +1,8 @@
 /// Note that webrender API is not stable and we need to catch up often so this
 /// won't ever be perfect.
 
-use crate::api::{
-    Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Image,
-    Text, SurfaceId, Scene, Rect
-};
-use crate::generated::{Vector2f, TextAlign};
-use super::SceneRenderer;
-use crate::text::{LaidGlyph, LaidText};
+use crate::generated::{Vector2f, TextAlign, Color, BorderRadius, BorderSide, BorderStyle, SurfaceId};
+//use crate::text::{LaidGlyph, LaidText};
 use gleam::gl::Gl;
 use image;
 use image::GenericImageView;
@@ -58,13 +53,6 @@ impl WebrenderRenderer {
 
             device_size,
         }
-    }
-
-    // not complete (border-radius) but it might be fine for some time
-    pub fn hit_test(&self, x: f32, y: f32) -> Option<SurfaceId> {
-        let res = self.render_api.hit_test(self.document_id, Some(PIPELINE_ID), WorldPoint::new(x, y), HitTestFlags::empty());
-
-        res.items.get(0).map(|item| item.tag.1 as usize)
     }
 
     fn init_webrender(gl: Rc<Gl>, start_size: DeviceIntSize) -> (Renderer, RenderApi, Receiver<()>) {
@@ -139,23 +127,33 @@ impl WebrenderRenderer {
         self.renderer.render(self.device_size).ok();
     }
 
-    pub fn scroll(&mut self, mouse_pos: (f32, f32), delta: (f32, f32)) {
-        let mut tx = Transaction::new();
-        let scroll_location = ScrollLocation::Delta(LayoutVector2D::new(delta.0 * SCROLL_FACTOR, delta.1 * SCROLL_FACTOR));
-        let cursor = WorldPoint::new(mouse_pos.0, mouse_pos.1);
-
-        tx.scroll(scroll_location, cursor);
-        tx.generate_frame();
-
-        self.send_tx(tx);
-    }
-
     pub fn resize(&mut self, device_size: (i32, i32), dpi: f32) {
         self.device_size = DeviceIntSize::new(device_size.0, device_size.1);
         self.render_api.set_document_view(self.document_id, self.device_size.into(), dpi);
     }
 }
 
+impl crate::render::Renderer for WebrenderRenderer {
+    // not complete (border-radius) but it might be fine for some time
+    fn hit_test(&self, (x, y): (f32, f32)) -> SurfaceId {
+        let res = self.render_api.hit_test(self.document_id, Some(PIPELINE_ID), WorldPoint::new(x, y), HitTestFlags::empty());
+
+        res.items.get(0).map(|item| item.tag.1 as usize).unwrap_or(0)
+    }
+
+    fn scroll(&mut self, (x, y): (f32, f32), delta: (f32, f32)) {
+        let mut tx = Transaction::new();
+        let scroll_location = ScrollLocation::Delta(LayoutVector2D::new(delta.0 * SCROLL_FACTOR, delta.1 * SCROLL_FACTOR));
+        let cursor = WorldPoint::new(x, y);
+
+        tx.scroll(scroll_location, cursor);
+        tx.generate_frame();
+
+        self.send_tx(tx);
+    }
+}
+
+/*
 impl SceneRenderer for WebrenderRenderer{
     fn render(&mut self, scene: &dyn Scene) {
         //debug!("render\n{:#?}", surface);
@@ -433,7 +431,7 @@ impl<'a> RenderContext<'a> {
         self.builder
             .push_item(&item);
     }
-}
+}*/
 
 // unlike browser, we are going to have only one pipeline (per window)
 static PIPELINE_ID: PipelineId = PipelineId(0, 0);
@@ -507,63 +505,3 @@ impl RenderNotifier for SyncNotifier {
         self.wake_up();
     }
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::generated::Vector2f;
-
-    fn test_ctx() -> SurfaceContext {
-        // some "rect", optionally rounded (param to this fn?)
-
-        SurfaceContext {
-            border_radius: BorderRadius(0., 0., 0., 0.),
-            layout: CommonItemProperties::new(LayoutSize::new(100., 100.).into()),
-        }
-    }
-
-    #[test]
-    fn test_background_color() {
-        let ctx = test_ctx();
-        let color = Color(0, 0, 0, 255);
-
-        assert_eq!(
-            ctx.background_color(color.clone()),
-            DisplayItem::Rectangle(RectangleDisplayItem {
-                color: color.into()
-            })
-        );
-    }
-
-    #[test]
-    fn test_box_shadow() {
-        let ctx = test_ctx();
-        let box_bounds = LayoutSize::new(100., 100.).into();
-        let border_radius = BorderRadius(5., 5., 5., 5.);
-        let color = Color(0, 0, 0, 255);
-        let blur = 10.;
-        let spread = 5.;
-        let offset = Vector2f(5., 5.);
-        let box_shadow = BoxShadow {
-            offset: offset.clone(),
-            blur,
-            spread,
-            color: color.clone(),
-        };
-
-        assert_eq!(
-            ctx.box_shadow(box_shadow),
-            DisplayItem::BoxShadow(BoxShadowDisplayItem {
-                box_bounds,
-                offset: offset.into(),
-                color: color.into(),
-                blur_radius: blur,
-                spread_radius: spread,
-                border_radius: border_radius.into(),
-                clip_mode: BoxShadowClipMode::Outset
-            })
-        );
-    }
-}
-*/

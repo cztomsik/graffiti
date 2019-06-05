@@ -1,12 +1,14 @@
-use crate::api::{App, Event, Window, WindowId};
-use crate::window::AppWindow;
-use glfw::{Context, Glfw, WindowEvent};
+use crate::generated::{Event, WindowEvent, WindowId};
+use crate::render::WebrenderRenderer;
+use crate::window::Window;
+use gleam::gl::GlFns;
+use glfw::{Context, Glfw};
 use std::collections::BTreeMap;
 use std::sync::mpsc::Receiver;
 
 pub struct TheApp {
     glfw: Glfw,
-    windows: BTreeMap<WindowId, (AppWindow, Receiver<(f64, WindowEvent)>)>,
+    windows: BTreeMap<WindowId, (Window, glfw::Window, Receiver<(f64, glfw::WindowEvent)>)>,
     next_window_id: WindowId,
 }
 
@@ -28,8 +30,8 @@ impl TheApp {
     }
 }
 
-impl App for TheApp {
-    fn get_events(&mut self, poll: bool) -> Vec<Event> {
+impl TheApp {
+    pub fn get_events(&mut self, poll: bool) -> Vec<Event> {
         if poll {
             self.glfw.poll_events()
         } else {
@@ -40,30 +42,71 @@ impl App for TheApp {
         // go through all windows, handle their events, collect all the resulting events and wrap them along with respective window_id
         self.windows
             .iter_mut()
-            .flat_map(|(id, (window, events))| {
-                glfw::flush_messages(events)
-                    .filter_map(move |(_, e)| window.handle_event(e))
+            .flat_map(|(id, (window, glfw_window, events))| {
+                glfw_window.make_current();
+                let res = glfw::flush_messages(events)
+                    .filter_map(move |(_, e)| Self::handle_window_event(window, e))
                     .map(move |e| Event::WindowEvent {
                         window: *id,
                         event: e,
-                    })
+                    });
+                glfw_window.swap_buffers();
+
+                res
             })
             .collect()
     }
 
-    fn create_window(&mut self) -> WindowId {
+    fn handle_window_event(window: &mut Window, event: glfw::WindowEvent) -> Option<WindowEvent> {
+        // TODO: we don't need Option currently so maybe we can remove it in the future
+        match event {
+            event => Some(match event {
+                glfw::WindowEvent::CursorPos(x, y) => window.mouse_move((x as f32, y as f32)),
+                glfw::WindowEvent::Scroll(delta_x, delta_y) => {
+                    window.scroll((delta_x as f32, delta_y as f32))
+                }
+                glfw::WindowEvent::MouseButton(_button, action, _modifiers) => match action {
+                    glfw::Action::Press => window.mouse_down(),
+                    glfw::Action::Release => window.mouse_up(),
+                    _ => unreachable!("mouse should not repeat"),
+                },
+                //glutin::WindowEvent::ReceivedCharacter(ch) => WindowEvent::KeyPress(ch as u16),
+                //glutin::WindowEvent::CloseRequested => WindowEvent::Close,
+                glfw::WindowEvent::FramebufferSize(_, _) => {
+                    //self.update_sizes();
+                    WindowEvent::Resize
+                }
+                glfw::WindowEvent::Close => WindowEvent::Close,
+                // TODO: repeat works for some keys but for some it doesn't
+                // not sure if it's specific for mac (special chars overlay)
+                glfw::WindowEvent::Key(_key, scancode, action, _modifiers) => match action {
+                    glfw::Action::Release => WindowEvent::KeyUp(scancode as u16),
+                    _ => WindowEvent::KeyDown(scancode as u16),
+                },
+                glfw::WindowEvent::Char(ch) => WindowEvent::KeyPress(ch as u16),
+                _ => WindowEvent::Unknown,
+            }),
+        }
+    }
+
+    pub fn create_window(&mut self) -> WindowId {
+        let (width, height) = (1024, 768);
+
         let (mut glfw_window, events) = self
             .glfw
-            .create_window(1024, 768, "stain", glfw::WindowMode::Windowed)
+            .create_window(width, height, "stain", glfw::WindowMode::Windowed)
             .expect("couldnt create GLFW window");
 
         glfw_window.make_current();
         glfw_window.set_all_polling(true);
 
         let id = self.next_window_id;
-        let window = AppWindow::new(glfw_window);
+        let gl = unsafe { GlFns::load_with(|addr| glfw_window.get_proc_address(addr)) };
+        // TODO: dpi
+        let renderer = WebrenderRenderer::new(gl, (width as i32, height as i32));
+        let window = Window::new(Box::new(renderer));
 
-        self.windows.insert(id, (window, events));
+        self.windows.insert(id, (window, glfw_window, events));
 
         self.next_window_id = self.next_window_id + 1;
 
@@ -73,11 +116,11 @@ impl App for TheApp {
         id
     }
 
-    fn get_window_mut(&mut self, id: WindowId) -> &mut Window {
+    pub fn get_window_mut(&mut self, id: WindowId) -> &mut Window {
         &mut self.windows.get_mut(&id).expect("window not found").0
     }
 
-    fn destroy_window(&mut self, id: WindowId) {
+    pub fn destroy_window(&mut self, id: WindowId) {
         self.windows.remove(&id);
     }
 }
