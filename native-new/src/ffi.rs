@@ -64,15 +64,9 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
 fn handle_msg(app: &mut TheApp, msg: FfiMsg) -> FfiResult {
     match msg {
         FfiMsg::GetEvents(poll) => FfiResult::Events(app.get_events(poll)),
-        FfiMsg::CreateWindow => {
-            let id = app.create_window();
-            FfiResult::WindowId(id)
-        }
+        FfiMsg::CreateWindow => FfiResult::WindowId(app.create_window()),
         FfiMsg::UpdateScene { window, msgs } => {
-            let window = app.get_window_mut(window);
-            //let ctx = window.scene_mut();
-
-            //window.render();
+            app.get_window_mut(window).update_scene(&msgs);
             FfiResult::Nothing
         }
     }

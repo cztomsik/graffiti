@@ -13,33 +13,3 @@ impl<K, V> Storage<K, Option<V>> for BTreeMap<K, V> where K: Ord {
         }
     }
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_dense() {
-        let key: usize = 0;
-        let mut storage = DenseStorage::new();
-        storage.push(false);
-
-        assert_eq!(storage.get(key), &false);
-
-        //storage.set(key, true);
-        //assert_eq!(storage.get(key), &true);
-    }
-
-    #[test]
-    fn test_sparse() {
-        let key: usize = 0;
-        let mut storage = SparseStorage::new();
-
-        assert_eq!(storage.get(key), None);
-
-        storage.set(key, Some(true));
-        assert_eq!(storage.get(key), Some(&true));
-    }
-}
-*/

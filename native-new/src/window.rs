@@ -1,5 +1,6 @@
-use crate::generated::{SurfaceId, WindowEvent};
+use crate::generated::{SurfaceId, UpdateSceneMsg, WindowEvent};
 use crate::render::Renderer;
+use crate::SceneListener;
 
 pub struct Window {
     mouse_pos: (f32, f32),
@@ -42,6 +43,11 @@ impl Window {
         WindowEvent::MouseUp {
             target: self.hit_test(),
         }
+    }
+
+    pub fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
+        self.renderer.update_scene(msgs);
+        //self.layout.update_scene(msgs);
     }
 
     fn hit_test(&self) -> SurfaceId {
