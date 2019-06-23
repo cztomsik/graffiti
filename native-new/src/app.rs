@@ -1,10 +1,14 @@
-use crate::generated::{Event, WindowEvent, WindowId};
+use crate::generated::{Event, WindowEvent, WindowId, UpdateSceneMsg};
 use crate::render::WebrenderRenderer;
 use crate::window::Window;
+use crate::layout::YogaLayout;
 use gleam::gl::GlFns;
 use glfw::{Context, Glfw};
 use std::collections::BTreeMap;
 use std::sync::mpsc::Receiver;
+use std::rc::Rc;
+use crate::text::PangoTextLayout;
+use std::cell::RefCell;
 
 pub struct TheApp {
     glfw: Glfw,
@@ -45,25 +49,26 @@ impl TheApp {
             .flat_map(|(id, (window, glfw_window, events))| {
                 glfw_window.make_current();
                 let res = glfw::flush_messages(events)
-                    .filter_map(move |(_, e)| Self::handle_window_event(window, e))
+                    .filter_map(move |(_, e)| Self::handle_window_event(window, glfw_window, e))
                     .map(move |e| Event::WindowEvent {
                         window: *id,
                         event: e,
                     });
-                glfw_window.swap_buffers();
 
                 res
             })
             .collect()
     }
 
-    fn handle_window_event(window: &mut Window, event: glfw::WindowEvent) -> Option<WindowEvent> {
+    fn handle_window_event(window: &mut Window, glfw_window: &mut glfw::Window, event: glfw::WindowEvent) -> Option<WindowEvent> {
         // TODO: we don't need Option currently so maybe we can remove it in the future
         match event {
             event => Some(match event {
                 glfw::WindowEvent::CursorPos(x, y) => window.mouse_move((x as f32, y as f32)),
                 glfw::WindowEvent::Scroll(delta_x, delta_y) => {
-                    window.scroll((delta_x as f32, delta_y as f32))
+                    let res = window.scroll((delta_x as f32, delta_y as f32));
+                    glfw_window.swap_buffers();
+                    res
                 }
                 glfw::WindowEvent::MouseButton(_button, action, _modifiers) => match action {
                     glfw::Action::Press => window.mouse_down(),
@@ -103,8 +108,10 @@ impl TheApp {
         let id = self.next_window_id;
         let gl = unsafe { GlFns::load_with(|addr| glfw_window.get_proc_address(addr)) };
         // TODO: dpi
-        let renderer = WebrenderRenderer::new(gl, (width as i32, height as i32));
-        let window = Window::new(Box::new(renderer));
+        let text_layout = Rc::new(PangoTextLayout::new());
+        let layout = Rc::new(RefCell::new(YogaLayout::new(text_layout)));
+        let renderer = WebrenderRenderer::new(layout.clone(), gl, (width as i32, height as i32));
+        let window = Window::new(Box::new(renderer), layout);
 
         self.windows.insert(id, (window, glfw_window, events));
 
@@ -116,8 +123,11 @@ impl TheApp {
         id
     }
 
-    pub fn get_window_mut(&mut self, id: WindowId) -> &mut Window {
-        &mut self.windows.get_mut(&id).expect("window not found").0
+    pub fn update_window_scene(&mut self, id: WindowId, msgs: &[UpdateSceneMsg]) {
+        let (window, glfw_window, _) = &mut self.windows.get_mut(&id).expect("window not found");
+
+        window.update_scene(msgs);
+        glfw_window.swap_buffers();
     }
 
     pub fn destroy_window(&mut self, id: WindowId) {

@@ -12,8 +12,7 @@ import {
   WindowEvent_MouseUp,
   WindowEvent_Scroll,
   SurfaceId,
-  UpdateSceneMsg_AppendChild,
-  UpdateSceneMsg_InsertBefore,
+  UpdateSceneMsg_InsertAt,
   UpdateSceneMsg_RemoveChild,
   StyleProp,
   UpdateSceneMsg_SetStyleProp,
@@ -171,28 +170,20 @@ export const readUpdateSceneMsg = (sink: Sink): UpdateSceneMsg => {
     case 0:
       return UpdateSceneMsg.Alloc
     case 1:
-      return UpdateSceneMsg.AppendChild(readUpdateSceneMsg_AppendChild(sink))
+      return UpdateSceneMsg.InsertAt(readUpdateSceneMsg_InsertAt(sink))
     case 2:
-      return UpdateSceneMsg.InsertBefore(readUpdateSceneMsg_InsertBefore(sink))
-    case 3:
       return UpdateSceneMsg.RemoveChild(readUpdateSceneMsg_RemoveChild(sink))
-    case 4:
+    case 3:
       return UpdateSceneMsg.SetStyleProp(readUpdateSceneMsg_SetStyleProp(sink))
   }
   throw new Error('bad variant index for UpdateSceneMsg')
 }
 
-const readUpdateSceneMsg_AppendChild = (sink: Sink): UpdateSceneMsg_AppendChild => {
+const readUpdateSceneMsg_InsertAt = (sink: Sink): UpdateSceneMsg_InsertAt => {
   const parent = readSurfaceId(sink)
   const child = readSurfaceId(sink)
-  return { parent, child }
-}
-
-const readUpdateSceneMsg_InsertBefore = (sink: Sink): UpdateSceneMsg_InsertBefore => {
-  const parent = readSurfaceId(sink)
-  const child = readSurfaceId(sink)
-  const before = readSurfaceId(sink)
-  return { parent, child, before }
+  const index = read_u64(sink)
+  return { parent, child, index }
 }
 
 const readUpdateSceneMsg_RemoveChild = (sink: Sink): UpdateSceneMsg_RemoveChild => {

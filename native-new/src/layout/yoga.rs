@@ -6,42 +6,58 @@ use yoga::{
     Node as YogaNode, NodeRef, StyleUnit, Wrap,
 };
 
-use super::LayoutTree;
-use crate::api::{
-    Rect, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent,
-    Size, Text, Overflow, Border
-};
-use crate::text::{PangoService, TextLayoutAlgo, LaidText};
-use crate::Id;
-use yoga::types::Justify;
+use super::Layout;
+use crate::generated::{Border, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent, Overflow, Rect, Size, Text, SurfaceId, UpdateSceneMsg, StyleProp};
+use crate::text::{LaidText, TextLayout};
 use std::collections::BTreeMap;
+use std::rc::Rc;
+use yoga::types::Justify;
+use crate::SceneListener;
 
-pub struct YogaTree {
+type Id = SurfaceId;
+
+pub struct YogaLayout {
     yoga_nodes: Vec<YogaNode>,
-    text_layout_algo: PangoService,
-    text_layouts: BTreeMap<Id, LaidText>
+    text_layout: Rc<dyn TextLayout>,
 }
 
-impl YogaTree {
-    pub fn new() -> Self {
-        YogaTree {
-            yoga_nodes: vec![],
-            text_layout_algo: PangoService::new(),
-            text_layouts: BTreeMap::new()
+impl SceneListener for YogaLayout {
+    fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
+        for m in msgs.iter().cloned() {
+            match m {
+                UpdateSceneMsg::Alloc => self.alloc(),
+                UpdateSceneMsg::InsertAt { parent, child, index } => self.insert_at(parent, child, index as u32),
+                UpdateSceneMsg::RemoveChild { parent, child } => self.remove_child(parent, child),
+                UpdateSceneMsg::SetStyleProp { surface, prop } => {
+                    let s = &mut self.yoga_nodes[surface];
+
+                    match prop {
+                        StyleProp::Size(s) => self.set_size(surface, s),
+                        StyleProp::Flex(f) => self.set_flex(surface, f),
+                        StyleProp::Flow(f) => self.set_flow(surface, f),
+                        StyleProp::Padding(p) => self.set_padding(surface, p),
+                        StyleProp::Border(b) => self.set_border(surface, b),
+                        StyleProp::Margin(m) => self.set_margin(surface, m),
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        self.calculate()
+    }
+}
+
+impl YogaLayout {
+    pub fn new(text_layout: Rc<dyn TextLayout>) -> Self {
+        YogaLayout {
+            yoga_nodes: vec![YogaNode::new()],
+            text_layout
         }
     }
-}
 
-impl LayoutTree for YogaTree {
     fn alloc(&mut self) {
         self.yoga_nodes.push(YogaNode::new())
-    }
-
-    fn append_child(&mut self, parent: Id, child: Id) {
-        let (parent, child) = get_two_muts(&mut self.yoga_nodes, parent, child);
-
-        let index = parent.get_child_count();
-        parent.insert_child(child, index);
     }
 
     fn remove_child(&mut self, parent: Id, child: Id) {
@@ -115,7 +131,7 @@ impl LayoutTree for YogaTree {
     fn set_text<'svc>(&mut self, id: Id, text: Option<Text>) {
         // yoganode context has static lifetime and we need to access pango and text_layouts somehow
         // should be safe but I might be wrong OFC
-        let tree_ref: &'static mut YogaTree = get_static_ref(self);
+        let tree_ref: &'static mut YogaLayout = get_static_ref(self);
 
         let node = &mut self.yoga_nodes[id];
 
@@ -126,15 +142,17 @@ impl LayoutTree for YogaTree {
         } else {
             node.set_measure_func(None);
             node.set_context(None);
-            self.text_layouts.remove(&id);
+            //self.text_layouts.remove(&id);
         }
     }
 
     fn calculate(&mut self) {
         self.yoga_nodes[0].calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
     }
+}
 
-    fn computed_layout(&self, id: Id) -> Rect {
+impl Layout for YogaLayout {
+    fn get_rect(&self, id: SurfaceId) -> Rect {
         let n = &self.yoga_nodes[id];
 
         Rect(
@@ -144,7 +162,9 @@ impl LayoutTree for YogaTree {
             n.get_layout_height()
         )
     }
+}
 
+/*
     fn text_layout(&self, id: Id) -> LaidText {
         self.text_layouts.get(&id).expect("no text on the surface").clone()
     }
@@ -172,7 +192,7 @@ impl LayoutTree for YogaTree {
             _ => None
         }
     }
-}
+}*/
 
 extern "C" fn measure_text_node(
     node_ref: NodeRef,
@@ -181,6 +201,7 @@ extern "C" fn measure_text_node(
     _h: f32,
     _hm: MeasureMode,
 ) -> yoga::Size {
+    /*
     let ctx = YogaNode::get_context_mut(&node_ref).expect("no context found");
     let MeasureContext(tree, id, text) = ctx
         .downcast_mut::<MeasureContext>()
@@ -192,7 +213,8 @@ extern "C" fn measure_text_node(
         MeasureMode::Undefined => None,
     };
 
-    let layout = tree.text_layout_algo.layout_text(&text, max_width);
+    tree.text_layout.set_max_width(*id, max_width);
+    let layout = ...
 
     let width = match wm {
         MeasureMode::Exactly => w,
@@ -207,11 +229,12 @@ extern "C" fn measure_text_node(
 
     debug!("measure {:?}", (id, &text.text, &size));
 
-    size
+    size*/
+    yoga::Size { width: 100., height: 100. }
 }
 
 struct MeasureContext (
-    pub &'static mut YogaTree,
+    pub &'static mut YogaLayout,
     pub Id,
     pub Text
 );
@@ -298,51 +321,6 @@ pub fn get_two_muts<T>(vec: &mut Vec<T>, first: usize, second: usize) -> (&mut T
     unsafe { (&mut *ptr.add(first), &mut *ptr.add(second)) }
 }
 
-pub fn get_static_ref(tree: &mut YogaTree) -> &'static mut YogaTree {
+pub fn get_static_ref(tree: &mut YogaLayout) -> &'static mut YogaLayout {
     unsafe { std::mem::transmute(tree) }
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn test_svc(count: usize) -> YogaLayoutService {
-        let mut svc = YogaLayoutService::new();
-
-        for _n in 0..count {
-            svc.alloc();
-        }
-
-        svc
-    }
-
-    #[test]
-    fn test_append_child() {
-        let mut svc = test_svc(2);
-        let parent = 0;
-        let child = 1;
-
-        assert_eq!(svc.yoga_nodes.get(parent).get_child_count(), 0);
-        svc.append_child(parent, child);
-        assert_eq!(svc.yoga_nodes.get(parent).get_child_count(), 1);
-    }
-
-    #[test]
-    fn test_layout_set_size() {
-        let mut svc = test_svc(1);
-        let id = 0;
-
-        svc.set_size(id, Size(Dimension::Point(100.), Dimension::Percent(100.)));
-
-        assert_eq!(
-            svc.yoga_nodes.get(id).get_style_width(),
-            StyleUnit::Point(OrderedFloat::from(100.))
-        );
-        assert_eq!(
-            svc.yoga_nodes.get(id).get_style_height(),
-            StyleUnit::Percent(OrderedFloat::from(100.))
-        );
-    }
-}
-*/

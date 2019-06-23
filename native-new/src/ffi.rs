@@ -1,5 +1,5 @@
 use crate::app::TheApp;
-use crate::generated::{FfiMsg, FfiResult, StyleProp, UpdateSceneMsg};
+use crate::generated::{FfiMsg, FfiResult};
 use bincode::{deserialize, serialize, serialize_into};
 use serde_json;
 use std::io::prelude::Write;
@@ -66,7 +66,7 @@ fn handle_msg(app: &mut TheApp, msg: FfiMsg) -> FfiResult {
         FfiMsg::GetEvents(poll) => FfiResult::Events(app.get_events(poll)),
         FfiMsg::CreateWindow => FfiResult::WindowId(app.create_window()),
         FfiMsg::UpdateScene { window, msgs } => {
-            app.get_window_mut(window).update_scene(&msgs);
+            app.update_window_scene(window, &msgs);
             FfiResult::Nothing
         }
     }

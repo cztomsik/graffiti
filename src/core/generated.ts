@@ -101,20 +101,14 @@ export module WindowEvent {
 
 export type UpdateSceneMsg =
   | { tag: 'Alloc' }
-  | { tag: 'AppendChild'; value: UpdateSceneMsg_AppendChild }
-  | { tag: 'InsertBefore'; value: UpdateSceneMsg_InsertBefore }
+  | { tag: 'InsertAt'; value: UpdateSceneMsg_InsertAt }
   | { tag: 'RemoveChild'; value: UpdateSceneMsg_RemoveChild }
   | { tag: 'SetStyleProp'; value: UpdateSceneMsg_SetStyleProp }
 
-export interface UpdateSceneMsg_AppendChild {
+export interface UpdateSceneMsg_InsertAt {
   parent: SurfaceId
   child: SurfaceId
-}
-
-export interface UpdateSceneMsg_InsertBefore {
-  parent: SurfaceId
-  child: SurfaceId
-  before: SurfaceId
+  index: number
 }
 
 export interface UpdateSceneMsg_RemoveChild {
@@ -130,9 +124,7 @@ export interface UpdateSceneMsg_SetStyleProp {
 export module UpdateSceneMsg {
   export const Alloc: UpdateSceneMsg = { tag: 'Alloc' }
 
-  export const AppendChild = (value: UpdateSceneMsg_AppendChild): UpdateSceneMsg => ({ tag: 'AppendChild', value })
-
-  export const InsertBefore = (value: UpdateSceneMsg_InsertBefore): UpdateSceneMsg => ({ tag: 'InsertBefore', value })
+  export const InsertAt = (value: UpdateSceneMsg_InsertAt): UpdateSceneMsg => ({ tag: 'InsertAt', value })
 
   export const RemoveChild = (value: UpdateSceneMsg_RemoveChild): UpdateSceneMsg => ({ tag: 'RemoveChild', value })
 

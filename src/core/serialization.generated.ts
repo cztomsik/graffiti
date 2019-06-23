@@ -12,8 +12,7 @@ import {
   WindowEvent_MouseUp,
   WindowEvent_Scroll,
   SurfaceId,
-  UpdateSceneMsg_AppendChild,
-  UpdateSceneMsg_InsertBefore,
+  UpdateSceneMsg_InsertAt,
   UpdateSceneMsg_RemoveChild,
   StyleProp,
   UpdateSceneMsg_SetStyleProp,
@@ -150,22 +149,17 @@ export const writeUpdateSceneMsg = (sink: Sink, val: UpdateSceneMsg): Sink => {
   switch (val.tag) {
     case 'Alloc':
       return write_u32(sink, 0)
-    case 'AppendChild':
-      return writeUpdateSceneMsg_AppendChild(write_u32(sink, 1), val.value)
-    case 'InsertBefore':
-      return writeUpdateSceneMsg_InsertBefore(write_u32(sink, 2), val.value)
+    case 'InsertAt':
+      return writeUpdateSceneMsg_InsertAt(write_u32(sink, 1), val.value)
     case 'RemoveChild':
-      return writeUpdateSceneMsg_RemoveChild(write_u32(sink, 3), val.value)
+      return writeUpdateSceneMsg_RemoveChild(write_u32(sink, 2), val.value)
     case 'SetStyleProp':
-      return writeUpdateSceneMsg_SetStyleProp(write_u32(sink, 4), val.value)
+      return writeUpdateSceneMsg_SetStyleProp(write_u32(sink, 3), val.value)
   }
 }
 
-const writeUpdateSceneMsg_AppendChild = (sink: Sink, { parent, child }: UpdateSceneMsg_AppendChild): Sink =>
-  writeSurfaceId(writeSurfaceId(sink, parent), child)
-
-const writeUpdateSceneMsg_InsertBefore = (sink: Sink, { parent, child, before }: UpdateSceneMsg_InsertBefore): Sink =>
-  writeSurfaceId(writeSurfaceId(writeSurfaceId(sink, parent), child), before)
+const writeUpdateSceneMsg_InsertAt = (sink: Sink, { parent, child, index }: UpdateSceneMsg_InsertAt): Sink =>
+  write_u64(writeSurfaceId(writeSurfaceId(sink, parent), child), index)
 
 const writeUpdateSceneMsg_RemoveChild = (sink: Sink, { parent, child }: UpdateSceneMsg_RemoveChild): Sink =>
   writeSurfaceId(writeSurfaceId(sink, parent), child)

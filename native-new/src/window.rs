@@ -1,19 +1,22 @@
 use crate::generated::{SurfaceId, UpdateSceneMsg, WindowEvent};
 use crate::render::Renderer;
-use crate::SceneListener;
+use std::rc::Rc;
+use crate::layout::Layout;
+use std::cell::RefCell;
 
 pub struct Window {
     mouse_pos: (f32, f32),
 
     renderer: Box<dyn Renderer>,
-    // layout
+    layout: Rc<RefCell<dyn Layout>>
 }
 
 impl Window {
-    pub fn new(renderer: Box<dyn Renderer>) -> Self {
+    pub fn new(renderer: Box<dyn Renderer>, layout: Rc<RefCell<dyn Layout>>) -> Self {
         Window {
             mouse_pos: (0., 0.),
             renderer,
+            layout,
         }
     }
 
@@ -46,8 +49,8 @@ impl Window {
     }
 
     pub fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
+        self.layout.borrow_mut().update_scene(msgs);
         self.renderer.update_scene(msgs);
-        //self.layout.update_scene(msgs);
     }
 
     fn hit_test(&self) -> SurfaceId {
