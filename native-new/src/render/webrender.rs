@@ -27,7 +27,6 @@ use crate::SceneListener;
 use crate::layout::Layout;
 use std::collections::BTreeMap;
 use crate::storage::Storage;
-use std::cell::RefCell;
 use core::borrow::Borrow;
 
 pub struct WebrenderRenderer {
@@ -37,13 +36,12 @@ pub struct WebrenderRenderer {
     rx: Receiver<()>,
 
     device_size: DeviceIntSize,
-    layout: Rc<RefCell<dyn Layout>>,
 
     scene: Scene,
 }
 
 impl WebrenderRenderer {
-    pub fn new(layout: Rc<RefCell<dyn Layout>>, gl: Rc<Gl>, device_size: (i32, i32)) -> Self {
+    pub fn new(gl: Rc<Gl>, device_size: (i32, i32)) -> Self {
         let device_size = DeviceIntSize::new(device_size.0, device_size.1);
         let (renderer, mut render_api, rx) = Self::init_webrender(gl, device_size);
         let document_id = render_api.add_document(device_size, 0);
@@ -57,7 +55,6 @@ impl WebrenderRenderer {
             rx,
 
             device_size,
-            layout,
 
             scene: Scene {
                 border_radii: BTreeMap::new(),
@@ -177,8 +174,6 @@ impl SceneListener for WebrenderRenderer {
                 }
             }
         }
-
-        self.render();
     }
 }
 
@@ -200,18 +195,16 @@ impl super::Renderer for WebrenderRenderer {
 
         self.send_tx(tx);
     }
-}
 
-impl WebrenderRenderer {
-    fn render(&mut self) {
+    fn render(&mut self, layout: &dyn Layout) {
         let surface = 0;
-        let Rect(_, _, width, height) = (*self.layout).borrow().get_rect(surface);
+        let Rect(_, _, width, height) = layout.get_rect(surface);
         let content_size = LayoutSize::new(width, height);
         let pipeline_id = PIPELINE_ID;
 
         let builder = {
             let mut context = RenderContext {
-                layout_impl: self.layout.clone(),
+                layout_impl: layout,
                 scene: &self.scene,
                 render_api: &mut self.render_api,
 
@@ -234,7 +227,7 @@ impl WebrenderRenderer {
 }
 
 struct RenderContext<'a> {
-    layout_impl: Rc<RefCell<dyn Layout>>,
+    layout_impl: &'a dyn Layout,
     scene: &'a Scene,
     render_api: &'a mut RenderApi,
 
@@ -292,9 +285,9 @@ impl<'a> RenderContext<'a> {
         // TODO: selections (should be below text)
         // (or it could be just overlay with inverse color "effect")
 
-        /*
         if let Some(text) = self.scene.texts.get(&surface) {
-            let (item, glyphs) = self.text(text.clone(), self.scene.text_layout(surface));
+            /*
+            let (item, glyphs) = self.text(text.clone(), self.layout_impl.text_layout(surface));
 
             // webrender has a limit on how long the text item can be
             // TODO: use the const from webrender (couldn't find it quickly)
@@ -302,7 +295,8 @@ impl<'a> RenderContext<'a> {
                 self.push(item.clone());
                 self.builder.push_iter(glyphs);
             }
-        }*/
+            */
+        }
 
         if let Some(border) = self.scene.borders.get(&surface) {
             self.push(self.border(border.clone()));

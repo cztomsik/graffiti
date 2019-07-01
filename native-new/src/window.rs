@@ -1,22 +1,23 @@
-use crate::generated::{SurfaceId, UpdateSceneMsg, WindowEvent};
+use crate::generated::{SurfaceId, UpdateSceneMsg, WindowEvent, Vector2f};
 use crate::render::Renderer;
-use std::rc::Rc;
 use crate::layout::Layout;
-use std::cell::RefCell;
+use crate::text::TextLayout;
 
 pub struct Window {
     mouse_pos: (f32, f32),
 
     renderer: Box<dyn Renderer>,
-    layout: Rc<RefCell<dyn Layout>>
+    layout: Box<dyn Layout>,
+    text_layout: Box<dyn TextLayout>
 }
 
 impl Window {
-    pub fn new(renderer: Box<dyn Renderer>, layout: Rc<RefCell<dyn Layout>>) -> Self {
+    pub fn new(renderer: Box<dyn Renderer>, layout: Box<dyn Layout>, text_layout: Box<dyn TextLayout>) -> Self {
         Window {
             mouse_pos: (0., 0.),
             renderer,
             layout,
+            text_layout
         }
     }
 
@@ -49,8 +50,17 @@ impl Window {
     }
 
     pub fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
-        self.layout.borrow_mut().update_scene(msgs);
+        self.layout.update_scene(msgs);
         self.renderer.update_scene(msgs);
+
+        let text_layout = &mut self.text_layout;
+
+        self.layout.calculate(&mut |surface, max_width| {
+            text_layout.todo();
+
+            Vector2f(100.0, 100.0)
+        });
+        self.renderer.render(&*self.layout);
     }
 
     fn hit_test(&self) -> SurfaceId {

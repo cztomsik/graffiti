@@ -7,10 +7,7 @@ use yoga::{
 };
 
 use super::Layout;
-use crate::generated::{Border, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent, Overflow, Rect, Size, Text, SurfaceId, UpdateSceneMsg, StyleProp};
-use crate::text::{LaidText, TextLayout};
-use std::collections::BTreeMap;
-use std::rc::Rc;
+use crate::generated::{Border, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent, Overflow, Rect, Size, Text, SurfaceId, UpdateSceneMsg, StyleProp, Vector2f};
 use yoga::types::Justify;
 use crate::SceneListener;
 
@@ -18,7 +15,7 @@ type Id = SurfaceId;
 
 pub struct YogaLayout {
     yoga_nodes: Vec<YogaNode>,
-    text_layout: Rc<dyn TextLayout>,
+    measure_text_holder: Option<&'static mut dyn FnMut(SurfaceId, Option<f32>) -> Vector2f>
 }
 
 impl SceneListener for YogaLayout {
@@ -29,8 +26,6 @@ impl SceneListener for YogaLayout {
                 UpdateSceneMsg::InsertAt { parent, child, index } => self.insert_at(parent, child, index as u32),
                 UpdateSceneMsg::RemoveChild { parent, child } => self.remove_child(parent, child),
                 UpdateSceneMsg::SetStyleProp { surface, prop } => {
-                    let s = &mut self.yoga_nodes[surface];
-
                     match prop {
                         StyleProp::Size(s) => self.set_size(surface, s),
                         StyleProp::Flex(f) => self.set_flex(surface, f),
@@ -38,21 +33,20 @@ impl SceneListener for YogaLayout {
                         StyleProp::Padding(p) => self.set_padding(surface, p),
                         StyleProp::Border(b) => self.set_border(surface, b),
                         StyleProp::Margin(m) => self.set_margin(surface, m),
+                        StyleProp::Text(t) => self.set_text(surface, t),
                         _ => {}
                     }
                 }
             }
         }
-
-        self.calculate()
     }
 }
 
 impl YogaLayout {
-    pub fn new(text_layout: Rc<dyn TextLayout>) -> Self {
+    pub fn new() -> Self {
         YogaLayout {
             yoga_nodes: vec![YogaNode::new()],
-            text_layout
+            measure_text_holder: None
         }
     }
 
@@ -129,29 +123,27 @@ impl YogaLayout {
     }
 
     fn set_text<'svc>(&mut self, id: Id, text: Option<Text>) {
-        // yoganode context has static lifetime and we need to access pango and text_layouts somehow
-        // should be safe but I might be wrong OFC
-        let tree_ref: &'static mut YogaLayout = get_static_ref(self);
-
+        let self_ref = get_static_ref(self);
         let node = &mut self.yoga_nodes[id];
 
-        if let Some(text) = text {
+        if text.is_some() {
             node.set_measure_func(Some(measure_text_node));
             node.mark_dirty();
-            node.set_context(Some(Context::new(MeasureContext(tree_ref, id, text))));
+            node.set_context(Some(Context::new(MeasureContext(id, self_ref))));
         } else {
             node.set_measure_func(None);
             node.set_context(None);
-            //self.text_layouts.remove(&id);
         }
-    }
-
-    fn calculate(&mut self) {
-        self.yoga_nodes[0].calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
     }
 }
 
 impl Layout for YogaLayout {
+    fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> Vector2f) {
+        self.measure_text_holder = Some(unsafe { std::mem::transmute(measure_text) });
+        self.yoga_nodes[0].calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
+        self.measure_text_holder = None;
+    }
+
     fn get_rect(&self, id: SurfaceId) -> Rect {
         let n = &self.yoga_nodes[id];
 
@@ -165,10 +157,6 @@ impl Layout for YogaLayout {
 }
 
 /*
-    fn text_layout(&self, id: Id) -> LaidText {
-        self.text_layouts.get(&id).expect("no text on the surface").clone()
-    }
-
     fn set_overflow(&mut self, id: Id, overflow: Overflow) {
         self.yoga_nodes[id].set_overflow(overflow.into());
     }
@@ -201,11 +189,12 @@ extern "C" fn measure_text_node(
     _h: f32,
     _hm: MeasureMode,
 ) -> yoga::Size {
-    /*
     let ctx = YogaNode::get_context_mut(&node_ref).expect("no context found");
-    let MeasureContext(tree, id, text) = ctx
+    let MeasureContext(id, yoga_layout) = ctx
         .downcast_mut::<MeasureContext>()
         .expect("not a measure context");
+
+    let measure_text = yoga_layout.measure_text_holder.as_mut().expect("missing measure_text fn");
 
     let max_width = match wm {
         MeasureMode::Exactly => Some(w),
@@ -213,30 +202,20 @@ extern "C" fn measure_text_node(
         MeasureMode::Undefined => None,
     };
 
-    tree.text_layout.set_max_width(*id, max_width);
-    let layout = ...
+    let size = measure_text(*id, max_width);
 
     let width = match wm {
         MeasureMode::Exactly => w,
-        MeasureMode::AtMost => layout.width,
-        MeasureMode::Undefined => layout.width,
+        MeasureMode::AtMost => size.0,
+        MeasureMode::Undefined => size.0,
     };
 
-    let size = yoga::Size { width, height: (layout.lines as f32) * text.line_height };
-
-    // save the result so it can be queried later
-    tree.text_layouts.insert(*id, layout);
-
-    debug!("measure {:?}", (id, &text.text, &size));
-
-    size*/
-    yoga::Size { width: 100., height: 100. }
+    yoga::Size { width, height: size.1 }
 }
 
-struct MeasureContext (
-    pub &'static mut YogaLayout,
+struct MeasureContext<'a> (
     pub Id,
-    pub Text
+    pub &'a mut YogaLayout
 );
 
 impl Into<StyleUnit> for Dimension {
@@ -321,6 +300,6 @@ pub fn get_two_muts<T>(vec: &mut Vec<T>, first: usize, second: usize) -> (&mut T
     unsafe { (&mut *ptr.add(first), &mut *ptr.add(second)) }
 }
 
-pub fn get_static_ref(tree: &mut YogaLayout) -> &'static mut YogaLayout {
-    unsafe { std::mem::transmute(tree) }
+pub fn get_static_ref(yoga_layout: &mut YogaLayout) -> &'static mut YogaLayout {
+    unsafe { std::mem::transmute(yoga_layout) }
 }

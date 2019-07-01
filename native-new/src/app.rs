@@ -6,9 +6,7 @@ use gleam::gl::GlFns;
 use glfw::{Context, Glfw};
 use std::collections::BTreeMap;
 use std::sync::mpsc::Receiver;
-use std::rc::Rc;
 use crate::text::PangoTextLayout;
-use std::cell::RefCell;
 
 pub struct TheApp {
     glfw: Glfw,
@@ -108,10 +106,10 @@ impl TheApp {
         let id = self.next_window_id;
         let gl = unsafe { GlFns::load_with(|addr| glfw_window.get_proc_address(addr)) };
         // TODO: dpi
-        let text_layout = Rc::new(PangoTextLayout::new());
-        let layout = Rc::new(RefCell::new(YogaLayout::new(text_layout)));
-        let renderer = WebrenderRenderer::new(layout.clone(), gl, (width as i32, height as i32));
-        let window = Window::new(Box::new(renderer), layout);
+        let renderer = Box::new(WebrenderRenderer::new(gl, (width as i32, height as i32)));
+        let layout = Box::new(YogaLayout::new());
+        let text_layout = Box::new(PangoTextLayout::new());
+        let window = Window::new(renderer, layout, text_layout);
 
         self.windows.insert(id, (window, glfw_window, events));
 

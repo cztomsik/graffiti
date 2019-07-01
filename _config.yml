@@ -1,3 +1,10 @@
+exclude:
+    - node_modules
+    - native-new
+    - src
+    - lib
+    - examples
+
 remote_theme: pmarsceill/just-the-docs
 markdown: gfm
 
