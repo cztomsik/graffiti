@@ -1,8 +1,7 @@
 /// Note that webrender API is not stable and we need to catch up often so this
 /// won't ever be perfect.
 use crate::generated::{Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Image, Rect, SurfaceId, Text, UpdateSceneMsg, StyleProp};
-use crate::generated::{TextAlign, Vector2f};
-use crate::text::{LaidGlyph, LaidText};
+use crate::generated::{Vector2f};
 use gleam::gl::Gl;
 use image;
 use image::GenericImageView;
@@ -418,6 +417,7 @@ impl<'a> RenderContext<'a> {
         })
     }
 
+    /*
     // TODO: clip should be enough big to contain `y` and similar characters
     fn text(&self, text: Text, laid_text: LaidText) -> (DisplayItem, Vec<GlyphInstance>) {
         let [mut text_x, text_y] = self.layout.clip_rect.origin.to_array();
@@ -447,6 +447,7 @@ impl<'a> RenderContext<'a> {
 
         (item, glyphs)
     }
+    */
 
     fn border(&self, border: Border) -> DisplayItem {
         DisplayItem::Border(BorderDisplayItem {

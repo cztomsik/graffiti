@@ -138,7 +138,7 @@ impl YogaLayout {
 }
 
 impl Layout for YogaLayout {
-    fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> Vector2f) {
+    fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)) {
         self.measure_text_holder = Some(unsafe { std::mem::transmute(measure_text) });
         self.yoga_nodes[0].calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
         self.measure_text_holder = None;

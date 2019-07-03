@@ -19,10 +19,9 @@ mod window;
 ///   to know about the actual str, flexbox needs to know about size, parents
 ///   and so on
 /// - some services are shared and need to know about each other,
-///   this is expected and ok (Rc<RefCell>)
-/// - there's no DIC, injection is done by hand
+///   it should be part of the interface (pass dep ref to the method)
 ///
 // TODO: rename (it's not just listener)
 pub trait SceneListener {
-    fn update_scene(&mut self, msgs: &[generated::UpdateSceneMsg]);
+    fn update_scene(&mut self, msgs: &[generated::UpdateSceneMsg]) {}
 }

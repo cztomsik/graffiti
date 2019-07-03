@@ -1,4 +1,4 @@
-use crate::generated::{SurfaceId, UpdateSceneMsg, WindowEvent, Vector2f};
+use crate::generated::{SurfaceId, UpdateSceneMsg, WindowEvent};
 use crate::render::Renderer;
 use crate::layout::Layout;
 use crate::text::TextLayout;
@@ -56,9 +56,9 @@ impl Window {
         let text_layout = &mut self.text_layout;
 
         self.layout.calculate(&mut |surface, max_width| {
-            text_layout.todo();
+            text_layout.wrap(surface, max_width);
 
-            Vector2f(100.0, 100.0)
+            text_layout.get_size(surface)
         });
         self.renderer.render(&*self.layout);
     }
