@@ -15,14 +15,11 @@ pub trait TextLayout: SceneListener {
     /// If the `Text` is changed wrapping is reset but
     /// the box layout should again call measure which should again
     /// call the `wrap` so it should be fine (if the wrap is necessary at all)
-    fn wrap(&mut self, surface: SurfaceId, max_width: Option<f32>) {}
+    fn wrap(&mut self, surface: SurfaceId, max_width: Option<f32>);
 
-    fn get_size(&self, surface: SurfaceId) -> (f32, f32) {
-        (100., 100.)
-    }
+    fn get_size(&self, surface: SurfaceId) -> (f32, f32);
 
-    // TODO
-    fn get_text_glyphs(&self, surface: SurfaceId) {}
+    fn get_glyphs(&self, surface: SurfaceId) -> &[Glyph];
 
     // other expected use-cases (not necessarily the sole responsibility of this but related)
     // - get word boundaries at (x, y) to select word
@@ -31,6 +28,13 @@ pub trait TextLayout: SceneListener {
     // - move cursor with keyboard arrows, respecting wrapping
     // - select next word
     
+}
+
+#[derive(Debug)]
+pub struct Glyph {
+    pub x: f32,
+    pub y: f32,
+    pub glyph_id: u32
 }
 
 mod simple;

@@ -2,7 +2,7 @@ use crate::SceneListener;
 use crate::generated::SurfaceId;
 
 pub trait Renderer: SceneListener {
-    fn render(&mut self, layout: &dyn Layout);
+    fn render(&mut self, layout: &dyn Layout, text_layout: &dyn TextLayout);
 
     fn hit_test(&self, pos: (f32, f32)) -> SurfaceId;
 
@@ -12,3 +12,4 @@ pub trait Renderer: SceneListener {
 mod webrender;
 pub use self::webrender::WebrenderRenderer;
 use crate::layout::Layout;
+use crate::text::TextLayout;

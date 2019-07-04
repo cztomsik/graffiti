@@ -6,7 +6,7 @@ mod ffi;
 mod generated;
 mod layout;
 mod render;
-mod storage;
+mod helpers;
 mod text;
 mod window;
 
@@ -23,5 +23,5 @@ mod window;
 ///
 // TODO: rename (it's not just listener)
 pub trait SceneListener {
-    fn update_scene(&mut self, msgs: &[generated::UpdateSceneMsg]) {}
+    fn update_scene(&mut self, _msgs: &[generated::UpdateSceneMsg]) {}
 }

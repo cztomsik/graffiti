@@ -25,8 +25,9 @@ use webrender::{Renderer, RendererOptions};
 use crate::SceneListener;
 use crate::layout::Layout;
 use std::collections::BTreeMap;
-use crate::storage::Storage;
+use crate::helpers::Storage;
 use core::borrow::Borrow;
+use crate::text::{Glyph, TextLayout};
 
 pub struct WebrenderRenderer {
     renderer: Renderer,
@@ -195,7 +196,7 @@ impl super::Renderer for WebrenderRenderer {
         self.send_tx(tx);
     }
 
-    fn render(&mut self, layout: &dyn Layout) {
+    fn render(&mut self, layout: &dyn Layout, text_layout: &dyn TextLayout) {
         let surface = 0;
         let Rect(_, _, width, height) = layout.get_rect(surface);
         let content_size = LayoutSize::new(width, height);
@@ -204,6 +205,7 @@ impl super::Renderer for WebrenderRenderer {
         let builder = {
             let mut context = RenderContext {
                 layout_impl: layout,
+                text_layout,
                 scene: &self.scene,
                 render_api: &mut self.render_api,
 
@@ -227,6 +229,7 @@ impl super::Renderer for WebrenderRenderer {
 
 struct RenderContext<'a> {
     layout_impl: &'a dyn Layout,
+    text_layout: &'a dyn TextLayout,
     scene: &'a Scene,
     render_api: &'a mut RenderApi,
 
@@ -285,8 +288,7 @@ impl<'a> RenderContext<'a> {
         // (or it could be just overlay with inverse color "effect")
 
         if let Some(text) = self.scene.texts.get(&surface) {
-            /*
-            let (item, glyphs) = self.text(text.clone(), self.layout_impl.text_layout(surface));
+            let (item, glyphs) = self.text(text.clone(), self.text_layout.get_glyphs(surface));
 
             // webrender has a limit on how long the text item can be
             // TODO: use the const from webrender (couldn't find it quickly)
@@ -294,7 +296,6 @@ impl<'a> RenderContext<'a> {
                 self.push(item.clone());
                 self.builder.push_iter(glyphs);
             }
-            */
         }
 
         if let Some(border) = self.scene.borders.get(&surface) {
@@ -417,21 +418,16 @@ impl<'a> RenderContext<'a> {
         })
     }
 
-    /*
     // TODO: clip should be enough big to contain `y` and similar characters
-    fn text(&self, text: Text, laid_text: LaidText) -> (DisplayItem, Vec<GlyphInstance>) {
-        let [mut text_x, text_y] = self.layout.clip_rect.origin.to_array();
-        // TODO: text-right
+    fn text(&self, text: Text, glyphs: &[Glyph]) -> (DisplayItem, Vec<GlyphInstance>) {
+        let [text_x, text_y] = self.layout.clip_rect.origin.to_array();
 
-        if let TextAlign::Center = text.align {
-            text_x = text_x + (self.layout.clip_rect.size.width - laid_text.width) / 2.;
-        }
-
-        let glyphs = laid_text.glyphs
+        let glyphs = glyphs
             .iter()
-            .map(|LaidGlyph { glyph_index, x, y }| GlyphInstance {
-                index: *glyph_index,
-                point: LayoutPoint::new(text_x + x, text_y + y),
+            .map(|Glyph { glyph_id, x, y }| GlyphInstance {
+                index: *glyph_id,
+                // 0 is the bottom of the glyph
+                point: LayoutPoint::new(text_x + x, text_y + y + text.line_height),
             })
             .collect();
 
@@ -447,7 +443,6 @@ impl<'a> RenderContext<'a> {
 
         (item, glyphs)
     }
-    */
 
     fn border(&self, border: Border) -> DisplayItem {
         DisplayItem::Border(BorderDisplayItem {

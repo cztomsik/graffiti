@@ -50,6 +50,7 @@ impl Window {
     }
 
     pub fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
+        self.text_layout.update_scene(msgs);
         self.layout.update_scene(msgs);
         self.renderer.update_scene(msgs);
 
@@ -60,7 +61,7 @@ impl Window {
 
             text_layout.get_size(surface)
         });
-        self.renderer.render(&*self.layout);
+        self.renderer.render(&*self.layout, &*self.text_layout);
     }
 
     fn hit_test(&self) -> SurfaceId {
