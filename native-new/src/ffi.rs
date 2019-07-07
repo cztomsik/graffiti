@@ -1,7 +1,6 @@
 use crate::app::TheApp;
 use crate::generated::{FfiMsg, FfiResult};
-use bincode::{deserialize, serialize, serialize_into};
-use serde_json;
+use bincode::{deserialize, serialize};
 use std::io::prelude::Write;
 
 static mut APP: Option<TheApp> = None;

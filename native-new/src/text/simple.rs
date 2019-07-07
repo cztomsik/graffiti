@@ -3,7 +3,6 @@ use font_kit::source::SystemSource;
 use crate::SceneListener;
 use crate::generated::{UpdateSceneMsg, StyleProp, SurfaceId, Text};
 use std::collections::BTreeMap;
-use crate::helpers::Storage;
 
 pub struct SimpleTextLayout {
     font: font_kit::font::Font,
@@ -75,11 +74,19 @@ impl SimpleTextLayout {
         let mut x = 0.;
         let mut y = 0.;
 
+        // TODO: find our how costy it is
+        let scale = text.font_size / (self.font.metrics().units_per_em as f32);
+
         let glyphs = text.text.chars().into_iter().map(|c| {
+            if c == '\n' {
+                x = 0.;
+                y += text.line_height;
+            }
+
             let glyph_id = self.font.glyph_for_char(c).unwrap_or(0);
             let advance = match self.font.advance(glyph_id) {
-                Ok(v) => (v.x, v.y),
-                Err(e) => (0., 0.)
+                Ok(v) => (v.x * scale, v.y * scale),
+                Err(_e) => (0., 0.)
             };
 
             let glyph = Glyph {
@@ -93,6 +100,11 @@ impl SimpleTextLayout {
 
             glyph
         }).collect();
+
+        // TODO: wrap
+        // TODO: good for now but we should use glyph width for the last char on each line
+        size.0 = x;
+        size.1 = y + text.line_height;
 
         let meta = Meta {
             size,

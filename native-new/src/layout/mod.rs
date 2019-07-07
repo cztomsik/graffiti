@@ -11,6 +11,8 @@ pub trait Layout: SceneListener {
   fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32));
 
   fn get_rect(&self, surface: SurfaceId) -> Rect;
+
+  fn get_scroll_frame(&self, surface: SurfaceId) -> Option<(f32, f32)>;
 }
 
 mod yoga;

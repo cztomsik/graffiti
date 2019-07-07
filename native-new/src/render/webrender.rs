@@ -303,8 +303,7 @@ impl<'a> RenderContext<'a> {
             // TODO: children should be in (possibly rounded) clip too so they can't overdraw border (or padding)
         }
 
-        /*
-        if let Some((width, height)) = self.scene.scroll_frame(surface) {
+        if let Some((width, height)) = self.layout_impl.get_scroll_frame(surface) {
             debug!("scroll_frame {:?}", (&width, &height, &self.layout));
 
             let area_rect = LayoutRect::new(self.layout.clip_rect.origin.clone(), LayoutSize::new(width, height));
@@ -327,7 +326,7 @@ impl<'a> RenderContext<'a> {
             // otherwise scroll would not work in "empty" spaces
             // TODO: stacking context would be probably better
             self.builder.push_item(&self.background_color(Color(0, 0, 0, 0)));
-        }*/
+        }
 
         // children has to be "on top" because of hitbox testing
         for child_surface in &self.scene.children[surface] {

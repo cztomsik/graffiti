@@ -34,6 +34,7 @@ impl SceneListener for YogaLayout {
                         StyleProp::Border(b) => self.set_border(surface, b),
                         StyleProp::Margin(m) => self.set_margin(surface, m),
                         StyleProp::Text(t) => self.set_text(surface, t),
+                        StyleProp::Overflow(o) => self.set_overflow(surface, o),
                         _ => {}
                     }
                 }
@@ -135,6 +136,10 @@ impl YogaLayout {
             node.set_context(None);
         }
     }
+
+    fn set_overflow(&mut self, id: Id, overflow: Overflow) {
+        self.yoga_nodes[id].set_overflow(overflow.into());
+    }
 }
 
 impl Layout for YogaLayout {
@@ -154,14 +159,8 @@ impl Layout for YogaLayout {
             n.get_layout_height()
         )
     }
-}
 
-/*
-    fn set_overflow(&mut self, id: Id, overflow: Overflow) {
-        self.yoga_nodes[id].set_overflow(overflow.into());
-    }
-
-    fn scroll_frame(&self, id: Id) -> Option<(f32, f32)> {
+    fn get_scroll_frame(&self, id: SurfaceId) -> Option<(f32, f32)> {
         let node = &self.yoga_nodes[id];
 
         match node.get_overflow() {
@@ -180,7 +179,7 @@ impl Layout for YogaLayout {
             _ => None
         }
     }
-}*/
+}
 
 extern "C" fn measure_text_node(
     node_ref: NodeRef,
