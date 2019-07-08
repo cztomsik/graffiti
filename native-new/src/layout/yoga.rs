@@ -44,9 +44,15 @@ impl SceneListener for YogaLayout {
 }
 
 impl YogaLayout {
-    pub fn new() -> Self {
+    pub fn new((width, height): (f32, f32)) -> Self {
+        let mut root = YogaNode::new();
+
+        // TODO: resize
+        root.set_width(StyleUnit::Point(width.into()));
+        root.set_height(StyleUnit::Point(height.into()));
+
         YogaLayout {
-            yoga_nodes: vec![YogaNode::new()],
+            yoga_nodes: vec![root],
             measure_text_holder: None
         }
     }

@@ -6,7 +6,7 @@ use crate::generated::SurfaceId;
 /// because in a lot of cases it will be enough
 ///
 /// The box layout should call `measure_text` during its `calculate`
-/// which in turn should call `wrap`.
+/// which in turn should call `wrap` if it`s needed.
 pub trait TextLayout: SceneListener {
     /// Wrap/reflow existing text layout to a new max_width
     /// should skip if the `max_width` is `None` or bigger than current width

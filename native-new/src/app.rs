@@ -107,7 +107,7 @@ impl TheApp {
         let gl = unsafe { GlFns::load_with(|addr| glfw_window.get_proc_address(addr)) };
         // TODO: dpi
         let renderer = Box::new(WebrenderRenderer::new(gl, (width as i32, height as i32)));
-        let layout = Box::new(YogaLayout::new());
+        let layout = Box::new(YogaLayout::new((width as f32, height as f32)));
         let text_layout = Box::new(SimpleTextLayout::new());
         let window = Window::new(renderer, layout, text_layout);
 
