@@ -7,7 +7,7 @@ use yoga::{
 };
 
 use super::Layout;
-use crate::generated::{Border, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent, Overflow, Rect, Size, Text, SurfaceId, UpdateSceneMsg, StyleProp, Vector2f};
+use crate::generated::{Border, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent, Overflow, Rect, Size, Text, SurfaceId, UpdateSceneMsg, StyleProp};
 use yoga::types::Justify;
 use crate::SceneListener;
 
@@ -15,7 +15,7 @@ type Id = SurfaceId;
 
 pub struct YogaLayout {
     yoga_nodes: Vec<YogaNode>,
-    measure_text_holder: Option<&'static mut dyn FnMut(SurfaceId, Option<f32>) -> Vector2f>
+    measure_text_holder: Option<&'static mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)>
 }
 
 impl SceneListener for YogaLayout {
