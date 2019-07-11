@@ -1,35 +1,22 @@
-use crate::api::{SurfaceId, Rect, Size, Flex, Flow, Dimensions, Text, Overflow, Border};
-use crate::text::LaidText;
+use crate::SceneListener;
+use crate::generated::{SurfaceId, Rect};
 
-/// Tree of layout nodes along with respective calculations
+/// Box layout algo
+/// Only flexbox is expected for now, grid might be added in the future
 ///
-/// In future we might use `stretch` crate or maybe even something from servo
-///
-/// To be fast, implementation eventually has to mark "dirty" sections
-/// in reaction to layout changes so it makes sense for an api to be stateful too
-pub trait LayoutTree {
-    fn alloc(&mut self);
+/// The text layout is a separate thing and the only relation is that
+/// the box layout (sometimes) needs to measure the text content to determine box sizes.
+/// For this purpose the `measure_text` callback is provided to the `calculate` method.
+pub trait Layout: SceneListener {
+  fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32));
 
-    fn append_child(&mut self, parent: NodeId, child: NodeId);
-    fn remove_child(&mut self, parent: NodeId, child: NodeId);
-    fn insert_at(&mut self, parent: NodeId, child: NodeId, index: u32);
+  fn get_rect(&self, surface: SurfaceId) -> Rect;
 
-    fn set_size(&mut self, node_id: NodeId, size: Size);
-    fn set_flex(&mut self, node_id: NodeId, flex: Flex);
-    fn set_flow(&mut self, node_id: NodeId, flow: Flow);
-    fn set_padding(&mut self, node_id: NodeId, padding: Dimensions);
-    fn set_border(&mut self, node_id: NodeId, border: Option<Border>);
-    fn set_margin(&mut self, node_id: NodeId, margin: Dimensions);
-    fn set_text(&mut self, node_id: NodeId, text: Option<Text>);
-
-    fn calculate(&mut self);
-    fn computed_layout(&self, node_id: NodeId) -> Rect;
-    fn text_layout(&self, node_id: NodeId) -> LaidText;
-    fn set_overflow(&mut self, node_id: NodeId, overflow: Overflow);
-    fn scroll_frame(&self, surface: SurfaceId) -> Option<(f32, f32)>;
+  fn get_scroll_frame(&self, surface: SurfaceId) -> Option<(f32, f32)>;
 }
 
-type NodeId = SurfaceId;
-
 mod yoga;
-pub use crate::layout::yoga::YogaTree;
+pub use crate::layout::yoga::YogaLayout;
+
+mod stretch;
+pub use crate::layout::stretch::StretchLayout;

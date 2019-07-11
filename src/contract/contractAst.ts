@@ -149,14 +149,10 @@ const UpdateSceneMsg = Union(
   'UpdateSceneMsg',
   [
     V.Unit('Alloc'),
-    V.Struct('AppendChild', {
-      parent: T.RefTo(SurfaceId),
-      child: T.RefTo(SurfaceId)
-    }),
-    V.Struct('InsertBefore', {
+    V.Struct('InsertAt', {
       parent: T.RefTo(SurfaceId),
       child: T.RefTo(SurfaceId),
-      before: T.RefTo(SurfaceId)
+      index: T.Scalar.USIZE
     }),
     V.Struct('RemoveChild', {
       parent: T.RefTo(SurfaceId),

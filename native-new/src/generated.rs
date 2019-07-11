@@ -45,8 +45,7 @@ pub enum WindowEvent {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum UpdateSceneMsg {
     Alloc,
-    AppendChild { parent: SurfaceId, child: SurfaceId },
-    InsertBefore { parent: SurfaceId, child: SurfaceId, before: SurfaceId },
+    InsertAt { parent: SurfaceId, child: SurfaceId, index: usize },
     RemoveChild { parent: SurfaceId, child: SurfaceId },
     SetStyleProp { surface: SurfaceId, prop: StyleProp },
 }

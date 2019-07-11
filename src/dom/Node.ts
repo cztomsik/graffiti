@@ -24,13 +24,7 @@ export class Node extends EventTarget {
   insertAt(child: Node, index) {
     child.remove()
 
-    // TODO: native.insertAt? (storage is dense anyway)
-    if (index === this.childNodes.length) {
-      this.ownerDocument._scene.appendChild(this._nativeId, child._nativeId)
-    } else {
-      this.ownerDocument._scene.insertBefore(this._nativeId, child._nativeId, this.childNodes[index]._nativeId)
-    }
-
+    this.ownerDocument._scene.insertAt(this._nativeId, child._nativeId, index)
     this.childNodes.splice(index, 0, child)
   }
 

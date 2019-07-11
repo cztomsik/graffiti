@@ -1,13 +1,7 @@
 /// Note that webrender API is not stable and we need to catch up often so this
 /// won't ever be perfect.
-
-use crate::api::{
-    Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Image,
-    Text, SurfaceId, Scene, Rect
-};
-use crate::generated::{Vector2f, TextAlign};
-use super::SceneRenderer;
-use crate::text::{LaidGlyph, LaidText};
+use crate::generated::{Border, BorderRadius, BorderSide, BorderStyle, BoxShadow, Color, Image, Rect, SurfaceId, Text, UpdateSceneMsg, StyleProp};
+use crate::generated::{Vector2f};
 use gleam::gl::Gl;
 use image;
 use image::GenericImageView;
@@ -16,18 +10,24 @@ use std::io::prelude::*;
 use std::rc::Rc;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use webrender::api::{
+    units::{DeviceIntSize, LayoutPoint, LayoutRect, LayoutSize, LayoutVector2D, WorldPoint},
     AddImage, AlphaType, BorderDetails, BorderDisplayItem, BorderRadius as WRBorderRadius,
     BorderSide as WRBorderSide, BorderStyle as WRBorderStyle, BoxShadowClipMode,
-    BoxShadowDisplayItem, ColorF, ColorU, DisplayListBuilder, DocumentId, Epoch,
-    FontInstanceKey, GlyphInstance, ImageData, ImageDescriptor,
-    ImageDisplayItem, ImageFormat, ImageRendering, CommonItemProperties,
-    NormalBorder, PipelineId, RectangleDisplayItem, RenderApi, ClipId,
-    ResourceUpdate, SpaceAndClipInfo, DisplayItem, TextDisplayItem, Transaction,
-    HitTestFlags, ComplexClipRegion, ClipMode, ScrollLocation, RenderNotifier, ScrollSensitivity, ExternalScrollId,
-    units::{LayoutPoint, LayoutSize, LayoutVector2D, WorldPoint, LayoutRect, DeviceIntSize}
+    BoxShadowDisplayItem, ClipId, ClipMode, ColorF, ColorU, CommonItemProperties,
+    ComplexClipRegion, DisplayItem, DisplayListBuilder, DocumentId, Epoch, ExternalScrollId,
+    FontInstanceKey, GlyphInstance, HitTestFlags, ImageData, ImageDescriptor, ImageDisplayItem,
+    ImageFormat, ImageRendering, NormalBorder, PipelineId, RectangleDisplayItem, RenderApi,
+    RenderNotifier, ResourceUpdate, ScrollLocation, ScrollSensitivity, SpaceAndClipInfo,
+    TextDisplayItem, Transaction,
 };
 use webrender::euclid::{TypedSideOffsets2D, TypedSize2D, TypedVector2D};
 use webrender::{Renderer, RendererOptions};
+use crate::SceneListener;
+use crate::layout::Layout;
+use std::collections::BTreeMap;
+use crate::helpers::Storage;
+use core::borrow::Borrow;
+use crate::text::{Glyph, TextLayout};
 
 pub struct WebrenderRenderer {
     renderer: Renderer,
@@ -36,10 +36,8 @@ pub struct WebrenderRenderer {
     rx: Receiver<()>,
 
     device_size: DeviceIntSize,
-    // so that we can reuse already uploaded images
-    // this can be (periodically) cleaned up by simply going through all keys and
-    // looking what has (not) been used in the last render (and can be evicted)
-    // _uploaded_images: BTreeMap<String, ImageKey>
+
+    scene: Scene,
 }
 
 impl WebrenderRenderer {
@@ -57,14 +55,17 @@ impl WebrenderRenderer {
             rx,
 
             device_size,
+
+            scene: Scene {
+                border_radii: BTreeMap::new(),
+                box_shadows: BTreeMap::new(),
+                background_colors: BTreeMap::new(),
+                images: BTreeMap::new(),
+                texts: BTreeMap::new(),
+                borders: BTreeMap::new(),
+                children: vec![vec![]]
+            }
         }
-    }
-
-    // not complete (border-radius) but it might be fine for some time
-    pub fn hit_test(&self, x: f32, y: f32) -> Option<SurfaceId> {
-        let res = self.render_api.hit_test(self.document_id, Some(PIPELINE_ID), WorldPoint::new(x, y), HitTestFlags::empty());
-
-        res.items.get(0).map(|item| item.tag.1 as usize)
     }
 
     fn init_webrender(gl: Rc<Gl>, start_size: DeviceIntSize) -> (Renderer, RenderApi, Receiver<()>) {
@@ -139,10 +140,55 @@ impl WebrenderRenderer {
         self.renderer.render(self.device_size).ok();
     }
 
-    pub fn scroll(&mut self, mouse_pos: (f32, f32), delta: (f32, f32)) {
+    pub fn resize(&mut self, device_size: (i32, i32), dpi: f32) {
+        self.device_size = DeviceIntSize::new(device_size.0, device_size.1);
+        self.render_api.set_document_view(self.document_id, self.device_size.into(), dpi);
+    }
+}
+
+struct Scene {
+    border_radii: BTreeMap<SurfaceId, BorderRadius>,
+    box_shadows: BTreeMap<SurfaceId, BoxShadow>,
+    background_colors: BTreeMap<SurfaceId, Color>,
+    images: BTreeMap<SurfaceId, Image>,
+    texts: BTreeMap<SurfaceId, Text>,
+    borders: BTreeMap<SurfaceId, Border>,
+    children: Vec<Vec<SurfaceId>>
+}
+
+impl SceneListener for WebrenderRenderer {
+    fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
+        for m in msgs.iter().cloned() {
+            match m {
+                UpdateSceneMsg::Alloc => self.scene.children.push(Vec::new()),
+                UpdateSceneMsg::InsertAt { parent, child, index } => self.scene.children[parent].insert(index, child),
+                UpdateSceneMsg::RemoveChild { parent, child } => self.scene.children[parent] = self.scene.children[parent].iter().cloned().filter(|ch| *ch != child).collect(),
+                UpdateSceneMsg::SetStyleProp { surface, prop } => match prop {
+                    StyleProp::BorderRadius(r) => self.scene.border_radii.set(surface, r),
+                    StyleProp::BoxShadow(s) => self.scene.box_shadows.set(surface, s),
+                    StyleProp::BackgroundColor(c) => self.scene.background_colors.set(surface, c),
+                    StyleProp::Image(i) => self.scene.images.set(surface, i),
+                    StyleProp::Text(t) => self.scene.texts.set(surface, t),
+                    StyleProp::Border(b) => self.scene.borders.set(surface, b),
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+impl super::Renderer for WebrenderRenderer {
+    // not complete (border-radius) but it might be fine for some time
+    fn hit_test(&self, (x, y): (f32, f32)) -> SurfaceId {
+        let res = self.render_api.hit_test(self.document_id, Some(PIPELINE_ID), WorldPoint::new(x, y), HitTestFlags::empty());
+
+        res.items.get(0).map(|item| item.tag.1 as usize).unwrap_or(0)
+    }
+
+    fn scroll(&mut self, (x, y): (f32, f32), delta: (f32, f32)) {
         let mut tx = Transaction::new();
         let scroll_location = ScrollLocation::Delta(LayoutVector2D::new(delta.0 * SCROLL_FACTOR, delta.1 * SCROLL_FACTOR));
-        let cursor = WorldPoint::new(mouse_pos.0, mouse_pos.1);
+        let cursor = WorldPoint::new(x, y);
 
         tx.scroll(scroll_location, cursor);
         tx.generate_frame();
@@ -150,24 +196,17 @@ impl WebrenderRenderer {
         self.send_tx(tx);
     }
 
-    pub fn resize(&mut self, device_size: (i32, i32), dpi: f32) {
-        self.device_size = DeviceIntSize::new(device_size.0, device_size.1);
-        self.render_api.set_document_view(self.document_id, self.device_size.into(), dpi);
-    }
-}
-
-impl SceneRenderer for WebrenderRenderer{
-    fn render(&mut self, scene: &dyn Scene) {
-        //debug!("render\n{:#?}", surface);
-
+    fn render(&mut self, layout: &dyn Layout, text_layout: &dyn TextLayout) {
         let surface = 0;
-        let Rect(_, _, width, height) = scene.computed_layout(surface);
+        let Rect(_, _, width, height) = layout.get_rect(surface);
         let content_size = LayoutSize::new(width, height);
         let pipeline_id = PIPELINE_ID;
 
         let builder = {
             let mut context = RenderContext {
-                scene,
+                layout_impl: layout,
+                text_layout,
+                scene: &self.scene,
                 render_api: &mut self.render_api,
 
                 builder: DisplayListBuilder::with_capacity(
@@ -189,7 +228,9 @@ impl SceneRenderer for WebrenderRenderer{
 }
 
 struct RenderContext<'a> {
-    scene: &'a dyn Scene,
+    layout_impl: &'a dyn Layout,
+    text_layout: &'a dyn TextLayout,
+    scene: &'a Scene,
     render_api: &'a mut RenderApi,
 
     builder: DisplayListBuilder,
@@ -202,7 +243,7 @@ impl<'a> RenderContext<'a> {
         let parent_layout = self.layout;
         let parent_space_and_clip = SpaceAndClipInfo { spatial_id: parent_layout.spatial_id, clip_id: parent_layout.clip_id };
 
-        let Rect(x, y, width, height) = self.scene.computed_layout(surface);
+        let Rect(x, y, width, height) = (*self.layout_impl).borrow().get_rect(surface);
 
         self.layout = CommonItemProperties::new(
             LayoutRect::new(LayoutPoint::new(x, y), LayoutSize::new(width, height))
@@ -216,7 +257,7 @@ impl<'a> RenderContext<'a> {
         debug!("surface {} {:?}", surface, self.layout.clip_rect);
 
         // shared, not directly rendered
-        if let Some(border_radius) = self.scene.border_radius(surface) {
+        if let Some(border_radius) = self.scene.border_radii.get(&surface) {
             self.border_radius = border_radius.clone().into();
 
             let clip_region = ComplexClipRegion::new(self.layout.clip_rect.clone(), self.border_radius, ClipMode::Clip);
@@ -229,25 +270,25 @@ impl<'a> RenderContext<'a> {
 
         // TODO: (outset) shadow shouldn't have tag (& receive events)
         // note that we are using parent clip (shadow should be clipped by parent not by us)
-        if let Some(box_shadow) = self.scene.box_shadow(surface) {
+        if let Some(box_shadow) = self.scene.box_shadows.get(&surface) {
             self.builder.push_item(
                 &self.box_shadow(box_shadow, parent_space_and_clip.clip_id)
             );
         }
 
-        if let Some(color) = self.scene.background_color(surface) {
+        if let Some(color) = self.scene.background_colors.get(&surface) {
             self.push(self.background_color(color.clone()));
         }
 
-        if let Some(image) = self.scene.image(surface) {
+        if let Some(image) = self.scene.images.get(&surface) {
             self.push(self.image(image.clone()));
         }
 
         // TODO: selections (should be below text)
         // (or it could be just overlay with inverse color "effect")
 
-        if let Some(text) = self.scene.text(surface) {
-            let (item, glyphs) = self.text(text.clone(), self.scene.text_layout(surface));
+        if let Some(text) = self.scene.texts.get(&surface) {
+            let (item, glyphs) = self.text(text.clone(), self.text_layout.get_glyphs(surface));
 
             // webrender has a limit on how long the text item can be
             // TODO: use the const from webrender (couldn't find it quickly)
@@ -257,12 +298,12 @@ impl<'a> RenderContext<'a> {
             }
         }
 
-        if let Some(border) = self.scene.border(surface) {
+        if let Some(border) = self.scene.borders.get(&surface) {
             self.push(self.border(border.clone()));
             // TODO: children should be in (possibly rounded) clip too so they can't overdraw border (or padding)
         }
 
-        if let Some((width, height)) = self.scene.scroll_frame(surface) {
+        if let Some((width, height)) = self.layout_impl.get_scroll_frame(surface) {
             debug!("scroll_frame {:?}", (&width, &height, &self.layout));
 
             let area_rect = LayoutRect::new(self.layout.clip_rect.origin.clone(), LayoutSize::new(width, height));
@@ -288,7 +329,7 @@ impl<'a> RenderContext<'a> {
         }
 
         // children has to be "on top" because of hitbox testing
-        for child_surface in self.scene.children(surface) {
+        for child_surface in &self.scene.children[surface] {
             self.render_surface(*child_surface);
         }
 
@@ -303,10 +344,10 @@ impl<'a> RenderContext<'a> {
         DisplayItem::BoxShadow(BoxShadowDisplayItem {
             common: CommonItemProperties {
                 clip_rect:
-                    self.layout
-                        .clip_rect
-                        .translate(&TypedVector2D::new(x, y))
-                        .inflate(size, size),
+                self.layout
+                    .clip_rect
+                    .translate(&TypedVector2D::new(x, y))
+                    .inflate(size, size),
                 clip_id: parent_clip_id,
                 ..self.layout
             },
@@ -377,19 +418,15 @@ impl<'a> RenderContext<'a> {
     }
 
     // TODO: clip should be enough big to contain `y` and similar characters
-    fn text(&self, text: Text, laid_text: LaidText) -> (DisplayItem, Vec<GlyphInstance>) {
-        let [mut text_x, text_y] = self.layout.clip_rect.origin.to_array();
-        // TODO: text-right
+    fn text(&self, text: Text, glyphs: &[Glyph]) -> (DisplayItem, Vec<GlyphInstance>) {
+        let [text_x, text_y] = self.layout.clip_rect.origin.to_array();
 
-        if let TextAlign::Center = text.align {
-            text_x = text_x + (self.layout.clip_rect.size.width - laid_text.width) / 2.;
-        }
-
-        let glyphs = laid_text.glyphs
+        let glyphs = glyphs
             .iter()
-            .map(|LaidGlyph { glyph_index, x, y }| GlyphInstance {
-                index: *glyph_index,
-                point: LayoutPoint::new(text_x + x, text_y + y),
+            .map(|Glyph { glyph_id, x, y }| GlyphInstance {
+                index: *glyph_id,
+                // 0 is the bottom of the glyph
+                point: LayoutPoint::new(text_x + x, text_y + y + text.line_height),
             })
             .collect();
 
@@ -507,63 +544,3 @@ impl RenderNotifier for SyncNotifier {
         self.wake_up();
     }
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::generated::Vector2f;
-
-    fn test_ctx() -> SurfaceContext {
-        // some "rect", optionally rounded (param to this fn?)
-
-        SurfaceContext {
-            border_radius: BorderRadius(0., 0., 0., 0.),
-            layout: CommonItemProperties::new(LayoutSize::new(100., 100.).into()),
-        }
-    }
-
-    #[test]
-    fn test_background_color() {
-        let ctx = test_ctx();
-        let color = Color(0, 0, 0, 255);
-
-        assert_eq!(
-            ctx.background_color(color.clone()),
-            DisplayItem::Rectangle(RectangleDisplayItem {
-                color: color.into()
-            })
-        );
-    }
-
-    #[test]
-    fn test_box_shadow() {
-        let ctx = test_ctx();
-        let box_bounds = LayoutSize::new(100., 100.).into();
-        let border_radius = BorderRadius(5., 5., 5., 5.);
-        let color = Color(0, 0, 0, 255);
-        let blur = 10.;
-        let spread = 5.;
-        let offset = Vector2f(5., 5.);
-        let box_shadow = BoxShadow {
-            offset: offset.clone(),
-            blur,
-            spread,
-            color: color.clone(),
-        };
-
-        assert_eq!(
-            ctx.box_shadow(box_shadow),
-            DisplayItem::BoxShadow(BoxShadowDisplayItem {
-                box_bounds,
-                offset: offset.into(),
-                color: color.into(),
-                blur_radius: blur,
-                spread_radius: spread,
-                border_radius: border_radius.into(),
-                clip_mode: BoxShadowClipMode::Outset
-            })
-        );
-    }
-}
-*/

@@ -1,8 +1,6 @@
-use crate::api::App;
 use crate::app::TheApp;
-use crate::generated::{FfiMsg, FfiResult, StyleProp, UpdateSceneMsg};
-use bincode::{deserialize, serialize, serialize_into};
-use serde_json;
+use crate::generated::{FfiMsg, FfiResult};
+use bincode::{deserialize, serialize};
 use std::io::prelude::Write;
 
 static mut APP: Option<TheApp> = None;
@@ -65,56 +63,9 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
 fn handle_msg(app: &mut TheApp, msg: FfiMsg) -> FfiResult {
     match msg {
         FfiMsg::GetEvents(poll) => FfiResult::Events(app.get_events(poll)),
-        FfiMsg::CreateWindow => {
-            let id = app.create_window();
-            FfiResult::WindowId(id)
-        }
+        FfiMsg::CreateWindow => FfiResult::WindowId(app.create_window()),
         FfiMsg::UpdateScene { window, msgs } => {
-            let window = app.get_window_mut(window);
-            let ctx = window.scene_mut();
-
-            // this should only delegate to appropriate ctx.* calls
-            // no logic should be here!
-            for msg in msgs {
-                match msg {
-                    UpdateSceneMsg::Alloc => {
-                        ctx.create_surface();
-                    }
-                    UpdateSceneMsg::AppendChild { parent, child } => {
-                        ctx.append_child(parent, child)
-                    }
-                    UpdateSceneMsg::InsertBefore {
-                        parent,
-                        child,
-                        before,
-                    } => {
-                        ctx.insert_before(parent, child, before);
-                    }
-                    UpdateSceneMsg::RemoveChild { parent, child } => {
-                        ctx.remove_child(parent, child)
-                    }
-                    UpdateSceneMsg::SetStyleProp { surface, prop } => match prop {
-                        StyleProp::BorderRadius(border_radius) => {
-                            ctx.set_border_radius(surface, border_radius)
-                        }
-                        StyleProp::Overflow(overflow) => ctx.set_overflow(surface, overflow),
-                        StyleProp::Size(size) => ctx.set_size(surface, size),
-                        StyleProp::Flow(flow) => ctx.set_flow(surface, flow),
-                        StyleProp::Flex(flex) => ctx.set_flex(surface, flex),
-                        StyleProp::Padding(padding) => ctx.set_padding(surface, padding),
-                        StyleProp::Margin(margin) => ctx.set_margin(surface, margin),
-                        StyleProp::BoxShadow(box_shadow) => ctx.set_box_shadow(surface, box_shadow),
-                        StyleProp::BackgroundColor(color) => {
-                            ctx.set_background_color(surface, color)
-                        }
-                        StyleProp::Image(image) => ctx.set_image(surface, image),
-                        StyleProp::Text(text) => ctx.set_text(surface, text),
-                        StyleProp::Border(border) => ctx.set_border(surface, border),
-                    },
-                }
-            }
-
-            window.render();
+            app.update_window_scene(window, &msgs);
             FfiResult::Nothing
         }
     }

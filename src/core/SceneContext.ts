@@ -22,19 +22,14 @@ export class SceneContext {
     return this.nextId++
   }
 
-  appendChild(parent, child) {
-    this.sceneMsgs.push(U.AppendChild({ parent, child }))
+  insertAt(parent, child, index) {
+    this.sceneMsgs.push(U.InsertAt({ parent, child, index }))
     this.parents[child] = parent
   }
 
   removeChild(parent, child) {
     this.sceneMsgs.push(U.RemoveChild({ parent, child }))
     this.parents[child] = 0
-  }
-
-  insertBefore(parent, child, before) {
-    this.sceneMsgs.push(U.InsertBefore({ parent, child, before }))
-    this.parents[child] = parent
   }
 
   setStyleProp(surface, prop: StyleProp) {
