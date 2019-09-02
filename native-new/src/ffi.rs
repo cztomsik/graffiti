@@ -7,8 +7,6 @@ static mut APP: Option<TheApp> = None;
 
 #[no_mangle]
 pub extern "C" fn init() {
-    env_logger::init();
-
     unsafe { APP = Some(TheApp::init()) }
 }
 
@@ -26,7 +24,7 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
     let msg = unsafe { std::slice::from_raw_parts(data, len as usize) };
     let msg: FfiMsg = deserialize(msg).expect("invalid message"); // serde_json::from_slice(msg).expect("invalid message");
 
-    debug!("Msg {:#?}", &msg);
+    silly!("Msg {:#?}", &msg);
 
     // try to handle the message
     let maybe_err = std::panic::catch_unwind(|| unsafe {

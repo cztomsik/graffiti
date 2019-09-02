@@ -27,7 +27,7 @@ export function diffStyle(newStyle, prevStyle): StyleProp[] {
     }
   }
 
-  return Array.from(damage).map(type => resolvers[type](newStyle))
+  return Array.from(damage).map(type => resolvers[type as any](newStyle))
 
   function mark(prop) {
     damage.add(propDamage(prop))

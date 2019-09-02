@@ -1,8 +1,7 @@
 use crate::generated::{Event, WindowEvent, WindowId, UpdateSceneMsg};
-use crate::render::WebrenderRenderer;
+use crate::render::Renderer;
 use crate::window::Window;
-use crate::layout::{YogaLayout, StretchLayout};
-use gleam::gl::GlFns;
+use crate::layout::StretchLayout;
 use glfw::{Context, Glfw};
 use std::collections::BTreeMap;
 use std::sync::mpsc::Receiver;
@@ -16,7 +15,7 @@ pub struct TheApp {
 
 impl TheApp {
     pub fn init() -> Self {
-        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("could not init GLFW");
+        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("init GLFW");
 
         glfw.window_hint(glfw::WindowHint::ContextVersion(3, 2));
         glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
@@ -104,11 +103,10 @@ impl TheApp {
         glfw_window.set_all_polling(true);
 
         let id = self.next_window_id;
-        let gl = unsafe { GlFns::load_with(|addr| glfw_window.get_proc_address(addr)) };
+        gl::load_with(|addr| glfw_window.get_proc_address(addr));
         // TODO: dpi
-        let renderer = Box::new(WebrenderRenderer::new(gl, (width as i32, height as i32)));
-        let layout = Box::new(YogaLayout::new((width as f32, height as f32)));
-        //let layout = Box::new(StretchLayout::new((width as f32, height as f32)));
+        let renderer = Renderer::new();
+        let layout = Box::new(StretchLayout::new((width as f32, height as f32)));
         let text_layout = Box::new(SimpleTextLayout::new());
         let window = Window::new(renderer, layout, text_layout);
 

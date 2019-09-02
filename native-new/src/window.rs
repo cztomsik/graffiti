@@ -2,17 +2,18 @@ use crate::generated::{SurfaceId, UpdateSceneMsg, WindowEvent};
 use crate::render::Renderer;
 use crate::layout::Layout;
 use crate::text::TextLayout;
+use crate::SceneListener;
 
 pub struct Window {
     mouse_pos: (f32, f32),
 
-    renderer: Box<dyn Renderer>,
+    renderer: Renderer,
     layout: Box<dyn Layout>,
     text_layout: Box<dyn TextLayout>
 }
 
 impl Window {
-    pub fn new(renderer: Box<dyn Renderer>, layout: Box<dyn Layout>, text_layout: Box<dyn TextLayout>) -> Self {
+    pub fn new(renderer: Renderer, layout: Box<dyn Layout>, text_layout: Box<dyn TextLayout>) -> Self {
         Window {
             mouse_pos: (0., 0.),
             renderer,

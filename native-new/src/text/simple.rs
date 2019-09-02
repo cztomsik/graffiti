@@ -111,7 +111,7 @@ impl SimpleTextLayout {
             initial_width: size.0
         };
 
-        debug!("{:#?} {:#?}", &meta, &glyphs);
+        silly!("{:#?} {:#?}", &meta, &glyphs);
 
         (meta, glyphs)
     }
