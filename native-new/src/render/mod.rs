@@ -170,7 +170,7 @@ impl <'a> RenderContext<'a> {
         let mut rect = self.layout.get_rect(id);
 
         rect.0 += (parent_bounds.0).0;
-        rect.0 += (parent_bounds.0).1;
+        rect.1 += (parent_bounds.0).1;
         self.bounds = rect.into();
 
         if let Some(box_shadow) = self.scene.box_shadows.get(&id) {
@@ -226,10 +226,13 @@ impl <'a> RenderContext<'a> {
     fn draw_text(&mut self, text: &Text, glyphs: &[Glyph]) {
         // TODO: should be uniform
         let origin = self.bounds.0;
+
+        debug!("text {:?} {:?}", &origin, &text.text);
+
         let Pos(start_x, start_y) = origin;
 
         for Glyph { x, y, glyph_id: _ } in glyphs {
-            self.frame.push_rect((Pos(start_x + x, start_y + y), Pos(start_x + x + 10., start_y + y + 10.)), &text.color);
+            self.frame.push_rect((Pos(start_x + x, start_y + y), Pos(start_x + x + 8., start_y + y + 10.)), &text.color);
         }
     }
 
@@ -346,8 +349,8 @@ impl Frame {
     }
 
     unsafe fn upload(&mut self) {
-        debug!("upload {:?}", &self.opaque_quads.data);
-        debug!("upload {:?}", &self.opaque_indices.data);
+        silly!("upload {:?}", &self.opaque_quads.data);
+        silly!("upload {:?}", &self.opaque_indices.data);
 
         self.opaque_quads.upload_to(gl::ARRAY_BUFFER);
         self.opaque_indices.upload_to(gl::ELEMENT_ARRAY_BUFFER);
@@ -416,7 +419,7 @@ const RECT_VS: &str = r#"
 
   void main() {
     // TODO: uniforms
-    vec2 size = vec2(800., 600.);
+    vec2 size = vec2(1024., 768.);
     vec2 xy = (a_pos / (size / 2.)) - 1.;
     xy.y *= -1.;
 
