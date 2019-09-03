@@ -1,7 +1,7 @@
 use crate::generated::{Event, WindowEvent, WindowId, UpdateSceneMsg};
 use crate::render::Renderer;
 use crate::window::Window;
-use crate::layout::StretchLayout;
+use crate::layout::{YogaLayout, StretchLayout};
 use glfw::{Context, Glfw};
 use std::collections::BTreeMap;
 use std::sync::mpsc::Receiver;
@@ -106,7 +106,8 @@ impl TheApp {
         gl::load_with(|addr| glfw_window.get_proc_address(addr));
         // TODO: dpi
         let renderer = Renderer::new();
-        let layout = Box::new(StretchLayout::new((width as f32, height as f32)));
+        let layout = Box::new(YogaLayout::new((width as f32, height as f32)));
+        //let layout = Box::new(StretchLayout::new((width as f32, height as f32)));
         let text_layout = Box::new(SimpleTextLayout::new());
         let window = Window::new(renderer, layout, text_layout);
 
