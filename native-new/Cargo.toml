@@ -1,12 +1,12 @@
 [package]
 edition = "2018"
-name = "node-webrender"
+name = "graffiti"
 version = "0.1.0"
 authors = ["Kamil Tomšík <info@tomsik.cz>"]
 license = "MIT"
 
 [lib]
-name = "node_webrender"
+name = "graffiti"
 crate-type = ["cdylib"]
 
 [dependencies]
