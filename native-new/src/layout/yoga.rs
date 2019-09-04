@@ -1,5 +1,3 @@
-#[cfg(test)]
-use ordered_float::OrderedFloat;
 use std::f32;
 use yoga::{
     Align, Context, Direction, FlexDirection as YogaFlexDirection, FlexStyle, MeasureMode,

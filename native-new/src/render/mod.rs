@@ -103,6 +103,8 @@ impl Renderer {
 
     fn render_frame(&mut self, frame: &mut Frame) {
         unsafe {
+            // TODO: opaque rect in bg (last item) might have been faster
+            // clear needs to fill all pixels, bg rect fills only what's left
             gl::ClearColor(1.0, 1.0, 1.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
@@ -135,12 +137,13 @@ impl Renderer {
             gl::DrawElements(gl::TRIANGLES, frame.opaque_indices.data.len() as i32, gl::UNSIGNED_SHORT, std::ptr::null());
             check();
 
-            /*
             // setup for alpha (depth, alpha, buffers)
             gl::Disable(gl::DEPTH_TEST);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             gl::BlendEquation(gl::FUNC_ADD);
+
+            /*
             self.mixed_quads.bind_to(gl::ARRAY_BUFFER);
             self.alpha_indices.bind_to(gl::ELEMENT_ARRAY_BUFFER);
 
@@ -492,62 +495,21 @@ unsafe fn check() {
     }
 }
 
-// from gleam
-fn get_shader_info_log(shader: GLuint) -> String {
-    let mut max_len = [0];
-    unsafe {
-        get_shader_iv(shader, gl::INFO_LOG_LENGTH, &mut max_len);
-    }
-    if max_len[0] == 0 {
-        return String::new();
-    }
-    let mut result = vec![0u8; max_len[0] as usize];
-    let mut result_len = 0 as GLsizei;
-    unsafe {
-        gl::GetShaderInfoLog(
-            shader,
-            max_len[0] as GLsizei,
-            &mut result_len,
-            result.as_mut_ptr() as *mut GLchar,
-        );
-    }
-    result.truncate(if result_len > 0 {
-        result_len as usize
-    } else {
-        0
-    });
-    String::from_utf8(result).unwrap()
+unsafe fn get_shader_info_log(shader: GLuint) -> String {
+    let mut len = 0;
+    gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
+
+    let mut buf = vec![0i8; len as usize];
+    gl::GetShaderInfoLog(shader, len, ptr::null_mut(), buf.as_mut_ptr());
+    buf.set_len(len as usize);
+    String::from_utf8_unchecked(mem::transmute(buf))
 }
-unsafe fn get_shader_iv(shader: GLuint, pname: GLenum, result: &mut [GLint]) {
-    assert!(!result.is_empty());
-    gl::GetShaderiv(shader, pname, result.as_mut_ptr());
-}
-fn get_program_info_log(program: GLuint) -> String {
-    let mut max_len = [0];
-    unsafe {
-        get_program_iv(program, gl::INFO_LOG_LENGTH, &mut max_len);
-    }
-    if max_len[0] == 0 {
-        return String::new();
-    }
-    let mut result = vec![0u8; max_len[0] as usize];
-    let mut result_len = 0 as GLsizei;
-    unsafe {
-        gl::GetProgramInfoLog(
-            program,
-            max_len[0] as GLsizei,
-            &mut result_len,
-            result.as_mut_ptr() as *mut GLchar,
-        );
-    }
-    result.truncate(if result_len > 0 {
-        result_len as usize
-    } else {
-        0
-    });
-    String::from_utf8(result).unwrap()
-}
-unsafe fn get_program_iv(program: GLuint, pname: GLenum, result: &mut [GLint]) {
-    assert!(!result.is_empty());
-    gl::GetProgramiv(program, pname, result.as_mut_ptr());
+
+unsafe fn get_program_info_log(program: GLuint) -> String {
+    let mut len = 0;
+    gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
+
+    let mut buf = vec![0i8; len as usize];
+    gl::GetProgramInfoLog(program, len, ptr::null_mut(), buf.as_mut_ptr());
+    String::from_utf8_unchecked(mem::transmute(buf))
 }
