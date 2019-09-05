@@ -1,22 +1,34 @@
-use crate::text::{TextLayout, Glyph};
-use font_kit::source::SystemSource;
-use crate::SceneListener;
-use crate::generated::{UpdateSceneMsg, StyleProp, SurfaceId, Text};
 use std::collections::BTreeMap;
+use crate::generated::{UpdateSceneMsg, StyleProp, SurfaceId, Text};
 
-pub struct SimpleTextLayout {
+/// Text layout algo
+///
+/// Should lay glyphs on each `Text` change without any wrapping
+/// because in a lot of cases it will be enough
+///
+/// The box layout should call `measure_text` during its `calculate`
+/// which in turn should call `wrap` if it`s needed.
+pub struct TextLayout {
     font: font_kit::font::Font,
     metas: BTreeMap<SurfaceId, Meta>,
-    glyphs: BTreeMap<SurfaceId, Vec<Glyph>>
+    glyphs: BTreeMap<SurfaceId, Vec<GlyphInstance>>
 }
 
-#[derive(Debug)]
-pub struct Meta {
-    size: (f32, f32),
-    initial_width: f32,
-}
+impl TextLayout {
+    pub fn new() -> Self {
+        let font = SystemSource::new()
+            .select_by_postscript_name("ArialMT")
+            .unwrap()
+            .load()
+            .unwrap();
 
-impl SceneListener for SimpleTextLayout {
+        TextLayout {
+            font,
+            metas: BTreeMap::new(),
+            glyphs: BTreeMap::new()
+        }
+    }
+
     fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
         for m in msgs {
             match m {
@@ -36,36 +48,6 @@ impl SceneListener for SimpleTextLayout {
                 },
                 _ => {}
             }
-        }
-    }
-}
-
-impl TextLayout for SimpleTextLayout {
-    fn wrap(&mut self, surface: SurfaceId, max_width: Option<f32>) {
-        // TODO
-    }
-
-    fn get_size(&self, surface: SurfaceId) -> (f32, f32) {
-        self.metas.get(&surface).expect("not a text").size
-    }
-
-    fn get_glyphs(&self, surface: SurfaceId) -> &[Glyph] {
-        self.glyphs.get(&surface).expect("not a text")
-    }
-}
-
-impl SimpleTextLayout {
-    pub fn new() -> Self {
-        let font = SystemSource::new()
-            .select_by_postscript_name("ArialMT")
-            .unwrap()
-            .load()
-            .unwrap();
-
-        SimpleTextLayout {
-            font,
-            metas: BTreeMap::new(),
-            glyphs: BTreeMap::new()
         }
     }
 
@@ -89,7 +71,7 @@ impl SimpleTextLayout {
                 Err(_e) => (0., 0.)
             };
 
-            let glyph = Glyph {
+            let glyph = GlyphInstance {
                 glyph_id,
                 x,
                 y,
@@ -115,17 +97,58 @@ impl SimpleTextLayout {
 
         (meta, glyphs)
     }
+
+    /// Wrap/reflow existing text layout to a new max_width
+    /// should skip if the `max_width` is `None` or bigger than current width
+    ///
+    /// Expected to be called during measure.
+    /// If the `Text` is changed wrapping is reset but
+    /// the box layout should again call measure which should again
+    /// call the `wrap` so it should be fine (if the wrap is necessary at all)
+    fn wrap(&mut self, surface: SurfaceId, max_width: Option<f32>) {
+        // TODO
+    }
+
+    fn get_size(&self, surface: SurfaceId) -> (f32, f32) {
+        self.metas.get(&surface).expect("not a text").size
+    }
+
+    fn get_glyphs(&self, surface: SurfaceId) -> &[Glyph] {
+        self.glyphs.get(&surface).expect("not a text")
+    }
+
+    // other expected use-cases (not necessarily the sole responsibility of this but related)
+    // - get word boundaries at (x, y) to select word
+    // - get selection boundaries from (x, y) to (x, y) during selection
+    // - set cursor closest to (x, y)
+    // - move cursor with keyboard arrows, respecting wrapping
+    // - select next word
+
+}
+
+#[derive(Debug)]
+pub struct GlyphInstance {
+    pub glyph_id: u32,
+    pub x: f32,
+    pub y: f32,
+}
+
+use font_kit::source::SystemSource;
+
+#[derive(Debug)]
+pub struct Meta {
+    size: (f32, f32),
+    initial_width: f32,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::SimpleTextLayout;
-    use crate::SceneListener;
+    use super::TextLayout;
     use crate::generated::{UpdateSceneMsg, StyleProp, Text, Color, TextAlign};
 
     #[test]
     fn test_new() {
-        let mut text_layout = SimpleTextLayout::new();
+        let mut text_layout = TextLayout::new();
 
         text_layout.update_scene(&[
             UpdateSceneMsg::SetStyleProp {

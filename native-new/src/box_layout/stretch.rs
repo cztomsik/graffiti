@@ -1,6 +1,5 @@
 use crate::generated::{SurfaceId, Rect, UpdateSceneMsg, Size, Dimension, StyleProp, FlexAlign, JustifyContent, FlexDirection, FlexWrap, Dimensions};
-use crate::layout::Layout;
-use crate::SceneListener;
+use crate::box_layout::BoxLayout;
 use stretch::geometry::{Size as StretchSize, Rect as StretchRect};
 use stretch::Stretch;
 use stretch::node::Node;
@@ -132,7 +131,7 @@ impl SceneListener for StretchLayout {
     }
 }
 
-impl Layout for StretchLayout {
+impl BoxLayout for StretchLayout {
     fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)) {
         self.measure_text_holder = Some(unsafe { std::mem::transmute(measure_text) });
         self.stretch.compute_layout(self.nodes[0], StretchSize::undefined()).expect("couldnt compute layout");
@@ -141,10 +140,6 @@ impl Layout for StretchLayout {
 
     fn get_rect(&self, surface: SurfaceId) -> Rect {
         self.stretch.layout(self.nodes[surface]).expect("no layout").into()
-    }
-
-    fn get_scroll_frame(&self, surface: SurfaceId) -> Option<(f32, f32)> {
-        None
     }
 }
 

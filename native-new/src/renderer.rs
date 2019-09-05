@@ -1,9 +1,9 @@
+use crate::commons::{Pos, Bounds};
 use std::collections::BTreeMap;
-use crate::SceneListener;
 use crate::generated::{SurfaceId, UpdateSceneMsg, StyleProp, BoxShadow, Color, Image, Text, Border, Rect, BorderRadius};
-use crate::helpers::Storage;
-use crate::layout::Layout;
-use crate::text::{TextLayout, Glyph};
+use crate::util::Storage;
+use crate::box_layout::BoxLayout;
+use crate::text_layout::{TextLayout, GlyphInstance};
 
 pub struct Renderer {
     rect_program: u32,
@@ -19,27 +19,6 @@ struct Scene {
     texts: BTreeMap<SurfaceId, Text>,
     borders: BTreeMap<SurfaceId, Border>,
     children: Vec<Vec<SurfaceId>>
-}
-
-impl SceneListener for Renderer {
-    fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
-        for m in msgs.iter().cloned() {
-            match m {
-                UpdateSceneMsg::Alloc => self.scene.children.push(Vec::new()),
-                UpdateSceneMsg::InsertAt { parent, child, index } => self.scene.children[parent].insert(index, child),
-                UpdateSceneMsg::RemoveChild { parent, child } => self.scene.children[parent].retain(|ch| *ch != child),
-                UpdateSceneMsg::SetStyleProp { surface, prop } => match prop {
-                    StyleProp::BorderRadius(r) => self.scene.border_radii.set(surface, r),
-                    StyleProp::BoxShadow(s) => self.scene.box_shadows.set(surface, s),
-                    StyleProp::BackgroundColor(c) => self.scene.background_colors.set(surface, c),
-                    StyleProp::Image(i) => self.scene.images.set(surface, i),
-                    StyleProp::Text(t) => self.scene.texts.set(surface, t),
-                    StyleProp::Border(b) => self.scene.borders.set(surface, b),
-                    _ => {}
-                }
-            }
-        }
-    }
 }
 
 impl Renderer {
@@ -64,11 +43,30 @@ impl Renderer {
                     borders: BTreeMap::new(),
                     children: vec![vec![]]
                 }
-            }            
+            }
         }
     }
 
-    pub fn render(&mut self, layout: &dyn Layout, text_layout: &dyn TextLayout) {
+    fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
+        for m in msgs.iter().cloned() {
+            match m {
+                UpdateSceneMsg::Alloc => self.scene.children.push(Vec::new()),
+                UpdateSceneMsg::InsertAt { parent, child, index } => self.scene.children[parent].insert(index, child),
+                UpdateSceneMsg::RemoveChild { parent, child } => self.scene.children[parent].retain(|ch| *ch != child),
+                UpdateSceneMsg::SetStyleProp { surface, prop } => match prop {
+                    StyleProp::BorderRadius(r) => self.scene.border_radii.set(surface, r),
+                    StyleProp::BoxShadow(s) => self.scene.box_shadows.set(surface, s),
+                    StyleProp::BackgroundColor(c) => self.scene.background_colors.set(surface, c),
+                    StyleProp::Image(i) => self.scene.images.set(surface, i),
+                    StyleProp::Text(t) => self.scene.texts.set(surface, t),
+                    StyleProp::Border(b) => self.scene.borders.set(surface, b),
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    pub fn render(&mut self, layout: &dyn BoxLayout, text_layout: TextLayout) {
         debug!("render");
 
         let mut frame = Frame::new();
@@ -88,11 +86,6 @@ impl Renderer {
         context.draw_surface(surface);
 
         self.render_frame(&mut frame);
-    }
-
-    pub fn hit_test(&self, _pos: (f32, f32)) -> SurfaceId {
-      // TODO
-      0
     }
 
     pub fn scroll(&mut self, _pos: (f32, f32), _delta: (f32, f32)) {
@@ -156,8 +149,8 @@ impl Renderer {
 }
 
 struct RenderContext<'a> {
-    layout: &'a dyn Layout,
-    text_layout: &'a dyn TextLayout,
+    layout: &'a dyn BoxLayout,
+    text_layout: &'a TextLayout,
     scene: &'a Scene,
 
     // TODO: clip
@@ -192,11 +185,6 @@ impl <'a> RenderContext<'a> {
             self.draw_text(text, self.text_layout.get_glyphs(id));
         }
 
-        // TODO: scroll
-        if let Some((width, height)) = self.layout.get_scroll_frame(id) {
-            debug!("scroll_frame {:?}", (&width, &height, &self.bounds));
-        }
-
         // TODO: try to avoid recursion?
         for c in &self.scene.children[id] {
             self.draw_surface(*c);
@@ -226,16 +214,16 @@ impl <'a> RenderContext<'a> {
     }
 
     // TODO: create_text() -> TextId & Batch::Text(text_id)
-    fn draw_text(&mut self, text: &Text, glyphs: &[Glyph]) {
+    fn draw_text(&mut self, text: &Text, glyphs: &[GlyphInstance]) {
         // TODO: should be uniform
         let origin = self.bounds.0;
 
         debug!("text {:?} {:?}", &origin, &text.text);
 
-        let Pos(start_x, start_y) = origin;
+        let Pos { x: start_x, y: start_y } = origin;
 
-        for Glyph { x, y, glyph_id: _ } in glyphs {
-            self.frame.push_rect((Pos(start_x + x, start_y + y), Pos(start_x + x + 8., start_y + y + 10.)), &text.color);
+        for GlyphInstance { x, y, glyph_id: _ } in glyphs {
+            self.frame.push_rect((Pos { x: start_x + x, y: start_y + y }, Pos { x: start_x + x + 8., y: start_y + y + 10. }), &text.color);
         }
     }
 
@@ -248,37 +236,18 @@ impl <'a> RenderContext<'a> {
 impl Copy for Rect {}
 impl Copy for Color {}
 
-impl Into<(Pos, Pos)> for Rect {
-    fn into(self) -> (Pos, Pos) {
-        let Rect(x, y, w, h) = self;
-
-        (Pos(x, y), Pos(x + w, y + h))
-    }
-}
-
-
-
-
 // low-level stuff, merged (and improved) from PoC in cztomsiK/new-hope
 use std::mem;
 use std::ptr;
 use std::ffi::CString;
 use gl::types::*;
 
-/// Application unit (or something similar, unit of measure)
-/// TODO(later): Integer type could save some CPU & memory
-type Au = f32;
-
-/// 2D Point
-#[derive(Clone, Copy, Debug)]
-pub struct Pos(pub Au, pub Au);
-
 /// Everything what's rendered, is quad-based, it's easier to imagine then
 #[derive(Debug)]
 struct Quad<T>([Vertex<T>; 4]);
 
 impl <T: Copy> Quad<T> {
-    fn new(a: Pos, b: Pos, data: T) -> Self {
+    fn new(Bounds { a, b }: Bounds, data: T) -> Self {
         Self([
             Vertex(a, data),
             Vertex(Pos(b.0, a.1), data),
@@ -306,7 +275,7 @@ struct Frame {
     opaque_indices: Buffer<VertexIndex>,
 
     // the rest has to be drawn in alpha and so it has to be interleaved in multiple batches
-    // but at least we can put everything into one vertex buffer & index buffer 
+    // but at least we can put everything into one vertex buffer & index buffer
     mixed_quads: Buffer<u8>,
     alpha_indices: Buffer<VertexIndex>,
 
@@ -402,7 +371,7 @@ impl <T> Buffer<T> {
             (self.data.len() * mem::size_of::<T>()) as isize,
             mem::transmute(&self.data[0]),
             gl::STATIC_DRAW
-        );        
+        );
     }
 }
 

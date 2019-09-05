@@ -1,3 +1,5 @@
+// various helpers to make life a bit easier
+
 use std::collections::BTreeMap;
 use crate::generated::Color;
 
