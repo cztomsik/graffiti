@@ -2,23 +2,25 @@ use crate::commons::{Pos, Bounds};
 use std::collections::BTreeMap;
 use crate::generated::{SurfaceId, UpdateSceneMsg, StyleProp, BoxShadow, Color, Image, Text, Border, Rect, BorderRadius};
 use crate::util::Storage;
-use crate::box_layout::BoxLayout;
+
 use crate::text_layout::{TextLayout, GlyphInstance};
 
 pub struct Renderer {
     rect_program: u32,
 
-    scene: Scene
+    pub scene: Scene
 }
 
-struct Scene {
+pub struct Scene {
     border_radii: BTreeMap<SurfaceId, BorderRadius>,
     box_shadows: BTreeMap<SurfaceId, BoxShadow>,
     background_colors: BTreeMap<SurfaceId, Color>,
     images: BTreeMap<SurfaceId, Image>,
     texts: BTreeMap<SurfaceId, Text>,
     borders: BTreeMap<SurfaceId, Border>,
-    children: Vec<Vec<SurfaceId>>
+
+    // TODO: move somewhere else
+    pub children: Vec<Vec<SurfaceId>>
 }
 
 impl Renderer {
@@ -47,7 +49,7 @@ impl Renderer {
         }
     }
 
-    fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
+    pub fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
         for m in msgs.iter().cloned() {
             match m {
                 UpdateSceneMsg::Alloc => self.scene.children.push(Vec::new()),
@@ -66,29 +68,31 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self, layout: &dyn BoxLayout, text_layout: TextLayout) {
+    pub fn render(&mut self, all_bounds: &[Bounds], text_layout: &TextLayout) {
         debug!("render");
 
         let mut frame = Frame::new();
 
-        let surface = 0;
+        let root = 0;
+
+        let bounds = all_bounds[root];
 
         let mut context = RenderContext {
-            layout,
             text_layout,
 
             scene: &self.scene,
-            bounds: layout.get_rect(surface).into(),
+            all_bounds,
+            bounds,
 
             frame: &mut frame
         };
 
-        context.draw_surface(surface);
+        context.draw_surface(root);
 
         self.render_frame(&mut frame);
     }
 
-    pub fn scroll(&mut self, _pos: (f32, f32), _delta: (f32, f32)) {
+    pub fn scroll(&mut self, _pos: Pos, _delta: (f32, f32)) {
       // TODO
     }
 
@@ -149,12 +153,12 @@ impl Renderer {
 }
 
 struct RenderContext<'a> {
-    layout: &'a dyn BoxLayout,
     text_layout: &'a TextLayout,
     scene: &'a Scene,
+    all_bounds: &'a[Bounds],
 
     // TODO: clip
-    bounds: (Pos, Pos),
+    bounds: Bounds,
 
     frame: &'a mut Frame
 }
@@ -163,11 +167,9 @@ impl <'a> RenderContext<'a> {
     // TODO: bitflags
     fn draw_surface(&mut self, id: SurfaceId) {
         let parent_bounds = self.bounds;
-        let mut rect = self.layout.get_rect(id);
 
-        rect.0 += (parent_bounds.0).0;
-        rect.1 += (parent_bounds.0).1;
-        self.bounds = rect.into();
+        // TODO: maybe layout should do this too and provide bounds in absolute coords
+        self.bounds = self.all_bounds[id].relative_to(parent_bounds.a);
 
         if let Some(box_shadow) = self.scene.box_shadows.get(&id) {
             self.draw_box_shadow(box_shadow);
@@ -216,14 +218,17 @@ impl <'a> RenderContext<'a> {
     // TODO: create_text() -> TextId & Batch::Text(text_id)
     fn draw_text(&mut self, text: &Text, glyphs: &[GlyphInstance]) {
         // TODO: should be uniform
-        let origin = self.bounds.0;
+        let origin = self.bounds.a;
 
         debug!("text {:?} {:?}", &origin, &text.text);
 
         let Pos { x: start_x, y: start_y } = origin;
 
         for GlyphInstance { x, y, glyph_id: _ } in glyphs {
-            self.frame.push_rect((Pos { x: start_x + x, y: start_y + y }, Pos { x: start_x + x + 8., y: start_y + y + 10. }), &text.color);
+            let a = Pos::new(start_x + x, start_y + y);
+            let b = Pos::new(start_x + x + 8., start_y + y + 10.);
+
+            self.frame.push_rect(Bounds { a, b }, &text.color);
         }
     }
 
@@ -250,8 +255,8 @@ impl <T: Copy> Quad<T> {
     fn new(Bounds { a, b }: Bounds, data: T) -> Self {
         Self([
             Vertex(a, data),
-            Vertex(Pos(b.0, a.1), data),
-            Vertex(Pos(a.0, b.1), data),
+            Vertex(Pos::new(b.x, a.y), data),
+            Vertex(Pos::new(a.x, b.y), data),
             Vertex(b, data),
         ])
     }
@@ -299,10 +304,10 @@ impl Frame {
         }
     }
 
-    fn push_rect(&mut self, (a, b): (Pos, Pos), color: &Color) {
+    fn push_rect(&mut self, bounds: Bounds, color: &Color) {
         // TODO: opaque/alpha branch
 
-        self.opaque_quads.push(Quad::new(a, b, *color));
+        self.opaque_quads.push(Quad::new(bounds, *color));
 
         let n = self.opaque_quads.data.len();
         let base = 4 * (n as VertexIndex);

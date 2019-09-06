@@ -1,4 +1,5 @@
-use crate::generated::{SurfaceId, Rect, UpdateSceneMsg, Size, Dimension, StyleProp, FlexAlign, JustifyContent, FlexDirection, FlexWrap, Dimensions};
+use crate::commons::{Pos, Bounds};
+use crate::generated::{SurfaceId, UpdateSceneMsg, Size, Dimension, StyleProp, FlexAlign, JustifyContent, FlexDirection, FlexWrap, Dimensions};
 use crate::box_layout::BoxLayout;
 use stretch::geometry::{Size as StretchSize, Rect as StretchRect};
 use stretch::Stretch;
@@ -10,6 +11,7 @@ use std::any::Any;
 pub struct StretchLayout {
     stretch: Stretch,
     nodes: Vec<Node>,
+    bounds: Vec<Bounds>,
     measure_text_holder: Option<&'static mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)>
 }
 
@@ -22,11 +24,12 @@ impl StretchLayout {
         stretch.set_style(root, Style {
             size: StretchSize { width: StretchDimension::Points(width), height: StretchDimension::Points(height) },
             ..Default::default()
-        });
+        }).expect("init root layout");
 
         StretchLayout {
             stretch,
             nodes: vec![root],
+            bounds: vec![Bounds::default()],
             measure_text_holder: None
         }
     }
@@ -46,17 +49,18 @@ impl StretchLayout {
 
         update_fn(&mut style);
 
-        self.stretch.set_style(self.nodes[surface], style);
+        self.stretch.set_style(self.nodes[surface], style).expect("update layout");
     }
 }
 
-impl SceneListener for StretchLayout {
+impl BoxLayout for StretchLayout {
     fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
         for m in msgs.iter().cloned() {
             match m {
                 UpdateSceneMsg::Alloc => {
                     let node = StretchLayout::new_node(&mut self.stretch);
                     self.nodes.push(node);
+                    self.bounds.push(Bounds::default());
                 },
                 // TODO: fork stretch & add insert_at()
                 UpdateSceneMsg::InsertAt { parent, child, index } => {
@@ -129,28 +133,29 @@ impl SceneListener for StretchLayout {
             }
         }
     }
-}
 
-impl BoxLayout for StretchLayout {
     fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)) {
         self.measure_text_holder = Some(unsafe { std::mem::transmute(measure_text) });
         self.stretch.compute_layout(self.nodes[0], StretchSize::undefined()).expect("couldnt compute layout");
         self.measure_text_holder = None;
+
+        // TODO: update only attached and display != none nodes
+        for i in 0..self.nodes.len() {
+            self.bounds[i] = self.stretch.layout(self.nodes[i]).expect("no layout").into()
+        }
     }
 
-    fn get_rect(&self, surface: SurfaceId) -> Rect {
-        self.stretch.layout(self.nodes[surface]).expect("no layout").into()
+    fn get_bounds(&self) -> &[Bounds] {
+        &self.bounds
     }
 }
 
-impl From<&stretch::result::Layout> for Rect {
-    fn from(layout: &stretch::result::Layout) -> Rect {
-        Rect(
-            layout.location.x,
-            layout.location.y,
-            layout.size.width,
-            layout.size.height,
-        )
+impl From<&stretch::result::Layout> for Bounds {
+    fn from(layout: &stretch::result::Layout) -> Bounds {
+        let a = Pos::new(layout.location.x, layout.location.y);
+        let b = Pos::new(layout.location.x + layout.size.width, layout.location.y + layout.size.height);
+
+        Bounds { a, b }
     }
 }
 

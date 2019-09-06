@@ -6,10 +6,6 @@ const Bench = () => {
   const LIMIT = 200
   const bench = useBench(LIMIT)
 
-  React.useEffect(() => {
-    setTimeout(() => bench.run(), 3000)
-  }, [])
-
   return (
     <View style={styles.ct}>
       <Text>

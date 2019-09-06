@@ -17,20 +17,31 @@ pub struct SurfacePicker {
 }
 
 impl SurfacePicker {
+    pub fn new() -> Self {
+        Self {}
+    }
+
     // TODO: display: none
     // TODO: scroll
     // TODO: clip
-    pub fn pick_at(&self, pos: Pos, children: &[&[SurfaceId]], bounds: &[Bounds]) -> SurfaceId {
-        let result = 0;
-        let parent = 0;
+    pub fn pick_at(&self, pos: Pos, children: &Vec<Vec<SurfaceId>>, bounds: &[Bounds]) -> SurfaceId {
+        let mut parent = 0;
+        let mut continue_down;
 
-        // TODO: if the next child matches too we could skip going down
-        for c in children[parent] {
-            if bounds[*c].contains(pos) {
-                result = c;
+        // go down (starting from root) through each matching surface and return the last & deepest one
+        loop {
+            continue_down = false;
+
+            for c in &children[parent] {
+                if bounds[*c].contains(pos) {
+                    parent = *c;
+                    continue_down = true;
+                }
+            }
+
+            if !continue_down {
+                return parent
             }
         }
-
-        result
     }
 }

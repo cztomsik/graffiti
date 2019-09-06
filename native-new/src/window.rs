@@ -16,9 +16,9 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(width: i32, height: i32) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         Window {
-            mouse_pos: (0., 0.),
+            mouse_pos: Pos::default(),
 
             box_layout: Box::new(StretchLayout::new((width as f32, height as f32))),
             text_layout: TextLayout::new(),
@@ -28,16 +28,16 @@ impl Window {
         }
     }
 
-    pub fn mouse_move(&mut self, pos: (f32, f32)) -> WindowEvent {
+    pub fn mouse_move(&mut self, pos: Pos) -> WindowEvent {
         self.mouse_pos = pos;
 
         WindowEvent::MouseMove {
-            target: self.hovered_surface(),
+            target: self.get_mouse_target(),
         }
     }
 
     pub fn scroll(&mut self, delta: (f32, f32)) -> WindowEvent {
-        let target = self.hovered_surface();
+        let target = self.get_mouse_target();
 
         self.renderer.scroll(self.mouse_pos, delta);
 
@@ -46,33 +46,33 @@ impl Window {
 
     pub fn mouse_down(&mut self) -> WindowEvent {
         WindowEvent::MouseDown {
-            target: self.hovered_surface(),
+            target: self.get_mouse_target(),
         }
     }
 
     pub fn mouse_up(&mut self) -> WindowEvent {
         WindowEvent::MouseUp {
-            target: self.hovered_surface(),
+            target: self.get_mouse_target(),
         }
     }
 
     pub fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
         self.text_layout.update_scene(msgs);
-        self.layout.update_scene(msgs);
+        self.box_layout.update_scene(msgs);
         self.renderer.update_scene(msgs);
 
         let text_layout = &mut self.text_layout;
 
-        self.layout.calculate(&mut |surface, max_width| {
+        self.box_layout.calculate(&mut |surface, max_width| {
             text_layout.wrap(surface, max_width);
 
             text_layout.get_size(surface)
         });
 
-        self.renderer.render(&*self.layout, &*self.text_layout);
+        self.renderer.render(&self.box_layout.get_bounds(), &self.text_layout);
     }
 
-    fn hovered_surface(&self) -> SurfaceId {
-        self.picker.pick_at(self.mouse_pos, &self.layout.get_bounds())
+    fn get_mouse_target(&self) -> SurfaceId {
+        self.picker.pick_at(self.mouse_pos, &self.renderer.scene.children, &self.box_layout.get_bounds())
     }
 }

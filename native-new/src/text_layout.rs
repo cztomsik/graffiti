@@ -29,7 +29,7 @@ impl TextLayout {
         }
     }
 
-    fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
+    pub fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
         for m in msgs {
             match m {
                 UpdateSceneMsg::SetStyleProp { surface, prop: StyleProp::Text(t) } => {
@@ -51,7 +51,7 @@ impl TextLayout {
         }
     }
 
-    fn layout_text(&self, text: &Text) -> (Meta, Vec<Glyph>) {
+    fn layout_text(&self, text: &Text) -> (Meta, Vec<GlyphInstance>) {
         let mut size = (0., text.line_height);
         let mut x = 0.;
         let mut y = 0.;
@@ -105,15 +105,15 @@ impl TextLayout {
     /// If the `Text` is changed wrapping is reset but
     /// the box layout should again call measure which should again
     /// call the `wrap` so it should be fine (if the wrap is necessary at all)
-    fn wrap(&mut self, surface: SurfaceId, max_width: Option<f32>) {
+    pub fn wrap(&mut self, _surface: SurfaceId, _max_width: Option<f32>) {
         // TODO
     }
 
-    fn get_size(&self, surface: SurfaceId) -> (f32, f32) {
+    pub fn get_size(&self, surface: SurfaceId) -> (f32, f32) {
         self.metas.get(&surface).expect("not a text").size
     }
 
-    fn get_glyphs(&self, surface: SurfaceId) -> &[Glyph] {
+    pub fn get_glyphs(&self, surface: SurfaceId) -> &[GlyphInstance] {
         self.glyphs.get(&surface).expect("not a text")
     }
 
