@@ -1,6 +1,6 @@
 use crate::commons::{Pos, Bounds};
 use std::collections::BTreeMap;
-use crate::generated::{SurfaceId, UpdateSceneMsg, StyleProp, BoxShadow, Color, Image, Text, Border, Rect, BorderRadius};
+use crate::generated::{SurfaceId, UpdateSceneMsg, StyleProp, BoxShadow, Color, Image, Text, Border, BorderRadius};
 use crate::util::Storage;
 
 use crate::text_layout::{TextLayout, GlyphInstance};
@@ -96,7 +96,11 @@ impl Renderer {
       // TODO
     }
 
-    // fn create_text() -> TextId {}
+    /*
+    fn create_text() -> TextId {
+
+    }
+    */
 
     fn render_frame(&mut self, frame: &mut Frame) {
         unsafe {
@@ -232,13 +236,30 @@ impl <'a> RenderContext<'a> {
         }
     }
 
-    fn draw_border(&mut self, _border: &Border) {
-        // TODO
-        //self.frame.push_rect(self.bounds, &Color(0, 0, 0, 255));
+    fn draw_border(&mut self, Border { top, right, left, bottom }: &Border) {
+        // TODO: BorderRadius
+        // TODO: width > 0. & style != None
+
+        // TODO: rethink this
+        let mut right_bounds = self.bounds;
+        right_bounds.a.x = self.bounds.b.x - right.width;
+
+        let mut bottom_bounds = self.bounds;
+        bottom_bounds.a.y = self.bounds.b.y - bottom.width;
+
+        let mut left_bounds = self.bounds;
+        left_bounds.b.x = self.bounds.a.x + left.width;
+
+        let mut top_bounds = self.bounds;
+        top_bounds.b.y = self.bounds.a.y + top.width;
+
+        self.frame.push_rect(top_bounds, &top.color);
+        self.frame.push_rect(right_bounds, &right.color);
+        self.frame.push_rect(bottom_bounds, &bottom.color);
+        self.frame.push_rect(left_bounds, &left.color);
     }
 }
 
-impl Copy for Rect {}
 impl Copy for Color {}
 
 // low-level stuff, merged (and improved) from PoC in cztomsiK/new-hope
