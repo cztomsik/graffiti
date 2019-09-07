@@ -28,12 +28,16 @@ impl SurfacePicker {
         let mut parent = 0;
         let mut continue_down;
 
+        // TODO: because bounds are not absolute
+        let mut offset = Pos::default();
+
         // go down (starting from root) through each matching surface and return the last & deepest one
         loop {
             continue_down = false;
+            offset = bounds[parent].a.relative_to(offset);
 
             for c in &children[parent] {
-                if bounds[*c].contains(pos) {
+                if bounds[*c].relative_to(offset).contains(pos) {
                     parent = *c;
                     continue_down = true;
                 }

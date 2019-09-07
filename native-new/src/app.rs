@@ -55,14 +55,14 @@ impl TheApp {
             .collect()
     }
 
-    fn handle_window_event(window: &mut Window, glfw_window: &mut glfw::Window, event: glfw::WindowEvent) -> Option<WindowEvent> {
+    fn handle_window_event(window: &mut Window, _glfw_window: &mut glfw::Window, event: glfw::WindowEvent) -> Option<WindowEvent> {
         // TODO: we don't need Option currently so maybe we can remove it in the future
         match event {
             event => Some(match event {
                 glfw::WindowEvent::CursorPos(x, y) => window.mouse_move(Pos::new(x as f32, y as f32)),
                 glfw::WindowEvent::Scroll(delta_x, delta_y) => {
                     let res = window.scroll((delta_x as f32, delta_y as f32));
-                    glfw_window.swap_buffers();
+                    //glfw_window.swap_buffers();
                     res
                 }
                 glfw::WindowEvent::MouseButton(_button, action, _modifiers) => match action {

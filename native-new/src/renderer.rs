@@ -94,6 +94,7 @@ impl Renderer {
 
     pub fn scroll(&mut self, _pos: Pos, _delta: (f32, f32)) {
       // TODO
+      // TODO: dont forget to swap then
     }
 
     /*
