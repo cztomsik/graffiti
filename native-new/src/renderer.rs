@@ -112,47 +112,58 @@ impl Renderer {
 
             frame.upload();
 
-            // setup for opaque (depth, buffers)
-            //gl::Disable(gl::BLEND);
-            //gl::Enable(gl::DEPTH_TEST);
-            frame.opaque_quads.bind_to(gl::ARRAY_BUFFER);
-            frame.opaque_indices.bind_to(gl::ELEMENT_ARRAY_BUFFER);
-            gl::UseProgram(self.rect_program);
-            gl::EnableVertexAttribArray(0);
-            gl::VertexAttribPointer(
-                0,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                (mem::size_of::<Vertex<Color>>()) as GLint,
-                0 as *const GLvoid,
-            );
-            gl::EnableVertexAttribArray(1);
-            gl::VertexAttribPointer(
-                1,
-                4,
-                gl::UNSIGNED_BYTE,
-                gl::FALSE,
-                (mem::size_of::<Vertex<Color>>()) as GLint,
-                (mem::size_of::<Pos>()) as *const std::ffi::c_void,
-            );
-            gl::DrawElements(gl::TRIANGLES, frame.opaque_indices.data.len() as i32, gl::UNSIGNED_SHORT, std::ptr::null());
-            check();
+            for b in &frame.batches {
+                match *b {
+                    Batch::Rects { opaque, num: _ } => {
+                        // depth/alpha
+                        if opaque {
+                            gl::Enable(gl::DEPTH_TEST);
+                            gl::Disable(gl::BLEND);
+                        } else {
+                            gl::Disable(gl::DEPTH_TEST);
+                            gl::Enable(gl::BLEND);
+                            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+                            gl::BlendEquation(gl::FUNC_ADD);
+                        }
 
-            // setup for alpha (depth, alpha, buffers)
-            gl::Disable(gl::DEPTH_TEST);
-            gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-            gl::BlendEquation(gl::FUNC_ADD);
+                        gl::UseProgram(self.rect_program);
+                        frame.rects.bind_to(gl::ARRAY_BUFFER);
+                        frame.indices.bind_to(gl::ELEMENT_ARRAY_BUFFER);
+                        gl::EnableVertexAttribArray(0);
+                        gl::VertexAttribPointer(
+                            0,
+                            2,
+                            gl::FLOAT,
+                            gl::FALSE,
+                            (mem::size_of::<Vertex<Color>>()) as GLint,
+                            0 as *const GLvoid,
+                        );
+                        gl::EnableVertexAttribArray(1);
+                        gl::VertexAttribPointer(
+                            1,
+                            4,
+                            gl::UNSIGNED_BYTE,
+                            gl::FALSE,
+                            (mem::size_of::<Vertex<Color>>()) as GLint,
+                            (mem::size_of::<Pos>()) as *const std::ffi::c_void,
+                        );
 
-            /*
-            self.mixed_quads.bind_to(gl::ARRAY_BUFFER);
-            self.alpha_indices.bind_to(gl::ELEMENT_ARRAY_BUFFER);
+                        gl::DrawElements(gl::TRIANGLES, frame.indices.data.len() as i32, gl::UNSIGNED_SHORT, std::ptr::null());
+                        check();
 
-            // TODO: setup attrib pointers for each interleaving batch & draw
+                        // setup for alpha (depth, alpha, buffers)
+                        gl::Disable(gl::DEPTH_TEST);
+                        gl::Enable(gl::BLEND);
+                        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+                        gl::BlendEquation(gl::FUNC_ADD);
 
-            // gl::DrawElements(gl::TRIANGLES, vertices_count as i32, gl::UNSIGNED_SHORT, (offset * std::mem::size_of::<VertexIndex>()) as *const std::ffi::c_void);
-            */
+                        // gl::DrawElements(gl::TRIANGLES, vertices_count as i32, gl::UNSIGNED_SHORT, (offset * std::mem::size_of::<VertexIndex>()) as *const std::ffi::c_void);
+                    }
+
+                    Batch::Image => debug!("TODO: render image"),
+                    Batch::Text => debug!("TODO: render text"),
+                }
+            }
         }
     }
 }
@@ -293,34 +304,45 @@ struct Vertex<T>(Pos, T);
 // could be configurable but it's probably better to play it safe
 type VertexIndex = u16;
 
+// TODO: Z, needed for both opaque & alpha
+type Rect = Quad<Color>;
 
+/// Represents the work which has to be done to render one "frame".
+/// It is split to multiple "batches", sometimes because it's faster
+/// and sometimes because of texture/buffer limits, etc.
+///
+/// Some things are shared/cached across multiple frames (texts) and some
+/// are rebuilt every frame (rects) for the sake of simplicity.
 struct Frame {
-    // separate opaque pass
-    // - less overdraw
-    // - less batches (there's less left to interleave then)
-    opaque_quads: Buffer<Quad<Color>>,
-    opaque_indices: Buffer<VertexIndex>,
+    batches: Vec<Batch>,
 
-    // the rest has to be drawn in alpha and so it has to be interleaved in multiple batches
-    // but at least we can put everything into one vertex buffer & index buffer
-    mixed_quads: Buffer<u8>,
-    alpha_indices: Buffer<VertexIndex>,
+    // we can share vertex indices for anything rebuilt every frame
+    indices: Buffer<VertexIndex>,
+    rects: Buffer<Rect>,
 
-    batches: Vec<()>,
-
+    // TODO: builder
     z: f32
 }
 
+// TODO: opaque pass to reduce both overdraw & amount of other batches
+// the rest has to be drawn in alpha and so it has to be interleaved in multiple batches
+// but at least we can put everything into one vertex buffer & index buffer
+//
+// TODO: we can split building (preparing the work for the GPU)
+// and the actual rendering (executing gl draw commands) so that we will be
+// 1 frame in the past but we can pipeline the work then
+// (build a new frame & render the previous one in parallel)
+//
+// TODO: optimize alloc
 impl Frame {
     fn new() -> Self {
         Self {
-            opaque_quads: Buffer::new(),
-            opaque_indices: Buffer::new(),
+            batches: vec![
+                Batch::Rects { opaque: false, num: 0 }
+            ],
 
-            mixed_quads: Buffer::new(),
-            alpha_indices: Buffer::new(),
-
-            batches: Vec::new(),
+            indices: Buffer::new(),
+            rects: Buffer::new(),
 
             z: 0.
         }
@@ -329,18 +351,19 @@ impl Frame {
     fn push_rect(&mut self, bounds: Bounds, color: &Color) {
         // TODO: opaque/alpha branch
 
-        self.opaque_quads.push(Quad::new(bounds, *color));
+        self.rects.push(Quad::new(bounds, *color));
 
-        let n = self.opaque_quads.data.len();
+        let n = self.rects.data.len();
         let base = 4 * (n as VertexIndex);
 
-        self.opaque_indices.push(base + 1);
-        self.opaque_indices.push(base);
-        self.opaque_indices.push(base + 3);
-
-        self.opaque_indices.push(base);
-        self.opaque_indices.push(base + 2);
-        self.opaque_indices.push(base + 3);
+        // 6 indices for 2 triangles
+        self.indices.push(base + 1);
+        self.indices.push(base);
+        self.indices.push(base + 3);
+        // second one
+        self.indices.push(base);
+        self.indices.push(base + 2);
+        self.indices.push(base + 3);
 
         // TODO: alpha colors should be drawn in alpha batches
         // all indices would be relative to the current batch
@@ -348,17 +371,20 @@ impl Frame {
     }
 
     unsafe fn upload(&mut self) {
-        silly!("upload {:?}", &self.opaque_quads.data);
-        silly!("upload {:?}", &self.opaque_indices.data);
+        silly!("upload {:?}", &self.rects.data);
+        silly!("upload {:?}", &self.indices.data);
 
-        self.opaque_quads.upload_to(gl::ARRAY_BUFFER);
-        self.opaque_indices.upload_to(gl::ELEMENT_ARRAY_BUFFER);
-
-        self.mixed_quads.upload_to(gl::ARRAY_BUFFER);
-        self.alpha_indices.upload_to(gl::ELEMENT_ARRAY_BUFFER);
+        self.rects.upload_to(gl::ARRAY_BUFFER);
+        self.indices.upload_to(gl::ELEMENT_ARRAY_BUFFER);
 
         check();
     }
+}
+
+enum Batch {
+    Rects { opaque: bool, num: VertexIndex },
+    Image,
+    Text
 }
 
 struct Buffer<T> {
