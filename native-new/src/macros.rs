@@ -1,3 +1,5 @@
+#![allow(unused_macros)]
+
 // very basic logging to save some deps
 // for now it's enabled/disabled by (un)commenting the line
 //

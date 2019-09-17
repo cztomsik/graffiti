@@ -94,7 +94,7 @@ impl TheApp {
 
         let (mut glfw_window, events) = self
             .glfw
-            .create_window(width, height, "stain", glfw::WindowMode::Windowed)
+            .create_window(width, height, "graffiti", glfw::WindowMode::Windowed)
             .expect("couldnt create GLFW window");
 
         glfw_window.make_current();

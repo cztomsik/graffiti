@@ -2,7 +2,7 @@
 
 /// Application unit (or something similar, unit of measure)
 /// TODO(later): Integer type could save some CPU & memory
-type Au = f32;
+pub type Au = f32;
 
 /// 2D Point
 #[derive(Clone, Copy, Default, Debug)]

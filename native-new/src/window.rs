@@ -3,16 +3,15 @@ use crate::commons::Pos;
 use crate::picker::SurfacePicker;
 use crate::box_layout::{BoxLayout, StretchLayout};
 use crate::text_layout::TextLayout;
-use crate::renderer::Renderer;
+use crate::render::Renderer;
 
 pub struct Window {
-    mouse_pos: Pos,
-
     box_layout: Box<dyn BoxLayout>,
     text_layout: TextLayout,
-    picker: SurfacePicker,
-
     renderer: Renderer,
+
+    mouse_pos: Pos,
+    picker: SurfacePicker,
 }
 
 impl Window {
@@ -39,7 +38,8 @@ impl Window {
     pub fn scroll(&mut self, delta: (f32, f32)) -> WindowEvent {
         let target = self.get_mouse_target();
 
-        self.renderer.scroll(self.mouse_pos, delta);
+        // TODO: just like ScrollBy/ScrollAt update message (& render() after that)
+        //self.renderer.scroll(self.mouse_pos, delta);
 
         WindowEvent::Scroll { target }
     }
