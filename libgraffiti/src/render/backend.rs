@@ -10,6 +10,9 @@ use crate::render::{Frame, Batch, Vertex, VertexIndex};
 /// Low-level renderer, specific to the given graphics api (OpenGL/Vulkan/SW)
 /// Knows how to draw primitive batches, prepared by higher-level `Renderer`
 ///
+/// TODO: transpile shaders for different devices (raspi)
+///       (maybe macros?)
+///
 /// TODO: extract trait, provide other implementations
 pub struct RenderBackend {
     rect_program: u32,

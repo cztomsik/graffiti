@@ -25,7 +25,7 @@
     "native/src"
   ],
   "scripts": {
-    "build": "cd native-new && cargo build",
+    "build": "cd libgraffiti && cargo build",
     "install": "npm run build -- --release",
     "prepublishOnly": "npm run build && tsc -d",
     "example": "ts-node -r ./examples/_hmr examples/react/main",

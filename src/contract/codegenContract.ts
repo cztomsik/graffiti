@@ -13,7 +13,7 @@ import { exampleEntries as contract } from './contractAst'
 const typescriptDefFile = __dirname + '/../core/generated.ts'
 const typescriptSerFile = __dirname + '/../core/serialization.generated.ts'
 const typescriptDeserFile = __dirname + '/../core/deserialization.generated.ts'
-const rustDefFil = __dirname + '/../../native-new/src/generated.rs'
+const rustDefFil = __dirname + '/../../libgraffiti/src/generated.rs'
 
 const rustContent = `
 use serde::{Serialize, Deserialize};

@@ -9,7 +9,7 @@ import * as ffi from 'ffi'
 // define lib
 const libDir = (process.env.NODE_ENV === 'production') ?'release' :'debug'
 const lib = ffi.Library(
-  `${__dirname}/../../native-new/target/${libDir}/libgraffiti`,
+  `${__dirname}/../../libgraffiti/target/${libDir}/libgraffiti`,
   {
     init: ['void', []],
     // pass a buffer (pointer to some memory + its length)
