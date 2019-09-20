@@ -16,11 +16,13 @@ use crate::render::{Frame, Batch, Vertex, VertexIndex};
 /// TODO: extract trait, provide other implementations
 pub struct RenderBackend {
     rect_program: u32,
+    text_program: u32,
+    text_uniform: i32,
 
     ibo: u32,
     vbo: u32,
 
-    // TODO: shared buffers (text)
+    // TODO: frame-shared buffers (text)
 }
 
 impl RenderBackend {
@@ -38,8 +40,44 @@ impl RenderBackend {
             gl::GenBuffers(1, &mut ibo);
             gl::GenBuffers(1, &mut vbo);
 
+            // TODO
+            let mut tex = 0;
+            gl::GenTextures(1, &mut tex);
+            gl::BindTexture(gl::TEXTURE_2D, tex);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+            // because of RGB
+            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as i32, 64, 64, 0, gl::RGB, gl::UNSIGNED_BYTE, mem::transmute(LETTER_SDF));
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, tex);
+            silly!("SDF {:?}", &LETTER_SDF[..]);
+            check();
+
+            // TODO: opaque
+            gl::Disable(gl::DEPTH_TEST);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::BlendEquation(gl::FUNC_ADD);
+
+            let rect_program = shader_program(RECT_VS, RECT_FS);
+            let text_program = shader_program(TEXT_VS, TEXT_FS);
+
+            // this is important otherwise indices sometimes does not reflect
+            // the order in the shader!!!
+            gl::BindAttribLocation(rect_program, 0, CString::new("a_pos").unwrap().as_ptr());
+            gl::BindAttribLocation(rect_program, 1, CString::new("a_color").unwrap().as_ptr());
+
+            gl::BindAttribLocation(text_program, 0, CString::new("a_pos").unwrap().as_ptr());
+            gl::BindAttribLocation(text_program, 1, CString::new("a_uv").unwrap().as_ptr());
+
             Self {
-                rect_program: shader_program(RECT_VS, RECT_FS),
+                rect_program,
+                text_program,
+
+                text_uniform: gl::GetUniformLocation(text_program, CString::new("u_color").unwrap().as_ptr()),
 
                 ibo,
                 vbo,
@@ -70,51 +108,83 @@ impl RenderBackend {
 
             // TODO: upload textures (and shared data if needed)
 
+            // buffer sharing
+            let mut vbo_offset = 0;
+            let mut ibo_offset = 0;
+
             for b in frame.batches {
-                self.draw_batch(b);
+                let vertex_size;
+                let quad_count;
+
+                // TODO: every quad vertex has pos -> VertexAttribPointer for the first attr can be set once
+                match b {
+                    Batch::AlphaRects { num } => {
+                        vertex_size = mem::size_of::<Vertex<Color>>();
+                        quad_count = num;
+
+                        gl::UseProgram(self.rect_program);
+                        gl::EnableVertexAttribArray(0);
+                        gl::VertexAttribPointer(
+                            0,
+                            2,
+                            gl::FLOAT,
+                            gl::FALSE,
+                            vertex_size as GLint,
+                            vbo_offset as *const std::ffi::c_void,
+                        );
+                        gl::EnableVertexAttribArray(1);
+                        gl::VertexAttribPointer(
+                            1,
+                            4,
+                            gl::UNSIGNED_BYTE,
+                            gl::FALSE,
+                            vertex_size as GLint,
+                            (vbo_offset + mem::size_of::<Pos>()) as *const std::ffi::c_void,
+                        );
+                    }
+                    Batch::Text { color, num } => {
+                        vertex_size = mem::size_of::<Vertex<Pos>>();
+                        quad_count = num;
+
+                        gl::UseProgram(self.text_program);
+                        gl::EnableVertexAttribArray(0);
+                        gl::VertexAttribPointer(
+                            0,
+                            2,
+                            gl::FLOAT,
+                            gl::FALSE,
+                            vertex_size as GLint,
+                            vbo_offset as *const std::ffi::c_void,
+                        );
+                        gl::EnableVertexAttribArray(1);
+                        gl::VertexAttribPointer(
+                            1,
+                            2,
+                            gl::FLOAT,
+                            gl::FALSE,
+                            vertex_size as GLint,
+                            (vbo_offset + mem::size_of::<Pos>()) as *const std::ffi::c_void,
+                        );
+
+                        // unpack it here, maybe even in builder
+                        let color: [f32; 4] = [color.0 as f32 / 256., color.1 as f32 / 256., color.2 as f32 / 256., color.3 as f32 / 256.];
+                        gl::Uniform4fv(self.text_uniform, 1, &color as *const GLfloat);
+                    }
+                    /*
+                    _ => {
+                        // everything else is alpha, with shared indices buffer
+                        gl::Enable(gl::ALPHA);
+                    }
+                    */
+                }
+
+                gl::DrawElements(gl::TRIANGLES, (quad_count * 6) as i32, gl::UNSIGNED_SHORT, ibo_offset as *const std::ffi::c_void);
+                check();
+
+                vbo_offset += quad_count * 4 * vertex_size;
+                ibo_offset += quad_count * 6 * mem::size_of::<VertexIndex>();
             }
         }
-    }
-
-    unsafe fn draw_batch(&mut self, batch: Batch) {
-        let vertices_count;
-        let offset = 0;
-
-        match batch {
-            Batch::AlphaRects { num } => {
-                vertices_count = num * 6;
-
-                gl::UseProgram(self.rect_program);
-                gl::EnableVertexAttribArray(0);
-                gl::VertexAttribPointer(
-                    0,
-                    2,
-                    gl::FLOAT,
-                    gl::FALSE,
-                    (mem::size_of::<Vertex<Color>>()) as GLint,
-                    0 as *const GLvoid,
-                );
-                gl::EnableVertexAttribArray(1);
-                gl::VertexAttribPointer(
-                    1,
-                    4,
-                    gl::UNSIGNED_BYTE,
-                    gl::FALSE,
-                    (mem::size_of::<Vertex<Color>>()) as GLint,
-                    (mem::size_of::<Pos>()) as *const std::ffi::c_void,
-                );
-
-                /*
-            }
-            _ => {
-                // everything else is alpha, with shared indices buffer
-                gl::Enable(gl::ALPHA);
-                */
-            }
-        }
-
-        gl::DrawElements(gl::TRIANGLES, vertices_count as i32, gl::UNSIGNED_SHORT, (offset * std::mem::size_of::<VertexIndex>()) as *const std::ffi::c_void);
-        check();
     }
 }
 
@@ -122,35 +192,79 @@ impl RenderBackend {
 
 
 const RECT_VS: &str = r#"
-  #version 100
+      #version 100
 
-  attribute vec2 a_pos;
-  attribute vec4 a_color;
+      attribute vec2 a_pos;
+      attribute vec4 a_color;
 
-  varying vec4 v_color;
+      varying vec4 v_color;
 
-  void main() {
-    // TODO: uniforms
-    vec2 size = vec2(1024., 768.);
-    vec2 xy = (a_pos / (size / 2.)) - 1.;
-    xy.y *= -1.;
+      void main() {
+            // TODO: uniforms
+            vec2 size = vec2(1024., 768.);
+            vec2 xy = (a_pos / (size / 2.)) - 1.;
+            xy.y *= -1.;
 
-    gl_Position = vec4(xy, 0.0, 1.0);
-    v_color = a_color;
-  }
+            gl_Position = vec4(xy, 0.0, 1.0);
+            v_color = a_color;
+      }
 "#;
 
 const RECT_FS: &str = r#"
-  #version 100
+      #version 100
 
-  precision mediump float;
+      precision mediump float;
 
-  varying vec4 v_color;
+      varying vec4 v_color;
 
-  void main() {
-    gl_FragColor = v_color / 256.;
-  }
+      void main() {
+            // TODO: move division to VS
+            gl_FragColor = v_color / 256.;
+      }
 "#;
+
+const TEXT_VS: &str = r#"
+      #version 100
+
+      attribute vec2 a_pos;
+      attribute vec2 a_uvv;
+
+      varying vec2 v_uv;
+
+      void main() {
+            // TODO: uniforms
+            vec2 size = vec2(1024., 768.);
+            vec2 xy = (a_pos / (size / 2.)) - 1.;
+            xy.y *= -1.;
+
+            gl_Position = vec4(xy, 0.0, 1.0);
+            v_uv = a_uvv;
+      }
+"#;
+
+const TEXT_FS: &str = r#"
+      #version 100
+
+      precision mediump float;
+
+      uniform vec4 u_color;
+      uniform sampler2D u_texture;
+
+      varying vec2 v_uv;
+
+      float median(vec3 col) {
+            return max(min(col.r, col.g), min(max(col.r, col.g), col.b));
+      }
+
+      void main() {
+            float distance = median(texture2D(u_texture, v_uv).rgb);
+            float alpha = smoothstep(0.5, 0.6, distance);
+
+            gl_FragColor = vec4(u_color.rgb, alpha * u_color.a);
+      }
+"#;
+
+const LETTER_SDF: &[u8; 64 * 64 * 3] = include_bytes!("../letter.bin");
 
 unsafe fn shader_program(vertex_shader_source: &str, fragment_shader_source: &str) -> u32 {
     let vertex_shader = shader(gl::VERTEX_SHADER, vertex_shader_source);

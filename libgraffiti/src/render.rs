@@ -68,6 +68,8 @@ impl Renderer {
                     StyleProp::BoxShadow(s) => self.scene.box_shadows.set(surface, s),
                     StyleProp::BackgroundColor(c) => self.scene.background_colors.set(surface, c),
                     StyleProp::Image(i) => self.scene.images.set(surface, i),
+                    // TODO: separate message for text color
+                    // TODO: inspect perf, create/remove_text, cache buffers
                     StyleProp::Text(t) => self.scene.texts.set(surface, t),
                     StyleProp::Border(b) => self.scene.borders.set(surface, b),
                     _ => {}
@@ -77,8 +79,6 @@ impl Renderer {
     }
 
     fn prepare_frame(&mut self, all_bounds: &[Bounds], text_layout: &TextLayout) -> Frame {
-        debug!("prepare frame");
-
         let root = 0;
         let mut builder = FrameBuilder::new();
 
@@ -95,9 +95,6 @@ impl Renderer {
 
         context.draw_surface(root);
         builder.finish();
-
-        silly!("alpha_data {:?}", &builder.frame.alpha_data);
-        silly!("indices {:?}", &builder.frame.indices);
 
         builder.frame
     }
@@ -177,14 +174,33 @@ impl <'a> RenderContext<'a> {
 
         debug!("text {:?} {:?}", &origin, &text.text);
 
+        self.builder.frame.batches.push(Batch::AlphaRects { num: self.builder.count });
+        self.builder.append_indices();
+        self.builder.count = 0;
+
         let Pos { x: start_x, y: start_y } = origin;
 
         for GlyphInstance { x, y, glyph_id: _ } in glyphs {
             let a = Pos::new(start_x + x, start_y + y);
-            let b = Pos::new(start_x + x + 8., start_y + y + 10.);
+            let b = Pos::new(start_x + x + 10., start_y + y + 20.);
 
-            self.builder.push_rect(Bounds { a, b }, &text.color);
+            self.builder.push_quad(false, &Quad::new(Bounds { a, b }, [
+                Pos::new(0., 0.45),
+                Pos::new(0.35, 0.45),
+                Pos::new(0., 0.),
+                Pos::new(0.35, 0.),
+
+                // this is how it should be without spacing
+                // Pos::new(0., 1.),
+                // Pos::new(1., 1.),
+                // Pos::new(0., 0.),
+                // Pos::new(1., 0.),
+            ]));
         }
+
+        self.builder.frame.batches.push(Batch::Text { color: text.color, num: self.builder.count });
+        self.builder.append_indices();
+        self.builder.count = 0;
     }
 
     fn draw_border(&mut self, Border { top, right, left, bottom }: &Border) {
@@ -225,7 +241,7 @@ pub(crate) struct Frame {
     // out-of-order and memcpy would probably kill all of the benefits of
     // the shared buffer
     //
-    // opaque_rect_data: Vec<u8>,
+    // opaque_rects: Vec<Rect>,
 
     // for all of the batches
     indices: Vec<VertexIndex>,
@@ -233,8 +249,10 @@ pub(crate) struct Frame {
     batches: Vec<Batch>
 }
 
+#[derive(Debug)]
 enum Batch {
-    AlphaRects { num: usize }
+    AlphaRects { num: usize },
+    Text { color: Color, num: usize }
 }
 
 /// Low-level frame building, can push primitives at given bounds and do
@@ -268,9 +286,10 @@ impl FrameBuilder {
     }
 
     fn push_rect(&mut self, bounds: Bounds, color: &Color) {
-        self.push_quad(color.3 == 255, &Quad::new(bounds, *color));
+        self.push_quad(color.3 == 255, &Quad::new(bounds, [*color, *color, *color, *color]));
     }
 
+    // TODO: this is alpha only, opaque cannot be generic!
     fn push_quad<T>(&mut self, _opaque: bool, quad: &Quad<T>) {
         // TODO: alpha colors should be drawn in alpha batches
         // all indices would be relative to the current batch
@@ -289,7 +308,9 @@ impl FrameBuilder {
 
     fn finish(&mut self) {
         // TODO: interleaving
-        self.frame.batches.push(Batch::AlphaRects { num: self.count });
+        if self.count > 0 {
+            self.frame.batches.push(Batch::AlphaRects { num: self.count });
+        }
 
         // TODO: opaque
 
@@ -304,12 +325,12 @@ impl FrameBuilder {
             let base = (i * 4) as VertexIndex;
 
             // 6 indices for 2 triangles
-            data.push(base + 1);
             data.push(base);
             data.push(base + 3);
+            data.push(base + 2);
             // second one
             data.push(base);
-            data.push(base + 2);
+            data.push(base + 1);
             data.push(base + 3);
         }
     }
@@ -335,13 +356,13 @@ pub struct Scene {
 #[derive(Debug)]
 struct Quad<T>([Vertex<T>; 4]);
 
-impl <T: Copy> Quad<T> {
-    fn new(Bounds { a, b }: Bounds, data: T) -> Self {
+impl <T> Quad<T> {
+    fn new (Bounds { a, b }: Bounds, [d1, d2, d3, d4]: [T; 4]) -> Self {
         Self([
-            Vertex(a, data),
-            Vertex(Pos::new(b.x, a.y), data),
-            Vertex(Pos::new(a.x, b.y), data),
-            Vertex(b, data),
+            Vertex(a, d1),
+            Vertex(Pos::new(b.x, a.y), d2),
+            Vertex(Pos::new(a.x, b.y), d3),
+            Vertex(b, d4),
         ])
     }
 }
