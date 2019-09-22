@@ -1,7 +1,7 @@
 use crate::generated::{SurfaceId, UpdateSceneMsg, WindowEvent};
 use crate::commons::Pos;
 use crate::picker::SurfacePicker;
-use crate::box_layout::{BoxLayout, StretchLayout};
+use crate::box_layout::{BoxLayout, YogaLayout};
 use crate::text_layout::TextLayout;
 use crate::render::Renderer;
 
@@ -19,7 +19,7 @@ impl Window {
         Window {
             mouse_pos: Pos::default(),
 
-            box_layout: Box::new(StretchLayout::new((width as f32, height as f32))),
+            box_layout: Box::new(YogaLayout::new((width as f32, height as f32))),
             text_layout: TextLayout::new(),
             picker: SurfacePicker::new(),
 

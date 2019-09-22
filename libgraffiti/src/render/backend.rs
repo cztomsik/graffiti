@@ -67,6 +67,7 @@ impl RenderBackend {
 
             // this is important otherwise indices sometimes does not reflect
             // the order in the shader!!!
+            // TODO: works but it should be done before linking
             gl::BindAttribLocation(rect_program, 0, CString::new("a_pos").unwrap().as_ptr());
             gl::BindAttribLocation(rect_program, 1, CString::new("a_color").unwrap().as_ptr());
 

@@ -1,44 +1,20 @@
+use crate::commons::{Pos, Bounds};
 use std::f32;
 use yoga::{
     Align, Context, Direction, FlexDirection as YogaFlexDirection, FlexStyle, MeasureMode,
     Node as YogaNode, NodeRef, StyleUnit, Wrap,
 };
 
-use super::Layout;
-use crate::generated::{Border, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent, Overflow, Rect, Size, Text, SurfaceId, UpdateSceneMsg, StyleProp};
+use super::BoxLayout;
+use crate::generated::{Border, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent, Overflow, Size, Text, SurfaceId, UpdateSceneMsg, StyleProp};
 use yoga::types::Justify;
-use crate::SceneListener;
 
 type Id = SurfaceId;
 
 pub struct YogaLayout {
     yoga_nodes: Vec<YogaNode>,
-    measure_text_holder: Option<&'static mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)>
-}
-
-impl SceneListener for YogaLayout {
-    fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
-        for m in msgs.iter().cloned() {
-            match m {
-                UpdateSceneMsg::Alloc => self.alloc(),
-                UpdateSceneMsg::InsertAt { parent, child, index } => self.insert_at(parent, child, index as u32),
-                UpdateSceneMsg::RemoveChild { parent, child } => self.remove_child(parent, child),
-                UpdateSceneMsg::SetStyleProp { surface, prop } => {
-                    match prop {
-                        StyleProp::Size(s) => self.set_size(surface, s),
-                        StyleProp::Flex(f) => self.set_flex(surface, f),
-                        StyleProp::Flow(f) => self.set_flow(surface, f),
-                        StyleProp::Padding(p) => self.set_padding(surface, p),
-                        StyleProp::Border(b) => self.set_border(surface, b),
-                        StyleProp::Margin(m) => self.set_margin(surface, m),
-                        StyleProp::Text(t) => self.set_text(surface, t),
-                        StyleProp::Overflow(o) => self.set_overflow(surface, o),
-                        _ => {}
-                    }
-                }
-            }
-        }
-    }
+    measure_text_holder: Option<&'static mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)>,
+    bounds: Vec<Bounds>,
 }
 
 impl YogaLayout {
@@ -51,12 +27,14 @@ impl YogaLayout {
 
         YogaLayout {
             yoga_nodes: vec![root],
-            measure_text_holder: None
+            measure_text_holder: None,
+            bounds: vec![Bounds::default()],
         }
     }
 
     fn alloc(&mut self) {
-        self.yoga_nodes.push(YogaNode::new())
+        self.yoga_nodes.push(YogaNode::new());
+        self.bounds.push(Bounds::default());
     }
 
     fn remove_child(&mut self, parent: Id, child: Id) {
@@ -146,24 +124,50 @@ impl YogaLayout {
     }
 }
 
-impl Layout for YogaLayout {
+impl BoxLayout for YogaLayout {
+    fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
+        for m in msgs.iter().cloned() {
+            match m {
+                UpdateSceneMsg::Alloc => self.alloc(),
+                UpdateSceneMsg::InsertAt { parent, child, index } => self.insert_at(parent, child, index as u32),
+                UpdateSceneMsg::RemoveChild { parent, child } => self.remove_child(parent, child),
+                UpdateSceneMsg::SetStyleProp { surface, prop } => {
+                    match prop {
+                        StyleProp::Size(s) => self.set_size(surface, s),
+                        StyleProp::Flex(f) => self.set_flex(surface, f),
+                        StyleProp::Flow(f) => self.set_flow(surface, f),
+                        StyleProp::Padding(p) => self.set_padding(surface, p),
+                        StyleProp::Border(b) => self.set_border(surface, b),
+                        StyleProp::Margin(m) => self.set_margin(surface, m),
+                        StyleProp::Text(t) => self.set_text(surface, t),
+                        StyleProp::Overflow(o) => self.set_overflow(surface, o),
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
     fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)) {
         self.measure_text_holder = Some(unsafe { std::mem::transmute(measure_text) });
         self.yoga_nodes[0].calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
         self.measure_text_holder = None;
+
+        // TODO: update only attached and display != none nodes
+        for i in 0..self.yoga_nodes.len() {
+            let n = &mut self.yoga_nodes[i];
+            let a = Pos::new(n.get_layout_left(), n.get_layout_top());
+            let b = Pos::new(n.get_layout_left() + n.get_layout_width(), n.get_layout_top() + n.get_layout_height());
+
+            self.bounds[i] = Bounds { a, b };
+        }
     }
 
-    fn get_rect(&self, id: SurfaceId) -> Rect {
-        let n = &self.yoga_nodes[id];
-
-        Rect(
-            n.get_layout_left(),
-            n.get_layout_top(),
-            n.get_layout_width(),
-            n.get_layout_height()
-        )
+    fn get_bounds(&self) -> &[Bounds] {
+        &self.bounds
     }
 
+    /*
     fn get_scroll_frame(&self, id: SurfaceId) -> Option<(f32, f32)> {
         let node = &self.yoga_nodes[id];
 
@@ -183,6 +187,7 @@ impl Layout for YogaLayout {
             _ => None
         }
     }
+    */
 }
 
 extern "C" fn measure_text_node(

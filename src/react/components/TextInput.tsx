@@ -18,6 +18,7 @@ const TextInput = (props: TextInputProps) => {
 
 const styles = StyleSheet.create({
   input: {
+    backgroundColor: '#fff',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderColor: '#cde',
