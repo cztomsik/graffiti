@@ -178,23 +178,12 @@ impl <'a> RenderContext<'a> {
         self.builder.append_indices();
         self.builder.count = 0;
 
-        let Pos { x: start_x, y: start_y } = origin;
-
-        for GlyphInstance { x, y, glyph_id: _ } in glyphs {
-            let a = Pos::new(start_x + x, start_y + y);
-            let b = Pos::new(start_x + x + 10., start_y + y + 20.);
-
-            self.builder.push_quad(false, &Quad::new(Bounds { a, b }, [
-                Pos::new(0., 0.45),
-                Pos::new(0.35, 0.45),
-                Pos::new(0., 0.),
-                Pos::new(0.35, 0.),
-
-                // this is how it should be without spacing
-                // Pos::new(0., 1.),
-                // Pos::new(1., 1.),
-                // Pos::new(0., 0.),
-                // Pos::new(1., 0.),
+        for GlyphInstance { bounds, coords } in glyphs {
+            self.builder.push_quad(false, &Quad::new(bounds.relative_to(origin), [
+                coords.a,
+                Pos::new(coords.b.x, coords.a.y),
+                Pos::new(coords.a.x, coords.b.y),
+                coords.b,
             ]));
         }
 

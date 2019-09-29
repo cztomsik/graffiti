@@ -46,14 +46,14 @@ impl RenderBackend {
             gl::BindTexture(gl::TEXTURE_2D, tex);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as i32);
             // because of RGB
-            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as i32, 64, 64, 0, gl::RGB, gl::UNSIGNED_BYTE, mem::transmute(LETTER_SDF));
+            //gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+            //gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as i32, 64, 64, 0, gl::RGB, gl::UNSIGNED_BYTE, mem::transmute(SDF_TEXTURE));
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as i32, 512, 512, 0, gl::RGBA, gl::UNSIGNED_BYTE, mem::transmute(SDF_TEXTURE));
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, tex);
-            silly!("SDF {:?}", &LETTER_SDF[..]);
             check();
 
             // TODO: opaque
@@ -258,14 +258,16 @@ const TEXT_FS: &str = r#"
       }
 
       void main() {
+            // TODO: seems like it's BGRA instead of RGBA
             float distance = median(texture2D(u_texture, v_uv).rgb);
-            float alpha = smoothstep(0.5, 0.6, distance);
+            // find out in what ranges (-3-3 ?) the distances actually are
+            float alpha = smoothstep(0.4, 0.6, 1. - distance);
 
             gl_FragColor = vec4(u_color.rgb, alpha * u_color.a);
       }
 "#;
 
-const LETTER_SDF: &[u8; 64 * 64 * 3] = include_bytes!("../letter.bin");
+const SDF_TEXTURE: &[u8; 512 * 512 * 4] = include_bytes!("../../../../sheet0.raw");
 
 unsafe fn shader_program(vertex_shader_source: &str, fragment_shader_source: &str) -> u32 {
     let vertex_shader = shader(gl::VERTEX_SHADER, vertex_shader_source);

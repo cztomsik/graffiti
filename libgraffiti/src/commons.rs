@@ -16,6 +16,10 @@ impl Pos {
         Self { x, y }
     }
 
+    pub fn mul(&self, n: Au) -> Pos {
+        Pos { x: self.x * n, y: self.y * n }
+    }
+
     pub fn relative_to(&self, pos: Pos) -> Pos {
         Pos { x: self.x + pos.x, y: self.y + pos.y }
     }
@@ -29,6 +33,13 @@ pub struct Bounds {
 }
 
 impl Bounds {
+    pub fn mul(&self, n: Au) -> Bounds {
+        let a = self.a.mul(n);
+        let b = self.b.mul(n);
+
+        Bounds { a, b }
+    }
+
     pub fn relative_to(&self, pos: Pos) -> Bounds {
         let a = self.a.relative_to(pos);
         let b = self.b.relative_to(pos);

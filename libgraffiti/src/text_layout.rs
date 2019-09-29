@@ -1,5 +1,10 @@
+use crate::commons::{Pos, Bounds};
 use std::collections::BTreeMap;
 use crate::generated::{UpdateSceneMsg, StyleProp, SurfaceId, Text};
+use serde::{Deserialize, Serialize};
+
+// TODO: currently it does more than intended so either rename it or
+// split it...
 
 /// Text layout algo
 ///
@@ -9,21 +14,34 @@ use crate::generated::{UpdateSceneMsg, StyleProp, SurfaceId, Text};
 /// The box layout should call `measure_text` during its `calculate`
 /// which in turn should call `wrap` if it`s needed.
 pub struct TextLayout {
-    font: font_kit::font::Font,
     metas: BTreeMap<SurfaceId, Meta>,
+    // TODO: more fonts, ttf
+    font_glyphs: BTreeMap<u32, FontGlyph>,
     glyphs: BTreeMap<SurfaceId, Vec<GlyphInstance>>
 }
 
 impl TextLayout {
     pub fn new() -> Self {
-        let font = SystemSource::new()
-            .select_by_postscript_name("ArialMT")
-            .unwrap()
-            .load()
-            .unwrap();
+        let file = std::fs::File::open("../font.json").unwrap();
+        let font: MsdfFont = serde_json::from_reader(file).expect("invalid font");
+
+        let mut font_glyphs = BTreeMap::new();
+
+        for c in font.chars {
+          font_glyphs.insert(c.id, FontGlyph {
+              size: Pos::new(c.width / font.info.size, c.height / font.info.size),
+              coords: Bounds {
+                a: Pos::new(c.x / font.common.scaleW, c.y / font.common.scaleH),
+                b: Pos::new((c.x + c.width) / font.common.scaleW, (c.y + c.height) / font.common.scaleH),
+              },
+              advance: c.xadvance / font.info.size,
+          });
+        }
+
+        debug!("glyphs {:#?}", &font_glyphs);
 
         TextLayout {
-            font,
+            font_glyphs,
             metas: BTreeMap::new(),
             glyphs: BTreeMap::new()
         }
@@ -53,40 +71,40 @@ impl TextLayout {
 
     fn layout_text(&self, text: &Text) -> (Meta, Vec<GlyphInstance>) {
         let mut size = (0., text.line_height);
-        let mut x = 0.;
-        let mut y = 0.;
-
-        // TODO: find our how costy it is
-        let scale = text.font_size / (self.font.metrics().units_per_em as f32);
+        let mut pos = Pos::default();
 
         let glyphs = text.text.chars().into_iter().map(|c| {
             if c == '\n' {
-                x = 0.;
-                y += text.line_height;
+                pos.x = 0.;
+                pos.y += text.line_height;
             }
 
-            let glyph_id = self.font.glyph_for_char(c).unwrap_or(0);
-            let advance = match self.font.advance(glyph_id) {
-                Ok(v) => (v.x * scale, v.y * scale),
-                Err(_e) => (0., 0.)
-            };
+            // TODO
+            let glyph_id = c as u32;
+            let font_glyph = self.font_glyphs.get(&glyph_id).unwrap_or_else(|| {
+              debug!("no glyph {}", glyph_id);
+
+              &MISSING_GLYPH
+            });
+
+            // TODO: read from font
+            let base = 38.964 / 42.;
+            let a = Pos::new(pos.x, pos.y + base * text.font_size - font_glyph.size.y * text.font_size);
 
             let glyph = GlyphInstance {
-                glyph_id,
-                x,
-                y,
+                bounds: Bounds { a, b: font_glyph.size.mul(text.font_size).relative_to(a) },
+                coords: font_glyph.coords,
             };
 
-            x += advance.0;
-            y += advance.1;
+            pos.x += font_glyph.advance * text.font_size;
 
             glyph
         }).collect();
 
         // TODO: wrap
         // TODO: good for now but we should use glyph width for the last char on each line
-        size.0 = x;
-        size.1 = y + text.line_height;
+        size.0 = pos.x;
+        size.1 = pos.y + text.line_height;
 
         let meta = Meta {
             size,
@@ -127,13 +145,17 @@ impl TextLayout {
 }
 
 #[derive(Debug)]
-pub struct GlyphInstance {
-    pub glyph_id: u32,
-    pub x: f32,
-    pub y: f32,
+pub struct FontGlyph {
+  pub size: Pos,
+  pub coords: Bounds,
+  pub advance: f32
 }
 
-use font_kit::source::SystemSource;
+#[derive(Debug)]
+pub struct GlyphInstance {
+    pub bounds: Bounds,
+    pub coords: Bounds,
+}
 
 #[derive(Debug)]
 pub struct Meta {
@@ -141,26 +163,38 @@ pub struct Meta {
     initial_width: f32,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::TextLayout;
-    use crate::generated::{UpdateSceneMsg, StyleProp, Text, Color, TextAlign};
-
-    #[test]
-    fn test_new() {
-        let mut text_layout = TextLayout::new();
-
-        text_layout.update_scene(&[
-            UpdateSceneMsg::SetStyleProp {
-                surface: 1,
-                prop: StyleProp::Text(Some(Text {
-                    color: Color::black(),
-                    align: TextAlign::Left,
-                    font_size: 16.,
-                    line_height: 16.,
-                    text: "Hello".into()
-                }))
-            }
-        ])
-    }
+#[derive(Deserialize, Serialize, Debug)]
+pub struct MsdfFont {
+    info: MsdfInfo,
+    common: MsdfCommonInfo,
+    chars: Vec<MsdfChar>
 }
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct MsdfInfo {
+    size: f32,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[allow(non_snake_case)]
+pub struct MsdfCommonInfo {
+    scaleW: f32,
+    scaleH: f32,
+    base: f32,
+    lineHeight: f32,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct MsdfChar {
+    id: u32,
+    x: f32,
+    y: f32,
+    xoffset: f32,
+    yoffset: f32,
+    width: f32,
+    height: f32,
+    xadvance: f32,
+}
+
+// ::default() cannot be used to initialize static :-/
+const MISSING_GLYPH: FontGlyph = FontGlyph { size: Pos { x: 0., y: 0. }, coords: Bounds { a: Pos { x: 0., y: 0. }, b: Pos { x: 0., y: 0. } }, advance: 0. };
