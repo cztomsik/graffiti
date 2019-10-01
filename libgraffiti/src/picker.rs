@@ -1,5 +1,4 @@
-use crate::generated::SurfaceId;
-use crate::commons::{Pos, Bounds};
+use crate::commons::{Pos, Bounds, SurfaceId};
 
 /// Useful for events, to find the uppermost surface at given position
 ///
@@ -29,7 +28,7 @@ impl SurfacePicker {
         let mut continue_down;
 
         // TODO: because bounds are not absolute
-        let mut offset = Pos::default();
+        let mut offset = Pos::zero();
 
         // go down (starting from root) through each matching surface and return the last & deepest one
         loop {

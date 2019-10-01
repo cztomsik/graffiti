@@ -3,8 +3,7 @@ use std::ptr;
 use std::ffi::CString;
 use gl::types::*;
 
-use crate::generated::Color;
-use crate::commons::{Pos};
+use crate::commons::{Pos, Color};
 use crate::render::{Frame, Batch, Vertex, VertexIndex};
 
 /// Low-level renderer, specific to the given graphics api (OpenGL/Vulkan/SW)
@@ -168,7 +167,7 @@ impl RenderBackend {
                         );
 
                         // unpack it here, maybe even in builder
-                        let color: [f32; 4] = [color.0 as f32 / 256., color.1 as f32 / 256., color.2 as f32 / 256., color.3 as f32 / 256.];
+                        let color: [f32; 4] = [color.r as f32 / 256., color.g as f32 / 256., color.b as f32 / 256., color.a as f32 / 256.];
                         gl::Uniform4fv(self.text_uniform, 1, &color as *const GLfloat);
                     }
                     /*
@@ -261,7 +260,9 @@ const TEXT_FS: &str = r#"
             // TODO: seems like it's BGRA instead of RGBA
             float distance = median(texture2D(u_texture, v_uv).rgb);
             // find out in what ranges (-3-3 ?) the distances actually are
-            float alpha = smoothstep(0.4, 0.6, 1. - distance);
+
+            // 0.4 - 0.6 looks good for big sizes
+            float alpha = smoothstep(0.3, 0.7, 1. - distance);
 
             gl_FragColor = vec4(u_color.rgb, alpha * u_color.a);
       }
@@ -326,7 +327,7 @@ unsafe fn get_shader_info_log(shader: GLuint) -> String {
     gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
 
     let mut buf = vec![0i8; len as usize];
-    gl::GetShaderInfoLog(shader, len, ptr::null_mut(), buf.as_mut_ptr());
+    gl::GetShaderInfoLog(shader, len, ptr::null_mut(), buf.as_mut_ptr() as *mut GLchar);
     buf.set_len(len as usize);
     String::from_utf8_unchecked(mem::transmute(buf))
 }
@@ -336,6 +337,6 @@ unsafe fn get_program_info_log(program: GLuint) -> String {
     gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
 
     let mut buf = vec![0i8; len as usize];
-    gl::GetProgramInfoLog(program, len, ptr::null_mut(), buf.as_mut_ptr());
+    gl::GetProgramInfoLog(program, len, ptr::null_mut(), buf.as_mut_ptr() as *mut GLchar);
     String::from_utf8_unchecked(mem::transmute(buf))
 }

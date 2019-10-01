@@ -1,6 +1,6 @@
-use crate::commons::{Pos, Bounds};
-use crate::generated::{SurfaceId, UpdateSceneMsg, Size, Dimension, StyleProp, FlexAlign, JustifyContent, FlexDirection, FlexWrap, Dimensions};
-use crate::box_layout::BoxLayout;
+use crate::commons::{Pos, Bounds, SurfaceId, Border};
+use crate::box_layout::{BoxLayout, Layout, Dimension, FlexAlign, FlexDirection, FlexWrap, Dimensions};
+use crate::text_layout::{Text};
 use stretch::geometry::{Size as StretchSize, Rect as StretchRect};
 use stretch::Stretch;
 use stretch::node::Node;
@@ -29,7 +29,7 @@ impl StretchLayout {
         StretchLayout {
             stretch,
             nodes: vec![root],
-            bounds: vec![Bounds::default()],
+            bounds: vec![Bounds::zero()],
             measure_text_holder: None
         }
     }
@@ -45,6 +45,7 @@ impl StretchLayout {
     }
 
     fn update_style<F>(&mut self, surface: SurfaceId, mut update_fn: F) where F: FnMut(&mut Style) + Sized {
+        // TODO: hopefully it's not too costy, otherwise we could cache it
         let mut style = self.stretch.style(self.nodes[surface]).expect("no style").clone();
 
         update_fn(&mut style);
@@ -54,83 +55,79 @@ impl StretchLayout {
 }
 
 impl BoxLayout for StretchLayout {
-    fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
-        for m in msgs.iter().cloned() {
-            match m {
-                UpdateSceneMsg::Alloc => {
-                    let node = StretchLayout::new_node(&mut self.stretch);
-                    self.nodes.push(node);
-                    self.bounds.push(Bounds::default());
-                },
-                // TODO: fork stretch & add insert_at()
-                UpdateSceneMsg::InsertAt { parent, child, index } => {
-                    let mut children = self.stretch.children(self.nodes[parent]).expect("couldnt get children");
+    fn alloc(&mut self) {
+        let node = StretchLayout::new_node(&mut self.stretch);
+        self.nodes.push(node);
+        self.bounds.push(Bounds::zero());
+    }
 
-                    children.insert(index, self.nodes[child]);
+    // TODO: fork stretch & add insert_at()
+    fn insert_at(&mut self, parent: SurfaceId, child: SurfaceId, index: usize) {
+        let mut children = self.stretch.children(self.nodes[parent]).expect("couldnt get children");
 
-                    self.stretch.set_children(self.nodes[parent], children).expect("couldnt set children");
-                },
-                UpdateSceneMsg::RemoveChild { parent, child } => {
-                    let parent = self.nodes[parent];
-                    let child = self.nodes[child];
+        children.insert(index, self.nodes[child]);
 
-                    self.stretch.remove_child(parent, child).expect("couldnt remove");
-                },
-                UpdateSceneMsg::SetStyleProp { surface, prop } => {
-                    match prop {
-                        StyleProp::Size(s) => self.update_style(surface, |st| st.size = s.clone().into()),
-                        StyleProp::Flex(f) => self.update_style(surface, |s| {
-                            let f = f.clone();
+        self.stretch.set_children(self.nodes[parent], children).expect("couldnt set children");
+    }
 
-                            s.flex_grow = f.flex_grow;
-                            s.flex_shrink = f.flex_shrink;
-                            s.flex_basis = f.flex_basis.into();
-                        }),
-                        StyleProp::Flow(f) => self.update_style(surface, |s| {
-                            let f = f.clone();
+    fn remove_child(&mut self, parent: SurfaceId, child: SurfaceId) {
+        let parent = self.nodes[parent];
+        let child = self.nodes[child];
 
-                            s.flex_direction = f.flex_direction.into();
-                            s.flex_wrap = f.flex_wrap.into();
+        self.stretch.remove_child(parent, child).expect("couldnt remove");
+    }
 
-                            s.align_items = f.align_items.into();
-                            s.align_self = f.align_self.into();
-                            s.align_content = f.align_content.into();
-                            s.justify_content = f.justify_content.into();
-                        }),
-                        StyleProp::Padding(p) => self.update_style(surface, |s| s.padding = p.clone().into()),
-                        StyleProp::Margin(m) => self.update_style(surface, |s| s.margin = m.clone().into()),
-                        StyleProp::Text(t) => {
-                            let node = self.nodes[surface];
+    fn set_layout(&mut self, surface: SurfaceId, layout: Layout) {
+        self.update_style(surface, |s| {
+            let layout = layout.clone();
 
-                            if t.is_some() {
-                                let stretch_layout = get_static_ref(self);
+            s.size = StretchSize { width: layout.width.into(), height: layout.height.into() };
 
-                                let measure_func: Box<dyn FnMut(StretchSize<Number>) -> Result<StretchSize<f32>, Box<dyn Any>>> = Box::new(move |size: StretchSize<Number>| {
-                                    let max_width = match size.width {
-                                        Number::Defined(w) => Some(w),
-                                        Number::Undefined => None
-                                    };
+            s.flex_grow = layout.flex_grow;
+            s.flex_shrink = layout.flex_shrink;
+            s.flex_basis = layout.flex_basis.into();
+            s.flex_direction = layout.flex_direction.into();
+            s.flex_wrap = layout.flex_wrap.into();
 
-                                    let f = stretch_layout.measure_text_holder.as_mut().expect("not inside calculate");
-                                    let res = f(surface, max_width);
+            s.align_items = layout.align_items.into();
+            s.align_self = layout.align_self.into();
+            s.align_content = layout.align_content.into();
+            s.justify_content = layout.justify_content.into();
 
-                                    Ok(StretchSize { width: res.0, height: res.1 })
-                                });
+            s.margin = layout.margin.into();
+            s.padding = layout.padding.into();
 
-                                // it's FnMut but fuck it
-                                self.stretch.set_measure(node, unsafe { std::mem::transmute(Some(measure_func)) });
-                            } else {
-                                self.stretch.set_measure(node, None);
-                            }
-                        },
-                        /*
-                        StyleProp::Border(b) => self.set_border(surface, b),
-                        StyleProp::Overflow(o) => self.set_overflow(surface, o),
-                        */
-                        _ => {}
-                    }
-                }
-            }
+        })
+    }
+
+    fn set_border(&mut self, surface: SurfaceId, _border: Option<Border>) {
+        self.update_style(surface, |_s| {
+            debug!("TODO: set border layout");
+        })
+    }
+
+    fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
+        let node = self.nodes[surface];
+
+        if text.is_some() {
+            let stretch_layout = get_static_ref(self);
+
+            let measure_func: Box<dyn FnMut(StretchSize<Number>) -> Result<StretchSize<f32>, Box<dyn Any>>> = Box::new(move |size: StretchSize<Number>| {
+                let max_width = match size.width {
+                    Number::Defined(w) => Some(w),
+                    Number::Undefined => None
+                };
+
+                let f = stretch_layout.measure_text_holder.as_mut().expect("not inside calculate");
+                let res = f(surface, max_width);
+
+                Ok(StretchSize { width: res.0, height: res.1 })
+            });
+
+            // it's FnMut but fuck it
+            self.stretch.set_measure(node, unsafe { std::mem::transmute(Some(measure_func)) }).expect("set measure");
+        } else {
+            self.stretch.set_measure(node, None).expect("set measure");
         }
     }
 
@@ -159,21 +156,12 @@ impl From<&stretch::result::Layout> for Bounds {
     }
 }
 
-impl Into<StretchSize<StretchDimension>> for Size {
-    fn into(self) -> StretchSize<StretchDimension> {
-        StretchSize {
-            width: self.0.into(),
-            height: self.1.into()
-        }
-    }
-}
-
 impl Into<StretchDimension> for Dimension {
     fn into(self) -> StretchDimension {
         match self {
-            Dimension::Auto => StretchDimension::Auto,
-            Dimension::Point(p) => StretchDimension::Points(p),
-            Dimension::Percent(p) => StretchDimension::Percent(p),
+            Dimension { point: None, percent: None } => StretchDimension::Auto,
+            Dimension { point: Some(p), .. } => StretchDimension::Points(p),
+            Dimension { percent: Some(p), .. } => StretchDimension::Percent(p),
         }
     }
 }
@@ -219,15 +207,16 @@ impl Into<AlignContent> for FlexAlign {
     }
 }
 
-impl Into<StretchJustifyContent> for JustifyContent {
+impl Into<StretchJustifyContent> for FlexAlign {
     fn into(self) -> StretchJustifyContent {
         match self {
-            JustifyContent::Center => StretchJustifyContent::Center,
-            JustifyContent::FlexStart => StretchJustifyContent::FlexStart,
-            JustifyContent::FlexEnd => StretchJustifyContent::FlexEnd,
-            JustifyContent::SpaceAround => StretchJustifyContent::SpaceAround,
-            JustifyContent::SpaceBetween => StretchJustifyContent::SpaceBetween,
-            JustifyContent::SpaceEvenly => StretchJustifyContent::SpaceEvenly,
+            FlexAlign::Center => StretchJustifyContent::Center,
+            FlexAlign::FlexStart => StretchJustifyContent::FlexStart,
+            FlexAlign::FlexEnd => StretchJustifyContent::FlexEnd,
+            FlexAlign::SpaceAround => StretchJustifyContent::SpaceAround,
+            FlexAlign::SpaceBetween => StretchJustifyContent::SpaceBetween,
+            FlexAlign::SpaceEvenly => StretchJustifyContent::SpaceEvenly,
+            _ => unimplemented!()            
         }
     }
 }
@@ -256,10 +245,10 @@ impl Into<StretchFlexWrap> for FlexWrap {
 impl Into<StretchRect<StretchDimension>> for Dimensions {
     fn into(self) -> StretchRect<StretchDimension> {
         StretchRect {
-            top: self.0.into(),
-            end: self.1.into(),
-            bottom: self.2.into(),
-            start: self.3.into()
+            top: self.top.into(),
+            end: self.right.into(),
+            bottom: self.bottom.into(),
+            start: self.left.into()
         }
     }
 }

@@ -1,9 +1,9 @@
-use crate::generated::{SurfaceId, UpdateSceneMsg, WindowEvent};
-use crate::commons::Pos;
+use crate::commons::{Pos, SurfaceId};
 use crate::picker::SurfacePicker;
-use crate::box_layout::{BoxLayout, YogaLayout};
+use crate::box_layout::{BoxLayout, StretchLayout};
 use crate::text_layout::TextLayout;
 use crate::render::Renderer;
+use miniserde::{Deserialize, Serialize};
 
 pub struct Window {
     box_layout: Box<dyn BoxLayout>,
@@ -14,12 +14,42 @@ pub struct Window {
     picker: SurfacePicker,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Event {
+    kind: EventKind,
+    target: SurfaceId,
+    key: u16,
+}
+
+impl Event {
+    // TODO: private
+    pub fn new(kind: EventKind, target: SurfaceId, key: u16) -> Self {
+        Self { kind, target, key }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub enum EventKind {
+    MouseMove,
+    MouseDown,
+    MouseUp,
+    Scroll,
+    KeyDown,
+    KeyPress,
+    KeyUp,
+    Focus,
+    Blur,
+    Resize,
+    Close,
+    Unknown,    
+}
+
 impl Window {
     pub fn new(width: u32, height: u32) -> Self {
         Window {
-            mouse_pos: Pos::default(),
+            mouse_pos: Pos::zero(),
 
-            box_layout: Box::new(YogaLayout::new((width as f32, height as f32))),
+            box_layout: Box::new(StretchLayout::new((width as f32, height as f32))),
             text_layout: TextLayout::new(),
             picker: SurfacePicker::new(),
 
@@ -27,35 +57,30 @@ impl Window {
         }
     }
 
-    pub fn mouse_move(&mut self, pos: Pos) -> WindowEvent {
+    pub fn mouse_move(&mut self, pos: Pos) -> Event {
         self.mouse_pos = pos;
 
-        WindowEvent::MouseMove {
-            target: self.get_mouse_target(),
-        }
+        Event::new(EventKind::MouseMove, self.get_mouse_target(), 0)
     }
 
-    pub fn scroll(&mut self, delta: (f32, f32)) -> WindowEvent {
+    pub fn scroll(&mut self, delta: (f32, f32)) -> Event {
         let target = self.get_mouse_target();
 
         // TODO: just like ScrollBy/ScrollAt update message (& render() after that)
         //self.renderer.scroll(self.mouse_pos, delta);
 
-        WindowEvent::Scroll { target }
+        Event::new(EventKind::Scroll, self.get_mouse_target(), 0)
     }
 
-    pub fn mouse_down(&mut self) -> WindowEvent {
-        WindowEvent::MouseDown {
-            target: self.get_mouse_target(),
-        }
+    pub fn mouse_down(&mut self) -> Event {
+        Event::new(EventKind::MouseDown, self.get_mouse_target(), 0)
     }
 
-    pub fn mouse_up(&mut self) -> WindowEvent {
-        WindowEvent::MouseUp {
-            target: self.get_mouse_target(),
-        }
+    pub fn mouse_up(&mut self) -> Event {
+        Event::new(EventKind::MouseUp, self.get_mouse_target(), 0)
     }
 
+    /*
     pub fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
         self.text_layout.update_scene(msgs);
         self.box_layout.update_scene(msgs);
@@ -71,6 +96,7 @@ impl Window {
 
         self.renderer.render(&self.box_layout.get_bounds(), &self.text_layout);
     }
+    */
 
     fn get_mouse_target(&self) -> SurfaceId {
         self.picker.pick_at(self.mouse_pos, &self.renderer.scene.children, &self.box_layout.get_bounds())

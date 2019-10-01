@@ -1,7 +1,8 @@
-use crate::commons::{Pos, Bounds};
+#![allow(non_snake_case)]
+
+use crate::commons::{Pos, Bounds, SurfaceId, Color};
 use std::collections::BTreeMap;
-use crate::generated::{UpdateSceneMsg, StyleProp, SurfaceId, Text};
-use serde::{Deserialize, Serialize};
+use miniserde::{json, Deserialize, Serialize};
 
 // TODO: currently it does more than intended so either rename it or
 // split it...
@@ -20,15 +21,34 @@ pub struct TextLayout {
     glyphs: BTreeMap<SurfaceId, Vec<GlyphInstance>>
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Text {
+    pub color: Color,
+    pub font_size: f32,
+
+    pub line_height: f32,
+
+    pub align: TextAlign,
+    pub text: String,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub enum TextAlign {
+    Left,
+    Center,
+    Right,
+}
+
 impl TextLayout {
     pub fn new() -> Self {
-        let file = std::fs::File::open("../font.json").unwrap();
-        let font: MsdfFont = serde_json::from_reader(file).expect("invalid font");
+        let str = std::fs::read_to_string("../font.json").expect("font file");
+        let font: MsdfFont = json::from_str(&str).expect("invalid font");
 
         let mut font_glyphs = BTreeMap::new();
 
         for c in font.chars {
           font_glyphs.insert(c.id, FontGlyph {
+              offset_y: c.yoffset,
               size: Pos::new(c.width / font.info.size, c.height / font.info.size),
               coords: Bounds {
                 a: Pos::new(c.x / font.common.scaleW, c.y / font.common.scaleH),
@@ -47,31 +67,24 @@ impl TextLayout {
         }
     }
 
-    pub fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
-        for m in msgs {
-            match m {
-                UpdateSceneMsg::SetStyleProp { surface, prop: StyleProp::Text(t) } => {
-                    match t {
-                        None => {
-                            self.metas.remove(surface);
-                            self.glyphs.remove(surface);
-                        }
-                        Some(text) => {
-                            let (meta, glyphs) = self.layout_text(text);
+    pub fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
+        match text {
+            None => {
+                self.metas.remove(&surface);
+                self.glyphs.remove(&surface);
+            }
+            Some(text) => {
+                let (meta, glyphs) = self.layout_text(&text);
 
-                            self.metas.insert(*surface, meta);
-                            self.glyphs.insert(*surface, glyphs);
-                        }
-                    }
-                },
-                _ => {}
+                self.metas.insert(surface, meta);
+                self.glyphs.insert(surface, glyphs);
             }
         }
     }
 
     fn layout_text(&self, text: &Text) -> (Meta, Vec<GlyphInstance>) {
         let mut size = (0., text.line_height);
-        let mut pos = Pos::default();
+        let mut pos = Pos::zero();
 
         let glyphs = text.text.chars().into_iter().map(|c| {
             if c == '\n' {
@@ -89,7 +102,7 @@ impl TextLayout {
 
             // TODO: read from font
             let base = 38.964 / 42.;
-            let a = Pos::new(pos.x, pos.y + base * text.font_size - font_glyph.size.y * text.font_size);
+            let a = Pos::new(pos.x, pos.y + (font_glyph.offset_y / 42. * text.font_size) + base * text.font_size - font_glyph.size.y * text.font_size);
 
             let glyph = GlyphInstance {
                 bounds: Bounds { a, b: font_glyph.size.mul(text.font_size).relative_to(a) },
@@ -148,7 +161,8 @@ impl TextLayout {
 pub struct FontGlyph {
   pub size: Pos,
   pub coords: Bounds,
-  pub advance: f32
+  pub advance: f32,
+  pub offset_y: f32,
 }
 
 #[derive(Debug)]
@@ -163,6 +177,8 @@ pub struct Meta {
     initial_width: f32,
 }
 
+// msdf parsing
+
 #[derive(Deserialize, Serialize, Debug)]
 pub struct MsdfFont {
     info: MsdfInfo,
@@ -176,7 +192,6 @@ pub struct MsdfInfo {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-#[allow(non_snake_case)]
 pub struct MsdfCommonInfo {
     scaleW: f32,
     scaleH: f32,
@@ -197,4 +212,4 @@ pub struct MsdfChar {
 }
 
 // ::default() cannot be used to initialize static :-/
-const MISSING_GLYPH: FontGlyph = FontGlyph { size: Pos { x: 0., y: 0. }, coords: Bounds { a: Pos { x: 0., y: 0. }, b: Pos { x: 0., y: 0. } }, advance: 0. };
+const MISSING_GLYPH: FontGlyph = FontGlyph { offset_y: 0., size: Pos { x: 0., y: 0. }, coords: Bounds { a: Pos { x: 0., y: 0. }, b: Pos { x: 0., y: 0. } }, advance: 0. };

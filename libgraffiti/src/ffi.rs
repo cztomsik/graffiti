@@ -1,6 +1,11 @@
+// bridge
+
+use crate::text_layout::Text;
+use crate::box_layout::{Layout, Overflow};
+use crate::commons::{SurfaceId, Color, BorderRadius, Border, BoxShadow, Image};
 use crate::app::TheApp;
-use crate::generated::{FfiMsg, FfiResult};
-use bincode::{deserialize, serialize};
+use crate::window::{Event};
+use miniserde::{json, Deserialize, Serialize};
 use std::io::prelude::Write;
 
 static mut APP: Option<TheApp> = None;
@@ -19,13 +24,14 @@ pub extern "C" fn init() {
 //   shape of the result
 // - often-occurring results should be "small" (Nothing, MouseMove)
 #[no_mangle]
-pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
+pub extern "C" fn send(data: *const u8, len: u32, mut result_ptr: &mut [u8]) {
     // get slice of bytes & try to deserialize
     let msg = unsafe { std::slice::from_raw_parts(data, len as usize) };
-    let msg: FfiMsg = deserialize(msg).expect("invalid message"); // serde_json::from_slice(msg).expect("invalid message");
+    let msg: FfiMsg = json::from_str(std::str::from_utf8(msg).expect("not string")).expect("invalid message");
 
-    silly!("Msg {:#?}", &msg);
+    debug!("Msg {:#?}", &msg);
 
+    /*
     // try to handle the message
     let maybe_err = std::panic::catch_unwind(|| unsafe {
         match APP {
@@ -42,23 +48,18 @@ pub extern "C" fn send(data: *const u8, len: u32, result_ptr: *mut u8) {
         error!("err {:?}", err);
 
         FfiResult::Error(*err)
-    });
+    });*/
 
-    // serialize & write the result
-    unsafe {
-        // TODO: find a way to avoid memcpy
-        // (it's not possible to use to_writer, because it takes ownership and so it would free the vec & the data)
-        // let data = serde_json::to_vec(&result).expect("couldn't serialize result");
-        let data = serialize(&result).expect("couldn't serialize result");
-        let mut writer = Vec::from_raw_parts(result_ptr, 0, 1024);
-        writer.write(&data[..]).unwrap();
+    let result = FfiResult {
+        events: Vec::new(),
+        error: None,
+    };
 
-        // serialize_into(writer, &result).unwrap();
-        Box::leak(Box::new(writer));
-    }
+    result_ptr.write(json::to_string(&result).as_bytes()).expect("write result");
 }
 
-fn handle_msg(app: &mut TheApp, msg: FfiMsg) -> FfiResult {
+fn handle_msg(_app: &mut TheApp, _msg: FfiMsg) -> FfiResult {
+    /*
     match msg {
         FfiMsg::GetEvents(poll) => FfiResult::Events(app.get_events(poll)),
         FfiMsg::CreateWindow => FfiResult::WindowId(app.create_window()),
@@ -66,5 +67,74 @@ fn handle_msg(app: &mut TheApp, msg: FfiMsg) -> FfiResult {
             app.update_window_scene(window, &msgs);
             FfiResult::Nothing
         }
+
+    }
+    */
+    FfiResult {
+        events: Vec::new(),
+        error: None,
     }
 }
+
+// some ffi-specific glue
+
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct FfiMsg {
+
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct FfiResult {
+    events: Vec<Event>,
+    error: Option<String>
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetLayout {
+    surface: SurfaceId,
+    layout: Option<Layout>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetBorderRadius {
+    surface: SurfaceId,
+    layout: Option<BorderRadius>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetBackgroundColor {
+    surface: SurfaceId,
+    color: Option<Color>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetBorder {
+    surface: SurfaceId,
+    border: Option<Border>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetBoxShadow {
+    surface: SurfaceId,
+    shadow: Option<BoxShadow>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetText {
+    surface: SurfaceId,
+    text: Option<Text>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetImage {
+    surface: SurfaceId,
+    image: Option<Image>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetOverflow {
+    surface: SurfaceId,
+    overflow: Overflow,
+}
+

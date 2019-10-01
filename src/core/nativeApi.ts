@@ -1,8 +1,3 @@
-import { FfiMsg, FfiResult } from './generated'
-import { writeFfiMsg } from './serialization.generated'
-import { readFfiResult } from './deserialization.generated'
-import { Sink } from 'ts-binary'
-
 import * as ref from 'ref'
 import * as ffi from 'ffi'
 

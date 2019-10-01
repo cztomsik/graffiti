@@ -5,8 +5,6 @@ mod util;
 
 mod commons;
 
-// bridge
-mod generated;
 mod ffi;
 
 mod app;

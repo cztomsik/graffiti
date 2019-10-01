@@ -1,6 +1,5 @@
 use crate::commons::Pos;
-use crate::generated::{Event, WindowEvent, WindowId, UpdateSceneMsg};
-use crate::window::Window;
+use crate::window::{Window, Event, EventKind};
 use glfw::{Context, Glfw};
 use std::collections::BTreeMap;
 use std::sync::mpsc::Receiver;
@@ -10,6 +9,8 @@ pub struct TheApp {
     windows: BTreeMap<WindowId, (Window, glfw::Window, Receiver<(f64, glfw::WindowEvent)>)>,
     next_window_id: WindowId,
 }
+
+pub type WindowId = usize;
 
 impl TheApp {
     pub fn init() -> Self {
@@ -39,6 +40,7 @@ impl TheApp {
         }
 
         // go through all windows, handle their events, collect all the resulting events and wrap them along with respective window_id
+        /*
         self.windows
             .iter_mut()
             .flat_map(|(id, (window, glfw_window, events))| {
@@ -53,9 +55,11 @@ impl TheApp {
                 res
             })
             .collect()
+        */
+        Vec::new()
     }
 
-    fn handle_window_event(window: &mut Window, _glfw_window: &mut glfw::Window, event: glfw::WindowEvent) -> Option<WindowEvent> {
+    fn handle_window_event(window: &mut Window, _glfw_window: &mut glfw::Window, event: glfw::WindowEvent) -> Option<Event> {
         // TODO: we don't need Option currently so maybe we can remove it in the future
         match event {
             event => Some(match event {
@@ -72,19 +76,22 @@ impl TheApp {
                 },
                 //glutin::WindowEvent::ReceivedCharacter(ch) => WindowEvent::KeyPress(ch as u16),
                 //glutin::WindowEvent::CloseRequested => WindowEvent::Close,
+                /*
                 glfw::WindowEvent::FramebufferSize(_, _) => {
                     //self.update_sizes();
-                    WindowEvent::Resize
+                    Event::Resize
                 }
-                glfw::WindowEvent::Close => WindowEvent::Close,
+                glfw::WindowEvent::Close => Event::Close,
                 // TODO: repeat works for some keys but for some it doesn't
                 // not sure if it's specific for mac (special chars overlay)
                 glfw::WindowEvent::Key(_key, scancode, action, _modifiers) => match action {
-                    glfw::Action::Release => WindowEvent::KeyUp(scancode as u16),
-                    _ => WindowEvent::KeyDown(scancode as u16),
+                    glfw::Action::Release => Event::KeyUp(scancode as u16),
+                    _ => Event::KeyDown(scancode as u16),
                 },
-                glfw::WindowEvent::Char(ch) => WindowEvent::KeyPress(ch as u16),
-                _ => WindowEvent::Unknown,
+                glfw::WindowEvent::Char(ch) => Event::KeyPress(ch as u16),
+                _ => Event::Unknown,
+                */
+                _ => Event::new(EventKind::Unknown, 0, 0)
             }),
         }
     }
@@ -115,12 +122,14 @@ impl TheApp {
         id
     }
 
+    /*
     pub fn update_window_scene(&mut self, id: WindowId, msgs: &[UpdateSceneMsg]) {
         let (window, glfw_window, _) = &mut self.windows.get_mut(&id).expect("window not found");
 
         window.update_scene(msgs);
         glfw_window.swap_buffers();
     }
+    */
 
     pub fn destroy_window(&mut self, id: WindowId) {
         self.windows.remove(&id);

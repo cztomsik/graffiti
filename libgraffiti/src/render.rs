@@ -1,8 +1,7 @@
-use crate::commons::{Au, Pos, Bounds};
+use crate::commons::{Au, Pos, Bounds, SurfaceId, Color, Image, BoxShadow, Border, BorderRadius};
 use std::collections::BTreeMap;
 use std::io::Write;
-use crate::generated::{SurfaceId, UpdateSceneMsg, StyleProp, BoxShadow, Color, Image, Text, Border, BorderRadius};
-use crate::text_layout::{TextLayout, GlyphInstance};
+use crate::text_layout::{TextLayout, Text, GlyphInstance};
 use crate::util::Storage;
 
 mod backend;
@@ -56,26 +55,31 @@ impl Renderer {
         self.render_frame(frame);
     }
 
-    // TODO: think about finer-grained methods or just introduce them and delegate to them from here for now
-    pub fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
-        for m in msgs.iter().cloned() {
-            match m {
-                UpdateSceneMsg::Alloc => self.scene.children.push(Vec::new()),
-                UpdateSceneMsg::InsertAt { parent, child, index } => self.scene.children[parent].insert(index, child),
-                UpdateSceneMsg::RemoveChild { parent, child } => self.scene.children[parent].retain(|ch| *ch != child),
-                UpdateSceneMsg::SetStyleProp { surface, prop } => match prop {
-                    StyleProp::BorderRadius(r) => self.scene.border_radii.set(surface, r),
-                    StyleProp::BoxShadow(s) => self.scene.box_shadows.set(surface, s),
-                    StyleProp::BackgroundColor(c) => self.scene.background_colors.set(surface, c),
-                    StyleProp::Image(i) => self.scene.images.set(surface, i),
-                    // TODO: separate message for text color
-                    // TODO: inspect perf, create/remove_text, cache buffers
-                    StyleProp::Text(t) => self.scene.texts.set(surface, t),
-                    StyleProp::Border(b) => self.scene.borders.set(surface, b),
-                    _ => {}
-                }
-            }
-        }
+    pub fn set_border_radius(&mut self, surface: SurfaceId, radius: Option<BorderRadius>) {
+        self.scene.border_radii.set(surface, radius);
+    }
+
+    pub fn set_box_shadow(&mut self, surface: SurfaceId, shadow: Option<BoxShadow>) {
+        self.scene.box_shadows.set(surface, shadow);
+    }
+
+    pub fn set_background_color(&mut self, surface: SurfaceId, color: Option<Color>) {
+        self.scene.background_colors.set(surface, color);
+    }
+
+    pub fn set_image(&mut self, surface: SurfaceId, image: Option<Image>) {
+        self.scene.images.set(surface, image);
+    }
+
+    // TODO: separate method for text color
+
+    pub fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
+        // TODO: inspect perf, create/remove_text, cache buffers
+        self.scene.texts.set(surface, text);
+    }
+
+    pub fn set_border(&mut self, surface: SurfaceId, border: Option<Border>) {
+        self.scene.borders.set(surface, border);
     }
 
     fn prepare_frame(&mut self, all_bounds: &[Bounds], text_layout: &TextLayout) -> Frame {
@@ -164,7 +168,7 @@ impl <'a> RenderContext<'a> {
 
     fn draw_image(&mut self, _image: &Image) {
         // TODO
-        self.builder.push_rect(self.bounds, &Color(100, 200, 255, 255));
+        self.builder.push_rect(self.bounds, &Color::new(100, 200, 255, 255));
     }
 
     // TODO: create_text() -> TextId & Batch::Text(text_id)
@@ -275,7 +279,7 @@ impl FrameBuilder {
     }
 
     fn push_rect(&mut self, bounds: Bounds, color: &Color) {
-        self.push_quad(color.3 == 255, &Quad::new(bounds, [*color, *color, *color, *color]));
+        self.push_quad(color.a == 255, &Quad::new(bounds, [*color, *color, *color, *color]));
     }
 
     // TODO: this is alpha only, opaque cannot be generic!
