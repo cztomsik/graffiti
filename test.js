@@ -33,13 +33,31 @@ const send = (msg) => {
 }
 
 // TODO: create window
-send({  })
+send({
+  update: {
+    alloc: 1
+  }
+})
 
 setInterval(() => {
   // check for events
-  const { events } = send({})
+  const { events } = send({
+    window_id: 1
+  })
 
   // TODO: handle/log events for each window
 
   console.log(events)
 }, 1000)
+
+setTimeout(() => {
+  send({
+    window_id: 1,
+
+    update: {
+      text_changes: [
+        { surface: 0, text: { font_size: 50, line_height: 50, align: 'Left', text: 'Hello', color: { r: 255, g: 0, b: 0, a: 255 } } }
+      ]
+    }
+  })
+}, 500)

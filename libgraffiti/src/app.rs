@@ -1,5 +1,5 @@
 use crate::commons::Pos;
-use crate::window::{Window, Event, EventKind};
+use crate::window::{Window, Event, EventKind, UpdateSceneMsg};
 use glfw::{Context, Glfw};
 use std::collections::BTreeMap;
 use std::sync::mpsc::Receiver;
@@ -40,22 +40,21 @@ impl TheApp {
         }
 
         // go through all windows, handle their events, collect all the resulting events and wrap them along with respective window_id
-        /*
-        self.windows
+        let _: Vec<()> = self.windows
             .iter_mut()
-            .flat_map(|(id, (window, glfw_window, events))| {
+            .flat_map(|(_id, (window, glfw_window, events))| {
                 glfw_window.make_current();
                 let res = glfw::flush_messages(events)
                     .filter_map(move |(_, e)| Self::handle_window_event(window, glfw_window, e))
-                    .map(move |e| Event::WindowEvent {
+                    .map(move |_e| /*Event::WindowEvent {
                         window: *id,
                         event: e,
-                    });
+                    }*/ () );
 
                 res
             })
-            .collect()
-        */
+            .collect();
+
         Vec::new()
     }
 
@@ -122,14 +121,12 @@ impl TheApp {
         id
     }
 
-    /*
-    pub fn update_window_scene(&mut self, id: WindowId, msgs: &[UpdateSceneMsg]) {
+    pub fn update_window_scene(&mut self, id: WindowId, msg: &UpdateSceneMsg) {
         let (window, glfw_window, _) = &mut self.windows.get_mut(&id).expect("window not found");
 
-        window.update_scene(msgs);
+        window.update_scene(msg);
         glfw_window.swap_buffers();
     }
-    */
 
     pub fn destroy_window(&mut self, id: WindowId) {
         self.windows.remove(&id);

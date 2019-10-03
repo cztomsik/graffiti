@@ -1,15 +1,16 @@
 use crate::commons::{Pos, Bounds, SurfaceId, Border};
-use crate::box_layout::{BoxLayout, Layout, Dimension, FlexAlign, FlexDirection, FlexWrap, Dimensions};
+use crate::box_layout::{BoxLayout, DimensionProp, Dimension, AlignProp, Align};
 use crate::text_layout::{Text};
-use stretch::geometry::{Size as StretchSize, Rect as StretchRect};
+use stretch::geometry::{Size as StretchSize};
 use stretch::Stretch;
 use stretch::node::Node;
-use stretch::style::{Style, Dimension as StretchDimension, AlignContent, AlignItems, AlignSelf, JustifyContent as StretchJustifyContent, FlexDirection as StretchFlexDirection, FlexWrap as StretchFlexWrap};
+use stretch::style::{Style as StretchStyle, Dimension as StretchDimension, AlignContent, AlignItems, AlignSelf, JustifyContent as StretchJustifyContent, FlexDirection as StretchFlexDirection};
 use stretch::number::Number;
 use std::any::Any;
 
 pub struct StretchLayout {
     stretch: Stretch,
+    styles: Vec<StretchStyle>,
     nodes: Vec<Node>,
     bounds: Vec<Bounds>,
     measure_text_holder: Option<&'static mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)>
@@ -17,47 +18,43 @@ pub struct StretchLayout {
 
 impl StretchLayout {
     pub fn new((width, height): (f32, f32)) -> Self {
-        let mut stretch = Stretch::new();
-
-        let root = Self::new_node(&mut stretch);
-
-        stretch.set_style(root, Style {
-            size: StretchSize { width: StretchDimension::Points(width), height: StretchDimension::Points(height) },
-            ..Default::default()
-        }).expect("init root layout");
-
-        StretchLayout {
-            stretch,
-            nodes: vec![root],
+        let mut res = StretchLayout {
+            stretch: Stretch::new(),
+            nodes: Vec::new(),
+            styles: Vec::new(),
             bounds: vec![Bounds::zero()],
             measure_text_holder: None
-        }
+        };
+
+        res.alloc();
+        res.update_style(0, |s| {
+            s.size = StretchSize { width: StretchDimension::Points(width), height: StretchDimension::Points(height) };
+        });
+
+        res
     }
 
-    fn new_node(stretch: &mut Stretch) -> Node {
-        stretch.new_node(
-            Style {
-                flex_direction: StretchFlexDirection::Column,
-                ..Default::default()
-            },
-            vec![]
-        ).expect("couldn't create node")
-    }
+    fn update_style<F>(&mut self, surface: SurfaceId, mut update_fn: F) where F: FnMut(&mut StretchStyle) + Sized {
+        let style = &mut self.styles[surface];
 
-    fn update_style<F>(&mut self, surface: SurfaceId, mut update_fn: F) where F: FnMut(&mut Style) + Sized {
-        // TODO: hopefully it's not too costy, otherwise we could cache it
-        let mut style = self.stretch.style(self.nodes[surface]).expect("no style").clone();
+        update_fn(style);
 
-        update_fn(&mut style);
-
-        self.stretch.set_style(self.nodes[surface], style).expect("update layout");
+        self.stretch.set_style(self.nodes[surface], *style).expect("update stretch style");
     }
 }
 
 impl BoxLayout for StretchLayout {
     fn alloc(&mut self) {
-        let node = StretchLayout::new_node(&mut self.stretch);
+        let node = self.stretch.new_node(
+            StretchStyle {
+                flex_direction: StretchFlexDirection::Column,
+                ..Default::default()
+            },
+            vec![]
+        ).expect("couldn't create node");
+
         self.nodes.push(node);
+        self.styles.push(StretchStyle::default());
         self.bounds.push(Bounds::zero());
     }
 
@@ -77,11 +74,54 @@ impl BoxLayout for StretchLayout {
         self.stretch.remove_child(parent, child).expect("couldnt remove");
     }
 
+    fn set_dimension(&mut self, surface: SurfaceId, prop: DimensionProp, value: Dimension) {
+        let v = value.into();
+
+        self.update_style(surface, |s| {
+            match prop {
+                DimensionProp::Width => s.size.width = v,
+                DimensionProp::Height => s.size.height = v,
+                DimensionProp::MinWidth => s.min_size.width = v,
+                DimensionProp::MinHeight => s.min_size.height = v,
+                DimensionProp::MaxWidth => s.max_size.width = v,
+                DimensionProp::MaxHeight => s.max_size.height = v,
+
+                DimensionProp::PaddingLeft => s.padding.start = v,
+                DimensionProp::PaddingRight => s.padding.end = v,
+                DimensionProp::PaddingTop => s.padding.top = v,
+                DimensionProp::PaddingBottom => s.padding.bottom = v,
+
+                DimensionProp::MarginLeft => s.margin.start = v,
+                DimensionProp::MarginRight => s.margin.end = v,
+                DimensionProp::MarginTop => s.margin.top = v,
+                DimensionProp::MarginBottom => s.margin.bottom = v,
+
+                // TODO: flex
+                DimensionProp::FlexGrow => s.flex_grow = get_points(&v),
+                DimensionProp::FlexShrink => s.flex_shrink = get_points(&v),
+                DimensionProp::FlexBasis => s.flex_basis = v,
+            }
+        })
+    }
+
+    fn set_align(&mut self, _surface: SurfaceId, _prop: AlignProp, _value: Align) {
+        /*
+        self.update_style(surface, |s| {
+            match prop {
+                AlignProp::AlignSelf => s.align_self = value.into(),
+                AlignProp::AlignContent => s.align_content = value.into(),
+                AlignProp::AlignItems => s.align_items = value.into(),
+                AlignProp::JustifyContent => s.justify_content = value.into(),
+                _ => debug!("TODO: other dimension props")
+            }
+        })
+        */
+    }
+
+    /*
     fn set_layout(&mut self, surface: SurfaceId, layout: Layout) {
         self.update_style(surface, |s| {
             let layout = layout.clone();
-
-            s.size = StretchSize { width: layout.width.into(), height: layout.height.into() };
 
             s.flex_grow = layout.flex_grow;
             s.flex_shrink = layout.flex_shrink;
@@ -93,12 +133,9 @@ impl BoxLayout for StretchLayout {
             s.align_self = layout.align_self.into();
             s.align_content = layout.align_content.into();
             s.justify_content = layout.justify_content.into();
-
-            s.margin = layout.margin.into();
-            s.padding = layout.padding.into();
-
         })
     }
+    */
 
     fn set_border(&mut self, surface: SurfaceId, _border: Option<Border>) {
         self.update_style(surface, |_s| {
@@ -156,6 +193,14 @@ impl From<&stretch::result::Layout> for Bounds {
     }
 }
 
+// hacky because of into(), type inference & DRY :-/
+fn get_points(dim: &StretchDimension) -> f32 {
+    match dim {
+        StretchDimension::Points(v) => *v,
+        _ => panic!("expected point")
+    }
+}
+
 impl Into<StretchDimension> for Dimension {
     fn into(self) -> StretchDimension {
         match self {
@@ -166,61 +211,62 @@ impl Into<StretchDimension> for Dimension {
     }
 }
 
-impl Into<AlignItems> for FlexAlign {
+impl Into<AlignItems> for Align {
     fn into(self) -> AlignItems {
         match self {
-            FlexAlign::Baseline => AlignItems::Baseline,
-            FlexAlign::Center => AlignItems::Center,
-            FlexAlign::FlexStart => AlignItems::FlexStart,
-            FlexAlign::FlexEnd => AlignItems::FlexEnd,
-            FlexAlign::Stretch => AlignItems::Stretch,
+            Align::Baseline => AlignItems::Baseline,
+            Align::Center => AlignItems::Center,
+            Align::Start => AlignItems::FlexStart,
+            Align::End => AlignItems::FlexEnd,
+            Align::Stretch => AlignItems::Stretch,
             _ => unimplemented!()
         }
     }
 }
 
-impl Into<AlignSelf> for FlexAlign {
+impl Into<AlignSelf> for Align {
     fn into(self) -> AlignSelf {
         match self {
-            FlexAlign::Auto => AlignSelf::Auto,
-            FlexAlign::Baseline => AlignSelf::Baseline,
-            FlexAlign::Center => AlignSelf::Center,
-            FlexAlign::FlexStart => AlignSelf::FlexStart,
-            FlexAlign::FlexEnd => AlignSelf::FlexEnd,
-            FlexAlign::Stretch => AlignSelf::Stretch,
+            Align::Auto => AlignSelf::Auto,
+            Align::Baseline => AlignSelf::Baseline,
+            Align::Center => AlignSelf::Center,
+            Align::Start => AlignSelf::FlexStart,
+            Align::End => AlignSelf::FlexEnd,
+            Align::Stretch => AlignSelf::Stretch,
             _ => unimplemented!()
         }
     }
 }
 
-impl Into<AlignContent> for FlexAlign {
+impl Into<AlignContent> for Align {
     fn into(self) -> AlignContent {
         match self {
-            FlexAlign::Center => AlignContent::Center,
-            FlexAlign::FlexStart => AlignContent::FlexStart,
-            FlexAlign::FlexEnd => AlignContent::FlexEnd,
-            FlexAlign::SpaceAround => AlignContent::SpaceAround,
-            FlexAlign::SpaceBetween => AlignContent::SpaceBetween,
-            FlexAlign::Stretch => AlignContent::Stretch,
+            Align::Center => AlignContent::Center,
+            Align::Start => AlignContent::FlexStart,
+            Align::End => AlignContent::FlexEnd,
+            Align::SpaceAround => AlignContent::SpaceAround,
+            Align::SpaceBetween => AlignContent::SpaceBetween,
+            Align::Stretch => AlignContent::Stretch,
             _ => unimplemented!()
         }
     }
 }
 
-impl Into<StretchJustifyContent> for FlexAlign {
+impl Into<StretchJustifyContent> for Align {
     fn into(self) -> StretchJustifyContent {
         match self {
-            FlexAlign::Center => StretchJustifyContent::Center,
-            FlexAlign::FlexStart => StretchJustifyContent::FlexStart,
-            FlexAlign::FlexEnd => StretchJustifyContent::FlexEnd,
-            FlexAlign::SpaceAround => StretchJustifyContent::SpaceAround,
-            FlexAlign::SpaceBetween => StretchJustifyContent::SpaceBetween,
-            FlexAlign::SpaceEvenly => StretchJustifyContent::SpaceEvenly,
+            Align::Center => StretchJustifyContent::Center,
+            Align::Start => StretchJustifyContent::FlexStart,
+            Align::End => StretchJustifyContent::FlexEnd,
+            Align::SpaceAround => StretchJustifyContent::SpaceAround,
+            Align::SpaceBetween => StretchJustifyContent::SpaceBetween,
+            Align::SpaceEvenly => StretchJustifyContent::SpaceEvenly,
             _ => unimplemented!()            
         }
     }
 }
 
+/*
 impl Into<StretchFlexDirection> for FlexDirection {
     fn into(self) -> StretchFlexDirection {
         match self {
@@ -241,17 +287,7 @@ impl Into<StretchFlexWrap> for FlexWrap {
         }
     }
 }
-
-impl Into<StretchRect<StretchDimension>> for Dimensions {
-    fn into(self) -> StretchRect<StretchDimension> {
-        StretchRect {
-            top: self.top.into(),
-            end: self.right.into(),
-            bottom: self.bottom.into(),
-            start: self.left.into()
-        }
-    }
-}
+*/
 
 pub fn get_static_ref(stretch_layout: &mut StretchLayout) -> &'static mut StretchLayout {
     unsafe { std::mem::transmute(stretch_layout) }

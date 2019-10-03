@@ -15,7 +15,9 @@ pub trait BoxLayout {
 
     fn remove_child(&mut self, parent: SurfaceId, child: SurfaceId);
 
-    fn set_layout(&mut self, surface: SurfaceId, margin: Layout);
+    fn set_dimension(&mut self, surface: SurfaceId, prop: DimensionProp, value: Dimension);
+
+    fn set_align(&mut self, surface: SurfaceId, prop: AlignProp, value: Align);
 
     // separate because rendering doesn't need to test dimensions then
     fn set_border(&mut self, surface: SurfaceId, border: Option<Border>);
@@ -32,26 +34,69 @@ pub trait BoxLayout {
     fn get_bounds(&self) -> &[Bounds];
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+pub enum DimensionProp {
+    Width,
+    Height,
+    MinWidth,
+    MinHeight,
+    MaxWidth,
+    MaxHeight,
+
+    PaddingLeft,
+    PaddingRight,
+    PaddingTop,
+    PaddingBottom,
+
+    MarginLeft,
+    MarginRight,
+    MarginTop,
+    MarginBottom,
+
+    FlexGrow,
+    FlexShrink,
+    FlexBasis,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct Dimension {
+    // auto when both are None
+    point: Option<f32>,
+    percent: Option<f32>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub enum AlignProp {
+    AlignContent,
+    AlignItems,
+    AlignSelf,
+    JustifyContent,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub enum Align {
+    Auto,
+    Start,
+    Center,
+    End,
+    Stretch,
+    Baseline,
+    SpaceBetween,
+    SpaceAround,
+    SpaceEvenly,
+}
+
+pub enum LayoutProp {
+    FlexDirection,
+    FlexWrap,
+}
+
+/*
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Layout {
-    pub flex_grow: f32,
-    pub flex_shrink: f32,
-    pub flex_basis: Dimension,
     pub flex_direction: FlexDirection,
     pub flex_wrap: FlexWrap,
     pub overflow: Overflow,
-    pub align_content: FlexAlign,
-    pub align_items: FlexAlign,
-    pub align_self: FlexAlign,
-    pub justify_content: FlexAlign,
-    pub margin: Dimensions,
-    pub padding: Dimensions,
-    pub width: Dimension,
-    pub height: Dimension,
-    //pub min_width: Dimension,
-    //pub min_height: Dimension,
-    //pub max_width: Dimension,
-    //pub max_height: Dimension,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -59,21 +104,6 @@ pub enum Overflow {
     Visible,
     Hidden,
     Scroll,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Dimensions {
-    pub top: Dimension,
-    pub right: Dimension,
-    pub bottom: Dimension,
-    pub left: Dimension,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Dimension {
-    // auto when both are None
-    point: Option<f32>,
-    percent: Option<f32>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -90,19 +120,7 @@ pub enum FlexWrap {
     Wrap,
     WrapReverse,
 }
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub enum FlexAlign {
-    Auto,
-    FlexStart,
-    Center,
-    FlexEnd,
-    Stretch,
-    Baseline,
-    SpaceBetween,
-    SpaceAround,
-    SpaceEvenly,
-}
+*/
 
 mod stretch;
 pub use self::stretch::StretchLayout;

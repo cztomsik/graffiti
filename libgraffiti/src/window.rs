@@ -1,7 +1,7 @@
-use crate::commons::{Pos, SurfaceId};
+use crate::commons::{Pos, SurfaceId, Color, BorderRadius, Border, BoxShadow, Image};
 use crate::picker::SurfacePicker;
 use crate::box_layout::{BoxLayout, StretchLayout};
-use crate::text_layout::TextLayout;
+use crate::text_layout::{TextLayout, Text};
 use crate::render::Renderer;
 use miniserde::{Deserialize, Serialize};
 
@@ -63,8 +63,8 @@ impl Window {
         Event::new(EventKind::MouseMove, self.get_mouse_target(), 0)
     }
 
-    pub fn scroll(&mut self, delta: (f32, f32)) -> Event {
-        let target = self.get_mouse_target();
+    pub fn scroll(&mut self, _delta: (f32, f32)) -> Event {
+        let _target = self.get_mouse_target();
 
         // TODO: just like ScrollBy/ScrollAt update message (& render() after that)
         //self.renderer.scroll(self.mouse_pos, delta);
@@ -80,11 +80,27 @@ impl Window {
         Event::new(EventKind::MouseUp, self.get_mouse_target(), 0)
     }
 
-    /*
-    pub fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
-        self.text_layout.update_scene(msgs);
-        self.box_layout.update_scene(msgs);
-        self.renderer.update_scene(msgs);
+    // apply batch of changes
+    // some of this could be done in parallel which means the batch
+    // itself or some part of it  has to be passed to somebody who owns
+    // all of the systems
+    //
+    // other things (set_title) can be just plain old methods
+    //
+    // TODO: introduce some other struct responsible for this
+    pub fn update_scene(&mut self, msg: &UpdateSceneMsg) {
+        if let Some(n) = msg.alloc {
+          for _ in 0..n {
+            self.box_layout.alloc();
+          }
+        }
+
+        if let Some(changes) = &msg.text_changes {
+            for SetText { surface, text } in changes {
+                self.text_layout.set_text(*surface, text.clone());
+                self.renderer.set_text(*surface, text.clone());
+            }
+        }
 
         let text_layout = &mut self.text_layout;
 
@@ -96,9 +112,58 @@ impl Window {
 
         self.renderer.render(&self.box_layout.get_bounds(), &self.text_layout);
     }
-    */
 
     fn get_mouse_target(&self) -> SurfaceId {
         self.picker.pick_at(self.mouse_pos, &self.renderer.scene.children, &self.box_layout.get_bounds())
     }
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UpdateSceneMsg {
+    alloc: Option<usize>,
+    text_changes: Option<Vec<SetText>>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetRadius {
+    surface: SurfaceId,
+    layout: Option<BorderRadius>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetBackgroundColor {
+    surface: SurfaceId,
+    color: Option<Color>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetBorder {
+    surface: SurfaceId,
+    border: Option<Border>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetBoxShadow {
+    surface: SurfaceId,
+    shadow: Option<BoxShadow>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetText {
+    surface: SurfaceId,
+    text: Option<Text>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetImage {
+    surface: SurfaceId,
+    image: Option<Image>,
+}
+
+/*
+#[derive(Deserialize, Serialize, Debug)]
+pub struct SetOverflow {
+    surface: SurfaceId,
+    overflow: Overflow,
+}
+*/

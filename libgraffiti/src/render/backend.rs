@@ -93,6 +93,10 @@ impl RenderBackend {
             // TODO: | DEPTH_BUFFER_BIT
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
+            if frame.indices.is_empty() {
+                return;
+            }
+
             // upload indices
             // (can stay bound for the whole time)
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);

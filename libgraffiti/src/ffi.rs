@@ -1,10 +1,7 @@
 // bridge
 
-use crate::text_layout::Text;
-use crate::box_layout::{Layout, Overflow};
-use crate::commons::{SurfaceId, Color, BorderRadius, Border, BoxShadow, Image};
-use crate::app::TheApp;
-use crate::window::{Event};
+use crate::app::{TheApp, WindowId};
+use crate::window::{Event, UpdateSceneMsg};
 use miniserde::{json, Deserialize, Serialize};
 use std::io::prelude::Write;
 
@@ -31,110 +28,57 @@ pub extern "C" fn send(data: *const u8, len: u32, mut result_ptr: &mut [u8]) {
 
     debug!("Msg {:#?}", &msg);
 
-    /*
     // try to handle the message
     let maybe_err = std::panic::catch_unwind(|| unsafe {
         match APP {
-            None => FfiResult::Nothing,
-            Some(ref mut app) => handle_msg(app, msg),
+            None => panic!("no app"),
+            Some(ref mut app) => handle_msg(app, &msg),
         }
     });
 
     let result = maybe_err.unwrap_or_else(|err| {
         let err = err
             .downcast::<String>()
-            .unwrap_or(Box::new("Unknown".into()));
+            .unwrap_or(Box::new("Unknown".into()))
+            .to_string();
 
         error!("err {:?}", err);
 
-        FfiResult::Error(*err)
-    });*/
-
-    let result = FfiResult {
-        events: Vec::new(),
-        error: None,
-    };
+        FfiResult {
+            events: Vec::new(),
+            error: Some(err)
+        }
+    });
 
     result_ptr.write(json::to_string(&result).as_bytes()).expect("write result");
 }
 
-fn handle_msg(_app: &mut TheApp, _msg: FfiMsg) -> FfiResult {
-    /*
-    match msg {
-        FfiMsg::GetEvents(poll) => FfiResult::Events(app.get_events(poll)),
-        FfiMsg::CreateWindow => FfiResult::WindowId(app.create_window()),
-        FfiMsg::UpdateScene { window, msgs } => {
-            app.update_window_scene(window, &msgs);
-            FfiResult::Nothing
-        }
+fn handle_msg(app: &mut TheApp, msg: &FfiMsg) -> FfiResult {
+    // TODO: think more about windows, support closing
 
+    let window_id = msg.window_id.unwrap_or_else(|| app.create_window());
+
+    if let Some(update_msg) = &msg.update {
+        app.update_window_scene(window_id, update_msg);
     }
-    */
+
     FfiResult {
-        events: Vec::new(),
+        events: app.get_events(false),
         error: None,
     }
 }
 
 // some ffi-specific glue
 
-
 #[derive(Deserialize, Serialize, Debug)]
 pub struct FfiMsg {
-
+    window_id: Option<WindowId>,
+    update: Option<UpdateSceneMsg>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct FfiResult {
+    // TODO: multi-window
     events: Vec<Event>,
     error: Option<String>
 }
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetLayout {
-    surface: SurfaceId,
-    layout: Option<Layout>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetBorderRadius {
-    surface: SurfaceId,
-    layout: Option<BorderRadius>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetBackgroundColor {
-    surface: SurfaceId,
-    color: Option<Color>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetBorder {
-    surface: SurfaceId,
-    border: Option<Border>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetBoxShadow {
-    surface: SurfaceId,
-    shadow: Option<BoxShadow>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetText {
-    surface: SurfaceId,
-    text: Option<Text>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetImage {
-    surface: SurfaceId,
-    image: Option<Image>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetOverflow {
-    surface: SurfaceId,
-    overflow: Overflow,
-}
-

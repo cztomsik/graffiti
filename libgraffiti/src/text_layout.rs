@@ -58,7 +58,7 @@ impl TextLayout {
           });
         }
 
-        debug!("glyphs {:#?}", &font_glyphs);
+        silly!("glyphs {:#?}", &font_glyphs);
 
         TextLayout {
             font_glyphs,
