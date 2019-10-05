@@ -1,11 +1,17 @@
 use crate::commons::{Pos, SurfaceId, Color, BorderRadius, Border, BoxShadow, Image};
 use crate::picker::SurfacePicker;
-use crate::box_layout::{BoxLayout, StretchLayout};
+use crate::box_layout::{BoxLayout, StretchLayout, DimensionProp, Dimension, AlignProp, Align};
 use crate::text_layout::{TextLayout, Text};
 use crate::render::Renderer;
 use miniserde::{Deserialize, Serialize};
 
+// - delegates to platform for window-related things (TODO)
+// - holds the scene & everything needed for rendering
+// - translates events (target needs to be looked up)
+// - accepts batch of updates to be applied to the scene
 pub struct Window {
+    // TODO: platform window id
+
     box_layout: Box<dyn BoxLayout>,
     text_layout: TextLayout,
     renderer: Renderer,
@@ -22,8 +28,7 @@ pub struct Event {
 }
 
 impl Event {
-    // TODO: private
-    pub fn new(kind: EventKind, target: SurfaceId, key: u16) -> Self {
+    fn new(kind: EventKind, target: SurfaceId, key: u16) -> Self {
         Self { kind, target, key }
     }
 }
@@ -41,7 +46,6 @@ pub enum EventKind {
     Blur,
     Resize,
     Close,
-    Unknown,    
 }
 
 impl Window {
@@ -56,6 +60,11 @@ impl Window {
             renderer: Renderer::new(),
         }
     }
+
+    // TODO: set_title, set_size, ...
+    // (should just delegate to platform with the id/handle)
+
+    // translate events
 
     pub fn mouse_move(&mut self, pos: Pos) -> Event {
         self.mouse_pos = pos;
@@ -80,6 +89,22 @@ impl Window {
         Event::new(EventKind::MouseUp, self.get_mouse_target(), 0)
     }
 
+    pub fn key_down(&mut self, scancode: u16) -> Event {
+        Event::new(EventKind::KeyDown, 0, scancode)
+    }
+
+    pub fn key_press(&mut self, char: u16) -> Event {
+        Event::new(EventKind::KeyPress, 0, char)
+    }
+
+    pub fn key_up(&mut self, scancode: u16) -> Event {
+        Event::new(EventKind::KeyUp, 0, scancode)
+    }
+
+    pub fn close(&mut self) -> Event {
+        Event::new(EventKind::Close, 0, 0)
+    }
+
     // apply batch of changes
     // some of this could be done in parallel which means the batch
     // itself or some part of it  has to be passed to somebody who owns
@@ -89,16 +114,33 @@ impl Window {
     //
     // TODO: introduce some other struct responsible for this
     pub fn update_scene(&mut self, msg: &UpdateSceneMsg) {
-        if let Some(n) = msg.alloc {
-          for _ in 0..n {
-            self.box_layout.alloc();
-          }
+        for c in &msg.tree_changes {
+            match c {
+                TreeChange { parent: Some(parent), child: Some(child), index: Some(index) } => {
+                    self.box_layout.insert_at(*parent, *child, *index);
+                    self.renderer.insert_at(*parent, *child, *index);
+                }
+                TreeChange { parent: Some(parent), child: Some(child), .. } => {
+                    self.box_layout.remove_child(*parent, *child);
+                    self.renderer.remove_child(*parent, *child);
+                }
+                _ => {
+                    self.box_layout.alloc();
+                    self.renderer.alloc();                        
+                }
+            }
         }
 
-        if let Some(changes) = &msg.text_changes {
-            for SetText { surface, text } in changes {
-                self.text_layout.set_text(*surface, text.clone());
-                self.renderer.set_text(*surface, text.clone());
+        for TextChange { surface, text } in &msg.text_changes {
+            self.text_layout.set_text(*surface, text.clone());
+            self.renderer.set_text(*surface, text.clone());
+        }
+
+        for c in &msg.layout_changes {
+            match c {
+                LayoutChange { surface, dim_prop: Some(p), dim: Some(v), .. } => self.box_layout.set_dimension(*surface, *p, *v),                
+                LayoutChange { surface, align_prop: Some(p), align: Some(v), .. } => self.box_layout.set_align(*surface, *p, *v),
+                _ => unreachable!("invalid layout change")
             }
         }
 
@@ -118,10 +160,39 @@ impl Window {
     }
 }
 
+// can't be rust enum because of miniserde
+// optimized for common changes (text, colors, tree)
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateSceneMsg {
-    alloc: Option<usize>,
-    text_changes: Option<Vec<SetText>>,
+    text_changes: Vec<TextChange>,
+    //color_changes: Vec<ColorChange>,
+    layout_changes: Vec<LayoutChange>,
+    tree_changes: Vec<TreeChange>,
+}
+
+// alloc, insert, remove
+#[derive(Deserialize, Serialize, Debug)]
+pub struct TreeChange {
+    parent: Option<SurfaceId>,
+    child: Option<SurfaceId>,
+    index: Option<usize>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct TextChange {
+    surface: SurfaceId,
+    text: Option<Text>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct LayoutChange {
+    surface: SurfaceId,
+
+    dim_prop: Option<DimensionProp>,
+    dim: Option<Dimension>,
+
+    align_prop: Option<AlignProp>,
+    align: Option<Align>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -146,12 +217,6 @@ pub struct SetBorder {
 pub struct SetBoxShadow {
     surface: SurfaceId,
     shadow: Option<BoxShadow>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetText {
-    surface: SurfaceId,
-    text: Option<Text>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]

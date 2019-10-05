@@ -10,9 +10,13 @@ name = "graffiti"
 crate-type = ["cdylib"]
 
 [dependencies]
+libc = "*"
 gl = "*"
 miniserde = "0.1.12"
 # yoga = "0.3.1"
 # stretch = { path = "../../stretch" }
 stretch = "0.3.2"
-glfw = "0.27.0"
+glfw-sys = "3.3.0"
+
+#[target.'cfg(target_os="macos")'.dependencies]
+#objc = "*"

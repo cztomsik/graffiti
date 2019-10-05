@@ -1,5 +1,6 @@
 import * as ref from 'ref'
 import * as ffi from 'ffi'
+import * as util from 'util'
 
 // define lib
 const libDir = (process.env.NODE_ENV === 'production') ?'release' :'debug'
@@ -17,36 +18,24 @@ const lib = ffi.Library(
 
 export const init = () => lib.init()
 
-let sink: Sink = {
-  arr: new Uint8Array(1024),
-  pos: 0
-}
+export const send = (msg) => {
+  console.log('send', util.inspect(msg, { depth: 4 }))
 
-const resBuf = Buffer.alloc(1024, 0)
-
-export function send(msg: FfiMsg) {
-  //console.log(util.inspect(msg, { depth: 4 }))
+  // alloc some mem for result
+  // fill with spaces (because of JSON)
+  const resBuf = Buffer.alloc(1024, 0x20)
 
   // prepare buffer with msg
-  // let msgBuf = Buffer.from(JSON.stringify(msg))
-
-  sink.pos = 0
-  sink = writeFfiMsg(sink, msg)
-
-  // this will create just a view on top existing array buffer.
-  const msgBuf = Buffer.from(sink.arr.buffer, 0, sink.pos)
-  // alloc some mem for result
-  // TODO why allocate anything here?
+  const buf = Buffer.from(JSON.stringify(msg))
 
   // send (sync)
-  lib.send(msgBuf, msgBuf.length, resBuf)
+  lib.send(buf, buf.length, resBuf)
 
-  const res: FfiResult = readFfiResult({ arr: resBuf, pos: 0 })
+  const res = JSON.parse(resBuf.toString('utf-8'))
 
-  if (res.tag === 'Error') {
-    throw new Error(res.value)
+  if (res.error) {
+    throw new Error(res.error)
   }
 
-  // console.log(res)
   return res
 }

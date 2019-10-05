@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use crate::commons::{Pos, Bounds, SurfaceId, Color};
+use crate::commons::{Pos, Bounds, SurfaceId};
 use std::collections::BTreeMap;
 use miniserde::{json, Deserialize, Serialize};
 
@@ -23,9 +23,7 @@ pub struct TextLayout {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Text {
-    pub color: Color,
-    pub font_size: f32,
-
+    pub size: f32,
     pub line_height: f32,
 
     pub align: TextAlign,
@@ -102,14 +100,14 @@ impl TextLayout {
 
             // TODO: read from font
             let base = 38.964 / 42.;
-            let a = Pos::new(pos.x, pos.y + (font_glyph.offset_y / 42. * text.font_size) + base * text.font_size - font_glyph.size.y * text.font_size);
+            let a = Pos::new(pos.x, pos.y + (font_glyph.offset_y / 42. * text.size) + base * text.size - font_glyph.size.y * text.size);
 
             let glyph = GlyphInstance {
-                bounds: Bounds { a, b: font_glyph.size.mul(text.font_size).relative_to(a) },
+                bounds: Bounds { a, b: font_glyph.size.mul(text.size).relative_to(a) },
                 coords: font_glyph.coords,
             };
 
-            pos.x += font_glyph.advance * text.font_size;
+            pos.x += font_glyph.advance * text.size;
 
             glyph
         }).collect();

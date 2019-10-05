@@ -26,7 +26,7 @@ pub extern "C" fn send(data: *const u8, len: u32, mut result_ptr: &mut [u8]) {
     let msg = unsafe { std::slice::from_raw_parts(data, len as usize) };
     let msg: FfiMsg = json::from_str(std::str::from_utf8(msg).expect("not string")).expect("invalid message");
 
-    debug!("Msg {:#?}", &msg);
+    silly!("Msg {:#?}", &msg);
 
     // try to handle the message
     let maybe_err = std::panic::catch_unwind(|| unsafe {
@@ -56,14 +56,20 @@ pub extern "C" fn send(data: *const u8, len: u32, mut result_ptr: &mut [u8]) {
 fn handle_msg(app: &mut TheApp, msg: &FfiMsg) -> FfiResult {
     // TODO: think more about windows, support closing
 
-    let window_id = msg.window_id.unwrap_or_else(|| app.create_window());
+    let window_id = msg.window.unwrap_or_else(|| app.create_window());
+    let events;
 
+    // TODO: maybe we can both update and get events
+    // but it would need some changes in js
     if let Some(update_msg) = &msg.update {
         app.update_window_scene(window_id, update_msg);
+        events = Vec::new();
+    } else {
+        events = app.get_events(false);
     }
 
     FfiResult {
-        events: app.get_events(false),
+        events,
         error: None,
     }
 }
@@ -72,7 +78,7 @@ fn handle_msg(app: &mut TheApp, msg: &FfiMsg) -> FfiResult {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct FfiMsg {
-    window_id: Option<WindowId>,
+    window: Option<WindowId>,
     update: Option<UpdateSceneMsg>,
 }
 

@@ -35,18 +35,36 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new() -> Self {
-        Self {
+        let mut res = Self {
             backend: RenderBackend::new(),
             scene: Scene {
                 border_radii: BTreeMap::new(),
                 box_shadows: BTreeMap::new(),
+                text_colors: Vec::new(),
                 background_colors: BTreeMap::new(),
                 images: BTreeMap::new(),
                 texts: BTreeMap::new(),
                 borders: BTreeMap::new(),
-                children: vec![vec![]]
+                children: Vec::new(),
             }
-        }
+        };
+
+        res.alloc();
+
+        res
+    }
+
+    pub fn alloc(&mut self) {
+        self.scene.children.push(Vec::new());
+        self.scene.text_colors.push(Color::black());
+    }
+
+    pub fn insert_at(&mut self, parent: SurfaceId, child: SurfaceId, index: usize) {
+        self.scene.children[parent].insert(index, child);
+    }
+
+    pub fn remove_child(&mut self, parent: SurfaceId, child: SurfaceId) {
+        self.scene.children[parent].retain(|ch| *ch != child);
     }
 
     // TODO: async/pipeline
@@ -61,6 +79,10 @@ impl Renderer {
 
     pub fn set_box_shadow(&mut self, surface: SurfaceId, shadow: Option<BoxShadow>) {
         self.scene.box_shadows.set(surface, shadow);
+    }
+
+    pub fn set_text_color(&mut self, surface: SurfaceId, color: Color) {
+        self.scene.text_colors[surface] = color;
     }
 
     pub fn set_background_color(&mut self, surface: SurfaceId, color: Option<Color>) {
@@ -140,7 +162,7 @@ impl <'a> RenderContext<'a> {
         }
 
         if let Some(text) = self.scene.texts.get(&id) {
-            self.draw_text(text, self.text_layout.get_glyphs(id));
+            self.draw_text(text, self.scene.text_colors[id], self.text_layout.get_glyphs(id));
         }
 
         // TODO: try to avoid recursion?
@@ -172,7 +194,7 @@ impl <'a> RenderContext<'a> {
     }
 
     // TODO: create_text() -> TextId & Batch::Text(text_id)
-    fn draw_text(&mut self, text: &Text, glyphs: &[GlyphInstance]) {
+    fn draw_text(&mut self, text: &Text, color: Color, glyphs: &[GlyphInstance]) {
         // TODO: should be uniform
         let origin = self.bounds.a;
 
@@ -191,7 +213,7 @@ impl <'a> RenderContext<'a> {
             ]));
         }
 
-        self.builder.frame.batches.push(Batch::Text { color: text.color, num: self.builder.count });
+        self.builder.frame.batches.push(Batch::Text { color, num: self.builder.count });
         self.builder.append_indices();
         self.builder.count = 0;
     }
@@ -335,6 +357,7 @@ impl FrameBuilder {
 pub struct Scene {
     border_radii: BTreeMap<SurfaceId, BorderRadius>,
     box_shadows: BTreeMap<SurfaceId, BoxShadow>,
+    text_colors: Vec<Color>,
     background_colors: BTreeMap<SurfaceId, Color>,
     images: BTreeMap<SurfaceId, Image>,
     texts: BTreeMap<SurfaceId, Text>,

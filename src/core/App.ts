@@ -1,19 +1,19 @@
-import { WindowId, FfiMsg, FfiResult, Event } from "./generated";
 import { Window } from "../dom/Window";
 import * as ffi from './nativeApi'
 import { performance } from 'perf_hooks'
 
 export class App {
-  windows: { [k: number]: Window } = {}
+  windows: Window[] = []
   animating = false
   animationFrames: Function[] = []
 
   constructor(private ffi) {}
 
   createWindow() {
-    const res = this.ffi.send(FfiMsg.CreateWindow)
+    const res = this.ffi.send({})
 
-    const id = res.value
+    // TODO: holes
+    const id = this.windows.length + 1
     const window = new Window(id)
 
     this.windows[id] = window
@@ -31,9 +31,12 @@ export class App {
       // just wait indefinitely
 
       for (const event of this.getEvents()) {
+        /*
         if (event.tag === 'WindowEvent') {
           this.windows[event.value.window].handleEvent(event.value.event)
         }
+        */
+        this.windows[1].handleEvent(event)
       }
 
       if (this.animating = this.animationFrames.length > 0) {
@@ -52,18 +55,22 @@ export class App {
         this.windows[windowId].sceneContext.flush()
       }
 
-      setTimeout(runLoop)
+      // TODO: no timeout
+      setTimeout(runLoop, 200)
     }
 
     runLoop()
   }
 
-  getEvents(): Event[] {
-    const res = this.ffi.send(FfiMsg.GetEvents(this.animating))
-
-    if (res.tag === 'Events') {
-      return res.value
+  getEvents() {
+    // TODO: multi-window
+    if (!this.windows[1]) {
+      return []
     }
+
+    // TODO: multi-window
+    // TODO: poll: this.animating
+    return this.ffi.send({ window: 0 }).events
   }
 
   requestAnimationFrame(cb) {

@@ -1,4 +1,3 @@
-import { UpdateSceneMsg as U, FfiMsg, StyleProp } from './generated'
 import { send } from './nativeApi'
 
 /**
@@ -10,43 +9,61 @@ import { send } from './nativeApi'
 export class SceneContext {
   // because root is 0
   nextId = 1
-  // TODO: consider ordering related things together (structural, layout, visual changes)
-  sceneMsgs = []
+  msg = new UpdateSceneMsg()
   parents = []
 
   constructor(private windowId) {}
 
   createSurface() {
-    this.sceneMsgs.push(U.Alloc)
+    this.msg.tree_changes.push({})
     this.parents[this.nextId] = 0
     return this.nextId++
   }
 
   insertAt(parent, child, index) {
-    this.sceneMsgs.push(U.InsertAt({ parent, child, index }))
+    this.msg.tree_changes.push({ parent, child, index })
     this.parents[child] = parent
   }
 
   removeChild(parent, child) {
-    this.sceneMsgs.push(U.RemoveChild({ parent, child }))
+    this.msg.tree_changes.push({ parent, child })
     this.parents[child] = 0
   }
 
-  setStyleProp(surface, prop: StyleProp) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop }))
+  setText(surface, text) {
+    this.msg.text_changes.push({ surface, text })
+  }
+
+  setDimension(surface, prop, dim) {
+    this.msg.layout_changes.push({ surface, dim_prop: prop, dim })
+  }
+
+  setAlign(surface, prop, align) {
+    this.msg.layout_changes.push({ surface, align_prop: prop, align })
   }
 
   flush() {
-    if (this.sceneMsgs.length === 0) {
+    if (this.msg.empty) {
+      console.log('no updates')
       return
     }
 
-    send(
-      FfiMsg.UpdateScene({
-        window: this.windowId,
-        msgs: this.sceneMsgs
-      })
-    )
-    this.sceneMsgs = []
+    send({
+      window: this.windowId,
+      update: this.msg
+    })
+
+    this.msg = new UpdateSceneMsg()
   }
 }
+
+class UpdateSceneMsg {
+  tree_changes = []
+  text_changes = []
+  layout_changes = []
+
+  get empty() {
+    return ! (this.tree_changes.length || this.text_changes.length)
+  }
+}
+

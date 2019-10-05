@@ -21,3 +21,10 @@ macro_rules! error {
         println!($($arg)+);
     )
 }
+
+// function is not enough because the string is freed before the pointer could be used
+macro_rules! c_str {
+    ($str:expr) => {
+        std::ffi::CString::new($str).expect("invalid CString").as_ptr()
+    }
+}

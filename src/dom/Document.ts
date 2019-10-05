@@ -1,4 +1,3 @@
-import { TextAlign, Dimension, StyleProp } from '../core/generated'
 import { Node } from './Node';
 import { Element } from './Element';
 import { Text } from './Text';
@@ -24,7 +23,7 @@ export class Document extends Node {
   constructor(public defaultView: Window) {
     super(null, Node.DOCUMENT_NODE, 0)
 
-    this.body._updateStyle({ flex: 1 })
+    this.body.style.setProperty('flex', '1')
     this.documentElement.appendChild(this.body)
   }
 

@@ -11,12 +11,14 @@ import * as Reconciler from 'react-reconciler'
 import * as scheduler from 'scheduler'
 import initDevtools from './devtools'
 
-import { NOOP, IDENTITY } from '../core/utils'
+import { NOOP, IDENTITY, kebabCase } from '../core/utils'
 import { ViewProps, StyleProp } from 'react-native'
 import StyleSheet from './Stylesheet';
 import { isEqual } from 'lodash'
 import ErrorBoundary from './ErrorBoundary';
 import { Element } from '../dom/Element';
+
+const styleNameCache = {}
 
 const reconciler = createReconciler({
   createInstance,
@@ -99,7 +101,24 @@ function setProp(el: Element, prop, value, prev) {
       return
     }
 
-    el._updateStyle(StyleSheet.flatten(value))
+    value = StyleSheet.flatten(value || {})
+    prev = StyleSheet.flatten(prev || {})
+
+    for (const k in prev) {
+      if (!(k in value)) {
+        el.style.setProperty(styleName(k), undefined)
+      }
+    }
+
+    for (const k in value) {
+      if (value[k] !== prev[k]) {
+        el.style.setProperty(styleName(k), value[k])
+      }
+    }
+  }
+
+  function styleName(propName) {
+    return styleNameCache[propName] || (styleNameCache[propName] = kebabCase(propName))
   }
 
   // listeners

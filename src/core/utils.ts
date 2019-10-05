@@ -1,5 +1,3 @@
-import { Color } from './generated'
-
 export const NOOP = () => undefined
 export const IDENTITY = v => v
 export const TODO = () => ERR('TODO')
@@ -24,7 +22,7 @@ export const mixin = (targetClass, mixinClass) => {
 // TODO: move to ../styles/
 // TODO: rgb(), rgba()
 // https://docs.rs/crate/cssparser/0.25.3/source/src/color.rs
-export const parseColor = (str: string): Color => {
+export const parseColor = (str: string) => {
   if (str[0] === '#') {
     return parseHash(str.slice(1))
   }
@@ -33,24 +31,24 @@ export const parseColor = (str: string): Color => {
 }
 
 // note that in rgba(xx, xx, xx, x), alpha is 0-1
-export const parseHash = (str: string): Color => {
-  let alpha = 255
+export const parseHash = (str: string) => {
+  let a = 255
 
   switch (str.length) {
     // rgba
     case 8:
-      alpha = parseHex(str.slice(7, 9))
+      a = parseHex(str.slice(7, 9))
 
     case 6:
-      return [parseHex(str.slice(0, 2)), parseHex(str.slice(2, 4)), parseHex(str.slice(4, 6)), alpha]
+      return { r: parseHex(str.slice(0, 2)), g: parseHex(str.slice(2, 4)), b: parseHex(str.slice(4, 6)), a }
 
     // short alpha
     case 4:
-      alpha = parseHex(str.slice(3, 4)) * 17
+      a = parseHex(str.slice(3, 4)) * 17
 
     // short
     case 3:
-      return [parseHex(str.slice(0, 1)) * 17, parseHex(str.slice(1, 2)) * 17, parseHex(str.slice(2, 3)) * 17, alpha]
+      return { r: parseHex(str.slice(0, 1)) * 17, g: parseHex(str.slice(1, 2)) * 17, b: parseHex(str.slice(2, 3)) * 17, a }
 
     default:
       throw new Error(`invalid color #${str}`)

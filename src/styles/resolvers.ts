@@ -151,17 +151,17 @@ export default {
     g.StyleProp.BackgroundColor(backgroundColor ? parseColor(backgroundColor) : undefined),
 
   Text: ({ content, fontSize = 16, color = '#000000', lineHeight = 30, textAlign = 'left' }) =>
-    g.StyleProp.Text(
       typeof content === 'string'
         ? {
-            fontSize,
-            color: parseColor(color),
-            lineHeight,
+            tag: 'Text',
+            //color: parseColor(color),
+            size: fontSize,
+            line_height: lineHeight,
             align: TEXT_ALIGN[textAlign],
             text: content
           }
         : undefined
-    ),
+  ,
 
   Image: ({ backgroundImageUrl }) => g.StyleProp.Image(backgroundImageUrl ? { url: backgroundImageUrl } : undefined),
 

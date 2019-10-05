@@ -96,7 +96,6 @@ impl BoxLayout for StretchLayout {
                 DimensionProp::MarginTop => s.margin.top = v,
                 DimensionProp::MarginBottom => s.margin.bottom = v,
 
-                // TODO: flex
                 DimensionProp::FlexGrow => s.flex_grow = get_points(&v),
                 DimensionProp::FlexShrink => s.flex_shrink = get_points(&v),
                 DimensionProp::FlexBasis => s.flex_basis = v,
@@ -104,38 +103,16 @@ impl BoxLayout for StretchLayout {
         })
     }
 
-    fn set_align(&mut self, _surface: SurfaceId, _prop: AlignProp, _value: Align) {
-        /*
+    fn set_align(&mut self, surface: SurfaceId, prop: AlignProp, value: Align) {
         self.update_style(surface, |s| {
             match prop {
                 AlignProp::AlignSelf => s.align_self = value.into(),
                 AlignProp::AlignContent => s.align_content = value.into(),
                 AlignProp::AlignItems => s.align_items = value.into(),
                 AlignProp::JustifyContent => s.justify_content = value.into(),
-                _ => debug!("TODO: other dimension props")
             }
         })
-        */
     }
-
-    /*
-    fn set_layout(&mut self, surface: SurfaceId, layout: Layout) {
-        self.update_style(surface, |s| {
-            let layout = layout.clone();
-
-            s.flex_grow = layout.flex_grow;
-            s.flex_shrink = layout.flex_shrink;
-            s.flex_basis = layout.flex_basis.into();
-            s.flex_direction = layout.flex_direction.into();
-            s.flex_wrap = layout.flex_wrap.into();
-
-            s.align_items = layout.align_items.into();
-            s.align_self = layout.align_self.into();
-            s.align_content = layout.align_content.into();
-            s.justify_content = layout.justify_content.into();
-        })
-    }
-    */
 
     fn set_border(&mut self, surface: SurfaceId, _border: Option<Border>) {
         self.update_style(surface, |_s| {
@@ -216,8 +193,8 @@ impl Into<AlignItems> for Align {
         match self {
             Align::Baseline => AlignItems::Baseline,
             Align::Center => AlignItems::Center,
-            Align::Start => AlignItems::FlexStart,
-            Align::End => AlignItems::FlexEnd,
+            Align::FlexStart => AlignItems::FlexStart,
+            Align::FlexEnd => AlignItems::FlexEnd,
             Align::Stretch => AlignItems::Stretch,
             _ => unimplemented!()
         }
@@ -230,8 +207,8 @@ impl Into<AlignSelf> for Align {
             Align::Auto => AlignSelf::Auto,
             Align::Baseline => AlignSelf::Baseline,
             Align::Center => AlignSelf::Center,
-            Align::Start => AlignSelf::FlexStart,
-            Align::End => AlignSelf::FlexEnd,
+            Align::FlexStart => AlignSelf::FlexStart,
+            Align::FlexEnd => AlignSelf::FlexEnd,
             Align::Stretch => AlignSelf::Stretch,
             _ => unimplemented!()
         }
@@ -242,8 +219,8 @@ impl Into<AlignContent> for Align {
     fn into(self) -> AlignContent {
         match self {
             Align::Center => AlignContent::Center,
-            Align::Start => AlignContent::FlexStart,
-            Align::End => AlignContent::FlexEnd,
+            Align::FlexStart => AlignContent::FlexStart,
+            Align::FlexEnd => AlignContent::FlexEnd,
             Align::SpaceAround => AlignContent::SpaceAround,
             Align::SpaceBetween => AlignContent::SpaceBetween,
             Align::Stretch => AlignContent::Stretch,
@@ -256,8 +233,8 @@ impl Into<StretchJustifyContent> for Align {
     fn into(self) -> StretchJustifyContent {
         match self {
             Align::Center => StretchJustifyContent::Center,
-            Align::Start => StretchJustifyContent::FlexStart,
-            Align::End => StretchJustifyContent::FlexEnd,
+            Align::FlexStart => StretchJustifyContent::FlexStart,
+            Align::FlexEnd => StretchJustifyContent::FlexEnd,
             Align::SpaceAround => StretchJustifyContent::SpaceAround,
             Align::SpaceBetween => StretchJustifyContent::SpaceBetween,
             Align::SpaceEvenly => StretchJustifyContent::SpaceEvenly,

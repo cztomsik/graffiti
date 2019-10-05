@@ -34,7 +34,7 @@ pub trait BoxLayout {
     fn get_bounds(&self) -> &[Bounds];
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum DimensionProp {
     Width,
     Height,
@@ -58,14 +58,14 @@ pub enum DimensionProp {
     FlexBasis,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub struct Dimension {
     // auto when both are None
     point: Option<f32>,
     percent: Option<f32>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum AlignProp {
     AlignContent,
     AlignItems,
@@ -73,12 +73,12 @@ pub enum AlignProp {
     JustifyContent,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum Align {
     Auto,
-    Start,
+    FlexStart,
     Center,
-    End,
+    FlexEnd,
     Stretch,
     Baseline,
     SpaceBetween,
