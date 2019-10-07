@@ -42,6 +42,10 @@ export class SceneContext {
     this.msg.layout_changes.push({ surface, align_prop: prop, align })
   }
 
+  setBackgroundColor(surface, color) {
+    this.msg.background_color_changes.push({ surface, color })
+  }
+
   flush() {
     if (this.msg.empty) {
       console.log('no updates')
@@ -61,9 +65,10 @@ class UpdateSceneMsg {
   tree_changes = []
   text_changes = []
   layout_changes = []
+  background_color_changes = []
 
   get empty() {
-    return ! (this.tree_changes.length || this.text_changes.length)
+    return ! (this.tree_changes.length || this.text_changes.length || this.layout_changes.length || this.background_color_changes.length)
   }
 }
 

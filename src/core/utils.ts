@@ -23,6 +23,10 @@ export const mixin = (targetClass, mixinClass) => {
 // TODO: rgb(), rgba()
 // https://docs.rs/crate/cssparser/0.25.3/source/src/color.rs
 export const parseColor = (str: string) => {
+  if (!str) {
+    return undefined
+  }
+
   if (str[0] === '#') {
     return parseHash(str.slice(1))
   }

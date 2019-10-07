@@ -122,7 +122,6 @@ use libc::{c_void, c_int, c_uint, c_char, c_double};
 #[allow(unused_imports)]
 use glfw_sys;
 
-#[cfg(feature = "glfw-sys")]
 #[link(name = "glfw3", kind = "static")]
 extern {}
 

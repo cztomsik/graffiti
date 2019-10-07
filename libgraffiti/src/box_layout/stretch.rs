@@ -45,16 +45,14 @@ impl StretchLayout {
 
 impl BoxLayout for StretchLayout {
     fn alloc(&mut self) {
-        let node = self.stretch.new_node(
-            StretchStyle {
-                flex_direction: StretchFlexDirection::Column,
-                ..Default::default()
-            },
-            vec![]
-        ).expect("couldn't create node");
+        let style = StretchStyle {
+            flex_direction: StretchFlexDirection::Column,
+            ..Default::default()
+        };
+        let node = self.stretch.new_node(style, vec![]).expect("couldn't create node");
 
         self.nodes.push(node);
-        self.styles.push(StretchStyle::default());
+        self.styles.push(style);
         self.bounds.push(Bounds::zero());
     }
 

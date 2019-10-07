@@ -1,4 +1,4 @@
-import { camelCase, pascalCase } from '../core/utils'
+import { pascalCase, parseColor } from '../core/utils'
 import { SceneContext } from '../core/SceneContext'
 
 // minimal impl just to get something working
@@ -59,9 +59,10 @@ export class CSSStyleDeclaration {
       case 'min-height':
       case 'max-width':
       case 'max-height':
+      case 'flex-basis':
+        v = v || 'auto'
       case 'flex-grow':
       case 'flex-shrink':
-      case 'flex-basis':
       case 'padding-top':
       case 'padding-right':
       case 'padding-bottom':
@@ -78,6 +79,10 @@ export class CSSStyleDeclaration {
       case 'align-self':
       case 'justify-content':
         this._scene.setAlign(this._surfaceId, pascalCase(k), pascalCase(v || 'FlexStart'))
+        break
+
+      case 'background-color':
+        this._scene.setBackgroundColor(this._surfaceId, parseColor(v))
         break
 
       default:

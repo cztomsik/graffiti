@@ -126,22 +126,27 @@ impl Window {
                 }
                 _ => {
                     self.box_layout.alloc();
-                    self.renderer.alloc();                        
+                    self.renderer.alloc();
                 }
             }
         }
 
         for TextChange { surface, text } in &msg.text_changes {
+            self.box_layout.set_text(*surface, text.clone());
             self.text_layout.set_text(*surface, text.clone());
             self.renderer.set_text(*surface, text.clone());
         }
 
         for c in &msg.layout_changes {
             match c {
-                LayoutChange { surface, dim_prop: Some(p), dim: Some(v), .. } => self.box_layout.set_dimension(*surface, *p, *v),                
+                LayoutChange { surface, dim_prop: Some(p), dim: Some(v), .. } => self.box_layout.set_dimension(*surface, *p, *v),
                 LayoutChange { surface, align_prop: Some(p), align: Some(v), .. } => self.box_layout.set_align(*surface, *p, *v),
                 _ => unreachable!("invalid layout change")
             }
+        }
+
+        for c in &msg.background_color_changes {
+            self.renderer.set_background_color(c.surface, c.color);
         }
 
         let text_layout = &mut self.text_layout;
@@ -165,7 +170,7 @@ impl Window {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateSceneMsg {
     text_changes: Vec<TextChange>,
-    //color_changes: Vec<ColorChange>,
+    background_color_changes: Vec<BackgroundColorChange>,
     layout_changes: Vec<LayoutChange>,
     tree_changes: Vec<TreeChange>,
 }
@@ -196,15 +201,15 @@ pub struct LayoutChange {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct SetRadius {
+pub struct BackgroundColorChange {
     surface: SurfaceId,
-    layout: Option<BorderRadius>,
+    color: Option<Color>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct SetBackgroundColor {
+pub struct SetRadius {
     surface: SurfaceId,
-    color: Option<Color>,
+    layout: Option<BorderRadius>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]

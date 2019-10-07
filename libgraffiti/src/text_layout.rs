@@ -100,7 +100,7 @@ impl TextLayout {
 
             // TODO: read from font
             let base = 38.964 / 42.;
-            let a = Pos::new(pos.x, pos.y + (font_glyph.offset_y / 42. * text.size) + base * text.size - font_glyph.size.y * text.size);
+            let a = Pos::new(pos.x, pos.y /*+ (font_glyph.offset_y / 42. * text.size)*/ + base * text.size - font_glyph.size.y * text.size);
 
             let glyph = GlyphInstance {
                 bounds: Bounds { a, b: font_glyph.size.mul(text.size).relative_to(a) },

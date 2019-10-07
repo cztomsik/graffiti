@@ -55,8 +55,7 @@ export class App {
         this.windows[windowId].sceneContext.flush()
       }
 
-      // TODO: no timeout
-      setTimeout(runLoop, 200)
+      setTimeout(runLoop)
     }
 
     runLoop()
@@ -82,7 +81,6 @@ let APP = undefined
 
 export function getApp({ autoCreate = true, autoRun = true } = {}): App {
   if ((APP === undefined) && autoCreate) {
-    ffi.init()
     APP = new App(ffi)
     global['requestAnimationFrame'] = APP.requestAnimationFrame.bind(APP)
 

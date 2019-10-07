@@ -11,10 +11,8 @@
     "url": "git+https://github.com/cztomsik/node-webrender.git"
   },
   "dependencies": {
-    "ffi": "^2.3.0",
     "lodash": "^4.17.15",
-    "open": "^6.2.0",
-    "ref": "^1.3.5"
+    "open": "^6.2.0"
   },
   "files": [
     "src",
@@ -24,10 +22,11 @@
     "native/src"
   ],
   "scripts": {
-    "build": "cd libgraffiti && cargo build",
+    "build": "node build.js",
     "install": "npm run build -- --release",
     "prepublishOnly": "npm run build && tsc -d",
-    "example": "ts-node -r ./examples/_hmr examples/react/main"
+    "example": "ts-node examples/react/main",
+    "example-hmr": "ts-node -r ./examples/_hmr examples/react/main"
   },
   "devDependencies": {
     "@types/ffi": "^0.2.2",
