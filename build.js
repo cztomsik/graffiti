@@ -10,7 +10,10 @@
 // another good thing is that we can tell the output filename
 // so the node.js require will be a bit easier
 
-// TODO: release
+const os = require('os')
+const LINKER_OPTS = (os.platform() === 'darwin')
+  ?'-Clink-args="-undefined dynamic_lookup"'
+  :'-Clink-args="-undefined=dynamic_lookup"'
 
 require('child_process').spawn(
   'cargo',
@@ -18,7 +21,7 @@ require('child_process').spawn(
     'rustc',
     (process.env.NODE_ENV === 'production') ?'--release' :'',
     '--',
-    '-Clink-args="-undefined dynamic_lookup"'
+    LINKER_OPTS
   ],
   {
     cwd: `${__dirname}/libgraffiti`,
