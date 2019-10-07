@@ -1,5 +1,8 @@
+import * as os from 'os';
+
 const libDir = (process.env.NODE_ENV === 'production') ?'release' :'debug'
-process['dlopen'](module, `${__dirname}/../../libgraffiti/target/${libDir}/libgraffiti.dylib`)
+const libSuffix = (os.platform() === 'darwin') ?'dylib' :'so'
+process['dlopen'](module, `${__dirname}/../../libgraffiti/target/${libDir}/libgraffiti.${libSuffix}`)
 
 export const send = (msg) => {
   // console.log('send', util.inspect(msg, { depth: 4 }))
