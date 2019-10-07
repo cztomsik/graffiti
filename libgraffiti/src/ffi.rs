@@ -8,7 +8,7 @@ use std::io::prelude::Write;
 static mut APP: Option<TheApp> = None;
 
 #[no_mangle]
-pub extern "C" fn init() {
+pub extern "C" fn gft_init() {
     unsafe { APP = Some(TheApp::init()) }
 }
 
@@ -18,7 +18,7 @@ pub extern "C" fn init() {
 //
 // we dont need ffi anymore but it might be useful for future targets
 #[no_mangle]
-pub unsafe extern "C" fn send(data: *const u8, len: size_t, res_data: *mut u8, res_maxlen: size_t) {
+pub unsafe extern "C" fn gft_send(data: *const u8, len: size_t, res_data: *mut u8, res_maxlen: size_t) {
     // get slice of bytes & try to deserialize
     let msg = std::slice::from_raw_parts(data, len as usize);
     let msg: FfiMsg = json::from_str(std::str::from_utf8(msg).expect("not string")).expect("invalid message");
@@ -151,7 +151,7 @@ pub static REGISTER_NODE_MODULE: unsafe extern "C" fn() = {
 unsafe extern "C" fn init_node_module(env: NapiEnv, exports: NapiValue) -> NapiValue {
     silly!("init_node_module");
 
-    init();
+    gft_init();
 
     let mut method = std::mem::uninitialized();
     napi_create_function(env, c_str!("libgraffitiSend"), NAPI_AUTO_LENGTH, send_wrapper, ptr::null(), &mut method);
@@ -174,7 +174,7 @@ unsafe extern "C" fn send_wrapper(env: NapiEnv, cb_info: NapiCallbackInfo) -> Na
     let mut res_maxlen = 0;
     napi_get_buffer_info(env, argv[1], &mut res_data, &mut res_maxlen);
 
-    send(std::mem::transmute(msg_data), msg_len, std::mem::transmute(res_data), res_maxlen);
+    gft_send(std::mem::transmute(msg_data), msg_len, std::mem::transmute(res_data), res_maxlen);
 
     let mut undefined = std::mem::uninitialized();
     napi_get_undefined(env, &mut undefined);
