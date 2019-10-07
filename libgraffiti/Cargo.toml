@@ -18,5 +18,6 @@ miniserde = "0.1.12"
 stretch = "0.3.2"
 glfw-sys = "3.3.0"
 
-#[target.'cfg(target_os="macos")'.dependencies]
-#objc = "*"
+[profile.release]
+# fix raspi --release builds
+codegen-units = 1
