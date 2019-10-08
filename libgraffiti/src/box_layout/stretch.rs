@@ -1,10 +1,10 @@
 use crate::commons::{Pos, Bounds, SurfaceId, Border};
-use crate::box_layout::{BoxLayout, DimensionProp, Dimension, AlignProp, Align};
+use crate::box_layout::{BoxLayout, DimensionProp, Dimension, AlignProp, Align, FlexDirection, FlexWrap};
 use crate::text_layout::{Text};
 use stretch::geometry::{Size as StretchSize};
 use stretch::Stretch;
 use stretch::node::Node;
-use stretch::style::{Style as StretchStyle, Dimension as StretchDimension, AlignContent, AlignItems, AlignSelf, JustifyContent as StretchJustifyContent, FlexDirection as StretchFlexDirection};
+use stretch::style::{Style as StretchStyle, Dimension as StretchDimension, AlignContent, AlignItems, AlignSelf, JustifyContent as StretchJustifyContent, FlexDirection as StretchFlexDirection, FlexWrap as StretchFlexWrap};
 use stretch::number::Number;
 use std::any::Any;
 
@@ -98,7 +98,7 @@ impl BoxLayout for StretchLayout {
                 DimensionProp::FlexShrink => s.flex_shrink = get_points(&v),
                 DimensionProp::FlexBasis => s.flex_basis = v,
             }
-        })
+        });
     }
 
     fn set_align(&mut self, surface: SurfaceId, prop: AlignProp, value: Align) {
@@ -112,10 +112,22 @@ impl BoxLayout for StretchLayout {
         })
     }
 
+    fn set_flex_direction(&mut self, surface: SurfaceId, value: FlexDirection) {
+        self.update_style(surface, |s| {
+            s.flex_direction = value.into();
+        });
+    }
+
+    fn set_flex_wrap(&mut self, surface: SurfaceId, value: FlexWrap) {
+        self.update_style(surface, |s| {
+            s.flex_wrap = value.into();
+        });
+    }
+
     fn set_border(&mut self, surface: SurfaceId, _border: Option<Border>) {
         self.update_style(surface, |_s| {
             debug!("TODO: set border layout");
-        })
+        });
     }
 
     fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
@@ -241,7 +253,6 @@ impl Into<StretchJustifyContent> for Align {
     }
 }
 
-/*
 impl Into<StretchFlexDirection> for FlexDirection {
     fn into(self) -> StretchFlexDirection {
         match self {
@@ -262,7 +273,6 @@ impl Into<StretchFlexWrap> for FlexWrap {
         }
     }
 }
-*/
 
 pub fn get_static_ref(stretch_layout: &mut StretchLayout) -> &'static mut StretchLayout {
     unsafe { std::mem::transmute(stretch_layout) }

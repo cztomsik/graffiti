@@ -17,6 +17,7 @@ pub struct RenderBackend {
     rect_program: u32,
     text_program: u32,
     text_uniform: i32,
+    hint_uniform: i32,
 
     ibo: u32,
     vbo: u32,
@@ -67,17 +68,18 @@ impl RenderBackend {
             // this is important otherwise indices sometimes does not reflect
             // the order in the shader!!!
             // TODO: works but it should be done before linking
-            gl::BindAttribLocation(rect_program, 0, CString::new("a_pos").unwrap().as_ptr());
-            gl::BindAttribLocation(rect_program, 1, CString::new("a_color").unwrap().as_ptr());
+            gl::BindAttribLocation(rect_program, 0, c_str!("a_pos"));
+            gl::BindAttribLocation(rect_program, 1, c_str!("a_color"));
 
-            gl::BindAttribLocation(text_program, 0, CString::new("a_pos").unwrap().as_ptr());
-            gl::BindAttribLocation(text_program, 1, CString::new("a_uv").unwrap().as_ptr());
+            gl::BindAttribLocation(text_program, 0, c_str!("a_pos"));
+            gl::BindAttribLocation(text_program, 1, c_str!("a_uv"));
 
             Self {
                 rect_program,
                 text_program,
 
                 text_uniform: gl::GetUniformLocation(text_program, CString::new("u_color").unwrap().as_ptr()),
+                hint_uniform: gl::GetUniformLocation(text_program, CString::new("u_hint").unwrap().as_ptr()),
 
                 ibo,
                 vbo,
@@ -146,7 +148,7 @@ impl RenderBackend {
                             (vbo_offset + mem::size_of::<Pos>()) as *const std::ffi::c_void,
                         );
                     }
-                    Batch::Text { color, num } => {
+                    Batch::Text { color, hint, num } => {
                         vertex_size = mem::size_of::<Vertex<Pos>>();
                         quad_count = num;
 
@@ -173,6 +175,7 @@ impl RenderBackend {
                         // unpack it here, maybe even in builder
                         let color: [f32; 4] = [color.r as f32 / 256., color.g as f32 / 256., color.b as f32 / 256., color.a as f32 / 256.];
                         gl::Uniform4fv(self.text_uniform, 1, &color as *const GLfloat);
+                        gl::Uniform2fv(self.hint_uniform, 1, &hint as *const GLfloat);
                     }
                     /*
                     _ => {
@@ -252,6 +255,7 @@ const TEXT_FS: &str = r#"
       precision mediump float;
 
       uniform vec4 u_color;
+      uniform vec2 u_hint;
       uniform sampler2D u_texture;
 
       varying vec2 v_uv;
@@ -263,10 +267,8 @@ const TEXT_FS: &str = r#"
       void main() {
             // TODO: seems like it's BGRA instead of RGBA
             float distance = median(texture2D(u_texture, v_uv).rgb);
-            // find out in what ranges (-3-3 ?) the distances actually are
 
-            // 0.4 - 0.6 looks good for big sizes
-            float alpha = smoothstep(0.3, 0.7, 1. - distance);
+            float alpha = smoothstep(0.5 - u_hint.x, 0.5 + u_hint.y, 1. - distance);
 
             gl_FragColor = vec4(u_color.rgb, alpha * u_color.a);
       }

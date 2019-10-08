@@ -34,6 +34,10 @@ export class SceneContext {
     this.msg.text_changes.push({ surface, text })
   }
 
+  setTextColor(surface, color) {
+    this.msg.text_changes.push({ surface, color })
+  }
+
   setDimension(surface, prop, dim) {
     this.msg.layout_changes.push({ surface, dim_prop: prop, dim })
   }
@@ -42,16 +46,24 @@ export class SceneContext {
     this.msg.layout_changes.push({ surface, align_prop: prop, align })
   }
 
+  setFlexDirection(surface, flex_direction) {
+    this.msg.layout_changes.push({ surface, flex_direction })
+  }
+
+  setFlexWrap(surface, flex_wrap) {
+    this.msg.layout_changes.push({ surface, flex_wrap })
+  }
+
   setBackgroundColor(surface, color) {
     this.msg.background_color_changes.push({ surface, color })
   }
 
   flush() {
     if (this.msg.empty) {
-      console.log('no updates')
       return
     }
 
+    //console.log(require('util').inspect(this.msg, { depth: 4 }))
     send({
       window: this.windowId,
       update: this.msg

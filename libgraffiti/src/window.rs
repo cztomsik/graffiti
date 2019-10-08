@@ -1,6 +1,6 @@
 use crate::commons::{Pos, SurfaceId, Color, BorderRadius, Border, BoxShadow, Image};
 use crate::picker::SurfacePicker;
-use crate::box_layout::{BoxLayout, StretchLayout, DimensionProp, Dimension, AlignProp, Align};
+use crate::box_layout::{BoxLayout, StretchLayout, DimensionProp, Dimension, AlignProp, Align, FlexDirection, FlexWrap};
 use crate::text_layout::{TextLayout, Text};
 use crate::render::Renderer;
 use miniserde::{Deserialize, Serialize};
@@ -131,16 +131,22 @@ impl Window {
             }
         }
 
-        for TextChange { surface, text } in &msg.text_changes {
-            self.box_layout.set_text(*surface, text.clone());
-            self.text_layout.set_text(*surface, text.clone());
-            self.renderer.set_text(*surface, text.clone());
+        for TextChange { surface, color, text } in &msg.text_changes {
+            if let Some(color) = color {
+                self.renderer.set_text_color(*surface, *color);
+            } else {
+                self.box_layout.set_text(*surface, text.clone());
+                self.text_layout.set_text(*surface, text.clone());
+                self.renderer.set_text(*surface, text.clone());
+            }
         }
 
         for c in &msg.layout_changes {
             match c {
                 LayoutChange { surface, dim_prop: Some(p), dim: Some(v), .. } => self.box_layout.set_dimension(*surface, *p, *v),
                 LayoutChange { surface, align_prop: Some(p), align: Some(v), .. } => self.box_layout.set_align(*surface, *p, *v),
+                LayoutChange { surface, flex_direction: Some(v), .. } => self.box_layout.set_flex_direction(*surface, *v),
+                LayoutChange { surface, flex_wrap: Some(v), .. } => self.box_layout.set_flex_wrap(*surface, *v),
                 _ => unreachable!("invalid layout change")
             }
         }
@@ -165,6 +171,10 @@ impl Window {
     }
 }
 
+// TODO: in future, replace miniserde with some custom protocol with
+//     something which is fast to build but still easy to prepare
+//     (maybe some stateful text-based protocol with out-of-order inserts)
+//
 // can't be rust enum because of miniserde
 // optimized for common changes (text, colors, tree)
 #[derive(Serialize, Deserialize, Debug)]
@@ -186,6 +196,8 @@ pub struct TreeChange {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct TextChange {
     surface: SurfaceId,
+    // either color or text
+    color: Option<Color>,
     text: Option<Text>,
 }
 
@@ -198,6 +210,9 @@ pub struct LayoutChange {
 
     align_prop: Option<AlignProp>,
     align: Option<Align>,
+
+    flex_wrap: Option<FlexWrap>,
+    flex_direction: Option<FlexDirection>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]

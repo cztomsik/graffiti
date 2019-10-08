@@ -19,6 +19,10 @@ pub trait BoxLayout {
 
     fn set_align(&mut self, surface: SurfaceId, prop: AlignProp, value: Align);
 
+    fn set_flex_direction(&mut self, surface: SurfaceId, value: FlexDirection);
+
+    fn set_flex_wrap(&mut self, surface: SurfaceId, value: FlexWrap);
+
     // separate because rendering doesn't need to test dimensions then
     fn set_border(&mut self, surface: SurfaceId, border: Option<Border>);
 
@@ -91,6 +95,21 @@ pub enum LayoutProp {
     FlexWrap,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+pub enum FlexDirection {
+    Column,
+    ColumnReverse,
+    Row,
+    RowReverse,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+pub enum FlexWrap {
+    NoWrap,
+    Wrap,
+    WrapReverse,
+}
+
 /*
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Layout {
@@ -104,21 +123,6 @@ pub enum Overflow {
     Visible,
     Hidden,
     Scroll,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub enum FlexDirection {
-    Column,
-    ColumnReverse,
-    Row,
-    RowReverse,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub enum FlexWrap {
-    NoWrap,
-    Wrap,
-    WrapReverse,
 }
 */
 

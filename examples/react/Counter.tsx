@@ -7,7 +7,7 @@ export function Counter() {
 
   return (
     <View>
-      <Text>{count}</Text>
+      <Text style={{ fontSize: 16 + count }}>{count}</Text>
       <Button title="++" onPress={() => setCount(count + 1)} />
     </View>
   )

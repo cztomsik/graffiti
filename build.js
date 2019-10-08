@@ -11,17 +11,23 @@
 // so the node.js require will be a bit easier
 
 const os = require('os')
-const LINKER_OPTS = (os.platform() === 'darwin')
+const fs = require('fs')
+const child_process = require('child_process')
+
+const extraArgs = process.argv.slice(2)
+const linkerOpts = (os.platform() === 'darwin')
   ?'-Clink-args="-undefined dynamic_lookup"'
   :'-Clink-args="-undefined=dynamic_lookup"'
+const libSuffix = (os.platform() === 'darwin') ?'dylib' :'so'
+const targetDir = `${__dirname}/libgraffiti/target`
 
-require('child_process').spawn(
+const { status } = child_process.spawnSync(
   'cargo',
   [
     'rustc',
-    (process.env.NODE_ENV === 'production') ?'--release' :'',
+    ...extraArgs,
     '--',
-    LINKER_OPTS
+    linkerOpts
   ],
   {
     cwd: `${__dirname}/libgraffiti`,
@@ -29,3 +35,9 @@ require('child_process').spawn(
     shell: true
   }
 )
+
+if (status) {
+  process.exit(status)
+}
+
+fs.copyFileSync(`${targetDir}/${extraArgs.includes('--release') ?'release' :'debug'}/libgraffiti.${libSuffix}`, `${targetDir}/libgraffiti.node`)

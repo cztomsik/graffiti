@@ -18,6 +18,12 @@ miniserde = "0.1.12"
 stretch = "0.3.2"
 glfw-sys = "3.3.0"
 
+[features]
+default = []
+# include desperate debug msgs
+silly = []
+
 [profile.release]
 # fix raspi --release builds
+# https://github.com/rust-lang/rust/issues/62896
 codegen-units = 1

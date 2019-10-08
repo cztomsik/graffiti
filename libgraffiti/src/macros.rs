@@ -3,10 +3,11 @@
 // very basic logging to save some deps
 // for now it's enabled/disabled by (un)commenting the line
 //
-// TODO: auto-enable based on some env var
+// auto-enabled with --features silly
 macro_rules! silly {
     ($($arg:tt)+) => (
-        // println!($($arg)+);
+        #[cfg(feature = "silly")]
+        println!($($arg)+);
     )
 }
 
@@ -18,7 +19,7 @@ macro_rules! debug {
 
 macro_rules! error {
     ($($arg:tt)+) => (
-        println!($($arg)+);
+        eprintln!($($arg)+);
     )
 }
 

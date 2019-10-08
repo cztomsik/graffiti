@@ -1,8 +1,11 @@
-import { pascalCase, parseColor } from '../core/utils'
+import { camelCase, pascalCase, parseColor } from '../core/utils'
 import { SceneContext } from '../core/SceneContext'
 
 // minimal impl just to get something working
 export class CSSStyleDeclaration {
+  // temp state for text changes
+  text = undefined
+
   constructor(private _scene: SceneContext, private _surfaceId) {}
 
   // kebab-case
@@ -49,8 +52,22 @@ export class CSSStyleDeclaration {
         this.setProperty('margin-left', v)
         break
 
+      case 'color':
+        this._scene.setTextColor(this._surfaceId, parseColor(v || '#000'))
+        break
+      case 'font-size':
+      case 'line-height':
+      case 'text-align':
+      // TODO: this was bad idea
       case 'content':
-        this._scene.setText(this._surfaceId, { size: 16, line_height: 16, align: 'Left', text: v })
+        this.text = { ...this.text, [camelCase(k)]: v }
+
+        this._scene.setText(this._surfaceId, (this.text.content || undefined) && {
+          size: this.text.fontSize || 16,
+          line_height: this.text.lineHeight || this.text.fontSize || 16,
+          align: pascalCase(this.text.align || 'left'),
+          text: this.text.content
+        })
         break
 
       case 'width':
@@ -84,6 +101,24 @@ export class CSSStyleDeclaration {
       case 'background-color':
         this._scene.setBackgroundColor(this._surfaceId, parseColor(v))
         break
+
+      case 'flex-direction':
+        this._scene.setFlexDirection(this._surfaceId, pascalCase(v))
+        break
+      case 'flex-wrap':
+        this._scene.setFlexWrap(this._surfaceId, pascalCase(v))
+        break
+      /*
+      case 'overflow':
+        break
+
+      case 'background-image':
+        // + gradient
+      case 'box-shadow':
+      case 'border-*':
+      case 'border-radius':
+        break
+      */
 
       default:
         console.log(`TODO: style.${k} ${v}`)

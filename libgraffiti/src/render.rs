@@ -213,7 +213,17 @@ impl <'a> RenderContext<'a> {
             ]));
         }
 
-        self.builder.frame.batches.push(Batch::Text { color, num: self.builder.count });
+        // TODO: come up with some equation
+        // TODO: fwidth()
+        let hint = if text.size <= 16. {
+            [0.5, 0.5]
+        } else if text.size <= 32. {
+            [0.35, 0.3]
+        } else if text.size <= 64. {
+            [0.2, 0.2]
+        } else { [0.05, 0.1] };
+
+        self.builder.frame.batches.push(Batch::Text { color, hint, num: self.builder.count });
         self.builder.append_indices();
         self.builder.count = 0;
     }
@@ -267,7 +277,7 @@ pub(crate) struct Frame {
 #[derive(Debug)]
 enum Batch {
     AlphaRects { num: usize },
-    Text { color: Color, num: usize }
+    Text { color: Color, hint: [f32; 2], num: usize }
 }
 
 /// Low-level frame building, can push primitives at given bounds and do
