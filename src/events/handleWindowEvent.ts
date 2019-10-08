@@ -59,13 +59,13 @@ export function handleWindowEvent(document: Document, event) {
     // input - like input, but after update (not sure if it's possible to do this on this level)
     case 'KeyDown': {
       const target = document.activeElement
-      const code = getKeyCode(event.value)
+      const code = getKeyCode(event.key)
       dispatch('keydown', target, { target, code })
       return
     }
     case 'KeyPress': {
       const target = document.activeElement
-      const key = String.fromCharCode(event.value)
+      const key = String.fromCharCode(event.key)
 
       dispatch('keypress', target, { target, key })
       return
