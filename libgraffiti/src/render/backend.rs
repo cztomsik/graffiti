@@ -274,7 +274,7 @@ const TEXT_FS: &str = r#"
       }
 "#;
 
-const SDF_TEXTURE: &[u8; 512 * 512 * 4] = include_bytes!("../../../../sheet0.raw");
+const SDF_TEXTURE: &[u8; 512 * 512 * 4] = include_bytes!("../../resources/sheet0.raw");
 
 unsafe fn shader_program(vertex_shader_source: &str, fragment_shader_source: &str) -> u32 {
     let vertex_shader = shader(gl::VERTEX_SHADER, vertex_shader_source);

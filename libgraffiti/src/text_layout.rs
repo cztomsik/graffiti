@@ -39,7 +39,7 @@ pub enum TextAlign {
 
 impl TextLayout {
     pub fn new() -> Self {
-        let str = std::fs::read_to_string("../font.json").expect("font file");
+        let str = include_str!("../resources/font.json");
         let font: MsdfFont = json::from_str(&str).expect("invalid font");
 
         let mut font_glyphs = BTreeMap::new();
