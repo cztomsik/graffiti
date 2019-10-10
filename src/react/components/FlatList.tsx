@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { FlatListProps } from 'react-native'
-import { ScrollView } from './ScrollView';
+import { ScrollView } from '..';
 
 const noopSeparators = {
   highlight: (): void => {},

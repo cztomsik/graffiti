@@ -1,4 +1,4 @@
-import { getApp } from '../core'
+import { getApp } from '..'
 import { Window } from '../dom/Window'
 
 // setup global env for a single window

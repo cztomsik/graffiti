@@ -31,6 +31,8 @@ pub trait BoxLayout {
 
     fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32));
 
+    fn resize(&mut self, width: i32, height: i32);
+
     // TODO: not sure if it's necessary for the picker but for rendering
     // we could be fine with <T: Index<SurfaceId>> because the bounds
     // are looked up only once for each surface context so technically,

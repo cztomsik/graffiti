@@ -10,7 +10,7 @@ import { Event } from './Event'
 // - bubbling has its issues but any different approach would be very surprising
 
 export function handleWindowEvent(document: Document, event) {
-  console.log(event)
+  // console.log(event)
 
   let e = event as any
   let target = (e.target !== undefined) && document._getEl(e.target)

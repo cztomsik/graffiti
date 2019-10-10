@@ -49,15 +49,15 @@ pub enum EventKind {
 }
 
 impl Window {
-    pub fn new(width: u32, height: u32) -> Self {
+    pub fn new(width: i32, height: i32) -> Self {
         Window {
             mouse_pos: Pos::zero(),
 
-            box_layout: Box::new(StretchLayout::new((width as f32, height as f32))),
+            box_layout: Box::new(StretchLayout::new(width, height)),
             text_layout: TextLayout::new(),
             picker: SurfacePicker::new(),
 
-            renderer: Renderer::new(),
+            renderer: Renderer::new(width, height),
         }
     }
 
@@ -99,6 +99,15 @@ impl Window {
 
     pub fn key_up(&mut self, scancode: u16) -> Event {
         Event::new(EventKind::KeyUp, 0, scancode)
+    }
+
+    pub fn resize(&mut self, width: i32, height: i32) -> Event {
+        self.renderer.resize(width, height);
+        self.box_layout.resize(width, height);
+
+        self.render();
+
+        Event::new(EventKind::Resize, 0, 0)
     }
 
     pub fn close(&mut self) -> Event {
@@ -155,6 +164,10 @@ impl Window {
             self.renderer.set_background_color(c.surface, c.color);
         }
 
+        self.render();
+    }
+
+    fn render(&mut self) {
         let text_layout = &mut self.text_layout;
 
         self.box_layout.calculate(&mut |surface, max_width| {

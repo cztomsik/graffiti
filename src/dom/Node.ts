@@ -10,6 +10,10 @@ export class Node extends EventTarget {
 
   appendChild(child: Node) {
     this.insertBefore(child, null)
+
+    if (child.nodeType === Node.TEXT_NODE) {
+      this['_updateText'](child['data'])
+    }
   }
 
   insertBefore(child: Node, before: Node | null) {

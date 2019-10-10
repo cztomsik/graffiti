@@ -14,7 +14,7 @@ const initDevtools = reconciler => {
     reconciler.injectIntoDevTools({
       bundleType: 1,
       version: '0.0.0',
-      rendererPackageName: 'node-webrender',
+      rendererPackageName: 'graffiti',
       //findFiberByHostInstance: reconciler.findHostInstance
     })
   }

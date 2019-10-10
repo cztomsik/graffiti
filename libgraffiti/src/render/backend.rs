@@ -16,8 +16,9 @@ use crate::render::{Frame, Batch, Vertex, VertexIndex};
 pub struct RenderBackend {
     rect_program: u32,
     text_program: u32,
-    text_uniform: i32,
-    hint_uniform: i32,
+    resize_uniforms: [(u32, i32); 2],
+    text_color_uniform: i32,
+    text_factor_uniform: i32,
 
     ibo: u32,
     vbo: u32,
@@ -32,7 +33,7 @@ impl RenderBackend {
             let mut vao = 0;
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
-            check();
+            check("vao");
 
             let mut ibo = 0;
             let mut vbo = 0;
@@ -54,7 +55,7 @@ impl RenderBackend {
             gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as i32, 512, 512, 0, gl::RGBA, gl::UNSIGNED_BYTE, mem::transmute(SDF_TEXTURE));
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, tex);
-            check();
+            check("texture");
 
             // TODO: opaque
             gl::Disable(gl::DEPTH_TEST);
@@ -63,23 +64,36 @@ impl RenderBackend {
             gl::BlendEquation(gl::FUNC_ADD);
 
             let rect_program = shader_program(RECT_VS, RECT_FS);
+            check("rect_program");
             let text_program = shader_program(TEXT_VS, TEXT_FS);
+            check("text_program");
 
             // this is important otherwise indices sometimes does not reflect
             // the order in the shader!!!
             // TODO: works but it should be done before linking
             gl::BindAttribLocation(rect_program, 0, c_str!("a_pos"));
             gl::BindAttribLocation(rect_program, 1, c_str!("a_color"));
+            check("rect attrs");
 
             gl::BindAttribLocation(text_program, 0, c_str!("a_pos"));
             gl::BindAttribLocation(text_program, 1, c_str!("a_uv"));
+            check("text attrs");
+
+            let resize_uniforms = [
+                (rect_program, gl::GetUniformLocation(rect_program, c_str!("u_win_size"))),
+                (text_program, gl::GetUniformLocation(text_program, c_str!("u_win_size")))
+            ];
+            let text_color_uniform = gl::GetUniformLocation(text_program, c_str!("u_color"));
+            let text_factor_uniform = gl::GetUniformLocation(text_program, c_str!("u_dist_factor"));
+            check("uniforms");
 
             Self {
                 rect_program,
                 text_program,
 
-                text_uniform: gl::GetUniformLocation(text_program, CString::new("u_color").unwrap().as_ptr()),
-                hint_uniform: gl::GetUniformLocation(text_program, CString::new("u_hint").unwrap().as_ptr()),
+                resize_uniforms,
+                text_color_uniform,
+                text_factor_uniform,
 
                 ibo,
                 vbo,
@@ -87,7 +101,19 @@ impl RenderBackend {
         }
     }
 
+    pub(crate) fn resize(&mut self, width: i32, height: i32) {
+        unsafe {
+            for (program, uniform) in &self.resize_uniforms {
+                gl::UseProgram(*program);
+                gl::Uniform2f(*uniform, width as f32, height as f32);
+            }
+            check("resize");
+        }
+    }
+
     pub(crate) fn render_frame(&mut self, frame: Frame) {
+        silly!("frame {:?}", &frame);
+
         unsafe {
             // TODO: opaque rect in bg (last item) might be faster
             // clear needs to fill all pixels, bg rect fills only what's left
@@ -103,14 +129,14 @@ impl RenderBackend {
             // (can stay bound for the whole time)
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
             gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, (mem::size_of::<VertexIndex>() * frame.indices.len()) as isize, mem::transmute(&frame.indices[0]), gl::STATIC_DRAW);
-            check();
+            check("ibo");
 
             // upload opaque & alpha vertices
             // TODO: opaque
             // (have to be bound again during rendering)
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BufferData(gl::ARRAY_BUFFER, frame.alpha_data.len() as isize, mem::transmute(&frame.alpha_data[0]), gl::STATIC_DRAW);
-            check();
+            check("vbo");
 
             // TODO: upload textures (and shared data if needed)
 
@@ -148,7 +174,7 @@ impl RenderBackend {
                             (vbo_offset + mem::size_of::<Pos>()) as *const std::ffi::c_void,
                         );
                     }
-                    Batch::Text { color, hint, num } => {
+                    Batch::Text { color, distance_factor, num } => {
                         vertex_size = mem::size_of::<Vertex<Pos>>();
                         quad_count = num;
 
@@ -174,8 +200,8 @@ impl RenderBackend {
 
                         // unpack it here, maybe even in builder
                         let color: [f32; 4] = [color.r as f32 / 256., color.g as f32 / 256., color.b as f32 / 256., color.a as f32 / 256.];
-                        gl::Uniform4fv(self.text_uniform, 1, &color as *const GLfloat);
-                        gl::Uniform2fv(self.hint_uniform, 1, &hint as *const GLfloat);
+                        gl::Uniform4fv(self.text_color_uniform, 1, &color as *const GLfloat);
+                        gl::Uniform1f(self.text_factor_uniform, distance_factor);
                     }
                     /*
                     _ => {
@@ -186,7 +212,7 @@ impl RenderBackend {
                 }
 
                 gl::DrawElements(gl::TRIANGLES, (quad_count * 6) as i32, gl::UNSIGNED_SHORT, ibo_offset as *const std::ffi::c_void);
-                check();
+                check("draw els");
 
                 vbo_offset += quad_count * 4 * vertex_size;
                 ibo_offset += quad_count * 6 * mem::size_of::<VertexIndex>();
@@ -201,15 +227,15 @@ impl RenderBackend {
 const RECT_VS: &str = r#"
       #version 100
 
+      uniform vec2 u_win_size;
+
       attribute vec2 a_pos;
       attribute vec4 a_color;
 
       varying vec4 v_color;
 
       void main() {
-            // TODO: uniforms
-            vec2 size = vec2(1024., 768.);
-            vec2 xy = (a_pos / (size / 2.)) - 1.;
+            vec2 xy = (a_pos / (u_win_size / 2.)) - 1.;
             xy.y *= -1.;
 
             gl_Position = vec4(xy, 0.0, 1.0);
@@ -233,15 +259,15 @@ const RECT_FS: &str = r#"
 const TEXT_VS: &str = r#"
       #version 100
 
+      uniform vec2 u_win_size;
+
       attribute vec2 a_pos;
       attribute vec2 a_uvv;
 
       varying vec2 v_uv;
 
       void main() {
-            // TODO: uniforms
-            vec2 size = vec2(1024., 768.);
-            vec2 xy = (a_pos / (size / 2.)) - 1.;
+            vec2 xy = (a_pos / (u_win_size / 2.)) - 1.;
             xy.y *= -1.;
 
             gl_Position = vec4(xy, 0.0, 1.0);
@@ -255,22 +281,21 @@ const TEXT_FS: &str = r#"
       precision mediump float;
 
       uniform vec4 u_color;
-      uniform vec2 u_hint;
+      uniform float u_dist_factor;
       uniform sampler2D u_texture;
 
       varying vec2 v_uv;
 
       float median(vec3 col) {
-            return max(min(col.r, col.g), min(max(col.r, col.g), col.b));
+          return max(min(col.r, col.g), min(max(col.r, col.g), col.b));
       }
 
       void main() {
             // TODO: seems like it's BGRA instead of RGBA
-            float distance = median(texture2D(u_texture, v_uv).rgb);
+            float distance = u_dist_factor * (median(texture2D(u_texture, v_uv).rgb) - 0.5);
+            float opacity = 1. - clamp(distance + 0.5, 0.0, 1.0);
 
-            float alpha = smoothstep(0.5 - u_hint.x, 0.5 + u_hint.y, 1. - distance);
-
-            gl_FragColor = vec4(u_color.rgb, alpha * u_color.a);
+            gl_FragColor = vec4(u_color.rgb, u_color.a * opacity);
       }
 "#;
 
@@ -321,10 +346,10 @@ unsafe fn shader(shader_type: u32, source: &str) -> u32 {
     shader
 }
 
-unsafe fn check() {
+unsafe fn check(hint: &str) {
     let err = gl::GetError();
     if err != gl::NO_ERROR {
-        panic!("gl err {}", err);
+        panic!("gl err {} near {}", err, hint);
     }
 }
 

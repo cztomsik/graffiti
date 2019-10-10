@@ -17,6 +17,10 @@ export class Element extends Node {
     return this.parentElement
   }
 
+  _setText(text) {
+    this.parentNode.style.content = text
+  }
+
   setAttribute(name, value) {
     this[camelCase(name)] = value
   }

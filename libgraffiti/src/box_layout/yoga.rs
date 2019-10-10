@@ -1,12 +1,12 @@
-use crate::commons::{Pos, Bounds};
 use std::f32;
+use crate::commons::{SurfaceId, Pos, Bounds, Border};
+use crate::text_layout::{Text};
 use yoga::{
-    Align, Context, Direction, FlexDirection as YogaFlexDirection, FlexStyle, MeasureMode,
-    Node as YogaNode, NodeRef, StyleUnit, Wrap,
+    Align as YogaAlign, Context, Direction, FlexStyle, MeasureMode,
+    Node as YogaNode, NodeRef, StyleUnit,
 };
 
-use super::BoxLayout;
-use crate::generated::{Border, Dimension, Dimensions, Flex, FlexAlign, FlexDirection, FlexWrap, Flow, JustifyContent, Overflow, Size, Text, SurfaceId, UpdateSceneMsg, StyleProp};
+use super::{BoxLayout, DimensionProp, Dimension, AlignProp, Align};
 use yoga::types::Justify;
 
 type Id = SurfaceId;
@@ -28,61 +28,8 @@ impl YogaLayout {
         YogaLayout {
             yoga_nodes: vec![root],
             measure_text_holder: None,
-            bounds: vec![Bounds::default()],
+            bounds: vec![Bounds::zero()],
         }
-    }
-
-    fn alloc(&mut self) {
-        self.yoga_nodes.push(YogaNode::new());
-        self.bounds.push(Bounds::default());
-    }
-
-    fn remove_child(&mut self, parent: Id, child: Id) {
-        let (parent, child) = get_two_muts(&mut self.yoga_nodes, parent, child);
-
-        parent.remove_child(child);
-    }
-
-    // easier with index rather than with Id
-    fn insert_at(&mut self, parent: Id, child: Id, index: u32) {
-        let (parent, child) = get_two_muts(&mut self.yoga_nodes, parent, child);
-
-        parent.insert_child(child, index);
-    }
-
-    fn set_size(&mut self, id: Id, size: Size) {
-        self.yoga_nodes[id].apply_styles(&[
-            FlexStyle::Width(size.0.into()),
-            FlexStyle::Height(size.1.into()),
-        ])
-    }
-
-    fn set_flex(&mut self, id: Id, flex: Flex) {
-        self.yoga_nodes[id].apply_styles(&[
-            FlexStyle::FlexGrow(flex.flex_grow.into()),
-            FlexStyle::FlexShrink(flex.flex_shrink.into()),
-            FlexStyle::FlexBasis(flex.flex_basis.into()),
-        ]);
-    }
-
-    fn set_flow(&mut self, id: Id, flow: Flow) {
-        self.yoga_nodes[id].apply_styles(&[
-            FlexStyle::FlexDirection(flow.flex_direction.into()),
-            FlexStyle::FlexWrap(flow.flex_wrap.into()),
-            FlexStyle::JustifyContent(flow.justify_content.into()),
-            FlexStyle::AlignContent(flow.align_content.into()),
-            FlexStyle::AlignItems(flow.align_items.into()),
-            FlexStyle::AlignSelf(flow.align_self.into()),
-        ]);
-    }
-
-    fn set_padding(&mut self, id: Id, padding: Dimensions) {
-        self.yoga_nodes[id].apply_styles(&[
-            FlexStyle::PaddingTop(padding.0.into()),
-            FlexStyle::PaddingRight(padding.1.into()),
-            FlexStyle::PaddingBottom(padding.2.into()),
-            FlexStyle::PaddingLeft(padding.3.into()),
-        ]);
     }
 
     fn set_border(&mut self, id: Id, border: Option<Border>) {
@@ -94,15 +41,6 @@ impl YogaLayout {
             FlexStyle::BorderBottom(widths[2].into()),
             FlexStyle::BorderLeft(widths[3].into())
         ])
-    }
-
-    fn set_margin(&mut self, id: Id, margin: Dimensions) {
-        self.yoga_nodes[id].apply_styles(&[
-            FlexStyle::MarginTop(margin.0.into()),
-            FlexStyle::MarginRight(margin.1.into()),
-            FlexStyle::MarginBottom(margin.2.into()),
-            FlexStyle::MarginLeft(margin.3.into()),
-        ]);
     }
 
     fn set_text<'svc>(&mut self, id: Id, text: Option<Text>) {
@@ -118,34 +56,70 @@ impl YogaLayout {
             node.set_context(None);
         }
     }
-
-    fn set_overflow(&mut self, id: Id, overflow: Overflow) {
-        self.yoga_nodes[id].set_overflow(overflow.into());
-    }
 }
 
 impl BoxLayout for YogaLayout {
-    fn update_scene(&mut self, msgs: &[UpdateSceneMsg]) {
-        for m in msgs.iter().cloned() {
-            match m {
-                UpdateSceneMsg::Alloc => self.alloc(),
-                UpdateSceneMsg::InsertAt { parent, child, index } => self.insert_at(parent, child, index as u32),
-                UpdateSceneMsg::RemoveChild { parent, child } => self.remove_child(parent, child),
-                UpdateSceneMsg::SetStyleProp { surface, prop } => {
-                    match prop {
-                        StyleProp::Size(s) => self.set_size(surface, s),
-                        StyleProp::Flex(f) => self.set_flex(surface, f),
-                        StyleProp::Flow(f) => self.set_flow(surface, f),
-                        StyleProp::Padding(p) => self.set_padding(surface, p),
-                        StyleProp::Border(b) => self.set_border(surface, b),
-                        StyleProp::Margin(m) => self.set_margin(surface, m),
-                        StyleProp::Text(t) => self.set_text(surface, t),
-                        StyleProp::Overflow(o) => self.set_overflow(surface, o),
-                        _ => {}
-                    }
-                }
-            }
-        }
+    fn alloc(&mut self) {
+        self.yoga_nodes.push(YogaNode::new());
+        self.bounds.push(Bounds::zero());
+    }
+
+    fn insert_at(&mut self, parent: Id, child: Id, index: usize) {
+        let (parent, child) = get_two_muts(&mut self.yoga_nodes, parent, child);
+
+        parent.insert_child(child, index as u32);
+    }
+
+    fn remove_child(&mut self, parent: Id, child: Id) {
+        let (parent, child) = get_two_muts(&mut self.yoga_nodes, parent, child);
+
+        parent.remove_child(child);
+    }
+
+    fn set_dimension(&mut self, surface: SurfaceId, prop: DimensionProp, value: Dimension) {
+        let v = value.into();
+
+        self.yoga_nodes[surface].apply_style(&match prop {
+            DimensionProp::Width => FlexStyle::Width(v),
+            DimensionProp::Height => FlexStyle::Height(v),
+            DimensionProp::MinWidth => FlexStyle::MinWidth(v),
+            DimensionProp::MinHeight => FlexStyle::MinHeight(v),
+            DimensionProp::MaxWidth => FlexStyle::MaxWidth(v),
+            DimensionProp::MaxHeight => FlexStyle::MaxHeight(v),
+
+            DimensionProp::PaddingLeft => FlexStyle::PaddingLeft(v),
+            DimensionProp::PaddingRight => FlexStyle::PaddingRight(v),
+            DimensionProp::PaddingTop => FlexStyle::PaddingTop(v),
+            DimensionProp::PaddingBottom => FlexStyle::PaddingBottom(v),
+
+            DimensionProp::MarginLeft => FlexStyle::MarginLeft(v),
+            DimensionProp::MarginRight => FlexStyle::MarginRight(v),
+            DimensionProp::MarginTop => FlexStyle::MarginTop(v),
+            DimensionProp::MarginBottom => FlexStyle::MarginBottom(v),
+
+            DimensionProp::FlexGrow => FlexStyle::FlexGrow(get_points(&v).into()),
+            DimensionProp::FlexShrink => FlexStyle::FlexShrink(get_points(&v).into()),
+            DimensionProp::FlexBasis => FlexStyle::FlexBasis(v),
+        })
+    }
+
+    fn set_align(&mut self, surface: SurfaceId, prop: AlignProp, value: Align) {
+        self.yoga_nodes[surface].apply_style(&match prop {
+            AlignProp::AlignSelf => FlexStyle::AlignSelf(value.into()),
+            AlignProp::AlignContent => FlexStyle::AlignContent(value.into()),
+            AlignProp::AlignItems => FlexStyle::AlignItems(value.into()),
+            AlignProp::JustifyContent => FlexStyle::JustifyContent(value.into()),
+        })
+    }
+
+    // separate because rendering doesn't need to test dimensions then
+    fn set_border(&mut self, surface: SurfaceId, border: Option<Border>) {
+        YogaLayout::set_border(self, surface, border);
+    }
+
+    // another separate
+    fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
+        YogaLayout::set_text(self, surface, text);
     }
 
     fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)) {
@@ -229,13 +203,44 @@ struct MeasureContext<'a> (
 impl Into<StyleUnit> for Dimension {
     fn into(self) -> StyleUnit {
         match self {
-            Dimension::Auto => StyleUnit::Auto,
-            Dimension::Percent(f) => StyleUnit::Percent(f.into()),
-            Dimension::Point(f) => StyleUnit::Point(f.into()),
+            Dimension { point: None, percent: None } => StyleUnit::Auto,
+            Dimension { point: Some(p), .. } => StyleUnit::Point(p.into()),
+            Dimension { percent: Some(p), .. } => StyleUnit::Percent(p.into()),
         }
     }
 }
 
+impl Into<YogaAlign> for Align {
+    fn into(self) -> YogaAlign {
+        match self {
+            Align::Auto => YogaAlign::Auto,
+            Align::Baseline => YogaAlign::Baseline,
+            Align::Center => YogaAlign::Center,
+            Align::FlexStart => YogaAlign::FlexStart,
+            Align::FlexEnd => YogaAlign::FlexEnd,
+            Align::SpaceAround => YogaAlign::SpaceAround,
+            Align::SpaceBetween => YogaAlign::SpaceBetween,
+            Align::Stretch => YogaAlign::Stretch,
+            _ => panic!("invalid align")
+        }
+    }
+}
+
+impl Into<Justify> for Align {
+    fn into(self) -> Justify {
+        match self {
+            Align::Center => Justify::Center,
+            Align::FlexStart => Justify::FlexStart,
+            Align::FlexEnd => Justify::FlexEnd,
+            Align::SpaceAround => Justify::SpaceAround,
+            Align::SpaceBetween => Justify::SpaceBetween,
+            Align::SpaceEvenly => Justify::SpaceEvenly,
+            _ => panic!("invalid justify")
+        }
+    }
+}
+
+/*
 impl Into<YogaFlexDirection> for FlexDirection {
     fn into(self) -> YogaFlexDirection {
         match self {
@@ -243,34 +248,6 @@ impl Into<YogaFlexDirection> for FlexDirection {
             FlexDirection::ColumnReverse => YogaFlexDirection::ColumnReverse,
             FlexDirection::Row => YogaFlexDirection::Row,
             FlexDirection::RowReverse => YogaFlexDirection::RowReverse,
-        }
-    }
-}
-
-impl Into<Align> for FlexAlign {
-    fn into(self) -> Align {
-        match self {
-            FlexAlign::Auto => Align::Auto,
-            FlexAlign::Baseline => Align::Baseline,
-            FlexAlign::Center => Align::Center,
-            FlexAlign::FlexStart => Align::FlexStart,
-            FlexAlign::FlexEnd => Align::FlexEnd,
-            FlexAlign::SpaceAround => Align::SpaceAround,
-            FlexAlign::SpaceBetween => Align::SpaceBetween,
-            FlexAlign::Stretch => Align::Stretch,
-        }
-    }
-}
-
-impl Into<Justify> for JustifyContent {
-    fn into(self) -> Justify {
-        match self {
-            JustifyContent::Center => Justify::Center,
-            JustifyContent::FlexStart => Justify::FlexStart,
-            JustifyContent::FlexEnd => Justify::FlexEnd,
-            JustifyContent::SpaceAround => Justify::SpaceAround,
-            JustifyContent::SpaceBetween => Justify::SpaceBetween,
-            JustifyContent::SpaceEvenly => Justify::SpaceEvenly,
         }
     }
 }
@@ -294,6 +271,7 @@ impl Into<yoga::Overflow> for Overflow {
         }
     }
 }
+*/
 
 // mutably borrow two items at once
 pub fn get_two_muts<T>(vec: &mut Vec<T>, first: usize, second: usize) -> (&mut T, &mut T) {
@@ -310,4 +288,12 @@ pub fn get_two_muts<T>(vec: &mut Vec<T>, first: usize, second: usize) -> (&mut T
 
 pub fn get_static_ref(yoga_layout: &mut YogaLayout) -> &'static mut YogaLayout {
     unsafe { std::mem::transmute(yoga_layout) }
+}
+
+// hacky because of into(), type inference & DRY :-/
+fn get_points(dim: &StyleUnit) -> f32 {
+    match dim {
+        StyleUnit::Point(v) => **v,
+        _ => panic!("expected point")
+    }
 }

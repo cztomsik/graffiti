@@ -21,7 +21,10 @@ pub extern "C" fn gft_init() {
 pub unsafe extern "C" fn gft_send(data: *const u8, len: size_t, res_data: *mut u8, res_maxlen: size_t) {
     // get slice of bytes & try to deserialize
     let msg = std::slice::from_raw_parts(data, len as usize);
-    let msg: FfiMsg = json::from_str(std::str::from_utf8(msg).expect("not string")).expect("invalid message");
+    let msg = std::str::from_utf8(msg).expect("not string");
+    let msg: FfiMsg = json::from_str(&msg).unwrap_or_else(|_| {
+        panic!("invalid message {}", &msg);
+    });
 
     silly!("Msg {:#?}", &msg);
 

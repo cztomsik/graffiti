@@ -5,10 +5,11 @@ use stretch::geometry::{Size as StretchSize};
 use stretch::Stretch;
 use stretch::node::Node;
 use stretch::style::{Style as StretchStyle, Dimension as StretchDimension, AlignContent, AlignItems, AlignSelf, JustifyContent as StretchJustifyContent, FlexDirection as StretchFlexDirection, FlexWrap as StretchFlexWrap};
-use stretch::number::Number;
+use stretch::number::{Number as StretchNumber};
 use std::any::Any;
 
 pub struct StretchLayout {
+    window_size: StretchSize<StretchNumber>,
     stretch: Stretch,
     styles: Vec<StretchStyle>,
     nodes: Vec<Node>,
@@ -17,8 +18,9 @@ pub struct StretchLayout {
 }
 
 impl StretchLayout {
-    pub fn new((width, height): (f32, f32)) -> Self {
+    pub fn new(width: i32, height: i32) -> Self {
         let mut res = StretchLayout {
+            window_size: StretchSize::undefined(),
             stretch: Stretch::new(),
             nodes: Vec::new(),
             styles: Vec::new(),
@@ -27,9 +29,14 @@ impl StretchLayout {
         };
 
         res.alloc();
+
         res.update_style(0, |s| {
-            s.size = StretchSize { width: StretchDimension::Points(width), height: StretchDimension::Points(height) };
+            s.flex_grow = 1.;
+            s.flex_shrink = 1.;
+            s.flex_basis = StretchDimension::Auto;
         });
+
+        res.resize(width, height);
 
         res
     }
@@ -136,10 +143,10 @@ impl BoxLayout for StretchLayout {
         if text.is_some() {
             let stretch_layout = get_static_ref(self);
 
-            let measure_func: Box<dyn FnMut(StretchSize<Number>) -> Result<StretchSize<f32>, Box<dyn Any>>> = Box::new(move |size: StretchSize<Number>| {
+            let measure_func: Box<dyn FnMut(StretchSize<StretchNumber>) -> Result<StretchSize<f32>, Box<dyn Any>>> = Box::new(move |size: StretchSize<StretchNumber>| {
                 let max_width = match size.width {
-                    Number::Defined(w) => Some(w),
-                    Number::Undefined => None
+                    StretchNumber::Defined(w) => Some(w),
+                    StretchNumber::Undefined => None
                 };
 
                 let f = stretch_layout.measure_text_holder.as_mut().expect("not inside calculate");
@@ -155,9 +162,23 @@ impl BoxLayout for StretchLayout {
         }
     }
 
+    fn resize(&mut self, width: i32, height: i32) {
+        self.window_size = StretchSize {
+            width: StretchNumber::Defined(width as f32),
+            height: StretchNumber::Defined(height as f32)
+        };
+
+        self.update_style(0, |s| {
+            s.size = StretchSize {
+                width: StretchDimension::Points(width as f32),
+                height: StretchDimension::Points(height as f32)
+            };
+        });
+    }
+
     fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)) {
         self.measure_text_holder = Some(unsafe { std::mem::transmute(measure_text) });
-        self.stretch.compute_layout(self.nodes[0], StretchSize::undefined()).expect("couldnt compute layout");
+        self.stretch.compute_layout(self.nodes[0], self.window_size).expect("couldnt compute layout");
         self.measure_text_holder = None;
 
         // TODO: update only attached and display != none nodes

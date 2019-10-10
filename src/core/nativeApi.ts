@@ -4,7 +4,7 @@ import * as os from 'os';
 process['dlopen'](module, `${__dirname}/../../libgraffiti/target/libgraffiti.node`)
 
 export const send = (msg) => {
-  // console.log('send', util.inspect(msg, { depth: 4 }))
+  // console.log('send', require('util').inspect(msg, { depth: 4 }))
 
   // alloc some mem for result
   // fill with spaces (because of JSON)

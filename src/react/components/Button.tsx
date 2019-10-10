@@ -1,10 +1,8 @@
 import * as React from 'react'
 import { ButtonProps } from 'react-native'
-import View from './View';
-import { Text } from './Text';
-import StyleSheet from '../Stylesheet';
+import { View, Text, StyleSheet } from '..';
 
-const Button = (props: ButtonProps) =>
+export const Button = (props: ButtonProps) =>
   <View style={[styles.button, props.disabled && styles.buttonDisabled]} onClick={props.onPress}>
     <Text style={[styles.text, props.disabled && styles.textDisabled]}>
       {props.title.toUpperCase()}
@@ -34,5 +32,3 @@ const styles = StyleSheet.create({
     color: '#a1a1a1'
   }
 })
-
-export default Button

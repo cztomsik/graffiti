@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { ScrollViewProps } from 'react-native'
-import StyleSheet from '../Stylesheet';
-import View from './View';
+import { View, StyleSheet } from '..';
 
 // TODO
 const ScrollView: React.SFC<ScrollViewProps> = (props) => {

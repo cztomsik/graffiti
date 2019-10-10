@@ -62,7 +62,7 @@ impl TheApp {
         let id = self.next_window_id;
 
         let glfw_window = unsafe {
-            let w = glfwCreateWindow(width as i32, height as i32, c_str!("graffiti"), ptr::null_mut(), ptr::null_mut());
+            let w = glfwCreateWindow(width, height, c_str!("graffiti"), ptr::null_mut(), ptr::null_mut());
             assert!(!w.is_null(), "create GLFW window");
 
             glfwMakeContextCurrent(w);
@@ -73,6 +73,7 @@ impl TheApp {
             glfwSetMouseButtonCallback(w, handle_glfw_mouse_button);
             glfwSetCharCallback(w, handle_glfw_char);
             glfwSetKeyCallback(w, handle_glfw_key);
+            glfwSetWindowSizeCallback(w, handle_glfw_window_size);
             glfwSetWindowCloseCallback(w, handle_glfw_window_close);
 
             // vsync off (for now)
@@ -170,6 +171,7 @@ extern "C" {
     pub fn glfwSetMouseButtonCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_int, c_int, c_int));
     pub fn glfwSetKeyCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_int, c_int, c_int, c_int));
     pub fn glfwSetCharCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_uint));
+    pub fn glfwSetWindowSizeCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_int, c_int));
     pub fn glfwSetWindowCloseCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow));
     pub fn glfwPollEvents();
     pub fn glfwWaitEventsTimeout(timeout: f32);
@@ -213,6 +215,11 @@ unsafe extern "C" fn handle_glfw_key(w: *mut GlfwWindow, _key: c_int, scancode: 
 }
 unsafe extern "C" fn handle_glfw_char(w: *mut GlfwWindow, char: c_uint) {
     window_event!(w, w.key_press(char as u16))
+}
+
+unsafe extern "C" fn handle_glfw_window_size(w: *mut GlfwWindow, width: c_int, height: c_int) {
+    window_event!(w, w.resize(width, height));
+    glfwSwapBuffers(w);
 }
 
 unsafe extern "C" fn handle_glfw_window_close(w: *mut GlfwWindow) {

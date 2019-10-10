@@ -34,7 +34,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new() -> Self {
+    pub fn new(width: i32, height: i32) -> Self {
         let mut res = Self {
             backend: RenderBackend::new(),
             scene: Scene {
@@ -50,6 +50,7 @@ impl Renderer {
         };
 
         res.alloc();
+        res.resize(width, height);
 
         res
     }
@@ -57,6 +58,10 @@ impl Renderer {
     pub fn alloc(&mut self) {
         self.scene.children.push(Vec::new());
         self.scene.text_colors.push(Color::black());
+    }
+
+    pub fn resize(&mut self, width: i32, height: i32) {
+        self.backend.resize(width, height);
     }
 
     pub fn insert_at(&mut self, parent: SurfaceId, child: SurfaceId, index: usize) {
@@ -198,7 +203,7 @@ impl <'a> RenderContext<'a> {
         // TODO: should be uniform
         let origin = self.bounds.a;
 
-        debug!("text {:?} {:?}", &origin, &text.text);
+        silly!("text {:?} {:?}", &origin, &text.text);
 
         self.builder.frame.batches.push(Batch::AlphaRects { num: self.builder.count });
         self.builder.append_indices();
@@ -213,17 +218,14 @@ impl <'a> RenderContext<'a> {
             ]));
         }
 
-        // TODO: come up with some equation
-        // TODO: fwidth()
-        let hint = if text.size <= 16. {
-            [0.5, 0.5]
-        } else if text.size <= 32. {
-            [0.35, 0.3]
-        } else if text.size <= 64. {
-            [0.2, 0.2]
-        } else { [0.05, 0.1] };
+        // TODO: read from font file
+        let texture_font_size = 42.;
+        let px_range = 3.;
+        // https://github.com/Chlumsky/msdfgen/issues/22
+        // https://github.com/Chlumsky/msdfgen/issues/36
+        let distance_factor = (text.size / texture_font_size) * px_range;
 
-        self.builder.frame.batches.push(Batch::Text { color, hint, num: self.builder.count });
+        self.builder.frame.batches.push(Batch::Text { color, distance_factor, num: self.builder.count });
         self.builder.append_indices();
         self.builder.count = 0;
     }
@@ -257,6 +259,7 @@ impl <'a> RenderContext<'a> {
 /// and sometimes because of texture/buffer limits, etc.
 ///
 /// It also contains data for this frame.
+#[derive(Debug)]
 pub(crate) struct Frame {
     // vertices for generated alpha passes, packed in one buffer
     // this is possible, because they're always written in the drawing order
@@ -277,7 +280,7 @@ pub(crate) struct Frame {
 #[derive(Debug)]
 enum Batch {
     AlphaRects { num: usize },
-    Text { color: Color, hint: [f32; 2], num: usize }
+    Text { color: Color, distance_factor: f32, num: usize }
 }
 
 /// Low-level frame building, can push primitives at given bounds and do

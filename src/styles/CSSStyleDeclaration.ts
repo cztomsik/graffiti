@@ -1,4 +1,4 @@
-import { camelCase, pascalCase, parseColor } from '../core/utils'
+import { camelCase, pascalCase, kebabCase, parseColor } from '../core/utils'
 import { SceneContext } from '../core/SceneContext'
 
 // minimal impl just to get something working
@@ -6,7 +6,9 @@ export class CSSStyleDeclaration {
   // temp state for text changes
   text = undefined
 
-  constructor(private _scene: SceneContext, private _surfaceId) {}
+  constructor(private _scene: SceneContext, private _surfaceId) {
+    installProxy(this)
+  }
 
   // kebab-case
   setProperty(k, v) {
@@ -57,6 +59,7 @@ export class CSSStyleDeclaration {
         break
       case 'font-size':
       case 'line-height':
+        v = parseFloat(v)
       case 'text-align':
       // TODO: this was bad idea
       case 'content':
@@ -138,4 +141,10 @@ function parseDimension(value?: string | number) {
   }
 
   return { point: parseFloat(value) }
+}
+
+function installProxy(style: any) {
+  style.__proto__ = new Proxy(style.__proto__, {
+    set: (o, k, v) => (style.setProperty(kebabCase(k), v), true)
+  })
 }

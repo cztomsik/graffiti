@@ -6,4 +6,4 @@
 // (there are 22 on* props and most of them would have been a prop-miss)
 //
 // BTW: react-specific, angular & vue have separate listeners & props
-export default 'View'
+export const View = 'View'
