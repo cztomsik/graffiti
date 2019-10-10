@@ -10,7 +10,7 @@ Of course, it was not that simple but I eventually got it to the point I had ess
 
 Over time I've started doubting a bit about webrender. I mean, I really, really appreciate what Mozilla is doing and I believe that it's also superior renderer for a **web browser**. But for a GUI toolkit, webrender is doing a lot of extra work which is not necessary and sometimes it doesn't even make sense.
 
-# Different constraints
+## Different constraints
 For example, in a browser, you have a lot of tabs (or even iframes) and those can be async updated from javascript at any time. So that's probably why to render anything you need to first make a request, serialize it and send it to the webrender which will then deserialize it again and do the necessary work. This, of course, has some perf penalty which is still a good price for having a nice thread-safe design which is important because browsers are running 3rd party (untrusted) code on your computer.
 
 Another thing is that since that you typically have a lot of webpages open at the same time, it makes sense to do some heavy caching which again is great for browser but not so great for a native app.
@@ -31,7 +31,7 @@ So I initially thought I could use it instead of webrender, as a lightweight ren
 
 And what's worse, it's not easy (if possible at all) to render something custom in the middle of the rasterization process so this is also probably a dead-end.
 
-# Custom renderer
+## Custom renderer
 I've recently come across a project named [makepad](https://github.com/makepad/makepad) which is also doing the whole UI on the GPU and although it's very interesting, it's also totally incompatible with CSS way of defining appearances.
 
 The reason why I'm mentioning it is that the author of this project made a lot of things himself, instead of relying on existing packages. And this was really inspiring for me because for some reason I was afraid of getting my hands dirty with GPU but it turns out that if you can control the whole stack, a lot of things get much much easier.
