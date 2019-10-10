@@ -3,7 +3,7 @@ title: Home
 permalink: /
 ---
 
-# stain
+# graffiti
 Rapid GUI development using familiar technologies (javascript, flexbox, css)
 
 ---
