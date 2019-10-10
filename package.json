@@ -8,13 +8,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cztomsik/node-webrender.git"
+    "url": "git+https://github.com/cztomsik/graffiti.git"
   },
   "dependencies": {
     "lodash": "^4.17.15",
     "open": "^6.2.0"
   },
   "files": [
+    "build.js",
     "src",
     "lib",
     "native/Cargo.*",
@@ -25,26 +26,22 @@
     "build": "node build.js",
     "install": "npm run build -- --release",
     "prepublishOnly": "npm run build && tsc -d",
-    "example": "ts-node examples/react/main",
-    "example-hmr": "ts-node -r ./examples/_hmr examples/react/main"
+    "example": "ts-node examples/react/main"
   },
   "devDependencies": {
-    "@types/ffi": "^0.2.2",
     "@types/node": "^10.14.6",
     "@types/prettier": "^1.16.3",
     "@types/react": "^16.8.17",
     "@types/react-native": "^0.60.0",
-    "@types/ref": "0.0.28",
     "@types/yoga-layout": "^1.9.1",
-    "hot-module-replacement": "^3.0.3",
-    "preact": "^10.0.0-beta.1",
+    "preact": "^10.0.0",
     "prettier": "^1.17.0",
     "react": "^16.8.6",
     "react-devtools-core": "^3.6.1",
     "react-reconciler": "^0.20.4",
     "scheduler": "^0.13.6",
     "ts-node": "^8.3.0",
-    "typescript": "^3.6.2",
+    "typescript": "^3.6.4",
     "ws": "^6.2.1"
   }
 }
