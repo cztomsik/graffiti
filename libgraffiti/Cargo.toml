@@ -1,0 +1,29 @@
+[package]
+edition = "2018"
+name = "graffiti"
+version = "0.1.0"
+authors = ["Kamil Tomšík <info@tomsik.cz>"]
+license = "MIT"
+
+[lib]
+name = "graffiti"
+crate-type = ["cdylib"]
+
+[dependencies]
+libc = "*"
+gl = "*"
+miniserde = "0.1.12"
+# yoga = "0.3.1"
+# stretch = { path = "../../stretch" }
+stretch = "0.3.2"
+glfw-sys = "3.3.0"
+
+[features]
+default = []
+# include desperate debug msgs
+silly = []
+
+[profile.release]
+# fix raspi --release builds
+# https://github.com/rust-lang/rust/issues/62896
+codegen-units = 1

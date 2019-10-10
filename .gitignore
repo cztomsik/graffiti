@@ -1,5 +1,5 @@
-native-new/target
-native-new/tscodegen
+libgraffiti/target
+libgraffiti/tscodegen
 tscodegen/target
 native/target
 native/index.node

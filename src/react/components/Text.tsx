@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { TextProps } from 'react-native'
-import View from './View'
+import { View } from '..';
 
 // we might make it native (host) comp in the future but for now we want to
 // avoid having to mess with `createTextInstance()`, so anything inside <Text>

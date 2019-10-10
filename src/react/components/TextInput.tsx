@@ -1,11 +1,9 @@
 import * as React from 'react'
 import { useState } from 'react'
 import { TextInputProps } from 'react-native'
-import View from './View';
-import { Text } from './Text';
-import StyleSheet from '../Stylesheet';
+import { View, Text, StyleSheet } from '..';
 
-const TextInput = (props: TextInputProps) => {
+export const TextInput = (props: TextInputProps) => {
   const [active, setActive] = useState(false)
   const textInput = useTextValue(props.value, props.onChangeText)
 
@@ -18,6 +16,7 @@ const TextInput = (props: TextInputProps) => {
 
 const styles = StyleSheet.create({
   input: {
+    backgroundColor: '#fff',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderColor: '#cde',
@@ -37,8 +36,6 @@ const styles = StyleSheet.create({
     color: '#556'
   }
 })
-
-export default TextInput
 
 // this is very basic for now
 export const useTextValue = (value, onChange) => {

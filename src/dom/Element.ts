@@ -1,11 +1,11 @@
 import { Node } from './Node'
 import { camelCase, EMPTY_OBJ } from '../core/utils'
 import { Document } from './Document'
-import { diffStyle } from '../styles/diff'
+import { CSSStyleDeclaration } from '../styles/CSSStyleDeclaration'
 
 export class Element extends Node {
   id?
-  _style = EMPTY_OBJ
+  style = new CSSStyleDeclaration(this.ownerDocument._scene, this._nativeId)
 
   constructor(public ownerDocument: Document, public tagName, public _nativeId) {
     super(ownerDocument, Node.ELEMENT_NODE, _nativeId)
@@ -17,29 +17,16 @@ export class Element extends Node {
     return this.parentElement
   }
 
+  _setText(text) {
+    this.parentNode.style.content = text
+  }
+
   setAttribute(name, value) {
     this[camelCase(name)] = value
   }
 
   removeAttribute(name) {
     delete this[camelCase(name)]
-  }
-
-  _updateStyle(style) {
-    for (const styleProp of diffStyle(style, this._style)) {
-      this.ownerDocument._scene.setStyleProp(this._nativeId, styleProp)
-    }
-    this._style = style
-  }
-
-  // minimal impl just to get preact working
-  get style() {
-    return new Proxy(
-      { setProperty: (prop, value) => this._updateStyle({ ...this._style, [camelCase(prop)]: value }) },
-      {
-        set: (target, prop, value) => (target.setProperty(prop, value), true)
-      }
-    )
   }
 
   querySelector(selectors: string): Element | null {

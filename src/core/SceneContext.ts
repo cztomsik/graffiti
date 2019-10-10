@@ -1,4 +1,3 @@
-import { UpdateSceneMsg as U, FfiMsg, StyleProp } from './generated'
 import { send } from './nativeApi'
 
 /**
@@ -10,43 +9,78 @@ import { send } from './nativeApi'
 export class SceneContext {
   // because root is 0
   nextId = 1
-  // TODO: consider ordering related things together (structural, layout, visual changes)
-  sceneMsgs = []
+  msg = new UpdateSceneMsg()
   parents = []
 
   constructor(private windowId) {}
 
   createSurface() {
-    this.sceneMsgs.push(U.Alloc)
+    this.msg.tree_changes.push({})
     this.parents[this.nextId] = 0
     return this.nextId++
   }
 
   insertAt(parent, child, index) {
-    this.sceneMsgs.push(U.InsertAt({ parent, child, index }))
+    this.msg.tree_changes.push({ parent, child, index })
     this.parents[child] = parent
   }
 
   removeChild(parent, child) {
-    this.sceneMsgs.push(U.RemoveChild({ parent, child }))
+    this.msg.tree_changes.push({ parent, child })
     this.parents[child] = 0
   }
 
-  setStyleProp(surface, prop: StyleProp) {
-    this.sceneMsgs.push(U.SetStyleProp({ surface, prop }))
+  setText(surface, text) {
+    this.msg.text_changes.push({ surface, text })
+  }
+
+  setTextColor(surface, color) {
+    this.msg.text_changes.push({ surface, color })
+  }
+
+  setDimension(surface, prop, dim) {
+    this.msg.layout_changes.push({ surface, dim_prop: prop, dim })
+  }
+
+  setAlign(surface, prop, align) {
+    this.msg.layout_changes.push({ surface, align_prop: prop, align })
+  }
+
+  setFlexDirection(surface, flex_direction) {
+    this.msg.layout_changes.push({ surface, flex_direction })
+  }
+
+  setFlexWrap(surface, flex_wrap) {
+    this.msg.layout_changes.push({ surface, flex_wrap })
+  }
+
+  setBackgroundColor(surface, color) {
+    this.msg.background_color_changes.push({ surface, color })
   }
 
   flush() {
-    if (this.sceneMsgs.length === 0) {
+    if (this.msg.empty) {
       return
     }
 
-    send(
-      FfiMsg.UpdateScene({
-        window: this.windowId,
-        msgs: this.sceneMsgs
-      })
-    )
-    this.sceneMsgs = []
+    //console.log(require('util').inspect(this.msg, { depth: 4 }))
+    send({
+      window: this.windowId,
+      update: this.msg
+    })
+
+    this.msg = new UpdateSceneMsg()
   }
 }
+
+class UpdateSceneMsg {
+  tree_changes = []
+  text_changes = []
+  layout_changes = []
+  background_color_changes = []
+
+  get empty() {
+    return ! (this.tree_changes.length || this.text_changes.length || this.layout_changes.length || this.background_color_changes.length)
+  }
+}
+

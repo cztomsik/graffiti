@@ -1,56 +1,26 @@
-import { FfiMsg, FfiResult } from './generated'
-import { writeFfiMsg } from './serialization.generated'
-import { readFfiResult } from './deserialization.generated'
-import { Sink } from 'ts-binary'
+import * as os from 'os';
 
-import * as ref from 'ref'
-import * as ffi from 'ffi'
+// require() would make ncc bundle some unnecessary build artifacts
+process['dlopen'](module, `${__dirname}/../../libgraffiti/target/libgraffiti.node`)
 
-// define lib
-const lib = ffi.Library(
-  __dirname + '/../../native-new/target/debug/libnode_webrender',
-  {
-    init: ['void', []],
-    // pass a buffer (pointer to some memory + its length)
-    send: [
-      'void',
-      [ref.refType(ref.types.void), 'int', ref.refType(ref.types.void)]
-    ]
-  }
-)
+export const send = (msg) => {
+  // console.log('send', require('util').inspect(msg, { depth: 4 }))
 
-export const init = () => lib.init()
-
-let sink: Sink = {
-  arr: new Uint8Array(1024),
-  pos: 0
-}
-
-const resBuf = Buffer.alloc(1024, 0)
-
-export function send(msg: FfiMsg) {
-  //console.log(util.inspect(msg, { depth: 4 }))
+  // alloc some mem for result
+  // fill with spaces (because of JSON)
+  const resBuf = Buffer.alloc(1024, 0x20)
 
   // prepare buffer with msg
-  // let msgBuf = Buffer.from(JSON.stringify(msg))
-
-  sink.pos = 0
-  sink = writeFfiMsg(sink, msg)
-
-  // this will create just a view on top existing array buffer.
-  const msgBuf = Buffer.from(sink.arr.buffer, 0, sink.pos)
-  // alloc some mem for result
-  // TODO why allocate anything here?
+  const buf = Buffer.from(JSON.stringify(msg))
 
   // send (sync)
-  lib.send(msgBuf, msgBuf.length, resBuf)
+  exports['nativeSend'](buf, resBuf)
 
-  const res: FfiResult = readFfiResult({ arr: resBuf, pos: 0 })
+  const res = JSON.parse(resBuf.toString('utf-8'))
 
-  if (res.tag === 'Error') {
-    throw new Error(res.value)
+  if (res.error) {
+    throw new Error(res.error)
   }
 
-  // console.log(res)
   return res
 }

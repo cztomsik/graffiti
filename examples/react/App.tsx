@@ -19,7 +19,7 @@ const examples = [Hello, Counter, TemperatureConverter, Calculator, Hover, Bench
 }))
 
 export function App() {
-  const [activeIndex, setActive] = useState(8)
+  const [activeIndex, setActive] = useState(5)
   const example = examples[activeIndex]
 
   return (

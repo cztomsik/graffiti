@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { useState, useEffect } from 'react'
-import View from './View';
-import StyleSheet from '../Stylesheet';
+import { View, StyleSheet } from '..';
 
 export function ActivityIndicator() {
   const [alpha, setAlpha] = useState(0)

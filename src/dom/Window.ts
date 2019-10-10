@@ -1,5 +1,4 @@
 import { Document } from "./Document";
-import { WindowEvent } from "../core/generated";
 import { EventTarget } from "../events/EventTarget";
 import { mixin } from "../core/utils";
 import { SceneContext } from "../core/SceneContext";
@@ -22,7 +21,7 @@ export class Window {
 
   constructor(private id) {}
 
-  handleEvent(event: WindowEvent) {
+  handleEvent(event) {
     handleWindowEvent(this.document, event)
   }
 }

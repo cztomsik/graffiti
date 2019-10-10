@@ -15,8 +15,8 @@ export class Text extends Node {
   set data(text) {
     this._data = text
 
-    if (this.parentNode) {
-      //this.parentNode.updateText()
+    if (this.parentElement) {
+      this.parentElement._setText(this._data)
     }
   }
 }

@@ -1,11 +1,8 @@
 import * as React from 'react'
 import { SwitchProps } from 'react-native'
-import View from './View';
-import { Text } from './Text';
-import TouchableWithoutFeedback from './TouchableWithoutFeedback';
-import StyleSheet from '../Stylesheet';
+import { View, Text, TouchableWithoutFeedback, StyleSheet } from '..';
 
-const Switch = (props: SwitchProps) => {
+export const Switch = (props: SwitchProps) => {
   const { disabled, value, onValueChange } = props
 
   return (
@@ -62,5 +59,3 @@ const styles = StyleSheet.create({
     lineHeight: 20
   }
 })
-
-export default Switch

@@ -1,4 +1,3 @@
-import { WindowEvent } from '../core/generated'
 import { Document } from '../dom/Document'
 import { Event } from './Event'
 
@@ -10,13 +9,13 @@ import { Event } from './Event'
 //   the same but it's great not having to re-learn everything
 // - bubbling has its issues but any different approach would be very surprising
 
-export function handleWindowEvent(document: Document, event: WindowEvent) {
-  console.log(event)
+export function handleWindowEvent(document: Document, event) {
+  // console.log(event)
 
   let e = event as any
-  let target =  e.value && (e.value.target !== undefined) && document._getEl(e.value.target)
+  let target = (e.target !== undefined) && document._getEl(e.target)
 
-  switch (event.tag) {
+  switch (event.kind) {
     case 'Close': {
       return process.exit(0)
     }
@@ -60,13 +59,13 @@ export function handleWindowEvent(document: Document, event: WindowEvent) {
     // input - like input, but after update (not sure if it's possible to do this on this level)
     case 'KeyDown': {
       const target = document.activeElement
-      const code = getKeyCode(event.value)
+      const code = getKeyCode(event.key)
       dispatch('keydown', target, { target, code })
       return
     }
     case 'KeyPress': {
       const target = document.activeElement
-      const key = String.fromCharCode(event.value)
+      const key = String.fromCharCode(event.key)
 
       dispatch('keypress', target, { target, key })
       return
