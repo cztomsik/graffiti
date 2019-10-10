@@ -18,9 +18,9 @@
     "build.js",
     "src",
     "lib",
-    "native/Cargo.*",
-    "native/*.rs",
-    "native/src"
+    "libgraffiti/Cargo.*",
+    "libgraffiti/resources",
+    "libgraffiti/src"
   ],
   "scripts": {
     "build": "node build.js",
