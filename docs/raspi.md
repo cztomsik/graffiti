@@ -1,3 +1,7 @@
+---
+nav_order: 70
+---
+
 # Raspberry Pi
 
 ## raspi (common)
