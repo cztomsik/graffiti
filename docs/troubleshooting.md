@@ -4,8 +4,8 @@ nav_order: 130
 
 # Troubleshooting
 
-## Env variables
+- `RUST_BACKTRACE=full` to get better idea what went wrong
 
-`RUST_LOG=debug` will set most verbose logging level
+- go into lib directory and do `npm run build -- --features silly` if you want to log everything
 
-`RUST_BACKTRACE=full` might help a bit too
+- use the source
