@@ -58,7 +58,7 @@ export class SceneContext {
     this.msg.background_color_changes.push({ surface, color })
   }
 
-  flush() {
+  flush(animating) {
     if (this.msg.empty) {
       return
     }
@@ -66,6 +66,7 @@ export class SceneContext {
     //console.log(require('util').inspect(this.msg, { depth: 4 }))
     send({
       window: this.windowId,
+      poll: animating,
       update: this.msg
     })
 

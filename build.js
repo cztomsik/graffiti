@@ -15,9 +15,13 @@ const fs = require('fs')
 const child_process = require('child_process')
 
 const extraArgs = process.argv.slice(2)
-const linkerOpts = (os.platform() === 'darwin')
-  ?'-Clink-args="-undefined dynamic_lookup"'
-  :'-Clink-args="-undefined=dynamic_lookup"'
+const isRelease = extraArgs.includes('--release')
+const isWasm = extraArgs.includes('--target') && extraArgs.find(opt => opt.match(/wasm/))
+const linkerOpts = isWasm
+  ?''
+  :(os.platform() === 'darwin')
+    ?'-Clink-args="-undefined dynamic_lookup"'
+    :'-Clink-args="-undefined=dynamic_lookup"'
 const libSuffix = (os.platform() === 'darwin') ?'dylib' :'so'
 const targetDir = `${__dirname}/libgraffiti/target`
 
@@ -40,4 +44,4 @@ if (status) {
   process.exit(status)
 }
 
-fs.copyFileSync(`${targetDir}/${extraArgs.includes('--release') ?'release' :'debug'}/libgraffiti.${libSuffix}`, `${targetDir}/libgraffiti.node`)
+fs.copyFileSync(`${targetDir}/${isRelease ?'release' :'debug'}/libgraffiti.${libSuffix}`, `${targetDir}/libgraffiti.node`)

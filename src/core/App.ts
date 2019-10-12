@@ -10,7 +10,7 @@ export class App {
   constructor(private ffi) {}
 
   createWindow() {
-    const res = this.ffi.send({})
+    const res = this.ffi.send({ poll: false })
 
     // TODO: holes
     const id = this.windows.length + 1
@@ -52,7 +52,7 @@ export class App {
       // TODO: inactive windows could be throttled, maybe even stopped
       // but we should keep HMR working (update in inactive window)
       for (const windowId in this.windows) {
-        this.windows[windowId].sceneContext.flush()
+        this.windows[windowId].sceneContext.flush(this.animating)
       }
 
       setTimeout(runLoop)
@@ -69,7 +69,7 @@ export class App {
 
     // TODO: multi-window
     // TODO: poll: this.animating
-    return this.ffi.send({ window: 0 }).events
+    return this.ffi.send({ window: 0, poll: this.animating }).events
   }
 
   requestAnimationFrame(cb) {

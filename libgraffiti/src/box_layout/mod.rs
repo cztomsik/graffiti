@@ -29,7 +29,7 @@ pub trait BoxLayout {
     // another separate
     fn set_text(&mut self, surface: SurfaceId, text: Option<Text>);
 
-    fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32));
+    fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, f32) -> (f32, f32));
 
     fn resize(&mut self, width: i32, height: i32);
 
@@ -130,3 +130,6 @@ pub enum Overflow {
 
 mod stretch;
 pub use self::stretch::StretchLayout;
+
+mod yoga;
+pub use self::yoga::YogaLayout;

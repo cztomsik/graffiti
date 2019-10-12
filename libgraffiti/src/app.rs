@@ -74,6 +74,7 @@ impl TheApp {
             glfwSetCharCallback(w, handle_glfw_char);
             glfwSetKeyCallback(w, handle_glfw_key);
             glfwSetWindowSizeCallback(w, handle_glfw_window_size);
+            glfwSetFramebufferSizeCallback(w, handle_glfw_framebuffer_size);
             glfwSetWindowCloseCallback(w, handle_glfw_window_close);
 
             // vsync off (for now)
@@ -120,6 +121,8 @@ use std::ptr;
 use libc::{c_void, c_int, c_uint, c_char, c_double};
 
 // needed otherwise link wont work
+// (emscripten does not need it)
+#[cfg(not(target_arch = "wasm32"))]
 #[allow(unused_imports)]
 use glfw_sys;
 
@@ -172,6 +175,7 @@ extern "C" {
     pub fn glfwSetKeyCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_int, c_int, c_int, c_int));
     pub fn glfwSetCharCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_uint));
     pub fn glfwSetWindowSizeCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_int, c_int));
+    pub fn glfwSetFramebufferSizeCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn (*mut GlfwWindow, c_int, c_int));
     pub fn glfwSetWindowCloseCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow));
     pub fn glfwPollEvents();
     pub fn glfwWaitEventsTimeout(timeout: f32);
@@ -220,6 +224,10 @@ unsafe extern "C" fn handle_glfw_char(w: *mut GlfwWindow, char: c_uint) {
 unsafe extern "C" fn handle_glfw_window_size(w: *mut GlfwWindow, width: c_int, height: c_int) {
     window_event!(w, w.resize(width, height));
     glfwSwapBuffers(w);
+}
+
+unsafe extern "C" fn handle_glfw_framebuffer_size(_w: *mut GlfwWindow, width: c_int, height: c_int) {
+    gl::Viewport(0, 0, width, height);
 }
 
 unsafe extern "C" fn handle_glfw_window_close(w: *mut GlfwWindow) {

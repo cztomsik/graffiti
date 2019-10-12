@@ -4,32 +4,34 @@ use crate::text_layout::{Text};
 use yoga::{
     Align as YogaAlign, Context, Direction, FlexStyle, MeasureMode,
     Node as YogaNode, NodeRef, StyleUnit,
+    FlexDirection as YogaFlexDirection,
+    Wrap, Justify
 };
 
-use super::{BoxLayout, DimensionProp, Dimension, AlignProp, Align};
-use yoga::types::Justify;
+use super::{BoxLayout, DimensionProp, Dimension, AlignProp, Align, FlexDirection, FlexWrap};
 
 type Id = SurfaceId;
 
 pub struct YogaLayout {
+    window_size: (f32, f32),
     yoga_nodes: Vec<YogaNode>,
-    measure_text_holder: Option<&'static mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)>,
+    measure_text_holder: Option<&'static mut dyn FnMut(SurfaceId, f32) -> (f32, f32)>,
     bounds: Vec<Bounds>,
 }
 
 impl YogaLayout {
-    pub fn new((width, height): (f32, f32)) -> Self {
-        let mut root = YogaNode::new();
-
-        // TODO: resize
-        root.set_width(StyleUnit::Point(width.into()));
-        root.set_height(StyleUnit::Point(height.into()));
-
-        YogaLayout {
-            yoga_nodes: vec![root],
+    pub fn new(width: i32, height: i32) -> Self {
+        let mut res = YogaLayout {
+            window_size: (0., 0.),
+            yoga_nodes: Vec::new(),
             measure_text_holder: None,
-            bounds: vec![Bounds::zero()],
-        }
+            bounds: Vec::new(),
+        };
+
+        res.alloc();
+        res.resize(width, height);
+
+        res
     }
 
     fn set_border(&mut self, id: Id, border: Option<Border>) {
@@ -112,6 +114,14 @@ impl BoxLayout for YogaLayout {
         })
     }
 
+    fn set_flex_direction(&mut self, surface: SurfaceId, value: FlexDirection) {
+        self.yoga_nodes[surface].apply_style(&FlexStyle::FlexDirection(value.into()));
+    }
+
+    fn set_flex_wrap(&mut self, surface: SurfaceId, value: FlexWrap) {
+        self.yoga_nodes[surface].apply_style(&FlexStyle::FlexWrap(value.into()));
+    }
+
     // separate because rendering doesn't need to test dimensions then
     fn set_border(&mut self, surface: SurfaceId, border: Option<Border>) {
         YogaLayout::set_border(self, surface, border);
@@ -122,9 +132,9 @@ impl BoxLayout for YogaLayout {
         YogaLayout::set_text(self, surface, text);
     }
 
-    fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)) {
+    fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, f32) -> (f32, f32)) {
         self.measure_text_holder = Some(unsafe { std::mem::transmute(measure_text) });
-        self.yoga_nodes[0].calculate_layout(f32::MAX, f32::MAX, Direction::LTR);
+        self.yoga_nodes[0].calculate_layout(self.window_size.0, self.window_size.1, Direction::LTR);
         self.measure_text_holder = None;
 
         // TODO: update only attached and display != none nodes
@@ -135,6 +145,16 @@ impl BoxLayout for YogaLayout {
 
             self.bounds[i] = Bounds { a, b };
         }
+    }
+
+    fn resize(&mut self, width: i32, height: i32) {
+        let size = (width as f32, height as f32);
+        let root = &mut self.yoga_nodes[0];
+
+        root.set_width(StyleUnit::Point(size.0.into()));
+        root.set_height(StyleUnit::Point(size.1.into()));
+
+        self.window_size = size;
     }
 
     fn get_bounds(&self) -> &[Bounds] {
@@ -179,9 +199,9 @@ extern "C" fn measure_text_node(
     let measure_text = yoga_layout.measure_text_holder.as_mut().expect("missing measure_text fn");
 
     let max_width = match wm {
-        MeasureMode::Exactly => Some(w),
-        MeasureMode::AtMost => Some(w),
-        MeasureMode::Undefined => None,
+        MeasureMode::Exactly => w,
+        MeasureMode::AtMost => w,
+        MeasureMode::Undefined => std::f32::MAX,
     };
 
     let size = measure_text(*id, max_width);
@@ -240,7 +260,6 @@ impl Into<Justify> for Align {
     }
 }
 
-/*
 impl Into<YogaFlexDirection> for FlexDirection {
     fn into(self) -> YogaFlexDirection {
         match self {
@@ -262,6 +281,7 @@ impl Into<Wrap> for FlexWrap {
     }
 }
 
+/*
 impl Into<yoga::Overflow> for Overflow {
     fn into(self) -> yoga::Overflow {
         match self {
