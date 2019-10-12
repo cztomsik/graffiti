@@ -14,7 +14,7 @@ pub struct StretchLayout {
     styles: Vec<StretchStyle>,
     nodes: Vec<Node>,
     bounds: Vec<Bounds>,
-    measure_text_holder: Option<&'static mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)>
+    measure_text_holder: Option<&'static mut dyn FnMut(SurfaceId, f32) -> (f32, f32)>
 }
 
 impl StretchLayout {
@@ -145,14 +145,14 @@ impl BoxLayout for StretchLayout {
 
             let measure_func: Box<dyn FnMut(StretchSize<StretchNumber>) -> Result<StretchSize<f32>, Box<dyn Any>>> = Box::new(move |size: StretchSize<StretchNumber>| {
                 let max_width = match size.width {
-                    StretchNumber::Defined(w) => Some(w),
-                    StretchNumber::Undefined => None
+                    StretchNumber::Defined(w) => w,
+                    StretchNumber::Undefined => std::f32::MAX
                 };
 
                 let f = stretch_layout.measure_text_holder.as_mut().expect("not inside calculate");
-                let res = f(surface, max_width);
+                let (width, height) = f(surface, max_width);
 
-                Ok(StretchSize { width: res.0, height: res.1 })
+                Ok(StretchSize { width, height })
             });
 
             // it's FnMut but fuck it
@@ -176,7 +176,8 @@ impl BoxLayout for StretchLayout {
         });
     }
 
-    fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, Option<f32>) -> (f32, f32)) {
+    // TODO: stretch for some reason calls measure quite often
+    fn calculate(&mut self, measure_text: &mut dyn FnMut(SurfaceId, f32) -> (f32, f32)) {
         self.measure_text_holder = Some(unsafe { std::mem::transmute(measure_text) });
         self.stretch.compute_layout(self.nodes[0], self.window_size).expect("couldnt compute layout");
         self.measure_text_holder = None;

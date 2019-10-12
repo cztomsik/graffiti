@@ -66,7 +66,7 @@ export class CSSStyleDeclaration {
         this.text = { ...this.text, [camelCase(k)]: v }
 
         this._scene.setText(this._surfaceId, (this.text.content || undefined) && {
-          size: this.text.fontSize || 16,
+          font_size: this.text.fontSize || 16,
           line_height: this.text.lineHeight || this.text.fontSize || 16,
           align: pascalCase(this.text.align || 'left'),
           text: this.text.content

@@ -18,7 +18,7 @@ export class Element extends Node {
   }
 
   _setText(text) {
-    this.parentNode.style.content = text
+    this.style['content'] = text
   }
 
   setAttribute(name, value) {

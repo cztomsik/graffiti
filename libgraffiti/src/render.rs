@@ -73,6 +73,7 @@ impl Renderer {
     }
 
     // TODO: async/pipeline
+    // TODO: Index<SurfaceId, Iterator<GlyphInstance>> could be enough
     pub fn render(&mut self, all_bounds: &[Bounds], text_layout: &TextLayout) {
         let frame = self.prepare_frame(all_bounds, text_layout);
         self.render_frame(frame);
@@ -97,8 +98,6 @@ impl Renderer {
     pub fn set_image(&mut self, surface: SurfaceId, image: Option<Image>) {
         self.scene.images.set(surface, image);
     }
-
-    // TODO: separate method for text color
 
     pub fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
         // TODO: inspect perf, create/remove_text, cache buffers
@@ -199,7 +198,7 @@ impl <'a> RenderContext<'a> {
     }
 
     // TODO: create_text() -> TextId & Batch::Text(text_id)
-    fn draw_text(&mut self, text: &Text, color: Color, glyphs: &[GlyphInstance]) {
+    fn draw_text(&mut self, text: &Text, color: Color, glyphs: impl Iterator<Item = GlyphInstance>) {
         // TODO: should be uniform
         let origin = self.bounds.a;
 
@@ -223,7 +222,7 @@ impl <'a> RenderContext<'a> {
         let px_range = 3.;
         // https://github.com/Chlumsky/msdfgen/issues/22
         // https://github.com/Chlumsky/msdfgen/issues/36
-        let distance_factor = (text.size / texture_font_size) * px_range;
+        let distance_factor = (text.font_size / texture_font_size) * px_range;
 
         self.builder.frame.batches.push(Batch::Text { color, distance_factor, num: self.builder.count });
         self.builder.append_indices();

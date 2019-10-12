@@ -66,7 +66,7 @@ fn handle_msg(app: &mut TheApp, msg: &FfiMsg) -> FfiResult {
         app.update_window_scene(window_id, update_msg);
         events = Vec::new();
     } else {
-        events = app.get_events(false);
+        events = app.get_events(msg.poll);
     }
 
     FfiResult {
@@ -80,6 +80,7 @@ fn handle_msg(app: &mut TheApp, msg: &FfiMsg) -> FfiResult {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct FfiMsg {
     window: Option<WindowId>,
+    poll: bool,
     update: Option<UpdateSceneMsg>,
 }
 

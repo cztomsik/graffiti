@@ -120,6 +120,8 @@ use std::ptr;
 use libc::{c_void, c_int, c_uint, c_char, c_double};
 
 // needed otherwise link wont work
+// (emscripten does not need it)
+#[cfg(not(target_arch = "wasm32"))]
 #[allow(unused_imports)]
 use glfw_sys;
 

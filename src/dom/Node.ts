@@ -10,10 +10,6 @@ export class Node extends EventTarget {
 
   appendChild(child: Node) {
     this.insertBefore(child, null)
-
-    if (child.nodeType === Node.TEXT_NODE) {
-      this['_updateText'](child['data'])
-    }
   }
 
   insertBefore(child: Node, before: Node | null) {
@@ -27,9 +23,13 @@ export class Node extends EventTarget {
 
   insertAt(child: Node, index) {
     child.remove()
-
-    this.ownerDocument._scene.insertAt(this._nativeId, child._nativeId, index)
     this.childNodes.splice(index, 0, child)
+
+    if (child.nodeType === Node.TEXT_NODE) {
+      this['_setText'](child['data'])
+    } else {
+      this.ownerDocument._scene.insertAt(this._nativeId, child._nativeId, index)
+    }
   }
 
   remove() {

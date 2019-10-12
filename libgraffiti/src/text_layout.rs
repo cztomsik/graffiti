@@ -9,21 +9,23 @@ use miniserde::{json, Deserialize, Serialize};
 
 /// Text layout algo
 ///
-/// Should lay glyphs on each `Text` change without any wrapping
-/// because in a lot of cases it will be enough
+/// Provides glyph positions to box_layout & renderer
 ///
-/// The box layout should call `measure_text` during its `calculate`
-/// which in turn should call `wrap` if it`s needed.
+/// Text is first laid out without `max_width` wrapping
+/// because in a lot of cases it will be enough. Wrapping is then
+/// done (if necessary) during box_layout's measure
+///
+/// TODO: scaling could be done in vertex shader
+/// (not sure if worth but it could save some FP which raspi is not good at)
 pub struct TextLayout {
-    metas: BTreeMap<SurfaceId, Meta>,
+    layouts: BTreeMap<SurfaceId, TextLayoutState>,
     // TODO: more fonts, ttf
-    font_glyphs: BTreeMap<u32, FontGlyph>,
-    glyphs: BTreeMap<SurfaceId, Vec<GlyphInstance>>
+    font_glyphs: BTreeMap<char, FontGlyph>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Text {
-    pub size: f32,
+    pub font_size: f32,
     pub line_height: f32,
 
     pub align: TextAlign,
@@ -45,9 +47,11 @@ impl TextLayout {
         let mut font_glyphs = BTreeMap::new();
 
         for c in font.chars {
-          font_glyphs.insert(c.id, FontGlyph {
-              offset_y: c.yoffset,
+          font_glyphs.insert(std::char::from_u32(c.id).expect("not a char"), FontGlyph {
+              offset_y: c.yoffset / font.info.size,
               size: Pos::new(c.width / font.info.size, c.height / font.info.size),
+
+              // TODO: move close to atlasing once it is ready
               coords: Bounds {
                 a: Pos::new(c.x / font.common.scaleW, c.y / font.common.scaleH),
                 b: Pos::new((c.x + c.width) / font.common.scaleW, (c.y + c.height) / font.common.scaleH),
@@ -60,91 +64,172 @@ impl TextLayout {
 
         TextLayout {
             font_glyphs,
-            metas: BTreeMap::new(),
-            glyphs: BTreeMap::new()
+            layouts: BTreeMap::new(),
         }
     }
 
     pub fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
         match text {
             None => {
-                self.metas.remove(&surface);
-                self.glyphs.remove(&surface);
+                self.layouts.remove(&surface);
             }
             Some(text) => {
-                let (meta, glyphs) = self.layout_text(&text);
-
-                self.metas.insert(surface, meta);
-                self.glyphs.insert(surface, glyphs);
+                let layout = self.layout_text(&text);
+                self.layouts.insert(surface, layout);
             }
         }
     }
 
-    fn layout_text(&self, text: &Text) -> (Meta, Vec<GlyphInstance>) {
-        let mut size = (0., text.line_height);
-        let mut pos = Pos::zero();
+    // do initial layout, \n is respected but any other wrapping is
+    // left to be done later
+    //
+    // not sure if it will work out but the idea is that basic
+    // layout can be done even before max_width is known
+    //
+    // it could be noticable with more complex text shaping 
+    // and maybe some of this can be done in parallel also
+    //
+    // when measure is called, we can compute breaks quickly and
+    // return the new size so the layout can continue
+    //
+    // we could also start building (in other thread?)
+    // the buffer with glyphs, because position & color is in uniforms
+    // and can be returned
+    fn layout_text(&mut self, text: &Text) -> TextLayoutState {
+        let mut glyph_ids = Vec::new();
+        let mut xs = Vec::new();
+        let mut break_hints = Vec::new();
+        let mut breaks = Vec::new();
+        let mut x = 0.;
 
-        let glyphs = text.text.chars().into_iter().map(|c| {
-            if c == '\n' {
-                pos.x = 0.;
-                pos.y += text.line_height;
-            }
+        let mut found_space = false;
+        // where the current breakpoint starts
+        let mut hint = None;
 
-            // TODO
-            let glyph_id = c as u32;
-            let font_glyph = self.font_glyphs.get(&glyph_id).unwrap_or_else(|| {
-              debug!("no glyph {}", glyph_id);
+        // TODO: at least have a concept of shaping
+        // (different number of chars vs. glyphs depending on their neighbours)
 
-              &MISSING_GLYPH
+        // all glyphs are kept because of text selection
+        for (i, ch) in text.text.chars().enumerate() {
+            // TODO: atlasing
+            let glyph_id = ch;
+            let font_glyph = self.font_glyphs.entry(glyph_id).or_insert_with(|| {
+              debug!("no glyph {:?}", glyph_id);
+              MISSING_GLYPH
             });
 
-            // TODO: read from font
-            let textureFontSize = 42.;
+            glyph_ids.push(glyph_id);
+            xs.push(x);
 
-            let a = Pos::new(pos.x, pos.y + (font_glyph.offset_y / textureFontSize * text.size));
+            // TODO: FSM could be (a bit) more readable
+            // but it's not that hard, it just adds hint after each space
+            // ignoring any adjacent whitespace
+            if ch == ' ' {
+                if !found_space {
+                    found_space = true;
 
-            let glyph = GlyphInstance {
-                bounds: Bounds { a, b: font_glyph.size.mul(text.size).relative_to(a) },
-                coords: font_glyph.coords,
-            };
+                    if let Some(i) = hint {
+                        break_hints.push((i, x));
+                        hint = None;
+                    }
+                }
+            } else if ch == '\n' {
+                if let Some(i) = hint {
+                    break_hints.push((i, x));
+                    hint = None;
+                }
 
-            pos.x += font_glyph.advance * text.size;
+                break_hints.push((i, std::f32::MAX));
+                breaks.push(i);
+                found_space = false;
+            } else {
+                if found_space {
+                    hint = Some(i);
+                    found_space = false;
+                }
+            }
 
-            glyph
-        }).collect();
+            x += font_glyph.advance * text.font_size;
+        }
 
-        // TODO: wrap
-        // TODO: good for now but we should use glyph width for the last char on each line
-        size.0 = pos.x;
-        size.1 = pos.y + text.line_height;
+        if let Some(i) = hint {
+            break_hints.push((i, x));
+        }
 
-        let meta = Meta {
-            size,
-            initial_width: size.0
-        };
+        TextLayoutState {
+            font_size: text.font_size,
+            line_height: text.line_height,
 
-        silly!("{:#?} {:#?}", &meta, &glyphs);
+            width: x,
 
-        (meta, glyphs)
+            glyph_ids,
+            xs,
+            break_hints,
+            breaks,
+        }
     }
 
     /// Wrap/reflow existing text layout to a new max_width
-    /// should skip if the `max_width` is `None` or bigger than current width
+    /// and report a new size
     ///
     /// Expected to be called during measure.
-    /// If the `Text` is changed wrapping is reset but
+    /// If the `Text` is changed & relayouted, wrapping is reset but
     /// the box layout should again call measure which should again
     /// call the `wrap` so it should be fine (if the wrap is necessary at all)
-    pub fn wrap(&mut self, _surface: SurfaceId, _max_width: Option<f32>) {
-        // TODO
+    pub fn wrap(&mut self, surface: SurfaceId, max_width: f32) -> (f32, f32) {
+        // TODO: skip if possible
+
+        let layout = self.layouts.get_mut(&surface).expect("not a text");
+
+        // TODO: other branches
+        layout.width = 0.;
+        layout.breaks.clear();
+
+        let mut offset = 0.;
+
+        // go through hints, make a break each time it overflows
+        for (i, xend) in &layout.break_hints {
+            if (xend - offset) >= max_width {
+                let line_width = layout.xs[*i] - offset;
+
+                if line_width > layout.width {
+                    layout.width = line_width;
+                }
+
+                layout.breaks.push(*i);
+                offset = layout.xs[*i];
+            }
+        }
+
+        (layout.width, (layout.breaks.len() + 1) as f32 * layout.line_height)
     }
 
-    pub fn get_size(&self, surface: SurfaceId) -> (f32, f32) {
-        self.metas.get(&surface).expect("not a text").size
-    }
+    // TODO: align center
+    // (align right could be done in vertex shader)
+    pub fn get_glyphs(&self, surface: SurfaceId) -> impl Iterator<Item = GlyphInstance> + '_ {
+        let layout = self.layouts.get(&surface).expect("not a text");
 
-    pub fn get_glyphs(&self, surface: SurfaceId) -> &[GlyphInstance] {
-        self.glyphs.get(&surface).expect("not a text")
+        let mut offset = 0.;
+        let mut y = -layout.line_height;
+        let mut next_break = 0;
+        let mut breaks = layout.breaks.iter();
+
+        layout.xs.iter().enumerate().map(move |(i, x)| {
+            if i == next_break {
+                offset = *x;
+                y += layout.line_height;
+                next_break = *breaks.next().unwrap_or(&std::usize::MAX);
+            }
+
+            let font_glyph = self.font_glyphs.get(&layout.glyph_ids[i]).expect("glyph");
+
+            let a = Pos::new(x - offset, y + font_glyph.offset_y * layout.font_size);
+
+            GlyphInstance {
+                bounds: Bounds { a, b: font_glyph.size.mul(layout.font_size).relative_to(a) },
+                coords: font_glyph.coords
+            }
+        })
     }
 
     // other expected use-cases (not necessarily the sole responsibility of this but related)
@@ -171,9 +256,23 @@ pub struct GlyphInstance {
 }
 
 #[derive(Debug)]
-pub struct Meta {
-    size: (f32, f32),
-    initial_width: f32,
+pub struct TextLayoutState {
+    font_size: f32,
+    line_height: f32,
+
+    width: f32,
+
+    // what glyphs to render
+    glyph_ids: Vec<char>,
+
+    // x of each glyph when on single line
+    xs: Vec<f32>,
+
+    // index + x of the end
+    break_hints: Vec<(usize, f32)>,
+
+    // indices
+    breaks: Vec<usize>,
 }
 
 // msdf parsing
