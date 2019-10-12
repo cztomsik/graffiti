@@ -29,13 +29,6 @@ impl StretchLayout {
         };
 
         res.alloc();
-
-        res.update_style(0, |s| {
-            s.flex_grow = 1.;
-            s.flex_shrink = 1.;
-            s.flex_basis = StretchDimension::Auto;
-        });
-
         res.resize(width, height);
 
         res

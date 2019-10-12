@@ -177,29 +177,40 @@ impl TextLayout {
     /// the box layout should again call measure which should again
     /// call the `wrap` so it should be fine (if the wrap is necessary at all)
     pub fn wrap(&mut self, surface: SurfaceId, max_width: f32) -> (f32, f32) {
-        // TODO: skip if possible
-
         let layout = self.layouts.get_mut(&surface).expect("not a text");
 
-        // TODO: other branches
-        layout.width = 0.;
-        layout.breaks.clear();
+        // TODO: skip if possible (up to date)
 
-        let mut offset = 0.;
+        // TODO: stretch calls measure multiple times, which is not what we expect
+        // first time it's with real value but second and third time it's unconstrained
+        if max_width != std::f32::MAX {
+            // TODO: other branches
+            layout.width = 0.;
+            layout.breaks.clear();
 
-        // go through hints, make a break each time it overflows
-        for (i, xend) in &layout.break_hints {
-            if (xend - offset) >= max_width {
-                let line_width = layout.xs[*i] - offset;
+            let mut offset = 0.;
 
-                if line_width > layout.width {
-                    layout.width = line_width;
+            // go through hints, make a break each time it overflows
+            for (i, xend) in &layout.break_hints {
+                if (xend - offset) >= max_width {
+                    let line_width = layout.xs[*i] - offset;
+
+                    if line_width > layout.width {
+                        layout.width = line_width;
+                    }
+
+                    layout.breaks.push(*i);
+                    offset = layout.xs[*i];
                 }
+            }
 
-                layout.breaks.push(*i);
-                offset = layout.xs[*i];
+            if layout.breaks.is_empty() {
+                if let Some(x) = layout.xs.last() {
+                    layout.width = *x;
+                }
             }
         }
+
 
         (layout.width, (layout.breaks.len() + 1) as f32 * layout.line_height)
     }

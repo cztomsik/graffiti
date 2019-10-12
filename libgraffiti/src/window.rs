@@ -1,6 +1,6 @@
 use crate::commons::{Pos, SurfaceId, Color, BorderRadius, Border, BoxShadow, Image};
 use crate::picker::SurfacePicker;
-use crate::box_layout::{BoxLayout, StretchLayout, DimensionProp, Dimension, AlignProp, Align, FlexDirection, FlexWrap};
+use crate::box_layout::{BoxLayout, YogaLayout, DimensionProp, Dimension, AlignProp, Align, FlexDirection, FlexWrap};
 use crate::text_layout::{TextLayout, Text};
 use crate::render::Renderer;
 use miniserde::{Deserialize, Serialize};
@@ -53,7 +53,7 @@ impl Window {
         Window {
             mouse_pos: Pos::zero(),
 
-            box_layout: Box::new(StretchLayout::new(width, height)),
+            box_layout: Box::new(YogaLayout::new(width, height)),
             text_layout: TextLayout::new(),
             picker: SurfacePicker::new(),
 
@@ -168,10 +168,13 @@ impl Window {
     }
 
     fn render(&mut self) {
+        silly!("render");
+
         let text_layout = &mut self.text_layout;
 
         self.box_layout.calculate(&mut |surface, max_width| {
-            text_layout.wrap(surface, max_width)
+            debug!("wrap {:?} {:?}", surface, max_width);
+            dbg!(text_layout.wrap(surface, max_width))
         });
 
         self.renderer.render(&self.box_layout.get_bounds(), &self.text_layout);
