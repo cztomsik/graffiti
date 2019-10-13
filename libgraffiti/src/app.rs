@@ -77,8 +77,9 @@ impl TheApp {
             glfwSetFramebufferSizeCallback(w, handle_glfw_framebuffer_size);
             glfwSetWindowCloseCallback(w, handle_glfw_window_close);
 
-            // vsync off (for now)
-            glfwSwapInterval(0);
+            // VSYNC=0 to disable
+            let vsync = std::env::var("VSYNC").map(|s| s.parse().expect("vsync number")).unwrap_or(1);
+            glfwSwapInterval(vsync);
 
             w
         };
