@@ -1,6 +1,6 @@
 use crate::commons::{Pos, SurfaceId, Color, BorderRadius, Border, BoxShadow, Image};
 use crate::picker::SurfacePicker;
-use crate::box_layout::{BoxLayout, YogaLayout, DimensionProp, Dimension, AlignProp, Align, FlexDirection, FlexWrap};
+use crate::box_layout::{BoxLayout, BoxLayoutImpl, DimensionProp, Dimension, AlignProp, Align, FlexDirection, FlexWrap};
 use crate::text_layout::{TextLayout, Text};
 use crate::render::Renderer;
 use miniserde::{Deserialize, Serialize};
@@ -53,7 +53,7 @@ impl Window {
         Window {
             mouse_pos: Pos::zero(),
 
-            box_layout: Box::new(YogaLayout::new(width, height)),
+            box_layout: Box::new(BoxLayoutImpl::new(width, height)),
             text_layout: TextLayout::new(),
             picker: SurfacePicker::new(),
 

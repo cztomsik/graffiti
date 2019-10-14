@@ -128,8 +128,13 @@ pub enum Overflow {
 }
 */
 
-mod stretch;
-pub use self::stretch::StretchLayout;
+#[cfg(feature = "stretch")]
+pub mod stretch;
 
-mod yoga;
-pub use self::yoga::YogaLayout;
+pub mod yoga;
+
+#[cfg(feature = "stretch")]
+pub type BoxLayoutImpl = stretch::StretchLayout;
+
+#[cfg(not(feature = "stretch"))]
+pub type BoxLayoutImpl = yoga::YogaLayout;

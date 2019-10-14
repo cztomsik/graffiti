@@ -14,8 +14,10 @@ libc = "*"
 gl = "*"
 miniserde = "0.1.12"
 yoga = "0.3.1"
-# stretch = { path = "../../stretch" }
-stretch = "0.3.2"
+
+# npm run build -- --features stretch
+stretch = { version = "0.3.2", optional = true }
+# stretch = { path = "../../stretch", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'. dependencies]
 # graffiti-glfw = { path = "../../graffiti-glfw/rust" }
