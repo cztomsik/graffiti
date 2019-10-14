@@ -18,7 +18,8 @@ yoga = "0.3.1"
 stretch = "0.3.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'. dependencies]
-glfw-sys = "3.3.0"
+# graffiti-glfw = { path = "../../graffiti-glfw/rust" }
+graffiti-glfw = { git = "https://github.com/cztomsik/graffiti-glfw", branch = "3.3-stable" }
 
 [features]
 default = []
