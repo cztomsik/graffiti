@@ -24,7 +24,7 @@
   ],
   "scripts": {
     "build": "node build.js",
-    "install": "npm run build -- --release",
+    "postinstall": "npm run build -- --release",
     "prepublishOnly": "npm run build && tsc -d",
     "prepare": "tsc -d",
     "example": "ts-node examples/react/main"
