@@ -10,7 +10,7 @@
 // another good thing is that we can tell the output filename
 // so the node.js require will be a bit easier
 
-console.log(`
+console.warn(`
   Hey, thanks for trying out graffiti!
   Some things are still missing, like precompiled binaries
   so if you're running this for the first time, it might take a while
