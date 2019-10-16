@@ -40,6 +40,7 @@ document.body.appendChild(el)
 
 ## Starters
 You can also clone one of these repos. Note that you still need to build native extension so the steps above apply too.
-- https://github.com/cztomsik/node-webrender-starter (empty)
-- https://github.com/cztomsik/slack-app
-- https://github.com/cztomsik/brew-cleaner
+- https://github.com/cztomsik/hello-graffity
+- https://github.com/cztomsik/node-webrender-starter (outdated)
+- https://github.com/cztomsik/slack-app (outdated)
+- https://github.com/cztomsik/brew-cleaner (outdated)
