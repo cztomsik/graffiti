@@ -14,6 +14,9 @@ const Bench = () => {
         We use this to check if we are improving or not
       </Text>
       <Text>
+        Run with VSYNC=0 to avoid capping to 60fps
+      </Text>
+      <Text>
         Last run took: {bench.time / 1000}s{'\n'}
         Updates per second: {LIMIT / (bench.time / 1000)}
       </Text>

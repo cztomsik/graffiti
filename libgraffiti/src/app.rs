@@ -1,7 +1,9 @@
 use crate::commons::{Au, Pos};
 use crate::window::{Window, Event, UpdateSceneMsg};
 use std::collections::BTreeMap;
-
+use std::ptr;
+use std::os::raw::{c_int, c_uint, c_double};
+use graffiti_glfw::*;
 
 // - create/destroy windows
 // - access them with id
@@ -77,8 +79,9 @@ impl TheApp {
             glfwSetFramebufferSizeCallback(w, handle_glfw_framebuffer_size);
             glfwSetWindowCloseCallback(w, handle_glfw_window_close);
 
-            // vsync off (for now)
-            glfwSwapInterval(0);
+            // VSYNC=0 to disable
+            let vsync = std::env::var("VSYNC").map(|s| s.parse().expect("vsync number")).unwrap_or(1);
+            glfwSwapInterval(vsync);
 
             w
         };
@@ -117,72 +120,6 @@ static mut PENDING_EVENTS_PTR: *mut Vec<Event> = ptr::null_mut();
 
 // TODO: extract platform & move this to platform/glfw.rs
 
-use std::ptr;
-use libc::{c_void, c_int, c_uint, c_char, c_double};
-
-// needed otherwise link wont work
-// (emscripten does not need it)
-#[cfg(not(target_arch = "wasm32"))]
-#[allow(unused_imports)]
-use glfw_sys;
-
-#[link(name = "glfw3", kind = "static")]
-extern {}
-
-#[cfg(target_os="linux")]
-#[link(name = "X11")]
-extern {}
-
-#[cfg(target_os="macos")]
-#[link(name = "CoreFoundation", kind = "framework")]
-#[link(name = "Cocoa", kind = "framework")]
-#[link(name = "IOKit", kind = "framework")]
-#[link(name = "QuartzCore", kind = "framework")]
-#[link(name = "OpenGL", kind = "framework")]
-extern {}
-
-// struct without any field is not FFI-safe
-pub enum GlfwWindow {}
-pub enum GlfwMonitor {}
-
-const GLFW_TRUE: c_int = 1;
-const GLFW_FALSE: c_int = 0;
-const GLFW_COCOA_CHDIR_RESOURCES: c_int = 0x00051001;
-const GLFW_CONTEXT_VERSION_MAJOR: c_int = 0x00022002;
-const GLFW_CONTEXT_VERSION_MINOR: c_int = 0x00022003;
-const GLFW_OPENGL_FORWARD_COMPAT: c_int = 0x00022006;
-const GLFW_OPENGL_PROFILE: c_int = 0x00022008;
-const GLFW_OPENGL_CORE_PROFILE: c_int = 0x00032001;
-const GLFW_RELEASE: c_int = 0;
-const GLFW_PRESS: c_int = 1;
-const GLFW_REPEAT: c_int = 2;
-
-
-extern "C" {
-    pub fn glfwInitHint(hint: c_int, value: c_int);
-    pub fn glfwInit() -> c_int;
-
-    pub fn glfwWindowHint(hint: c_int, value: c_int);
-    pub fn glfwCreateWindow(width: c_int, height: c_int, title: *const c_char, monitor: *mut GlfwMonitor, share: *mut GlfwWindow) -> *mut GlfwWindow;
-    pub fn glfwGetCurrentContext() -> *mut GlfwWindow;
-    pub fn glfwMakeContextCurrent(window: *mut GlfwWindow);
-    pub fn glfwGetProcAddress(procname: *const c_char) -> *const c_void;
-    pub fn glfwSwapInterval(interval: c_int);
-
-    pub fn glfwSetCursorPosCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_double, c_double));
-    pub fn glfwSetScrollCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_double, c_double));
-    pub fn glfwSetMouseButtonCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_int, c_int, c_int));
-    pub fn glfwSetKeyCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_int, c_int, c_int, c_int));
-    pub fn glfwSetCharCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_uint));
-    pub fn glfwSetWindowSizeCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_int, c_int));
-    pub fn glfwSetFramebufferSizeCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn (*mut GlfwWindow, c_int, c_int));
-    pub fn glfwSetWindowCloseCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow));
-    pub fn glfwPollEvents();
-    pub fn glfwWaitEventsTimeout(timeout: f32);
-
-    pub fn glfwSwapBuffers(window: *mut GlfwWindow);
-}
-
 // function is not enough because the closure captures the args
 macro_rules! window_event {
     ($w:ident, $body:expr) => {{
@@ -217,6 +154,7 @@ unsafe extern "C" fn handle_glfw_key(w: *mut GlfwWindow, _key: c_int, scancode: 
         _ => w.key_down(scancode as u16),
     })
 }
+
 unsafe extern "C" fn handle_glfw_char(w: *mut GlfwWindow, char: c_uint) {
     window_event!(w, w.key_press(char as u16))
 }

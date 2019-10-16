@@ -10,15 +10,18 @@ name = "graffiti"
 crate-type = ["cdylib"]
 
 [dependencies]
-libc = "*"
 gl = "*"
 miniserde = "0.1.12"
-yoga = "0.3.1"
-# stretch = { path = "../../stretch" }
-stretch = "0.3.2"
+# graffiti-yoga = { path = "../../graffiti-yoga/rust" }
+graffiti-yoga = { git = "https://github.com/cztomsik/graffiti-yoga", branch = "1.16-stable" }
+
+# npm run build -- --features stretch
+stretch = { version = "0.3.2", optional = true }
+# stretch = { path = "../../stretch", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'. dependencies]
-glfw-sys = "3.3.0"
+# graffiti-glfw = { path = "../../graffiti-glfw/rust" }
+graffiti-glfw = { git = "https://github.com/cztomsik/graffiti-glfw", branch = "3.3-stable" }
 
 [features]
 default = []

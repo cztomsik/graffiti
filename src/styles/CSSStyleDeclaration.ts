@@ -73,6 +73,7 @@ export class CSSStyleDeclaration {
         })
         break
 
+      // TODO: defaults, but be careful
       case 'width':
       case 'height':
       case 'min-width':
@@ -80,7 +81,6 @@ export class CSSStyleDeclaration {
       case 'max-width':
       case 'max-height':
       case 'flex-basis':
-        v = v || 'auto'
       case 'flex-grow':
       case 'flex-shrink':
       case 'padding-top':
