@@ -5,32 +5,41 @@ nav_order: 1
 # Getting started
 
 ## Requirements
-- node.js 11
-- there are no prebuilt binaries yet so you might need additional tooling in order to build native extension (see below)
-- install rustc 1.31.1 & cargo 1.31.0 [with rustup](https://rustup.rs/)
-  - check you have `rustfmt` installed (or do `rustup component add rustfmt`)
+- node.js (preferrably v11)
+- rust & cargo from [rustup](https://rustup.rs/)
 
 ### Debian/Ubuntu
-`sudo apt install g++ cmake pkg-config python libfreetype6 libfreetype6-dev expat libexpat-dev`
+- `sudo apt install clang xorg-dev`
 
 ### OSX/MacOs
-`xcode-select --install`
-`brew install cmake pango`
+- `xcode-select --install`
 
 ### Win
-- [track here](https://github.com/cztomsik/node-webrender/issues/37) but it's a bit like never-ending story so any help would be very welcome.
-
-## Starters
-Easiest way to start is to clone one of these repos. Note that you will need to build native extension too so the steps above still apply.
-- https://github.com/cztomsik/node-webrender-starter (empty)
-- https://github.com/cztomsik/slack-app
-- https://github.com/cztomsik/brew-cleaner
+- [track here](https://github.com/cztomsik/node-webrender/issues/37), get in touch if you'd like to maintain windows-related part
 
 ## Getting started
 ```bash
-npm i node-webrender
+# can take few minutes (add --verbose if paranoid)
+# (npm is doing build 2 times when installing from github and it takes a while)
+npm i github:cztomsik/graffiti
 ```
 
-There is **[react binding](./react.md)** which is similar to react-native. Vue bindings will be added as soon as Vue3 will get published.
+main.js
+```js
+const { getApp } = require('graffiti')
+const { document, window } = getApp().createWindow()
 
-Low-level api is currently unstable and intentionally undocumented.
+const el = document.createElement('div')
+el.appendChild(document.createTextNode('Hello'))
+
+document.body.appendChild(el)
+```
+
+![image](https://user-images.githubusercontent.com/3526922/66957171-ff791800-f065-11e9-96c8-aea9eae84482.png)
+
+
+## Starters
+You can also clone one of these repos. Note that you still need to build native extension so the steps above apply too.
+- https://github.com/cztomsik/node-webrender-starter (empty)
+- https://github.com/cztomsik/slack-app
+- https://github.com/cztomsik/brew-cleaner
