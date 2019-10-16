@@ -3,12 +3,14 @@ import * as os from 'os';
 // require() would make ncc bundle some unnecessary build artifacts
 process['dlopen'](module, `${__dirname}/../../libgraffiti/target/libgraffiti.node`)
 
+// alloc some mem for result
+const resBuf = Buffer.alloc(2 * 1024)
+
 export const send = (msg) => {
   // console.log('send', require('util').inspect(msg, { depth: 4 }))
 
-  // alloc some mem for result
   // fill with spaces (because of JSON)
-  const resBuf = Buffer.alloc(1024, 0x20)
+  resBuf.fill(0x20)
 
   // prepare buffer with msg
   const buf = Buffer.from(JSON.stringify(msg))

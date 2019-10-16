@@ -173,8 +173,7 @@ impl Window {
         let text_layout = &mut self.text_layout;
 
         self.box_layout.calculate(&mut |surface, max_width| {
-            debug!("wrap {:?} {:?}", surface, max_width);
-            dbg!(text_layout.wrap(surface, max_width))
+            text_layout.wrap(surface, max_width)
         });
 
         self.renderer.render(&self.box_layout.get_bounds(), &self.text_layout);

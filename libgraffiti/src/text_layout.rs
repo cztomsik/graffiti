@@ -21,6 +21,7 @@ pub struct TextLayout {
     layouts: BTreeMap<SurfaceId, TextLayoutState>,
     // TODO: more fonts, ttf
     font_glyphs: BTreeMap<char, FontGlyph>,
+    x_height: f32,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -60,10 +61,13 @@ impl TextLayout {
           });
         }
 
+        let x_height = font_glyphs.get(&'x').expect("x_height").size.y;
+
         silly!("glyphs {:#?}", &font_glyphs);
 
         TextLayout {
             font_glyphs,
+            x_height,
             layouts: BTreeMap::new(),
         }
     }
@@ -179,12 +183,13 @@ impl TextLayout {
     pub fn wrap(&mut self, surface: SurfaceId, max_width: f32) -> (f32, f32) {
         let layout = self.layouts.get_mut(&surface).expect("not a text");
 
-        // TODO: skip if possible (up to date)
+        // TODO: skip if no work is needed
 
         // TODO: stretch calls measure multiple times, which is not what we expect
         // first time it's with real value but second and third time it's unconstrained
-        if max_width != std::f32::MAX {
-            // TODO: other branches
+
+        // only break if it's possible
+        if !layout.break_hints.is_empty() {
             layout.width = 0.;
             layout.breaks.clear();
 
@@ -204,6 +209,7 @@ impl TextLayout {
                 }
             }
 
+            // no breaks, restore width
             if layout.breaks.is_empty() {
                 if let Some(x) = layout.xs.last() {
                     layout.width = *x;
@@ -211,17 +217,19 @@ impl TextLayout {
             }
         }
 
-
         (layout.width, (layout.breaks.len() + 1) as f32 * layout.line_height)
     }
 
+    // TODO: https://iamvdo.me/en/blog/css-font-metrics-line-height-and-vertical-align
     // TODO: align center
     // (align right could be done in vertex shader)
     pub fn get_glyphs(&self, surface: SurfaceId) -> impl Iterator<Item = GlyphInstance> + '_ {
         let layout = self.layouts.get(&surface).expect("not a text");
 
         let mut offset = 0.;
-        let mut y = -layout.line_height;
+        // TODO: find out from which offset_y is computed (x_height/cap_height/ascender/?)
+        // and remove this magic factor to make it font independent
+        let mut y = -layout.line_height + ((layout.line_height - (1.25 * layout.font_size)) / 2.);
         let mut next_break = 0;
         let mut breaks = layout.breaks.iter();
 

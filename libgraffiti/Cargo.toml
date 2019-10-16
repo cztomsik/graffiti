@@ -10,10 +10,10 @@ name = "graffiti"
 crate-type = ["cdylib"]
 
 [dependencies]
-libc = "*"
 gl = "*"
 miniserde = "0.1.12"
-yoga = "0.3.1"
+# graffiti-yoga = { path = "../../graffiti-yoga/rust" }
+graffiti-yoga = { git = "https://github.com/cztomsik/graffiti-yoga", branch = "1.16-stable" }
 
 # npm run build -- --features stretch
 stretch = { version = "0.3.2", optional = true }

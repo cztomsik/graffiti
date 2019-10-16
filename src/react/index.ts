@@ -32,6 +32,8 @@ declare module 'react-native' {
     onKeyUp?: (ev) => void
     onKeyPress?: (ev) => void
     onClick?: (ev) => void
+    onMouseDown?: (ev) => void
+    onMouseUp?: (ev) => void
     onMouseMove?: (ev) => void
     onMouseOver?: (ev) => void
     onMouseOut?: (ev) => void

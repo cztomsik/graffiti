@@ -2,7 +2,7 @@ use crate::commons::{Au, Pos};
 use crate::window::{Window, Event, UpdateSceneMsg};
 use std::collections::BTreeMap;
 use std::ptr;
-use libc::{c_int, c_uint, c_double};
+use std::os::raw::{c_int, c_uint, c_double};
 use graffiti_glfw::*;
 
 // - create/destroy windows

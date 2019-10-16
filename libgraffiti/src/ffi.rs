@@ -94,7 +94,9 @@ pub struct FfiResult {
 // node-specific
 // we can drop node-ffi dependency then
 
-use libc::{c_int, c_uint, c_char, c_void, size_t};
+use std::os::raw::{c_int, c_uint, c_char, c_void};
+#[allow(non_camel_case_types)]
+type size_t = usize;
 use std::ptr;
 
 // note that special link args are needed (see /build.js)
