@@ -10,24 +10,20 @@ export class SceneContext {
   // because root is 0
   nextId = 1
   msg = new UpdateSceneMsg()
-  parents = []
 
   constructor(private windowId) {}
 
   createSurface() {
     this.msg.tree_changes.push({})
-    this.parents[this.nextId] = 0
     return this.nextId++
   }
 
   insertAt(parent, child, index) {
     this.msg.tree_changes.push({ parent, child, index })
-    this.parents[child] = parent
   }
 
   removeChild(parent, child) {
     this.msg.tree_changes.push({ parent, child })
-    this.parents[child] = 0
   }
 
   setText(surface, text) {

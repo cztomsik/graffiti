@@ -1,4 +1,5 @@
 import { Node } from './Node'
+import { Text } from './Text'
 import { camelCase, EMPTY_OBJ } from '../core/utils'
 import { Document } from './Document'
 import { CSSStyleDeclaration } from '../styles/CSSStyleDeclaration'
@@ -9,6 +10,22 @@ export class Element extends Node {
 
   constructor(public ownerDocument: Document, public tagName, public _nativeId) {
     super(ownerDocument, Node.ELEMENT_NODE, _nativeId)
+  }
+
+  insertAt(child: Node, index) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      this._setText((child as Text).data)
+    } else if (child.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+      child.childNodes.forEach((c, i) => this.insertAt(c, index + i))
+    } else {
+      super.insertAt(child, index)
+      this.ownerDocument._scene.insertAt(this._nativeId, child._nativeId, index)
+    }
+  }
+
+  removeChild(child: Node) {
+    super.removeChild(child)
+    this.ownerDocument._scene.removeChild(this._nativeId, child._nativeId)
   }
 
   // so the events can bubble
@@ -48,5 +65,10 @@ export class Element extends Node {
 
   get offsetHeight() {
     return 0
+  }
+
+  set textContent(v) {
+    // TODO: check that nobody relies on .childNodes > 0
+    this._setText(v)
   }
 }

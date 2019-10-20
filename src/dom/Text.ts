@@ -19,4 +19,8 @@ export class Text extends Node {
       this.parentElement._setText(this._data)
     }
   }
+
+  set nodeValue(v) {
+    this.data = v
+  }
 }

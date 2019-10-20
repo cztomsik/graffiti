@@ -4,22 +4,27 @@ import { mixin } from "../core/utils";
 import { SceneContext } from "../core/SceneContext";
 import { handleWindowEvent } from "../events/handleWindowEvent";
 
-export class Window {
+export class Window extends EventTarget {
   sceneContext = new SceneContext(this.id)
-  document = new Document(this)
-  listeners = {}
-  //screen = { width: 1024, height: 768 }
-  //navigator = {}
-  //localStorage = new Storage()
-
   window = this
+  document = new Document(this)
 
-  // get location() { return this.document.location }
+  // mithril router
+  history = {}
+  location = {
+    hash: '',
+    search: ''
+  }
 
-  //HTMLIFrameElement = class extends Element {}
-  //Image = class extends Element {}
+  // react-dom needs both
+  navigator = {
+    userAgent: 'graffiti'
+  }
+  HTMLIFrameElement = class {}
 
-  constructor(private id) {}
+  constructor(private id) {
+    super()
+  }
 
   handleEvent(event) {
     handleWindowEvent(this.document, event)

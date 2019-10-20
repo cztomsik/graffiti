@@ -1,8 +1,9 @@
-import { EventTarget } from "../events/EventTarget";
-import { Document } from "./Document";
+import { EventTarget } from '../events/EventTarget'
+import { Document } from "./Document"
 
 export class Node extends EventTarget {
   readonly childNodes: Node[] = []
+  parentElement = null
 
   constructor(public readonly ownerDocument: Document, public readonly nodeType, public readonly _nativeId) {
     super()
@@ -24,12 +25,7 @@ export class Node extends EventTarget {
   insertAt(child: Node, index) {
     child.remove()
     this.childNodes.splice(index, 0, child)
-
-    if (child.nodeType === Node.TEXT_NODE) {
-      this['_setText'](child['data'])
-    } else {
-      this.ownerDocument._scene.insertAt(this._nativeId, child._nativeId, index)
-    }
+    child.parentElement = this
   }
 
   remove() {
@@ -43,11 +39,11 @@ export class Node extends EventTarget {
   removeChild(child: Node) {
     const index = this.childNodes.indexOf(child)
 
-    // throw?
-    if (~index) {
-      this.childNodes.splice(index, 1)
-      this.ownerDocument._scene.removeChild(this._nativeId, child._nativeId)
+    if (!~index) {
+      throw new Error('not a child')
     }
+
+    this.childNodes.splice(index, 1)
   }
 
   replaceChild(child: Node, prev: Node) {
@@ -73,10 +69,6 @@ export class Node extends EventTarget {
     return this.parentElement as Node
   }
 
-  get parentElement() {
-    return this.ownerDocument._getParent(this._nativeId)
-  }
-
   get nextSibling() {
     const parentChildren = this.parentElement.childNodes
 
@@ -90,6 +82,7 @@ export class Node extends EventTarget {
   }
 
   // TODO: get/set nodeValue
+  // (Text.nodeValue exists already)
   get nodeName() {
     const node = this as any
 
@@ -103,4 +96,5 @@ export class Node extends EventTarget {
   static ELEMENT_NODE = 1
   static TEXT_NODE = 3
   static DOCUMENT_NODE = 9
+  static DOCUMENT_FRAGMENT_NODE = 11
 }

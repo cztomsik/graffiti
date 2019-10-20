@@ -124,6 +124,7 @@ export class CSSStyleDeclaration {
       */
 
       default:
+        // TODO: mithrill does style.cssText = '' to reset
         console.log(`TODO: style.${k} ${v}`)
     }
   }
