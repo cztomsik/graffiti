@@ -21,11 +21,15 @@ export class Element extends Node {
       super.insertAt(child, index)
       this.ownerDocument._scene.insertAt(this._nativeId, child._nativeId, index)
     }
+
+    return child
   }
 
   removeChild(child: Node) {
     super.removeChild(child)
     this.ownerDocument._scene.removeChild(this._nativeId, child._nativeId)
+
+    return child
   }
 
   // so the events can bubble

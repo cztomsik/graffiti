@@ -10,22 +10,25 @@ export class Node extends EventTarget {
   }
 
   appendChild(child: Node) {
-    this.insertBefore(child, null)
+    return this.insertBefore(child, null)
   }
 
   insertBefore(child: Node, before: Node | null) {
     const index = before === null ?this.childNodes.length :this.childNodes.indexOf(child)
 
-    // consider if it's worth to throw like browsers do
-    if (~index) {
-      this.insertAt(child, index)
+    if (!~index) {
+      throw new Error('not a child')
     }
+
+    return this.insertAt(child, index)
   }
 
   insertAt(child: Node, index) {
     child.remove()
     this.childNodes.splice(index, 0, child)
     child.parentElement = this
+
+    return child
   }
 
   remove() {
@@ -44,6 +47,8 @@ export class Node extends EventTarget {
     }
 
     this.childNodes.splice(index, 1)
+
+    return child
   }
 
   replaceChild(child: Node, prev: Node) {
@@ -70,19 +75,25 @@ export class Node extends EventTarget {
   }
 
   get nextSibling() {
-    const parentChildren = this.parentElement.childNodes
+    if (!this.parentElement) {
+      return null
+    }
 
-    return parentChildren[parentChildren.indexOf(this) + 1]
+    const nodes = this.parentElement.childNodes
+
+    return nodes[nodes.indexOf(this) + 1]
   }
 
   get previousSibling() {
-    const parentChildren = this.parentElement.childNodes
+    if (!this.parentElement) {
+      return null
+    }
 
-    return parentChildren[parentChildren.indexOf(this) - 1]
+    const nodes = this.parentElement.childNodes
+
+    return nodes[nodes.indexOf(this) - 1]
   }
 
-  // TODO: get/set nodeValue
-  // (Text.nodeValue exists already)
   get nodeName() {
     const node = this as any
 
@@ -91,6 +102,13 @@ export class Node extends EventTarget {
       case Node.DOCUMENT_NODE: return '#document'
       case Node.TEXT_NODE: return '#text'
     }
+  }
+
+  // TODO: get/set
+  // https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeValue
+  // (Text.nodeValue exists already)
+  get nodeValue() {
+    return null
   }
 
   static ELEMENT_NODE = 1

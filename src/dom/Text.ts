@@ -20,6 +20,10 @@ export class Text extends Node {
     }
   }
 
+  set textContent(v) {
+    this.data = v
+  }
+
   set nodeValue(v) {
     this.data = v
   }
