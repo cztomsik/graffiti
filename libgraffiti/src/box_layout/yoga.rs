@@ -63,7 +63,12 @@ impl YogaLayout {
 
 impl BoxLayout for YogaLayout {
     fn alloc(&mut self) {
-        self.yoga_nodes.push(unsafe { YGNodeNew() });
+        self.yoga_nodes.push(unsafe {
+            let node = YGNodeNew();
+            YGNodeStyleSetFlexDirection(node, YGFlexDirection::Row);
+
+            node
+        });
         self.bounds.push(Bounds::zero());
     }
 
