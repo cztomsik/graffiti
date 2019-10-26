@@ -26,10 +26,8 @@ export class Document extends Node {
 
     this.body.style.setProperty('flex', '1')
     this.documentElement.appendChild(this.body)
-  }
 
-  get parentNode() {
-    return this.defaultView as unknown as Node
+    this.parentNode = this.defaultView as unknown as Node
   }
 
   createElement(tagName: string) {
@@ -47,7 +45,7 @@ export class Document extends Node {
   }
 
   createDocumentFragment() {
-    return new DocumentFragment(this, Node.DOCUMENT_FRAGMENT_NODE, -1)
+    return new DocumentFragment(this, Node.DOCUMENT_FRAGMENT_NODE, undefined)
   }
 
   getElementById(id) {
@@ -63,8 +61,8 @@ export class Document extends Node {
     return this.documentElement.querySelectorAll(selectors)
   }
 
-  _getEl(_nativeId) {
-    return this._els[_nativeId]
+  _getEl(_surface) {
+    return this._els[_surface]
   }
 
   // react-dom listens on the top level

@@ -4,7 +4,7 @@ export class Text extends Node {
   _data
 
   constructor(doc, data) {
-    super(doc, Node.TEXT_NODE, -1)
+    super(doc, Node.TEXT_NODE, undefined)
     this._data = data
   }
 
@@ -16,7 +16,7 @@ export class Text extends Node {
     this._data = text
 
     if (this.parentElement) {
-      this.parentElement._setText(this._data)
+      this.parentElement._updateText()
     }
   }
 

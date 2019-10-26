@@ -6,30 +6,37 @@ import { CSSStyleDeclaration } from '../styles/CSSStyleDeclaration'
 
 export class Element extends Node {
   id?
-  style = new CSSStyleDeclaration(this.ownerDocument._scene, this._nativeId)
+  style = new CSSStyleDeclaration(this.ownerDocument._scene, this._surface)
+  textNodes: Text[] = []
 
-  constructor(public ownerDocument: Document, public tagName, public _nativeId) {
-    super(ownerDocument, Node.ELEMENT_NODE, _nativeId)
+  constructor(public ownerDocument: Document, public tagName, _surface) {
+    super(ownerDocument, Node.ELEMENT_NODE, _surface)
   }
 
-  insertAt(child: Node, index) {
+  insertBefore(child, before) {
+    // this is very ugly temporary hack just to have something working
+    // we dont support mixing text & elements yet so we put text nodes
+    // separately and just set the text to concatenated result
     if (child.nodeType === Node.TEXT_NODE) {
-      this._setText((child as Text).data)
-    } else if (child.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
-      child.childNodes.forEach((c, i) => this.insertAt(c, index + i))
-    } else {
-      super.insertAt(child, index)
-      this.ownerDocument._scene.insertAt(this._nativeId, child._nativeId, index)
+      // even the order can be wrong
+      this.textNodes.push(child)
+      child.parentNode = this
+      this._updateText()
+      return child
     }
 
-    return child
+    return super.insertBefore(child, before)
   }
 
   removeChild(child: Node) {
-    super.removeChild(child)
-    this.ownerDocument._scene.removeChild(this._nativeId, child._nativeId)
+    // similar hack for removals
+    if (child.nodeType === Node.TEXT_NODE) {
+      this.textNodes = this.textNodes.filter(t => t !== child)
+      this._updateText()
+      return child
+    }
 
-    return child
+    return super.removeChild(child)
   }
 
   // so the events can bubble
@@ -38,8 +45,8 @@ export class Element extends Node {
     return this.parentElement
   }
 
-  _setText(text) {
-    this.style['content'] = text
+  _updateText() {
+    this.style['content'] = this.textNodes.length ?this.textNodes.map(t => t.data).join('') :undefined
   }
 
   setAttribute(name, value) {
@@ -72,7 +79,7 @@ export class Element extends Node {
   }
 
   set textContent(v) {
-    // TODO: check that nobody relies on .childNodes > 0
-    this._setText(v)
+    this.textNodes = [this.ownerDocument.createTextNode(v)]
+    this._updateText()
   }
 }

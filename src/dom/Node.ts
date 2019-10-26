@@ -1,11 +1,13 @@
+import * as assert from 'assert'
 import { EventTarget } from '../events/EventTarget'
-import { Document } from "./Document"
+import { Document } from './Document'
+import { Element } from './Element'
 
 export class Node extends EventTarget {
   readonly childNodes: Node[] = []
-  parentElement = null
+  parentNode: Node = null
 
-  constructor(public readonly ownerDocument: Document, public readonly nodeType, public readonly _nativeId) {
+  constructor(public readonly ownerDocument: Document, public readonly nodeType, public readonly _surface) {
     super()
   }
 
@@ -13,85 +15,71 @@ export class Node extends EventTarget {
     return this.insertBefore(child, null)
   }
 
-  insertBefore(child: Node, before: Node | null) {
-    const index = before === null ?this.childNodes.length :this.childNodes.indexOf(child)
-
-    if (!~index) {
-      throw new Error('not a child')
+  insertBefore(child: Node, refNode: Node | null) {
+    // should be !== null but some frameworks pass undefined too
+    if (refNode) {
+      assert.equal(refNode.parentNode, this)
     }
 
-    return this.insertAt(child, index)
-  }
+    if (child.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+      child.childNodes.splice(0).forEach(c => this.appendChild(c))
+    } else {
+      const index = refNode ?this.childNodes.indexOf(refNode) :this.childNodes.length
+      child.remove()
+      this.childNodes.splice(index, 0, child)
 
-  insertAt(child: Node, index) {
-    child.remove()
-    this.childNodes.splice(index, 0, child)
-    child.parentElement = this
+      // comment/text, insert into fragment
+      // undefined is needed because root is 0
+      if ((child._surface !== undefined) && (this._surface !== undefined)) {
+        // TODO(COMMENT_NODE): index won't be enough anymore
+        this.ownerDocument._scene.insertAt(this._surface, child._surface, index)
+      }
+    }
 
     return child
   }
 
   remove() {
-    const parent = this.parentNode
-
-    if (parent) {
-      parent.removeChild(this)
+    if (this.parentNode) {
+      this.parentNode.removeChild(this)
     }
   }
 
   removeChild(child: Node) {
-    const index = this.childNodes.indexOf(child)
+    assert.equal(child.parentNode, this)
 
-    if (!~index) {
-      throw new Error('not a child')
+    this.childNodes.splice(this.childNodes.indexOf(child), 1)
+
+    if (child._surface) {
+      this.ownerDocument._scene.removeChild(this._surface, child._surface)
     }
-
-    this.childNodes.splice(index, 1)
 
     return child
   }
 
   replaceChild(child: Node, prev: Node) {
-    const index = this.childNodes.indexOf(prev)
-
-    if (~index) {
-      this.insertAt(child, index)
-      this.removeChild(prev)
-    }
+    this.insertBefore(child, prev)
+    this.removeChild(prev)
   }
 
   get firstChild() {
-    return this.childNodes[0]
+    return this.childNodes[0] || null
   }
 
   get lastChild() {
-    const chs = this.childNodes
-
-    return chs[chs.length - 1]
+    return this.childNodes[this.childNodes.length - 1] || null
   }
 
-  get parentNode() {
-    return this.parentElement as Node
+  get parentElement() {
+    return this.parentNode as Element
   }
 
   get nextSibling() {
-    if (!this.parentElement) {
-      return null
-    }
-
-    const nodes = this.parentElement.childNodes
-
-    return nodes[nodes.indexOf(this) + 1]
+    return sibling(this.parentNode, this, 1)
   }
 
   get previousSibling() {
-    if (!this.parentElement) {
-      return null
-    }
-
-    const nodes = this.parentElement.childNodes
-
-    return nodes[nodes.indexOf(this) - 1]
+    return sibling(this.parentNode, this, -1)
   }
 
   get nodeName() {
@@ -99,8 +87,10 @@ export class Node extends EventTarget {
 
     switch (this.nodeType) {
       case Node.ELEMENT_NODE: return node.tagName
+      case Node.DOCUMENT_FRAGMENT_NODE: return '#document-fragment'
       case Node.DOCUMENT_NODE: return '#document'
       case Node.TEXT_NODE: return '#text'
+      case Node.COMMENT_NODE: return '#comment'
     }
   }
 
@@ -113,6 +103,11 @@ export class Node extends EventTarget {
 
   static ELEMENT_NODE = 1
   static TEXT_NODE = 3
+  static COMMENT_NODE = 8
   static DOCUMENT_NODE = 9
   static DOCUMENT_FRAGMENT_NODE = 11
+}
+
+function sibling(parent, child, offset) {
+  return parent && parent.childNodes[parent.childNodes.indexOf(child) + offset]
 }
