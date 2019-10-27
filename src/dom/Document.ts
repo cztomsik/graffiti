@@ -24,7 +24,7 @@ export class Document extends Node {
   constructor(public defaultView: Window) {
     super(null, Node.DOCUMENT_NODE, 0)
 
-    this.body.style.setProperty('flex', '1')
+    this.documentElement.style['flexDirection'] = 'column'
     this.documentElement.appendChild(this.body)
 
     this.parentNode = this.defaultView as unknown as Node
@@ -115,5 +115,22 @@ const defaultStyles = {
     color: '#ffffff',
     textAlign: 'center',
     justifyContent: 'space-around',
+  },
+
+  body: {
+    flexDirection: 'column',
+    flex: 1,
+  },
+
+  div: {
+    display: 'block',
+  },
+
+  ul: {
+    display: 'block'
+  },
+
+  li: {
+    display: 'block'
   }
 }

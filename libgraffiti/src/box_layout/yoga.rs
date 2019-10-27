@@ -66,6 +66,8 @@ impl BoxLayout for YogaLayout {
         self.yoga_nodes.push(unsafe {
             let node = YGNodeNew();
             YGNodeStyleSetFlexDirection(node, YGFlexDirection::Row);
+            YGNodeStyleSetFlexBasisAuto(node);
+            YGNodeStyleSetFlexShrink(node, 1.);
 
             node
         });

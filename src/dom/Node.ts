@@ -24,9 +24,31 @@ export class Node extends EventTarget {
     if (child.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
       child.childNodes.splice(0).forEach(c => this.appendChild(c))
     } else {
-      const index = refNode ?this.childNodes.indexOf(refNode) :this.childNodes.length
+      // find index in native-order (ignoring surface-less nodes)
+      //
+      // something like but not actually because refNode can miss _surface too:
+      //   this.childNodes.filter(c => c._surface).indexOf(refNode)
+      //
+      // TODO: not yet sure if it's better to compute index like this or
+      // to pass prevSurface to the native and do it there
+      // (possibly in each sub-system)
+      // but comments are DOM-specific and it probably shouldn't leak there
+      let c, index = 0, len = this.childNodes.length
+      for (let i = 0; i < len; i++) {
+        if ((c = this.childNodes[i]) === refNode) {
+          break
+        } else if (c._surface !== undefined) {
+          index++
+        }
+      }
+
       child.remove()
+      child.parentNode = this
       this.childNodes.splice(index, 0, child)
+
+      if (child.nodeType === Node.TEXT_NODE) {
+        (this as any)._updateText()
+      }
 
       // comment/text, insert into fragment
       // undefined is needed because root is 0

@@ -7,36 +7,9 @@ import { CSSStyleDeclaration } from '../styles/CSSStyleDeclaration'
 export class Element extends Node {
   id?
   style = new CSSStyleDeclaration(this.ownerDocument._scene, this._surface)
-  textNodes: Text[] = []
 
   constructor(public ownerDocument: Document, public tagName, _surface) {
     super(ownerDocument, Node.ELEMENT_NODE, _surface)
-  }
-
-  insertBefore(child, before) {
-    // this is very ugly temporary hack just to have something working
-    // we dont support mixing text & elements yet so we put text nodes
-    // separately and just set the text to concatenated result
-    if (child.nodeType === Node.TEXT_NODE) {
-      // even the order can be wrong
-      this.textNodes.push(child)
-      child.parentNode = this
-      this._updateText()
-      return child
-    }
-
-    return super.insertBefore(child, before)
-  }
-
-  removeChild(child: Node) {
-    // similar hack for removals
-    if (child.nodeType === Node.TEXT_NODE) {
-      this.textNodes = this.textNodes.filter(t => t !== child)
-      this._updateText()
-      return child
-    }
-
-    return super.removeChild(child)
   }
 
   // so the events can bubble
@@ -46,7 +19,19 @@ export class Element extends Node {
   }
 
   _updateText() {
-    this.style['content'] = this.textNodes.length ?this.textNodes.map(t => t.data).join('') :undefined
+    // this is very ugly temporary hack just to have something working
+    // we dont support mixing text & elements yet so we
+    // just set the text to the concatenated result
+    let content = '', len = this.childNodes.length
+    for (let i = 0; i < len; i++) {
+      const c = this.childNodes[i]
+
+      if (c.nodeType === Node.TEXT_NODE) {
+        content += (c as Text)._data
+      }
+    }
+
+    this.style['content'] = content
   }
 
   setAttribute(name, value) {
@@ -79,7 +64,10 @@ export class Element extends Node {
   }
 
   set textContent(v) {
-    this.textNodes = [this.ownerDocument.createTextNode(v)]
+    this.childNodes.forEach(c => c.remove())
+
+    this.appendChild(this.ownerDocument.createTextNode(v))
+
     this._updateText()
   }
 }
