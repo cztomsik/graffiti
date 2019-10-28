@@ -13,9 +13,9 @@ crate-type = ["cdylib"]
 gl = "*"
 miniserde = "0.1.12"
 # graffiti-yoga = { path = "../../graffiti-yoga/rust" }
-graffiti-yoga = { git = "https://github.com/cztomsik/graffiti-yoga", branch = "1.16-stable" }
+graffiti-yoga = { git = "https://github.com/cztomsik/graffiti-yoga", rev = "5df63ae" }
 # graffiti-glfw = { path = "../../graffiti-glfw/rust" }
-graffiti-glfw = { git = "https://github.com/cztomsik/graffiti-glfw", branch = "3.3-stable" }
+graffiti-glfw = { git = "https://github.com/cztomsik/graffiti-glfw", rev = "82026bb" }
 
 # npm run build -- --features stretch
 stretch = { version = "0.3.2", optional = true }
