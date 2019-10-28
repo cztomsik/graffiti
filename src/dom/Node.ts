@@ -24,21 +24,19 @@ export class Node extends EventTarget {
     if (child.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
       child.childNodes.splice(0).forEach(c => this.appendChild(c))
     } else {
-      // find index in native-order (ignoring surface-less nodes)
-      //
-      // something like but not actually because refNode can miss _surface too:
-      //   this.childNodes.filter(c => c._surface).indexOf(refNode)
+      // find insertion index for both childNodes & for native
       //
       // TODO: not yet sure if it's better to compute index like this or
       // to pass prevSurface to the native and do it there
       // (possibly in each sub-system)
       // but comments are DOM-specific and it probably shouldn't leak there
-      let c, index = 0, len = this.childNodes.length
-      for (let i = 0; i < len; i++) {
-        if ((c = this.childNodes[i]) === refNode) {
+      let c, index, nativeOffset = 0, len = this.childNodes.length
+
+      for (index = 0; index < len; index++) {
+        if ((c = this.childNodes[index]) === refNode) {
           break
-        } else if (c._surface !== undefined) {
-          index++
+        } else if (c._surface === undefined) {
+          nativeOffset--
         }
       }
 
@@ -53,8 +51,7 @@ export class Node extends EventTarget {
       // comment/text, insert into fragment
       // undefined is needed because root is 0
       if ((child._surface !== undefined) && (this._surface !== undefined)) {
-        // TODO(COMMENT_NODE): index won't be enough anymore
-        this.ownerDocument._scene.insertAt(this._surface, child._surface, index)
+        this.ownerDocument._scene.insertAt(this._surface, child._surface, index + nativeOffset)
       }
     }
 
