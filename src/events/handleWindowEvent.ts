@@ -46,7 +46,7 @@ export function handleWindowEvent(document: Document, event) {
           dispatch('focus', document.activeElement = target, { target })
         }
 
-        dispatch('click', target, { target })
+        dispatch('click', target, { target, button: 0 })
       }
 
       return
@@ -86,19 +86,4 @@ function getKeyCode(scancode) {
     case 51:
       return 'Backspace'
   }
-}
-
-// events we support
-interface EventMap {
-  onFocus: FocusEvent
-  onBlur: FocusEvent
-  onKeyDown: KeyboardEvent
-  onKeyUp: KeyboardEvent
-  onKeyPress: KeyboardEvent
-  onMouseMove: MouseEvent
-  onMouseOver: MouseEvent
-  onMouseOut: MouseEvent
-  onMouseDown: MouseEvent
-  onMouseUp: MouseEvent
-  onClick: MouseEvent
 }

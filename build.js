@@ -24,7 +24,7 @@ const extraArgs = process.argv.slice(2)
 const isRelease = extraArgs.includes('--release')
 const isWasm = extraArgs.includes('--target') && extraArgs.find(opt => opt.match(/wasm/))
 const linkerOpts = isWasm
-  ?''
+  ?'-Clink-args="-s USE_GLFW=3 -s USE_WEBGL2=1 -s FULL_ES3=1"'
   :(os.platform() === 'darwin')
     ?'-Clink-args="-undefined dynamic_lookup"'
     :'-Clink-args="-undefined=dynamic_lookup"'

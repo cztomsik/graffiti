@@ -1,14 +1,14 @@
-import { UNSUPPORTED } from "../core/utils";
+import { UNSUPPORTED } from '../core/utils';
 
 export class EventTarget implements globalThis.EventTarget {
-  listeners: { [type in string]?: readonly EventListenerOrEventListenerObject[] } = {}
+  _listeners: { [type in string]?: readonly EventListenerOrEventListenerObject[] } = {}
 
   addEventListener(type, listener) {
-    this.listeners[type] = [...this._getListeners(type), listener]
+    this._listeners[type] = [...this._getListeners(type), listener]
   }
 
   removeEventListener(type, listener) {
-    this.listeners[type] = this._getListeners(type).filter(l => l !== listener)
+    this._listeners[type] = this._getListeners(type).filter(l => l !== listener)
   }
 
   dispatchEvent(event) {
@@ -53,19 +53,25 @@ export class EventTarget implements globalThis.EventTarget {
   }
 
   _getListeners(type) {
-    return this.listeners[type] || []
+    return this._listeners[type] || []
   }
 }
 
 // preact does some golfing with casing: name = (nameLower in dom ? nameLower : name).slice(2);
-// https://github.com/developit/preact/blob/a23b921391545fce712dfc92ea200f35158207d0/src/diff/props.js#L79
+// https://github.com/preactjs/preact/blob/013dc382cf7239422e834e74a6ab0b592c5a9c43/src/diff/props.js#L80
 //
 // this is also opportunity to disallow on* properties
 //
 // TODO: other event types
-// BTW: just lower-casing type everywhere is not enough (tried already) but proxy in prototype chain might work too
+// BTW: just lower-casing type everywhere is not enough (tried already) but proxy in the prototype chain might work
 for (const k of ['click']) {
   Object.defineProperty(EventTarget.prototype, `on${k}`, {
-    set: UNSUPPORTED
+    set: v => {
+      // throw unless no-op
+      // (react-dom sets this to avoid some safari bug)
+      if (v && v.toString() !== 'function noop () {}') {} else {
+        UNSUPPORTED()
+      }
+    }
   })
 }

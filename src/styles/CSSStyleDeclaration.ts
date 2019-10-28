@@ -1,4 +1,4 @@
-import { camelCase, pascalCase, kebabCase, parseColor } from '../core/utils'
+import { camelCase, pascalCase, kebabCase, parseColor, UNSUPPORTED } from '../core/utils'
 import { SceneContext } from '../core/SceneContext'
 
 // minimal impl just to get something working
@@ -13,6 +13,13 @@ export class CSSStyleDeclaration {
   // kebab-case
   setProperty(k, v) {
     switch (k) {
+      // (naively) emulate display: block/flex
+      // this is probably very bad idea but it could work to some degree
+      // and then it might be either improved or removed respectively
+      case 'display':
+        this.setProperty('flex-direction', v === 'block' ?'column' :'row')
+        break
+
       case 'flex':
         this.setProperty('flex-grow', v)
         this.setProperty('flex-shrink', v)
@@ -122,6 +129,15 @@ export class CSSStyleDeclaration {
       case 'border-radius':
         break
       */
+
+      // set cssText() wouldn't work with current proxy design
+      // (it would get caught)
+      case 'css-text':
+        // TODO: mithrill does style.cssText = '' to reset
+        if (v !== '') {
+          UNSUPPORTED()
+        }
+        break
 
       default:
         console.log(`TODO: style.${k} ${v}`)

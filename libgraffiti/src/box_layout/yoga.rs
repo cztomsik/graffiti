@@ -63,7 +63,14 @@ impl YogaLayout {
 
 impl BoxLayout for YogaLayout {
     fn alloc(&mut self) {
-        self.yoga_nodes.push(unsafe { YGNodeNew() });
+        self.yoga_nodes.push(unsafe {
+            let node = YGNodeNew();
+            YGNodeStyleSetFlexDirection(node, YGFlexDirection::Row);
+            YGNodeStyleSetFlexBasisAuto(node);
+            YGNodeStyleSetFlexShrink(node, 1.);
+
+            node
+        });
         self.bounds.push(Bounds::zero());
     }
 
@@ -196,7 +203,7 @@ impl BoxLayout for YogaLayout {
         self.measure_text_holder = Some(unsafe { std::mem::transmute(measure_text) });
 
         unsafe {
-            YGNodeCalculateLayout(self.yoga_nodes[0], self.window_size.0, self.window_size.1, YGDirection::LTR);
+            YGNodeCalculateLayout(self.yoga_nodes[0], self.window_size.0, YGUndefined, YGDirection::LTR);
 
             self.measure_text_holder = None;
 
@@ -216,8 +223,8 @@ impl BoxLayout for YogaLayout {
         let root = self.yoga_nodes[0];
 
         unsafe {
-            YGNodeStyleSetWidth(root, size.0);    
-            YGNodeStyleSetHeight(root, size.1);    
+            YGNodeStyleSetWidth(root, size.0);
+            YGNodeStyleSetMinHeight(root, size.1);
         }
 
         self.window_size = size;

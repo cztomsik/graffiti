@@ -26,13 +26,12 @@ npm i github:cztomsik/graffiti
 
 main.js
 ```js
-const { getApp } = require('graffiti')
-const { document, window } = getApp().createWindow()
+document.body.appendChild(document.createTextNode('Hello'))
+```
 
-const el = document.createElement('div')
-el.appendChild(document.createTextNode('Hello'))
-
-document.body.appendChild(el)
+run with
+```bash
+node -r graffiti/register main.js
 ```
 
 ![image](https://user-images.githubusercontent.com/3526922/66957171-ff791800-f065-11e9-96c8-aea9eae84482.png)

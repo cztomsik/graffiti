@@ -1,25 +1,28 @@
 import { Document } from "./Document";
 import { EventTarget } from "../events/EventTarget";
-import { mixin } from "../core/utils";
+import { mixin } from '../core/utils';
 import { SceneContext } from "../core/SceneContext";
 import { handleWindowEvent } from "../events/handleWindowEvent";
+import { Location } from './Location';
 
-export class Window {
+export class Window extends EventTarget {
   sceneContext = new SceneContext(this.id)
-  document = new Document(this)
-  listeners = {}
-  //screen = { width: 1024, height: 768 }
-  //navigator = {}
-  //localStorage = new Storage()
-
   window = this
+  document = new Document(this)
 
-  // get location() { return this.document.location }
+  // minimal impl for mithril router
+  history = {}
+  location = new Location(this)
 
-  //HTMLIFrameElement = class extends Element {}
-  //Image = class extends Element {}
+  // react-dom needs both
+  navigator = {
+    userAgent: 'graffiti'
+  }
+  HTMLIFrameElement = class {}
 
-  constructor(private id) {}
+  constructor(private id) {
+    super()
+  }
 
   handleEvent(event) {
     handleWindowEvent(this.document, event)

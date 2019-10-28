@@ -1,1 +1,1 @@
-export { getApp } from './App'
+export { createWindow } from './App'

@@ -14,14 +14,12 @@ gl = "*"
 miniserde = "0.1.12"
 # graffiti-yoga = { path = "../../graffiti-yoga/rust" }
 graffiti-yoga = { git = "https://github.com/cztomsik/graffiti-yoga", branch = "1.16-stable" }
+# graffiti-glfw = { path = "../../graffiti-glfw/rust" }
+graffiti-glfw = { git = "https://github.com/cztomsik/graffiti-glfw", branch = "3.3-stable" }
 
 # npm run build -- --features stretch
 stretch = { version = "0.3.2", optional = true }
 # stretch = { path = "../../stretch", optional = true }
-
-[target.'cfg(not(target_arch = "wasm32"))'. dependencies]
-# graffiti-glfw = { path = "../../graffiti-glfw/rust" }
-graffiti-glfw = { git = "https://github.com/cztomsik/graffiti-glfw", branch = "3.3-stable" }
 
 [features]
 default = []

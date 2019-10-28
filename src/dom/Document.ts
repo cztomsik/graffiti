@@ -1,7 +1,8 @@
-import { Node } from './Node';
-import { Element } from './Element';
-import { Text } from './Text';
-import { Window } from './Window';
+import { Node } from './Node'
+import { Element } from './Element'
+import { Text } from './Text'
+import { Window } from './Window'
+import { DocumentFragment } from './DocumentFragment'
 
 export class Document extends Node {
   _scene = this.defaultView.sceneContext
@@ -23,30 +24,28 @@ export class Document extends Node {
   constructor(public defaultView: Window) {
     super(null, Node.DOCUMENT_NODE, 0)
 
-    this.body.style.setProperty('flex', '1')
+    this.documentElement.style['flexDirection'] = 'column'
     this.documentElement.appendChild(this.body)
-  }
 
-  get parentNode() {
-    return this.defaultView
+    this.parentNode = this.defaultView as unknown as Node
   }
 
   createElement(tagName: string) {
-    let SpecificElement = Element
-
-    //switch (tagName) {
-    //  case 'span':
-    //    SpecificElement = HTMLSpanElement
-    //}
-
-    const el = new SpecificElement(this, tagName, this._scene.createSurface())
+    const el = new Element(this, tagName, this._scene.createSurface())
     this._els.push(el)
+
+    // apply default styles
+    Object.assign(el.style, defaultStyles[tagName] || {})
 
     return el
   }
 
   createTextNode(text: string): Text {
     return new Text(this, text)
+  }
+
+  createDocumentFragment() {
+    return new DocumentFragment(this, Node.DOCUMENT_FRAGMENT_NODE, undefined)
   }
 
   getElementById(id) {
@@ -62,15 +61,84 @@ export class Document extends Node {
     return this.documentElement.querySelectorAll(selectors)
   }
 
-  _getEl(_nativeId) {
-    return this._els[_nativeId]
+  _getEl(_surface) {
+    return this._els[_surface]
   }
 
-  _getParent(_nativeId) {
-    return this._getEl(this._scene.parents[_nativeId])
+  // react-dom listens on the top level
+  addEventListener(type, l) {
+    this.documentElement.addEventListener(type, l)
   }
+}
 
-  _setParent(_nativeId, _parentId) {
-    this._scene.parents[_nativeId] = _parentId
+// TODO: share with CSSStyleDeclaration
+const EM = 16
+
+// mostly inspired by css reboot
+const defaultStyles = {
+  h1: {
+    fontSize: 2.5 * EM,
+    marginBottom: 0.5 * EM,
+  },
+
+  h2: {
+    fontSize: 2 * EM,
+    marginBottom: 0.5 * EM,
+  },
+
+  h3: {
+    fontSize: 1.75 * EM,
+    marginBottom: 0.5 * EM,
+  },
+
+  h4: {
+    fontSize: 1.5 * EM,
+    marginBottom: 0.5 * EM,
+  },
+
+  h5: {
+    fontSize: 1.25 * EM,
+    marginBottom: 0.5 * EM,
+  },
+
+  h6: {
+    fontSize: 1 * EM,
+    marginBottom: 0.5 * EM,
+  },
+
+  button: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 10,
+    borderRadius: 2,
+    fontSize: 14,
+    lineHeight: 32,
+    color: '#ffffff',
+    textAlign: 'center',
+    justifyContent: 'space-around',
+  },
+
+  body: {
+    flexDirection: 'column',
+    flex: 1,
+  },
+
+  a: {
+    color: '#4338ad',
+  },
+
+  p: {
+    marginBottom: 1 * EM,
+  },
+
+  div: {
+    display: 'block',
+  },
+
+  ul: {
+    display: 'block'
+  },
+
+  li: {
+    display: 'block'
   }
 }
