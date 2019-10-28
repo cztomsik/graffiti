@@ -122,6 +122,14 @@ const defaultStyles = {
     flex: 1,
   },
 
+  a: {
+    color: '#4338ad',
+  },
+
+  p: {
+    marginBottom: 1 * EM,
+  },
+
   div: {
     display: 'block',
   },
