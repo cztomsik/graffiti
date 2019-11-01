@@ -12,26 +12,29 @@ Rapid GUI development using familiar technologies (javascript, flexbox, css)
 <div style="max-height: 400px; overflow-y: scroll">
 
 ```javascript
-const App = () => {
-  const [count, setCount] = useState(0)
+import * as React from 'react'
+import { render } from 'react-dom'
+
+const Counter = () => {
+  const [count, setCount] = React.useState(0)
   const dec = () => setCount(count - 1)
   const inc = () => setCount(count + 1)
 
   return (
-    <View style={styles.counter}>
-      <Text>{count}</Text>
+    <div style={styles.counter}>
+      <span>{count}</span>
 
-      <View style={[styles.bar, { width: count * 5 }]} />
+      <div style={{ ...styles.bar, width: count * 5 }} />
 
-      <View style={styles.buttons}>
-        <Button title="--" onPress={dec} />
-        <Button title="++" onPress={inc} />
-      </View>
-    </View>
+      <div style={styles.buttons}>
+        <button onClick={dec}>--</button>
+        <button onClick={inc}>++</button>
+      </div>
+    </div>
   )
 }
 
-const styles = StyleSheet.create({
+const styles = {
   counter: {
     flex: 1,
     padding: 20,
@@ -47,7 +50,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between'
   }
-})
+}
+
+render(<Counter />, document.body)
 ```
 
 </div>
@@ -59,7 +64,7 @@ const styles = StyleSheet.create({
 Please note that we are still finishing major rewrite which started almost 3 months ago (yeah, I know but it was really needed) so the docs are off (a lot). That said, we've also gained some other cool features along the way (text-align, images, shadow). As with other hobby projects, there are no ETAs, but it's very close now. Follow me on my [twitter](https://twitter.com/cztomsik) to get notified :-)
 
 ## Why it's interesting
-- quick to setup, apart from rust & few libs, it should be just one `npm install` away
+- quick to setup, apart from rust, it should be just one `npm install` away
 - can be combined with most of the libraries you already know (react, mobx, lodash, ...)
 - works with existing tooling (debug in vscode, profile in chrome devtools, react-devtools, ...)
 - hot-reload works even without webpack (and it's faster)
