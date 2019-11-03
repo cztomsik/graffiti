@@ -11,6 +11,7 @@
     "url": "git+https://github.com/cztomsik/graffiti.git"
   },
   "dependencies": {
+    "axios": "^0.19.0",
     "lodash": "^4.17.15",
     "open": "^6.2.0"
   },
@@ -37,7 +38,7 @@
     "react": "^16.8.6",
     "react-dom": "^16.10.2",
     "svelte": "^3.12.1",
-    "ts-node": "^8.3.0",
+    "ts-node": "^8.4.1",
     "typescript": "^3.6.4",
     "ws": "^6.2.1"
   }

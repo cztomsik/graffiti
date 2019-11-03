@@ -64,7 +64,8 @@ const runLoop = () => {
     windows[windowId].sceneContext.flush(animating)
   }
 
-  setTimeout(runLoop)
+  // setTimeout is too slow but we want to let other handlers fire too
+  setImmediate(runLoop)
 }
 
 setTimeout(() => runLoop())

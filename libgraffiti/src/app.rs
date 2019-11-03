@@ -50,7 +50,22 @@ impl TheApp {
                 glfwPollEvents()
             } else {
                 // wait a bit otherwise (save battery)
-                glfwWaitEventsTimeout(0.1);
+                //
+                // this number limits node.js responsivity
+                // lower means sooner handling of I/O & timers
+                // at the expense of some extra CPU overhead
+                //
+                // higher it is, more laggy it might feel
+                // (http responses "taking too long", etc.)
+                //
+                // this number should be fine unless somebody is animating
+                // with setTimeout or some other bad things
+                //
+                // ideally, we should just block with glfwWaitEvents()
+                // but that would need somehow to send glfwPostEmptyEvent()
+                // if anything in node.js is ready (not just I/O but also timers)
+                // so this is definitely good enough for now
+                glfwWaitEventsTimeout(0.15);
             }
 
             PENDING_EVENTS_PTR = ptr::null_mut();

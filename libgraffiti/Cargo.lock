@@ -33,8 +33,8 @@ name = "graffiti"
 version = "0.1.0"
 dependencies = [
  "gl 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "graffiti-glfw 3.3.0 (git+https://github.com/cztomsik/graffiti-glfw?branch=3.3-stable)",
- "graffiti-yoga 3.3.0 (git+https://github.com/cztomsik/graffiti-yoga?branch=1.16-stable)",
+ "graffiti-glfw 3.3.0 (git+https://github.com/cztomsik/graffiti-glfw?rev=aafd93b)",
+ "graffiti-yoga 3.3.0 (git+https://github.com/cztomsik/graffiti-yoga?rev=5df63ae)",
  "miniserde 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "stretch 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -42,7 +42,7 @@ dependencies = [
 [[package]]
 name = "graffiti-glfw"
 version = "3.3.0"
-source = "git+https://github.com/cztomsik/graffiti-glfw?branch=3.3-stable#1d76590ddcb98edaa5d9b7ef687ca6b919855bfa"
+source = "git+https://github.com/cztomsik/graffiti-glfw?rev=aafd93b#aafd93b2e68caf242c57d6763a2cb7a86c014ac4"
 dependencies = [
  "cc 1.0.45 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -50,7 +50,7 @@ dependencies = [
 [[package]]
 name = "graffiti-yoga"
 version = "3.3.0"
-source = "git+https://github.com/cztomsik/graffiti-yoga?branch=1.16-stable#f0cb0d719ec342dd8075dd47b320556827032363"
+source = "git+https://github.com/cztomsik/graffiti-yoga?rev=5df63ae#5df63ae294dae0732b4031b396e0fa94516d2ab8"
 dependencies = [
  "cc 1.0.45 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -158,8 +158,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)" = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 "checksum gl 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4b411c7e0bfc599e3606412c190e786b5bb48cf00073e1635f9bb6f88fe7d84a"
 "checksum gl_generator 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ca98bbde17256e02d17336a6bdb5a50f7d0ccacee502e191d3e3d0ec2f96f84a"
-"checksum graffiti-glfw 3.3.0 (git+https://github.com/cztomsik/graffiti-glfw?branch=3.3-stable)" = "<none>"
-"checksum graffiti-yoga 3.3.0 (git+https://github.com/cztomsik/graffiti-yoga?branch=1.16-stable)" = "<none>"
+"checksum graffiti-glfw 3.3.0 (git+https://github.com/cztomsik/graffiti-glfw?rev=aafd93b)" = "<none>"
+"checksum graffiti-yoga 3.3.0 (git+https://github.com/cztomsik/graffiti-yoga?rev=5df63ae)" = "<none>"
 "checksum itoa 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "501266b7edd0174f8530248f87f99c88fbe60ca4ef3dd486835b8d8d53136f7f"
 "checksum khronos_api 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 "checksum lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
