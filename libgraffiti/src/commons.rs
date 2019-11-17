@@ -1,5 +1,3 @@
-use miniserde::{Deserialize, Serialize};
-
 // common types & things used everywhere
 
 /// Application unit (or something similar, unit of measure)
@@ -10,7 +8,7 @@ pub type Au = f32;
 pub type SurfaceId = usize;
 
 /// Packed color
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -29,7 +27,7 @@ impl Color {
 }
 
 /// 2D Point
-#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Pos {
     pub x: Au,
     pub y: Au
@@ -89,7 +87,7 @@ impl Bounds {
 
 // not yet sure where to put these
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Debug)]
 pub struct BorderRadius {
     top: f32,
     right: f32,
@@ -97,7 +95,7 @@ pub struct BorderRadius {
     left: f32,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Debug)]
 pub struct Border {
     pub top: BorderSide,
     pub right: BorderSide,
@@ -105,20 +103,20 @@ pub struct Border {
     pub left: BorderSide,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Debug)]
 pub struct BorderSide {
     pub width: f32,
     pub style: BorderStyle,
     pub color: Color,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Debug)]
 pub enum BorderStyle {
     None,
     Solid,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Debug)]
 pub struct BoxShadow {
     pub color: Color,
     pub offset: Pos,
@@ -126,7 +124,7 @@ pub struct BoxShadow {
     pub spread: f32,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Debug)]
 pub struct Image {
     pub url: String,
 }

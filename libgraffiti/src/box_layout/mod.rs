@@ -1,6 +1,5 @@
 use crate::commons::{SurfaceId, Bounds, Border};
 use crate::text_layout::{Text};
-use miniserde::{Deserialize, Serialize};
 
 /// Box layout algo
 /// Only flexbox is expected for now, grid might be added in the future
@@ -40,7 +39,7 @@ pub trait BoxLayout {
     fn get_bounds(&self) -> &[Bounds];
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum DimensionProp {
     Width,
     Height,
@@ -64,14 +63,14 @@ pub enum DimensionProp {
     FlexBasis,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Dimension {
     // auto when both are None
     point: Option<f32>,
     percent: Option<f32>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum AlignProp {
     AlignContent,
     AlignItems,
@@ -79,7 +78,7 @@ pub enum AlignProp {
     JustifyContent,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Align {
     Auto,
     FlexStart,
@@ -97,7 +96,7 @@ pub enum LayoutProp {
     FlexWrap,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum FlexDirection {
     Column,
     ColumnReverse,
@@ -105,28 +104,12 @@ pub enum FlexDirection {
     RowReverse,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum FlexWrap {
     NoWrap,
     Wrap,
     WrapReverse,
 }
-
-/*
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Layout {
-    pub flex_direction: FlexDirection,
-    pub flex_wrap: FlexWrap,
-    pub overflow: Overflow,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub enum Overflow {
-    Visible,
-    Hidden,
-    Scroll,
-}
-*/
 
 #[cfg(feature = "stretch")]
 pub mod stretch;

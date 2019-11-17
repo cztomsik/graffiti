@@ -3,21 +3,17 @@ import * as os from 'os';
 // require() would make ncc bundle some unnecessary build artifacts
 process['dlopen'](module, `${__dirname}/../../libgraffiti/target/libgraffiti.node`)
 
-// alloc some mem for result
-const resBuf = Buffer.alloc(2 * 1024)
-
 export const send = (msg) => {
-  // console.log('send', require('util').inspect(msg, { depth: 4 }))
-
-  // fill with spaces (because of JSON)
-  resBuf.fill(0x20)
-
-  // prepare buffer with msg
-  const buf = Buffer.from(JSON.stringify(msg))
+   console.log('send', require('util').inspect(msg, { depth: 4 }))
 
   // send (sync)
-  exports['nativeSend'](buf, resBuf)
+  exports['nativeSend'](msg)
 
+  // TODO: res
+  // nodejs extension can throw too so maybe everything could be done there
+  return { events: [] }
+
+  /*
   const res = JSON.parse(resBuf.toString('utf-8'))
 
   if (res.error) {
@@ -25,4 +21,17 @@ export const send = (msg) => {
   }
 
   return res
+  */
+}
+
+export const ApiMsg = {
+  CreateWindow: (width, height) => [0, width, height],
+  GetEvents: (poll) => [1, poll]
+}
+
+export const Dimension = {
+  UNDEFINED: [0],
+  AUTO: [1],
+  Points: (points) => [2, points],
+  Percent: (percent) => [3, percent],
 }

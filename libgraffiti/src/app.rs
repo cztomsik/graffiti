@@ -1,5 +1,5 @@
 use crate::commons::{Au, Pos};
-use crate::window::{Window, Event, UpdateSceneMsg};
+use crate::window::{Window, Event, SceneChange};
 use std::collections::BTreeMap;
 use std::ptr;
 use std::os::raw::{c_int, c_uint, c_double};
@@ -64,6 +64,7 @@ impl TheApp {
                 // ideally, we should just block with glfwWaitEvents()
                 // but that would need somehow to send glfwPostEmptyEvent()
                 // if anything in node.js is ready (not just I/O but also timers)
+                // and it's not yet obvious to me how that could be done
                 // so this is definitely good enough for now
                 glfwWaitEventsTimeout(0.15);
             }
@@ -74,8 +75,7 @@ impl TheApp {
         events
     }
 
-    pub fn create_window(&mut self) -> WindowId {
-        let (width, height) = (1024, 768);
+    pub fn create_window(&mut self, width: i32, height: i32) -> WindowId {
         let id = self.next_window_id;
 
         let glfw_window = unsafe {
@@ -110,17 +110,17 @@ impl TheApp {
         id
     }
 
-    pub fn update_window_scene(&mut self, id: WindowId, msg: &UpdateSceneMsg) {
+    pub fn update_window_scene(&mut self, id: WindowId, changes: &[SceneChange]) {
         // can be values_mut once we have glfw_window in window
         for (glfw_window, (w, w_id)) in self.windows.iter_mut() {
             if *w_id == id {
-                w.update_scene(msg);
+                w.update_scene(changes);
                 unsafe { glfwSwapBuffers(*glfw_window) };
                 return;
             }
         }
 
-        error!("got msg for nonexisting window {:?} {:?}", id, msg);
+        error!("tried to update nonexisting window {:?} {:?}", id, changes);
     }
 
     pub fn destroy_window(&mut self, _id: WindowId) {

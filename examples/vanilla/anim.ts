@@ -7,7 +7,7 @@ el.style.backgroundColor = '#f00'
 document.body.style.padding = '20px'
 document.body.appendChild(el)
 
-let LIMIT = 800
+let LIMIT = 400
 let start, i = 0
 
 const step = () => {

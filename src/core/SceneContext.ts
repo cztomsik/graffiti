@@ -72,8 +72,8 @@ export class SceneContext {
 
 class UpdateSceneMsg {
   tree_changes = []
-  text_changes = []
   layout_changes = []
+  text_changes = []
   background_color_changes = []
 
   get empty() {

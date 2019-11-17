@@ -1,14 +1,13 @@
 import { Window } from "../dom/Window";
-import * as ffi from './nativeApi'
+import { send, ApiMsg } from './nativeApi'
 import { performance } from 'perf_hooks'
 
 const windows: Window[] = []
 let animating = false
 let animationFrames: Function[] = []
 
-export const createWindow = () => {
-  // TODO: separate message
-  ffi.send({ poll: false })
+export const createWindow = (width = 1024, height = 768) => {
+  send(ApiMsg.CreateWindow(width, height))
 
   // TODO: holes
   const id = windows.length + 1
@@ -17,13 +16,7 @@ export const createWindow = () => {
 }
 
 const getEvents = () => {
-  // TODO: multi-window
-  if (!windows[1]) {
-    return []
-  }
-
-  // TODO: multi-window
-  return ffi.send({ window: 0, poll: animating }).events
+  return send(ApiMsg.GetEvents(animating)).events
 }
 
 // TODO: not yet sure if it should be global or per-window

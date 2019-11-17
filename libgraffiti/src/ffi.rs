@@ -5,13 +5,6 @@ use crate::window::{Event, UpdateSceneMsg};
 use miniserde::{json, Deserialize, Serialize};
 use std::io::prelude::Write;
 
-static mut APP: Option<TheApp> = None;
-
-#[no_mangle]
-pub extern "C" fn gft_init() {
-    unsafe { APP = Some(TheApp::init()) }
-}
-
 // returning the value would require javascript to copy it to the heap,
 // we can avoid this simply by providing mutable ref to the already allocated
 // (and possibly reused) memory
@@ -89,103 +82,4 @@ pub struct FfiResult {
     // TODO: multi-window
     events: Vec<Event>,
     error: Option<String>
-}
-
-// node.js bindings
-// TODO: could be opt feature
-#[cfg(not(target_arch = "wasm32"))]
-mod nodejs {
-    use super::{gft_init, gft_send};
-    use std::os::raw::{c_int, c_uint, c_char, c_void};
-    #[allow(non_camel_case_types)]
-    use std::ptr;
-
-    // note that special link args are needed (see /build.js)
-    extern "C" {
-        fn napi_module_register(module: *mut NapiModule);
-        fn napi_get_undefined(env: NapiEnv, result: *mut NapiValue);
-        fn napi_set_named_property(env: NapiEnv, object: NapiValue, utf8name: *const c_char, value: NapiValue);
-        fn napi_create_function(env: NapiEnv, utf8name: *const c_char, length: usize, cb: NapiCallback, data: *const c_void, result: *mut NapiValue);
-        fn napi_get_cb_info(env: NapiEnv, cb_info: NapiCallbackInfo, argc: *mut usize, argv: *mut NapiValue, this_arg: *mut NapiValue, data: *mut c_void);
-        fn napi_get_buffer_info(env: NapiEnv, buf: NapiValue, data: *mut *mut c_void, len: *mut usize);
-    }
-
-    #[repr(C)]
-    pub struct NapiModule {
-        nm_version: c_int,
-        nm_flags: c_uint,
-        nm_filename: *const c_char,
-        nm_register_func: unsafe extern "C" fn(NapiEnv, NapiValue) -> NapiValue,
-        nm_modname: *const c_char,
-        nm_priv: *const c_void,
-        reserved: [*const c_void; 4],
-    }
-
-    pub type NapiCallback = unsafe extern "C" fn(NapiEnv, NapiCallbackInfo) -> NapiValue;
-    const NAPI_AUTO_LENGTH: usize = usize::max_value();
-
-    // opque types
-    #[derive(Clone, Copy)] #[repr(C)] pub struct NapiValue(*const c_void);
-    #[derive(Clone, Copy)] #[repr(C)] pub struct NapiEnv(*const c_void);
-    #[repr(C)] pub struct NapiCallbackInfo(*const c_void);
-
-    #[no_mangle]
-    #[cfg_attr(target_os = "linux", link_section = ".ctors")]
-    #[cfg_attr(target_os = "macos", link_section = "__DATA,__mod_init_func")]
-    #[cfg_attr(target_os = "windows", link_section = ".CRT$XCU")]
-    pub static REGISTER_NODE_MODULE: unsafe extern "C" fn() = {
-        static mut NAPI_MODULE: Option<NapiModule> = None;
-
-        unsafe extern "C" fn register_node_module() {
-            silly!("register_node_module");
-
-            NAPI_MODULE = Some(NapiModule {
-                nm_version: 1,
-                nm_flags: 0,
-                nm_filename: c_str!(file!()),
-                nm_register_func: init_node_module,
-                nm_modname: c_str!("libgraffiti"),
-                nm_priv: ptr::null(),
-                reserved: [ptr::null(); 4]
-            });
-
-            napi_module_register(NAPI_MODULE.as_mut().unwrap() as *mut NapiModule);
-        }
-
-        register_node_module    
-    };
-
-    unsafe extern "C" fn init_node_module(env: NapiEnv, exports: NapiValue) -> NapiValue {
-        silly!("init_node_module");
-
-        gft_init();
-
-        let mut method = std::mem::uninitialized();
-        napi_create_function(env, c_str!("libgraffitiSend"), NAPI_AUTO_LENGTH, send_wrapper, ptr::null(), &mut method);
-        napi_set_named_property(env, exports, c_str!("nativeSend"), method);
-
-        exports
-    }
-
-    unsafe extern "C" fn send_wrapper(env: NapiEnv, cb_info: NapiCallbackInfo) -> NapiValue {
-        let mut argc = 2;
-        let mut argv = [std::mem::uninitialized(); 2];
-        let mut this_arg = std::mem::uninitialized();
-        napi_get_cb_info(env, cb_info, &mut argc, &mut argv[0], &mut this_arg, ptr::null_mut());
-
-        let mut msg_data = ptr::null_mut();
-        let mut msg_len = 0;
-        napi_get_buffer_info(env, argv[0], &mut msg_data, &mut msg_len);
-
-        let mut res_data = ptr::null_mut();
-        let mut res_maxlen = 0;
-        napi_get_buffer_info(env, argv[1], &mut res_data, &mut res_maxlen);
-
-        gft_send(std::mem::transmute(msg_data), msg_len, std::mem::transmute(res_data), res_maxlen);
-
-        let mut undefined = std::mem::uninitialized();
-        napi_get_undefined(env, &mut undefined);
-
-        undefined
-    }
 }

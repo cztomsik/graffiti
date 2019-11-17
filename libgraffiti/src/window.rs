@@ -3,7 +3,6 @@ use crate::picker::SurfacePicker;
 use crate::box_layout::{BoxLayout, BoxLayoutImpl, DimensionProp, Dimension, AlignProp, Align, FlexDirection, FlexWrap};
 use crate::text_layout::{TextLayout, Text};
 use crate::render::Renderer;
-use miniserde::{Deserialize, Serialize};
 
 // - delegates to platform for window-related things (TODO)
 // - holds the scene & everything needed for rendering
@@ -20,7 +19,7 @@ pub struct Window {
     picker: SurfacePicker,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Event {
     kind: EventKind,
     target: SurfaceId,
@@ -33,7 +32,7 @@ impl Event {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum EventKind {
     MouseMove,
     MouseDown,
@@ -116,52 +115,48 @@ impl Window {
 
     // apply batch of changes
     // some of this could be done in parallel which means the batch
-    // itself or some part of it  has to be passed to somebody who owns
+    // itself or some part of it has to be passed to somebody who owns
     // all of the systems
     //
     // other things (set_title) can be just plain old methods
     //
     // TODO: introduce some other struct responsible for this
-    pub fn update_scene(&mut self, msg: &UpdateSceneMsg) {
-        for c in &msg.tree_changes {
+    pub fn update_scene(&mut self, changes: &[SceneChange]) {
+        use SceneChange::*;
+
+        for c in changes {
             match c {
-                TreeChange { parent: Some(parent), child: Some(child), index: Some(index) } => {
+                InsertAt { parent, child, index } => {
                     self.box_layout.insert_at(*parent, *child, *index);
                     self.renderer.insert_at(*parent, *child, *index);
                 }
-                TreeChange { parent: Some(parent), child: Some(child), .. } => {
+                RemoveChild { parent, child } => {
                     self.box_layout.remove_child(*parent, *child);
                     self.renderer.remove_child(*parent, *child);
                 }
-                _ => {
+                Alloc => {
                     self.box_layout.alloc();
                     self.renderer.alloc();
                 }
-            }
-        }
 
-        for TextChange { surface, color, text } in &msg.text_changes {
-            if let Some(color) = color {
-                self.renderer.set_text_color(*surface, *color);
-            } else {
-                self.box_layout.set_text(*surface, text.clone());
-                self.text_layout.set_text(*surface, text.clone());
-                self.renderer.set_text(*surface, text.clone());
-            }
-        }
+                Text { surface, text } => {
+                    self.box_layout.set_text(*surface, text.clone());
+                    self.text_layout.set_text(*surface, text.clone());
+                    self.renderer.set_text(*surface, text.clone());
+                }
 
-        for c in &msg.layout_changes {
-            match c {
-                LayoutChange { surface, dim_prop: Some(p), dim: Some(v), .. } => self.box_layout.set_dimension(*surface, *p, *v),
-                LayoutChange { surface, align_prop: Some(p), align: Some(v), .. } => self.box_layout.set_align(*surface, *p, *v),
-                LayoutChange { surface, flex_direction: Some(v), .. } => self.box_layout.set_flex_direction(*surface, *v),
-                LayoutChange { surface, flex_wrap: Some(v), .. } => self.box_layout.set_flex_wrap(*surface, *v),
-                _ => unreachable!("invalid layout change")
-            }
-        }
+                BackgroundColor { surface, value } => self.renderer.set_background_color(*surface, *value),
+                Border { surface, value } => self.renderer.set_border(*surface, *value),
+                BoxShadow { surface, value } => self.renderer.set_box_shadow(*surface, *value),
+                TextColor { surface, value } => self.renderer.set_text_color(*surface, *value),
+                BorderRadius { surface, value } => self.renderer.set_border_radius(*surface, *value),
+                Image { surface, value } => self.renderer.set_image(*surface, *value),
 
-        for c in &msg.background_color_changes {
-            self.renderer.set_background_color(c.surface, c.color);
+                Dimension { surface, prop, value } => self.box_layout.set_dimension(*surface, *prop, *value),
+                Align { surface, prop, value } => self.box_layout.set_align(*surface, *prop, *value),
+                FlexWrap { surface, value } => self.box_layout.set_flex_wrap(*surface, *value),
+                FlexDirection { surface, value } => self.box_layout.set_flex_direction(*surface, *value),
+            }
         }
 
         self.render();
@@ -184,84 +179,27 @@ impl Window {
     }
 }
 
-// TODO: in future, replace miniserde with some custom protocol with
-//     something which is fast to build but still easy to prepare
-//     (maybe some stateful text-based protocol with out-of-order inserts)
-//
-// can't be rust enum because of miniserde
-// optimized for common changes (text, colors, tree)
-#[derive(Serialize, Deserialize, Debug)]
-pub struct UpdateSceneMsg {
-    text_changes: Vec<TextChange>,
-    background_color_changes: Vec<BackgroundColorChange>,
-    layout_changes: Vec<LayoutChange>,
-    tree_changes: Vec<TreeChange>,
+#[derive(Debug)]
+pub enum SceneChange {
+    // tree changes
+    Alloc,
+    InsertAt { parent: SurfaceId, child: SurfaceId, index: usize },
+    RemoveChild { parent: SurfaceId, child: SurfaceId },
+
+    // layout changes
+    Dimension { surface: SurfaceId, prop: DimensionProp, value: Dimension },
+    Align { surface: SurfaceId, prop: AlignProp, value: Align },
+    FlexWrap { surface: SurfaceId, value: FlexWrap },
+    FlexDirection { surface: SurfaceId, value: FlexDirection },
+
+    // visual changes
+    BackgroundColor { surface: SurfaceId, value: Option<Color> },
+    Border { surface: SurfaceId, value: Option<Border> },
+    BoxShadow { surface: SurfaceId, value: Option<BoxShadow> },
+    TextColor { surface: SurfaceId, value: Color },
+    BorderRadius { surface: SurfaceId, value: Option<BorderRadius> },
+    Image { surface: SurfaceId, value: Option<Image> },
+
+    // text changes
+    Text { surface: SurfaceId, text: Option<Text> },
 }
-
-// alloc, insert, remove
-#[derive(Deserialize, Serialize, Debug)]
-pub struct TreeChange {
-    parent: Option<SurfaceId>,
-    child: Option<SurfaceId>,
-    index: Option<usize>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct TextChange {
-    surface: SurfaceId,
-    // either color or text
-    color: Option<Color>,
-    text: Option<Text>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct LayoutChange {
-    surface: SurfaceId,
-
-    dim_prop: Option<DimensionProp>,
-    dim: Option<Dimension>,
-
-    align_prop: Option<AlignProp>,
-    align: Option<Align>,
-
-    flex_wrap: Option<FlexWrap>,
-    flex_direction: Option<FlexDirection>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct BackgroundColorChange {
-    surface: SurfaceId,
-    color: Option<Color>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetRadius {
-    surface: SurfaceId,
-    layout: Option<BorderRadius>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetBorder {
-    surface: SurfaceId,
-    border: Option<Border>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetBoxShadow {
-    surface: SurfaceId,
-    shadow: Option<BoxShadow>,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetImage {
-    surface: SurfaceId,
-    image: Option<Image>,
-}
-
-/*
-#[derive(Deserialize, Serialize, Debug)]
-pub struct SetOverflow {
-    surface: SurfaceId,
-    overflow: Overflow,
-}
-*/
