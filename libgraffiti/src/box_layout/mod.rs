@@ -64,10 +64,11 @@ pub enum DimensionProp {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Dimension {
-    // auto when both are None
-    point: Option<f32>,
-    percent: Option<f32>,
+pub enum Dimension {
+    Undefined,
+    Auto,
+    Points { value: f32 },
+    Percent { value: f32 },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -89,11 +90,6 @@ pub enum Align {
     SpaceBetween,
     SpaceAround,
     SpaceEvenly,
-}
-
-pub enum LayoutProp {
-    FlexDirection,
-    FlexWrap,
 }
 
 #[derive(Debug, Clone, Copy)]

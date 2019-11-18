@@ -8,7 +8,9 @@ pub type Au = f32;
 pub type SurfaceId = usize;
 
 /// Packed color
-#[derive(Debug, Clone)]
+// TODO: inspect if Color is really copied and consider #[repr(u32)] instead
+// TODO: inspect Bounds copying too
+#[derive(Debug, Clone, Copy)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -27,7 +29,7 @@ impl Color {
 }
 
 /// 2D Point
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Pos {
     pub x: Au,
     pub y: Au
@@ -87,15 +89,15 @@ impl Bounds {
 
 // not yet sure where to put these
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct BorderRadius {
-    top: f32,
-    right: f32,
-    bottom: f32,
-    left: f32,
+    pub top: f32,
+    pub right: f32,
+    pub bottom: f32,
+    pub left: f32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Border {
     pub top: BorderSide,
     pub right: BorderSide,
@@ -103,20 +105,20 @@ pub struct Border {
     pub left: BorderSide,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct BorderSide {
     pub width: f32,
     pub style: BorderStyle,
     pub color: Color,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum BorderStyle {
     None,
     Solid,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct BoxShadow {
     pub color: Color,
     pub offset: Pos,
@@ -124,7 +126,7 @@ pub struct BoxShadow {
     pub spread: f32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Image {
     pub url: String,
 }

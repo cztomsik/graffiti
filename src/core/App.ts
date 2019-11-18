@@ -59,6 +59,7 @@ const runLoop = () => {
 
   // setTimeout is too slow but we want to let other handlers fire too
   setImmediate(runLoop)
+  //setTimeout(runLoop, 1000)
 }
 
 setTimeout(() => runLoop())

@@ -1,5 +1,6 @@
 import { camelCase, pascalCase, kebabCase, parseColor, UNSUPPORTED } from '../core/utils'
 import { SceneContext } from '../core/SceneContext'
+import { TextAlign } from '../core/nativeApi'
 
 // minimal impl just to get something working
 export class CSSStyleDeclaration {
@@ -72,12 +73,12 @@ export class CSSStyleDeclaration {
       case 'content':
         this.text = { ...this.text, [camelCase(k)]: v }
 
-        this._scene.setText(this._surfaceId, (this.text.content || undefined) && {
-          font_size: this.text.fontSize || 16,
-          line_height: this.text.lineHeight || this.text.fontSize || 16,
-          align: pascalCase(this.text.align || 'left'),
-          text: this.text.content
-        })
+        this._scene.setText(this._surfaceId, (this.text.content || undefined) && [
+          this.text.fontSize || 16,
+          this.text.lineHeight || this.text.fontSize || 16,
+          TextAlign[pascalCase(this.text.align || 'left')],
+          this.text.content
+        ])
         break
 
       // TODO: defaults, but be careful
@@ -149,14 +150,18 @@ function parseDimension(value?: string | number) {
   value = '' + value
 
   if (value.endsWith('%')) {
-    return { percent: parseFloat(value) }
+    return [3, parseFloat(value)]
   }
 
-  if (value === 'auto' || value === undefined) {
-    return {}
+  if (value === undefined) {
+    return [0]
   }
 
-  return { point: parseFloat(value) }
+  if (value === 'auto') {
+    return [1]
+  }
+
+  return [2, parseFloat(value)]
 }
 
 function installProxy(style: any) {

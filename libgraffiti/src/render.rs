@@ -404,9 +404,5 @@ struct Vertex<T>(Pos, T);
 // could be configurable but it's probably better to play it safe
 type VertexIndex = u16;
 
-// TODO: inspect if Color is really copied and consider #[repr(u32)] instead
-// TODO: inspect Bounds copying too
-impl Copy for Color {}
-
 // TODO: once opaque pass is added, Z is needed for both opaque & alpha passes!
 type Rect = Quad<Color>;

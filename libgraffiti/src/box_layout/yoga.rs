@@ -95,7 +95,7 @@ impl BoxLayout for YogaLayout {
 
         unsafe {
             match value {
-                Dimension { point: None, percent: None } => match prop {
+                Dimension::Auto => match prop {
                     DimensionProp::Width => YGNodeStyleSetWidthAuto(n),
                     DimensionProp::Height => YGNodeStyleSetHeightAuto(n),
 
@@ -110,7 +110,7 @@ impl BoxLayout for YogaLayout {
                         error!("unexpected {:?} {:?}", &prop, &value);
                     }
                 },
-                Dimension { percent: Some(v), .. } => match prop {
+                Dimension::Percent { value: v } => match prop {
                     DimensionProp::Width => YGNodeStyleSetWidthPercent(n, v),
                     DimensionProp::Height => YGNodeStyleSetHeightPercent(n, v),
                     DimensionProp::MinWidth => YGNodeStyleSetMinWidthPercent(n, v),
@@ -134,9 +134,7 @@ impl BoxLayout for YogaLayout {
                         error!("unexpected {:?} {:?}", &prop, &value);
                     }
                 },
-                Dimension { point: v, .. } => {
-                    let v = v.unwrap_or(YGUndefined);
-
+                Dimension::Points { value: v } => {
                     match prop {
                         DimensionProp::Width => YGNodeStyleSetWidth(n, v),
                         DimensionProp::Height => YGNodeStyleSetHeight(n, v),
@@ -159,6 +157,9 @@ impl BoxLayout for YogaLayout {
                         DimensionProp::FlexShrink => YGNodeStyleSetFlexShrink(n, v),
                         DimensionProp::FlexBasis => YGNodeStyleSetFlexBasis(n, v),
                     }
+                }
+                Dimension::Undefined => {
+                    self.set_dimension(surface, prop, Dimension::Points { value: YGUndefined })
                 }
             }
         }

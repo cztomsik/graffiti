@@ -126,7 +126,7 @@ impl BoxLayout for StretchLayout {
 
     fn set_border(&mut self, surface: SurfaceId, _border: Option<Border>) {
         self.update_style(surface, |_s| {
-            debug!("TODO: set border layout");
+            error!("TODO: set border layout");
         });
     }
 

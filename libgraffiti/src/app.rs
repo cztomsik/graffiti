@@ -150,7 +150,7 @@ unsafe extern "C" fn handle_glfw_cursor_pos(w: *mut GlfwWindow, x: c_double, y: 
 }
 
 unsafe extern "C" fn handle_glfw_scroll(_w: *mut GlfwWindow, _: c_double, _: c_double) {
-    debug!("TODO: handle_glfw_scroll");
+    error!("TODO: handle_glfw_scroll");
 }
 
 unsafe extern "C" fn handle_glfw_mouse_button(w: *mut GlfwWindow, _button: c_int, action: c_int, _mods: c_int) {

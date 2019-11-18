@@ -69,7 +69,7 @@ export class Node extends EventTarget {
 
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
 
-    if (child._surface) {
+    if (this._surface && child._surface) {
       this.ownerDocument._scene.removeChild(this._surface, child._surface)
     }
 

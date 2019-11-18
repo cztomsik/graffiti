@@ -1,4 +1,4 @@
-import { send } from './nativeApi'
+import { send, ApiMsg, AlignProp, Align, FlexDirection, FlexWrap, DimensionProp } from './nativeApi'
 
 /**
  * Provides indirect mutation api for the scene, so that we can freely change an
@@ -9,75 +9,59 @@ import { send } from './nativeApi'
 export class SceneContext {
   // because root is 0
   nextId = 1
-  msg = new UpdateSceneMsg()
+  changes = []
 
   constructor(private windowId) {}
 
   createSurface() {
-    this.msg.tree_changes.push({})
+    this.changes.push([0])
     return this.nextId++
   }
 
   insertAt(parent, child, index) {
-    this.msg.tree_changes.push({ parent, child, index })
+    this.changes.push([1, parent, child, index])
   }
 
   removeChild(parent, child) {
-    this.msg.tree_changes.push({ parent, child })
-  }
-
-  setText(surface, text) {
-    this.msg.text_changes.push({ surface, text })
-  }
-
-  setTextColor(surface, color) {
-    this.msg.text_changes.push({ surface, color })
+    this.changes.push([2, parent, child])
   }
 
   setDimension(surface, prop, dim) {
-    this.msg.layout_changes.push({ surface, dim_prop: prop, dim })
+    this.changes.push([3, surface, DimensionProp[prop], dim])
   }
 
   setAlign(surface, prop, align) {
-    this.msg.layout_changes.push({ surface, align_prop: prop, align })
+    this.changes.push([4, surface, AlignProp[prop], Align[align]])
+  }
+
+  setFlexWrap(surface, flexWrap) {
+    this.changes.push([5, surface, FlexWrap[flexWrap]])
   }
 
   setFlexDirection(surface, flex_direction) {
-    this.msg.layout_changes.push({ surface, flex_direction })
-  }
-
-  setFlexWrap(surface, flex_wrap) {
-    this.msg.layout_changes.push({ surface, flex_wrap })
+    this.changes.push([6, surface, FlexDirection[flex_direction]])
   }
 
   setBackgroundColor(surface, color) {
-    this.msg.background_color_changes.push({ surface, color })
+    this.changes.push([7, surface, color])
+  }
+
+  setTextColor(surface, color) {
+    this.changes.push([8, surface, color])
+  }
+
+  setText(surface, text) {
+    this.changes.push([9, surface, text])
   }
 
   flush(animating) {
-    if (this.msg.empty) {
+    if (this.changes.length === 0) {
       return
     }
 
     //console.log(require('util').inspect(this.msg, { depth: 4 }))
-    send({
-      window: this.windowId,
-      poll: animating,
-      update: this.msg
-    })
+    send(ApiMsg.UpdateScene(this.windowId, this.changes))
 
-    this.msg = new UpdateSceneMsg()
+    this.changes.length = 0
   }
 }
-
-class UpdateSceneMsg {
-  tree_changes = []
-  layout_changes = []
-  text_changes = []
-  background_color_changes = []
-
-  get empty() {
-    return ! (this.tree_changes.length || this.text_changes.length || this.layout_changes.length || this.background_color_changes.length)
-  }
-}
-

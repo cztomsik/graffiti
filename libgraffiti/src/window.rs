@@ -140,6 +140,9 @@ impl Window {
                 }
 
                 Text { surface, text } => {
+                    // TODO: box_layout needs only true/false flag if measure is needed
+                    // TODO: renderer needs only font_size, which could be provided from the text_layout,
+                    //   along with the glyph iterator
                     self.box_layout.set_text(*surface, text.clone());
                     self.text_layout.set_text(*surface, text.clone());
                     self.renderer.set_text(*surface, text.clone());
@@ -150,7 +153,7 @@ impl Window {
                 BoxShadow { surface, value } => self.renderer.set_box_shadow(*surface, *value),
                 TextColor { surface, value } => self.renderer.set_text_color(*surface, *value),
                 BorderRadius { surface, value } => self.renderer.set_border_radius(*surface, *value),
-                Image { surface, value } => self.renderer.set_image(*surface, *value),
+                Image { surface, value } => self.renderer.set_image(*surface, value.clone()),
 
                 Dimension { surface, prop, value } => self.box_layout.set_dimension(*surface, *prop, *value),
                 Align { surface, prop, value } => self.box_layout.set_align(*surface, *prop, *value),

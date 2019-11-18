@@ -18,6 +18,7 @@ extern "C" {
     fn napi_get_value_double(env: NapiEnv, napi_value: NapiValue, result: *mut f64) -> NapiStatus;
     fn napi_get_value_bool(env: NapiEnv, napi_value: NapiValue, result: *mut bool) -> NapiStatus;
     fn napi_get_array_length(env: NapiEnv, napi_value: NapiValue, result: *mut u32) -> NapiStatus;
+    fn napi_get_value_string_utf8(env: NapiEnv, napi_value: NapiValue, buf: *mut c_char, bufsize: usize, result: *mut usize) -> NapiStatus;
     fn napi_typeof(env: NapiEnv, napi_value: NapiValue, result: *mut NapiValueType) -> NapiStatus;
 }
 
@@ -138,7 +139,9 @@ unsafe extern "C" fn send_wrapper(env: NapiEnv, cb_info: NapiCallbackInfo) -> Na
 
     ENV = env;
 
-    (*API).send(argv[0].into());
+    let msg = argv[0].into2();
+    debug!("msg {:?}", &msg);
+    (*API).send(msg);
 
     // TODO: res/events/...
 
@@ -149,55 +152,76 @@ unsafe extern "C" fn send_wrapper(env: NapiEnv, cb_info: NapiCallbackInfo) -> Na
 static mut API: *mut Api = ptr::null_mut();
 static mut ENV: NapiEnv = NapiEnv(ptr::null_mut());
 
+// hack our own From, Into traits
+// because of orphaning and also because of conflicting trait impl
+// (somebody put T -> Option<T> conversion to the stdlib)
+trait FromNapi {
+    fn from(napi_value: NapiValue) -> Self;
+}
 
-// `Into` because of orphanage
-impl <T> Into<Vec<T>> for NapiValue where T: From<NapiValue> {
-    fn into(self) -> Vec<T> {
-        let len = get_res!(napi_get_array_length, self);
+trait Into2<T> {
+    fn into2(self) -> T;
+}
 
-        (0..len).map(|i| get_res!(napi_get_element, self, i).into()).collect()
+impl <T> Into2<T> for NapiValue where T: FromNapi {
+    fn into2(self) -> T {
+        FromNapi::from(self)
     }
 }
 
-impl <T> Into<Option<T>> for NapiValue where T: From<NapiValue> {
-    fn into(self) -> Option<T> {
-        panic!("TODO")
+impl <T> FromNapi for Vec<T> where T: FromNapi {
+    fn from(napi_value: NapiValue) -> Self {
+        let len = get_res!(napi_get_array_length, napi_value);
+
+        (0..len).map(|i| get_res!(napi_get_element, napi_value, i).into2()).collect()
+    }
+}
+
+impl <T> FromNapi for Option<T> where T: FromNapi {
+    fn from(napi_value: NapiValue) -> Option<T> {
+        let type_of = get_res!(napi_typeof, napi_value);
+
+        if type_of == NapiValueType::Undefined {
+            return None
+        }
+
+        return Some(napi_value.into2());
     }
 }
 
 // TODO: color could fit in V8 smallint and maybe we dont need this then
-impl From<NapiValue> for u8 {
-    fn from(napi_value: NapiValue) -> u8 {
+impl FromNapi for u8 {
+    fn from(napi_value: NapiValue) -> Self {
         get_res!(napi_get_value_uint32, napi_value) as u8
     }
 }
 
-impl From<NapiValue> for u32 {
-    fn from(napi_value: NapiValue) -> u32 {
+impl FromNapi for u32 {
+    fn from(napi_value: NapiValue) -> Self {
         get_res!(napi_get_value_uint32, napi_value)
     }
 }
 
-impl From<NapiValue> for usize {
-    fn from(napi_value: NapiValue) -> usize {
+impl FromNapi for usize {
+    fn from(napi_value: NapiValue) -> Self {
         get_res!(napi_get_value_uint32, napi_value) as usize
     }
 }
 
-impl From<NapiValue> for i32 {
-    fn from(napi_value: NapiValue) -> i32 {
+impl FromNapi for i32 {
+    fn from(napi_value: NapiValue) -> Self {
         get_res!(napi_get_value_int32, napi_value)
     }
 }
 
-impl From<NapiValue> for f64 {
-    fn from(napi_value: NapiValue) -> f64 {
+impl FromNapi for f64 {
+    fn from(napi_value: NapiValue) -> Self {
         get_res!(napi_get_value_double, napi_value)
     }
 }
 
-impl From<NapiValue> for bool {
-    fn from(napi_value: NapiValue) -> bool {
+impl FromNapi for bool {
+    fn from(napi_value: NapiValue) -> Self {
         get_res!(napi_get_value_bool, napi_value)
     }
 }
@@ -205,9 +229,26 @@ impl From<NapiValue> for bool {
 // TODO: js only has doubles but we want f32 for GPU
 // so somewhere it has to be converted but it shouldn't happen often
 // and we probably shouldnt have this either
-impl From<NapiValue> for f32 {
-    fn from(napi_value: NapiValue) -> f32 {
+impl FromNapi for f32 {
+    fn from(napi_value: NapiValue) -> Self {
         get_res!(napi_get_value_double, napi_value) as f32
+    }
+}
+
+// TODO: for text we only need Vec<char> so maybe there's a better way
+impl FromNapi for String {
+    fn from(napi_value: NapiValue) -> Self {
+        // +1 because of NULL-termination
+        let bufsize = get_res!(napi_get_value_string_utf8, napi_value, ptr::null_mut(), 0) + 1;
+
+        let mut bytes = Vec::with_capacity(bufsize);
+        let written = get_res!(napi_get_value_string_utf8, napi_value, bytes.as_mut_ptr() as *mut i8, bufsize);
+
+        unsafe { 
+            bytes.set_len(written);
+
+            String::from_utf8_unchecked(bytes)
+        }
     }
 }
 
@@ -221,15 +262,28 @@ impl From<NapiValue> for f32 {
 // note that we dont know repetition index in expansion so
 // we need to have a mutable variable for that purpose
 macro_rules! interop {
+    // js number -> #[repr(u8)] SomeEnum
+    ($rust_type:ident(u8) $($rest:tt)*) => (
+        impl FromNapi for $rust_type {
+            fn from(napi_value: NapiValue) -> Self {
+                let num = get_res!(napi_get_value_uint32, napi_value) as u8;
+
+                unsafe { std::mem::transmute(num) }
+            }
+        }
+
+        interop! { $($rest)* }
+    );
+
     // js [a, b, ...] -> SomeRustType { a, b, ... }
     ($rust_type:ident [$($field:ident),+] $($rest:tt)*) => (
-        impl From<NapiValue> for $rust_type {
+        impl FromNapi for $rust_type {
             #[allow(unused_assignments)]
-            fn from(napi_value: NapiValue) -> $rust_type {
+            fn from(napi_value: NapiValue) -> Self {
                 let mut i = 0;
 
                 $(
-                    let $field = get_res!(napi_get_element, napi_value, i).into();
+                    let $field = get_res!(napi_get_element, napi_value, i).into2();
                     i += 1;
                 )*
 
@@ -243,19 +297,19 @@ macro_rules! interop {
     // tagged union
     // js [0, a, b, ...] -> SomeEnum::FirstVariant { a, b, ... }
     ($rust_type:ident { $($variant:tt { $($field:ident),* }),+ } $($rest:tt)*) => (
-        impl From<NapiValue> for $rust_type {
+        impl FromNapi for $rust_type {
             #[allow(unused_assignments)]
-            fn from(napi_value: NapiValue) -> $rust_type {
+            fn from(napi_value: NapiValue) -> Self {
                 let mut i = 0;
                 let mut variant_i = 0;
 
-                let tag: u32 = get_res!(napi_get_element, napi_value, i).into();
+                let tag: u32 = get_res!(napi_get_element, napi_value, i).into2();
                 i += 1;
 
                 $(
                     if tag == variant_i {
                         $(
-                            let $field = get_res!(napi_get_element, napi_value, i).into();
+                            let $field = get_res!(napi_get_element, napi_value, i).into2();
                             i += 1;
                         )*
 
@@ -276,9 +330,10 @@ macro_rules! interop {
 }
 
 
-use crate::commons::{Pos, Color, BoxShadow, Border, BorderSide, BorderRadius};
+use crate::commons::{Pos, Color, BoxShadow, Border, BorderSide, BorderRadius, BorderStyle, Image};
 use crate::window::{SceneChange};
 use crate::box_layout::{DimensionProp, Dimension, AlignProp, Align, FlexWrap, FlexDirection};
+use crate::text_layout::{Text, TextAlign};
 
 interop! {
     ApiMsg {
@@ -298,13 +353,20 @@ interop! {
         FlexDirection { surface, value },
 
         BackgroundColor { surface, value },
-        Border { surface, value },
-        BoxShadow { surface, value },
+        //Border { surface, value },
+        //BoxShadow { surface, value },
         TextColor { surface, value },
-        BorderRadius { surface, value },
-        Image { surface, value },
+        //BorderRadius { surface, value },
+        //Image { surface, value },
 
         Text { surface, text }
+    }
+
+    Dimension {
+        Undefined {},
+        Auto {},
+        Points { value },
+        Percent { value }
     }
 
     Color [r, g, b, a]
@@ -313,4 +375,14 @@ interop! {
     BorderSide [width, style, color]
     BoxShadow [color, offset, blur, spread]
     Pos [x, y]
+    Image [url]
+    Text [font_size, line_height, align, text]
+
+    DimensionProp(u8)
+    AlignProp(u8)
+    Align(u8)
+    TextAlign(u8)
+    BorderStyle(u8)
+    FlexWrap(u8)
+    FlexDirection(u8)
 }
