@@ -1,5 +1,5 @@
 use crate::app::{TheApp, WindowId};
-use crate::window::{SceneChange};
+use crate::window::{SceneChange, Event};
 
 #[derive(Debug)]
 pub enum ApiMsg {
@@ -25,15 +25,15 @@ pub struct Api {
 }
 
 impl Api {
-    pub fn send(&mut self, msg: ApiMsg) {
+    pub fn send(&mut self, msg: ApiMsg) -> Option<Vec<Event>> {
         use ApiMsg::*;
 
         let Api { app, .. } = self;
 
         match msg {
-            CreateWindow { width, height } => { app.create_window(width, height); }
-            GetEvents { poll } => { app.get_events(poll); }
-            UpdateScene { window, changes } => { app.update_window_scene(window, &changes) }
+            CreateWindow { width, height } => { app.create_window(width, height); None }
+            GetEvents { poll } => { Some(app.get_events(poll)) }
+            UpdateScene { window, changes } => { app.update_window_scene(window, &changes); None }
         }
     }
 }

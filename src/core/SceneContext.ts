@@ -1,4 +1,4 @@
-import { send, ApiMsg, AlignProp, Align, FlexDirection, FlexWrap, DimensionProp } from './nativeApi'
+import { send, ApiMsg, SceneChange, AlignProp, Align, FlexDirection, FlexWrap, DimensionProp } from './nativeApi'
 
 /**
  * Provides indirect mutation api for the scene, so that we can freely change an
@@ -14,44 +14,44 @@ export class SceneContext {
   constructor(private windowId) {}
 
   createSurface() {
-    this.changes.push([0])
+    this.changes.push(SceneChange.Alloc())
     return this.nextId++
   }
 
   insertAt(parent, child, index) {
-    this.changes.push([1, parent, child, index])
+    this.changes.push(SceneChange.InsertAt(parent, child, index))
   }
 
   removeChild(parent, child) {
-    this.changes.push([2, parent, child])
+    this.changes.push(SceneChange.RemoveChild(parent, child))
   }
 
   setDimension(surface, prop, dim) {
-    this.changes.push([3, surface, DimensionProp[prop], dim])
+    this.changes.push(SceneChange.Dimension(surface, DimensionProp[prop], dim))
   }
 
   setAlign(surface, prop, align) {
-    this.changes.push([4, surface, AlignProp[prop], Align[align]])
+    this.changes.push(SceneChange.Align(surface, AlignProp[prop], Align[align]))
   }
 
   setFlexWrap(surface, flexWrap) {
-    this.changes.push([5, surface, FlexWrap[flexWrap]])
+    this.changes.push(SceneChange.FlexWrap(surface, FlexWrap[flexWrap]))
   }
 
   setFlexDirection(surface, flex_direction) {
-    this.changes.push([6, surface, FlexDirection[flex_direction]])
+    this.changes.push(SceneChange.FlexDirection(surface, FlexDirection[flex_direction]))
   }
 
   setBackgroundColor(surface, color) {
-    this.changes.push([7, surface, color])
+    this.changes.push(SceneChange.BackgroundColor(surface, color))
   }
 
   setTextColor(surface, color) {
-    this.changes.push([8, surface, color])
+    this.changes.push(SceneChange.TextColor(surface, color))
   }
 
   setText(surface, text) {
-    this.changes.push([9, surface, text])
+    this.changes.push(SceneChange.Text(surface, text))
   }
 
   flush(animating) {

@@ -16,7 +16,7 @@ export const createWindow = (width = 1024, height = 768) => {
 }
 
 const getEvents = () => {
-  return send(ApiMsg.GetEvents(animating)).events
+  return send(ApiMsg.GetEvents(animating))
 }
 
 // TODO: not yet sure if it should be global or per-window
@@ -32,13 +32,17 @@ const runLoop = () => {
   // maybe we could use async_hooks to know if there was anything requested and if not,
   // just wait indefinitely
 
-  for (const event of getEvents()) {
-    /*
-    if (event.tag === 'WindowEvent') {
-      this.windows[event.value.window].handleEvent(event.value.event)
+  const events = getEvents()
+
+  if (events !== undefined) {
+    for (const event of events) {
+      /*
+      if (event.tag === 'WindowEvent') {
+        this.windows[event.value.window].handleEvent(event.value.event)
+      }
+      */
+      windows[1].handleEvent(event)
     }
-    */
-    windows[1].handleEvent(event)
   }
 
   if (animating = animationFrames.length > 0) {

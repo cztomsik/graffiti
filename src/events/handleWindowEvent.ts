@@ -1,5 +1,6 @@
 import { Document } from '../dom/Document'
 import { Event } from './Event'
+import { EventKind } from '../core/nativeApi'
 
 // events
 //
@@ -9,17 +10,18 @@ import { Event } from './Event'
 //   the same but it's great not having to re-learn everything
 // - bubbling has its issues but any different approach would be very surprising
 
+// event is [kind, target, key]
 export function handleWindowEvent(document: Document, event) {
   // console.log(event)
 
   let e = event as any
-  let target = (e.target !== undefined) && document._getEl(e.target)
+  let target = (e[1] !== undefined) && document._getEl(e[1])
 
-  switch (event.kind) {
-    case 'Close': {
+  switch (event[0]) {
+    case EventKind.Close: {
       return process.exit(0)
     }
-    case 'MouseMove': {
+    case EventKind.MouseMove: {
       const prevTarget = document._overElement
       dispatch('mousemove', document._overElement = target, { target })
 
@@ -30,10 +32,10 @@ export function handleWindowEvent(document: Document, event) {
 
       return
     }
-    case 'MouseDown': {
+    case EventKind.MouseDown: {
       return dispatch('mousedown', document._clickedElement = target, { target })
     }
-    case 'MouseUp': {
+    case EventKind.MouseUp: {
       dispatch('mouseup', target, { target })
 
       // TODO: only els with tabindex should be focusable
@@ -57,15 +59,15 @@ export function handleWindowEvent(document: Document, event) {
     // keydown - key is up, after action, can be prevented
     // beforeinput - event.data contains new chars, may be empty when removing
     // input - like input, but after update (not sure if it's possible to do this on this level)
-    case 'KeyDown': {
+    case EventKind.KeyDown: {
       const target = document.activeElement
-      const code = getKeyCode(event.key)
+      const code = getKeyCode(event[2])
       dispatch('keydown', target, { target, code })
       return
     }
-    case 'KeyPress': {
+    case EventKind.KeyPress: {
       const target = document.activeElement
-      const key = String.fromCharCode(event.key)
+      const key = String.fromCharCode(event[2])
 
       dispatch('keypress', target, { target, key })
       return

@@ -15,5 +15,4 @@ mod text_layout;
 mod picker;
 mod render;
 
-#[cfg(not(target_arch = "wasm32"))]
-mod nodejs;
+mod interop;

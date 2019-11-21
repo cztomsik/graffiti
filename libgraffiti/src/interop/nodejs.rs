@@ -1,6 +1,6 @@
 // node.js bindings
 
-use crate::{Api, ApiMsg, init_api};
+use crate::{Api, init_api};
 use std::os::raw::{c_int, c_uint, c_char, c_void};
 use std::ptr;
 use std::mem;
@@ -12,7 +12,8 @@ extern "C" {
     fn napi_set_named_property(env: NapiEnv, object: NapiValue, utf8name: *const c_char, value: NapiValue) -> NapiStatus;
     fn napi_create_function(env: NapiEnv, utf8name: *const c_char, length: usize, cb: NapiCallback, data: *const c_void, result: *mut NapiValue) -> NapiStatus;
     fn napi_get_cb_info(env: NapiEnv, cb_info: NapiCallbackInfo, argc: *mut usize, argv: *mut NapiValue, this_arg: *mut NapiValue, data: *mut c_void) -> NapiStatus;
-    fn napi_get_element(env: NapiEnv, napi_value: NapiValue, index: u32, result: *mut NapiValue) -> NapiStatus;
+    fn napi_get_element(env: NapiEnv, arr: NapiValue, index: u32, result: *mut NapiValue) -> NapiStatus;
+    fn napi_set_element(env: NapiEnv, arr: NapiValue, index: u32, value: NapiValue) -> NapiStatus;
     fn napi_get_value_uint32(env: NapiEnv, napi_value: NapiValue, result: *mut u32) -> NapiStatus;
     fn napi_get_value_int32(env: NapiEnv, napi_value: NapiValue, result: *mut i32) -> NapiStatus;
     fn napi_get_value_double(env: NapiEnv, napi_value: NapiValue, result: *mut f64) -> NapiStatus;
@@ -20,6 +21,8 @@ extern "C" {
     fn napi_get_array_length(env: NapiEnv, napi_value: NapiValue, result: *mut u32) -> NapiStatus;
     fn napi_get_value_string_utf8(env: NapiEnv, napi_value: NapiValue, buf: *mut c_char, bufsize: usize, result: *mut usize) -> NapiStatus;
     fn napi_typeof(env: NapiEnv, napi_value: NapiValue, result: *mut NapiValueType) -> NapiStatus;
+    fn napi_create_uint32(env: NapiEnv, value: u32, result: *mut NapiValue) -> NapiStatus;
+    fn napi_create_array(env: NapiEnv, result: *mut NapiValue) -> NapiStatus;
 }
 
 #[repr(C)]
@@ -141,12 +144,8 @@ unsafe extern "C" fn send_wrapper(env: NapiEnv, cb_info: NapiCallbackInfo) -> Na
 
     let msg = argv[0].into2();
     debug!("msg {:?}", &msg);
-    (*API).send(msg);
-
-    // TODO: res/events/...
-
-    // TODO: could be static & shared?
-    get_res!(napi_get_undefined)
+    
+    (*API).send(msg).into()
 }
 
 static mut API: *mut Api = ptr::null_mut();
@@ -177,8 +176,20 @@ impl <T> FromNapi for Vec<T> where T: FromNapi {
     }
 }
 
+impl <T> From<Vec<T>> for NapiValue where T: Into<NapiValue> + Copy {
+    fn from(value: Vec<T>) -> Self {
+        let arr = get_res!(napi_create_array);
+
+        for (i, it) in value.iter().enumerate() {
+            unsafe { napi_set_element(ENV, arr, i as u32, (*it).into()); }
+        }
+
+        arr
+    }
+}
+
 impl <T> FromNapi for Option<T> where T: FromNapi {
-    fn from(napi_value: NapiValue) -> Option<T> {
+    fn from(napi_value: NapiValue) -> Self {
         let type_of = get_res!(napi_typeof, napi_value);
 
         if type_of == NapiValueType::Undefined {
@@ -189,10 +200,61 @@ impl <T> FromNapi for Option<T> where T: FromNapi {
     }
 }
 
+impl <T> From<Option<T>> for NapiValue where T: Into<NapiValue> {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            None => get_res!(napi_get_undefined),
+            Some(v) => v.into()
+        }
+    }
+}
+
+impl From<f32> for NapiValue {
+    fn from(_value: f32) -> Self {
+        panic!("TODO");
+    }
+}
+
+impl From<String> for NapiValue {
+    fn from(_value: String) -> Self {
+        panic!("TODO");
+    }
+}
+
 // TODO: color could fit in V8 smallint and maybe we dont need this then
 impl FromNapi for u8 {
     fn from(napi_value: NapiValue) -> Self {
         get_res!(napi_get_value_uint32, napi_value) as u8
+    }
+}
+
+impl From<u8> for NapiValue {
+    fn from(value: u8) -> Self {
+        get_res!(napi_create_uint32, value as u32)
+    }
+}
+
+impl From<u16> for NapiValue {
+    fn from(value: u16) -> Self {
+        get_res!(napi_create_uint32, value as u32)
+    }
+}
+
+impl From<u32> for NapiValue {
+    fn from(value: u32) -> Self {
+        get_res!(napi_create_uint32, value as u32)
+    }
+}
+
+impl From<usize> for NapiValue {
+    fn from(value: usize) -> Self {
+        get_res!(napi_create_uint32, value as u32)
+    }
+}
+
+impl FromNapi for u16 {
+    fn from(napi_value: NapiValue) -> Self {
+        get_res!(napi_get_value_uint32, napi_value) as u16
     }
 }
 
@@ -235,6 +297,9 @@ impl FromNapi for f32 {
     }
 }
 
+// V8 strings can be encoded in many ways so we NEED to convert them
+// (https://stackoverflow.com/questions/40512393/understanding-string-heap-size-in-javascript-v8)
+//
 // TODO: for text we only need Vec<char> so maybe there's a better way
 impl FromNapi for String {
     fn from(napi_value: NapiValue) -> Self {
@@ -272,6 +337,12 @@ macro_rules! interop {
             }
         }
 
+        impl From<$rust_type> for NapiValue {
+            fn from(value: $rust_type) -> Self {
+                get_res!(napi_create_uint32, unsafe { std::mem::transmute(value as u32) })
+            }
+        }
+
         interop! { $($rest)* }
     );
 
@@ -288,6 +359,21 @@ macro_rules! interop {
                 )*
 
                 $rust_type { $($field),* }
+            }
+        }
+
+        impl From<$rust_type> for NapiValue {
+            #[allow(unused_assignments)]
+            fn from(value: $rust_type) -> Self {
+                let mut i = 0;
+                let arr = get_res!(napi_create_array);
+
+                $(
+                    unsafe { napi_set_element(ENV, arr, i, value.$field.into()); }
+                    i += 1;
+                )*
+
+                arr
             }
         }
 
@@ -329,60 +415,4 @@ macro_rules! interop {
 
 }
 
-
-use crate::commons::{Pos, Color, BoxShadow, Border, BorderSide, BorderRadius, BorderStyle, Image};
-use crate::window::{SceneChange};
-use crate::box_layout::{DimensionProp, Dimension, AlignProp, Align, FlexWrap, FlexDirection};
-use crate::text_layout::{Text, TextAlign};
-
-interop! {
-    ApiMsg {
-        CreateWindow { width, height },
-        GetEvents { poll },
-        UpdateScene { window, changes }
-    }
-
-    SceneChange {
-        Alloc {},
-        InsertAt { parent, child, index },
-        RemoveChild { parent, child },
-
-        Dimension { surface, prop, value },
-        Align { surface, prop, value },
-        FlexWrap { surface, value },
-        FlexDirection { surface, value },
-
-        BackgroundColor { surface, value },
-        //Border { surface, value },
-        //BoxShadow { surface, value },
-        TextColor { surface, value },
-        //BorderRadius { surface, value },
-        //Image { surface, value },
-
-        Text { surface, text }
-    }
-
-    Dimension {
-        Undefined {},
-        Auto {},
-        Points { value },
-        Percent { value }
-    }
-
-    Color [r, g, b, a]
-    BorderRadius [top, right, bottom, left]
-    Border [top, right, bottom, left]
-    BorderSide [width, style, color]
-    BoxShadow [color, offset, blur, spread]
-    Pos [x, y]
-    Image [url]
-    Text [font_size, line_height, align, text]
-
-    DimensionProp(u8)
-    AlignProp(u8)
-    Align(u8)
-    TextAlign(u8)
-    BorderStyle(u8)
-    FlexWrap(u8)
-    FlexDirection(u8)
-}
+include!("generated.rs");

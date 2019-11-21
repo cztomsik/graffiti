@@ -19,11 +19,11 @@ pub struct Window {
     picker: SurfacePicker,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Event {
-    kind: EventKind,
-    target: SurfaceId,
-    key: u16,
+    pub kind: EventKind,
+    pub target: SurfaceId,
+    pub key: u16,
 }
 
 impl Event {
@@ -32,7 +32,7 @@ impl Event {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum EventKind {
     MouseMove,
     MouseDown,
