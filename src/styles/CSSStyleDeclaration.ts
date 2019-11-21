@@ -1,6 +1,6 @@
 import { camelCase, pascalCase, kebabCase, parseColor, UNSUPPORTED } from '../core/utils'
 import { SceneContext } from '../core/SceneContext'
-import { TextAlign } from '../core/nativeApi'
+import { Text, TextAlign } from '../core/nativeApi'
 
 // minimal impl just to get something working
 export class CSSStyleDeclaration {
@@ -73,12 +73,12 @@ export class CSSStyleDeclaration {
       case 'content':
         this.text = { ...this.text, [camelCase(k)]: v }
 
-        this._scene.setText(this._surfaceId, (this.text.content || undefined) && [
+        this._scene.setText(this._surfaceId, (this.text.content || undefined) && Text(
           this.text.fontSize || 16,
           this.text.lineHeight || this.text.fontSize || 16,
           TextAlign[pascalCase(this.text.align || 'left')],
           this.text.content
-        ])
+        ))
         break
 
       // TODO: defaults, but be careful

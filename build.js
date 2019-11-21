@@ -29,44 +29,38 @@ const extraArgs = process.argv.slice(2)
 const isRelease = extraArgs.includes('--release')
 const isWasm = extraArgs.includes('--target') && extraArgs.find(opt => opt.match(/wasm/))
 const linkerOpts = isWasm
-  ?'-Clink-args="-s USE_GLFW=3 -s USE_WEBGL2=1 -s FULL_ES3=1"'
-  :(os.platform() === 'darwin')
-    ?'-Clink-args="-undefined dynamic_lookup"'
-    :'-Clink-args="-undefined=dynamic_lookup"'
-const libSuffix = (os.platform() === 'darwin') ?'dylib' :'so'
+  ? '-Clink-args="-s USE_GLFW=3 -s USE_WEBGL2=1 -s FULL_ES3=1"'
+  : os.platform() === 'darwin'
+  ? '-Clink-args="-undefined dynamic_lookup"'
+  : '-Clink-args="-undefined=dynamic_lookup"'
+const libSuffix = os.platform() === 'darwin' ? 'dylib' : 'so'
 const targetDir = `${__dirname}/libgraffiti/target`
 
 // parse rust & generate interop:
 // - ./libgraffiti/src/interop/generated.rs
 // - ./src/core/interop.ts
 generateInterop([
-    ['api', 'ApiMsg'],
-    ['commons', 'Pos', 'Color', 'BoxShadow', 'Border', 'BorderSide', 'BorderRadius', 'BorderStyle', 'Image'],
-    ['window', 'SceneChange', 'Event', 'EventKind'],
-    ['box_layout/mod', 'DimensionProp', 'Dimension', 'AlignProp', 'Align', 'FlexWrap', 'FlexDirection'],
-    ['text_layout', 'Text', 'TextAlign']
+  ['api', 'ApiMsg'],
+  ['commons', 'Pos', 'Color', 'BoxShadow', 'Border', 'BorderSide', 'BorderRadius', 'BorderStyle', 'Image'],
+  ['window', 'SceneChange', 'Event', 'EventKind'],
+  ['box_layout/mod', 'DimensionProp', 'Dimension', 'AlignProp', 'Align', 'FlexWrap', 'FlexDirection'],
+  ['text_layout', 'Text', 'TextAlign']
 ])
 
-const { status } = child_process.spawnSync(
-  'cargo',
-  [
-    'rustc',
-    ...extraArgs,
-    '--',
-    linkerOpts
-  ],
-  {
-    cwd: `${__dirname}/libgraffiti`,
-    stdio: 'inherit',
-    shell: true
-  }
-)
+const { status } = child_process.spawnSync('cargo', ['rustc', ...extraArgs, '--', linkerOpts], {
+  cwd: `${__dirname}/libgraffiti`,
+  stdio: 'inherit',
+  shell: true
+})
 
 if (status) {
   process.exit(status)
 }
 
-fs.copyFileSync(`${targetDir}/${isRelease ?'release' :'debug'}/libgraffiti.${libSuffix}`, `${targetDir}/libgraffiti.node`)
+fs.copyFileSync(
+  `${targetDir}/${isRelease ? 'release' : 'debug'}/libgraffiti.${libSuffix}`,
+  `${targetDir}/libgraffiti.node`
+)
 
 function generateInterop(mods) {
   const structs = []
@@ -93,56 +87,82 @@ function generateInterop(mods) {
           enums.push([t, body])
         } else {
           // tagged union, parse variants, fields are enough
-          const variants = parseAll(body, /(\w+)\s*(?:{(.*?)}|,|\s*$)/g, m => [m[1], parseAll(m[2], /(\w+):/g, m => m[1])])
+          const variants = parseAll(body, /(\w+)\s*(?:{(.*?)}|,|\s*$)/g, m => [
+            m[1],
+            parseAll(m[2], /(\w+):/g, m => m[1])
+          ])
           taggedUnions.push([t, variants])
         }
       }
     }
   }
 
-  fs.writeFileSync(`${__dirname}/libgraffiti/src/interop/generated.rs`, `
-    // generated
+  write(`${__dirname}/libgraffiti/src/interop/generated.rs`, rustInterop())
+  write(`${__dirname}/src/core/interop.ts`, tsInterop())
 
-    ${mods.map(([m, ...types]) => `use crate::${m.replace(/\//g, '::').replace('::mod', '')}::{${types}};`).join('\n')}
+  function rustInterop() {
+    return `// generated
 
-    interop! {
-        ${taggedUnions.map(([name, variants]) => `
-            ${name} {
-                ${variants.map(([v, fields]) => `${v} { ${fields} }`)}
-            }
-        `).join('\n')}
+    \n${mods
+      .map(([m, ...types]) => `use crate::${m.replace(/\//g, '::').replace('::mod', '')}::{${types}};`)
+      .join('\n')}
 
-        ${structs.map(([name, fields]) => `${name} [${fields}]`).join('\n')}
+    \ninterop! {
+      \n${taggedUnions
+        .map(
+          ([name, variants]) =>
+            `  ${name} { \n${variants.map(([v, fields]) => `    ${v} { ${fields.join(', ')} }`).join(',\n')} \n  }`
+        )
+        .join('\n')}
 
-        ${enums.map(([name, body]) => `${name}(u8)`).join('\n')}
-    }
-  `)
+      \n${structs.map(([name, fields]) => `  ${name} [${fields}]`).join('\n')}
 
-  fs.writeFileSync(`${__dirname}/src/core/interop.ts`, `
-    // generated
-
-    ${enums.map(([name, body]) => `export enum ${name} { ${body} }`).join('\n')}
-
-    ${taggedUnions.map(([name, variants]) => `
-      export module ${name} {
-        ${variants.map(([v, fields], i) => `export const ${v} = (${fields}) => [${i}, ${fields}]`).join('\n')}
-      }
-    `).join('\n')}
-  `)
-}
-
-function err(msg) {
-  throw new Error(msg)
-}
-
-function parseAll(str, pattern, mapFn) {
-  let m, res = []
-
-  pattern.lastIndex = 0
-
-  while (m = pattern.exec(str)) {
-    res.push(mapFn(m))
+      \n${enums.map(([name, body]) => `  ${name}(u8)`).join('\n')}
+    \n}
+    `
   }
 
-  return res
+  function tsInterop() {
+    return `// generated
+
+    \n${enums.map(([name, body]) => `\nexport enum ${name} { ${body.trimEnd()} \n}`).join('')}
+
+    \n${structs.map(([name, fields]) => `export const ${name} = (${fields}) => [${fields}]`).join('\n')}
+
+    \n${taggedUnions
+      .map(
+        ([name, variants]) => `export module ${name} {
+        \n${variants.map(([v, fields], i) => `    export const ${v} = (${fields}) => [${i}, ${fields}]`).join('\n')}
+      \n}
+    `
+      )
+      .join('\n')}
+  `
+  }
+
+  function err(msg) {
+    throw new Error(msg)
+  }
+
+  function parseAll(str, pattern, mapFn) {
+    let m,
+      res = []
+
+    pattern.lastIndex = 0
+
+    while ((m = pattern.exec(str))) {
+      res.push(mapFn(m))
+    }
+
+    return res
+  }
+
+  function write(file, str) {
+    const prev = fs.readFileSync(file, 'utf-8')
+
+    // because of incr. compilation
+    if (str !== prev) {
+      fs.writeFileSync(file, str)
+    }
+  }
 }
