@@ -46,6 +46,14 @@ export class SceneContext {
     this.changes.push(SceneChange.BackgroundColor(surface, color))
   }
 
+  setBorder(surface, border) {
+    this.changes.push(SceneChange.Border(surface, border))
+  }
+
+  setBoxShadow(surface, shadow) {
+    this.changes.push(SceneChange.BoxShadow(surface, shadow))
+  }
+
   setTextColor(surface, color) {
     this.changes.push(SceneChange.TextColor(surface, color))
   }

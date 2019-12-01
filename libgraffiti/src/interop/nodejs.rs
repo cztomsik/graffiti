@@ -307,7 +307,7 @@ impl FromNapi for String {
         let bufsize = get_res!(napi_get_value_string_utf8, napi_value, ptr::null_mut(), 0) + 1;
 
         let mut bytes = Vec::with_capacity(bufsize);
-        let written = get_res!(napi_get_value_string_utf8, napi_value, bytes.as_mut_ptr() as *mut i8, bufsize);
+        let written = get_res!(napi_get_value_string_utf8, napi_value, bytes.as_mut_ptr() as *mut c_char, bufsize);
 
         unsafe { 
             bytes.set_len(written);

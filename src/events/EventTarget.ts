@@ -1,4 +1,5 @@
-import { UNSUPPORTED } from '../core/utils';
+import { UNSUPPORTED } from '../core/utils'
+import { Event } from '../events/Event'
 
 export class EventTarget implements globalThis.EventTarget {
   _listeners: { [type in string]?: readonly EventListenerOrEventListenerObject[] } = {}
@@ -17,6 +18,10 @@ export class EventTarget implements globalThis.EventTarget {
     this._dispatch(event)
 
     return !event.defaultPrevented
+  }
+
+  _fire(type, data = {}) {
+    this.dispatchEvent(Object.assign(new Event(type), { target: this, ...data }))
   }
 
   _dispatch(event) {

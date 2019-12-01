@@ -6,7 +6,9 @@
 // original webpack HMR api
 
 import * as fs from 'fs'
+const { Module } = require('module')
 
+const watchers = new Map()
 let cbs = []
 
 if (process.env.HOT === '1') {
@@ -18,8 +20,10 @@ if (process.env.HOT === '1') {
 
     require.extensions[k] = (mod, file) => {
       if (!file.match(/node_modules/)) {
-        fs.watchFile(file, { interval: 100 }, () => {
+        const watcher = () => {
           console.log(file, 'changed')
+          fs.unwatchFile(file, watcher)
+          watchers.delete(file)
 
           let m = mod
           while (m) {
@@ -31,14 +35,17 @@ if (process.env.HOT === '1') {
           for (const cb of cbs) {
             cb()
           }
-        })
+        }
+
+        fs.watchFile(file, { interval: 100 }, watcher)
+        watchers.set(file, watcher)
       }
 
       fn(mod, file)
     }
   }
 
-  require.main['hot'] = {
+  Module.prototype['hot'] = {
     onChange: (cb) => {
       cbs.push(cb)
     }

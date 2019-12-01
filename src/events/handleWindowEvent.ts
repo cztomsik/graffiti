@@ -39,13 +39,12 @@ export function handleWindowEvent(document: Document, event) {
       dispatch('mouseup', target, { target })
 
       // TODO: only els with tabindex should be focusable
-      if (target === document._clickedElement) {
-        if (target !== document.activeElement) {
-          dispatch('blur', document.activeElement, {
-            target: document.activeElement
-          })
 
-          dispatch('focus', document.activeElement = target, { target })
+      // clicked & released at the same element
+      if (target === document._clickedElement) {
+        // focus change?
+        if (target !== document.activeElement) {
+          target.focus()
         }
 
         dispatch('click', target, { target, button: 0 })
