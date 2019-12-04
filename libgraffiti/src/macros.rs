@@ -1,9 +1,8 @@
 #![allow(unused_macros)]
 
 // very basic logging to save some deps
-// for now it's enabled/disabled by (un)commenting the line
 //
-// auto-enabled with --features silly
+// enable with --features silly,debug
 macro_rules! silly {
     ($($arg:tt)+) => (
         #[cfg(feature = "silly")]
@@ -13,6 +12,7 @@ macro_rules! silly {
 
 macro_rules! debug {
     ($($arg:tt)+) => (
+        #[cfg(feature = "debug")]
         println!($($arg)+);
     )
 }

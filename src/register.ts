@@ -1,4 +1,5 @@
-import { createWindow, _requestAnimationFrame } from './core/App'
+import { createWindow } from '.'
+import { _requestAnimationFrame } from './core/App'
 
 // setup global env for a single window
 // for a lot of apps, this will be enough

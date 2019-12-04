@@ -28,14 +28,14 @@ export const parseColor = (str: string) => {
   }
 
   if (str[0] === '#') {
-    return parseHash(str.slice(1))
+    return parseHashColor(str.slice(1))
   }
 
   throw new Error('only colors starting with # are supported')
 }
 
 // note that in rgba(xx, xx, xx, x), alpha is 0-1
-export const parseHash = (str: string) => {
+export const parseHashColor = (str: string) => {
   let a = 255
 
   switch (str.length) {
@@ -44,7 +44,7 @@ export const parseHash = (str: string) => {
       a = parseHex(str.slice(7, 9))
 
     case 6:
-      return { r: parseHex(str.slice(0, 2)), g: parseHex(str.slice(2, 4)), b: parseHex(str.slice(4, 6)), a }
+      return [parseHex(str.slice(0, 2)), parseHex(str.slice(2, 4)), parseHex(str.slice(4, 6)), a]
 
     // short alpha
     case 4:
@@ -52,7 +52,7 @@ export const parseHash = (str: string) => {
 
     // short
     case 3:
-      return { r: parseHex(str.slice(0, 1)) * 17, g: parseHex(str.slice(1, 2)) * 17, b: parseHex(str.slice(2, 3)) * 17, a }
+      return [parseHex(str.slice(0, 1)) * 17, parseHex(str.slice(1, 2)) * 17, parseHex(str.slice(2, 3)) * 17, a]
 
     default:
       throw new Error(`invalid color #${str}`)

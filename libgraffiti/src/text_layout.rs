@@ -24,7 +24,7 @@ pub struct TextLayout {
     x_height: f32,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Text {
     pub font_size: f32,
     pub line_height: f32,
@@ -33,7 +33,7 @@ pub struct Text {
     pub text: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum TextAlign {
     Left,
     Center,
@@ -118,7 +118,7 @@ impl TextLayout {
             // TODO: atlasing
             let glyph_id = ch;
             let font_glyph = self.font_glyphs.entry(glyph_id).or_insert_with(|| {
-              debug!("no glyph {:?}", glyph_id);
+              error!("no glyph {:?}", glyph_id);
               MISSING_GLYPH
             });
 

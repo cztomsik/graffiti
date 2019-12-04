@@ -1,14 +1,13 @@
 import { Window } from "../dom/Window";
-import * as ffi from './nativeApi'
+import { send, ApiMsg } from './nativeApi'
 import { performance } from 'perf_hooks'
 
 const windows: Window[] = []
 let animating = false
 let animationFrames: Function[] = []
 
-export const createWindow = () => {
-  // TODO: separate message
-  ffi.send({ poll: false })
+export const createWindow = (width = 1024, height = 768) => {
+  send(ApiMsg.CreateWindow(width, height))
 
   // TODO: holes
   const id = windows.length + 1
@@ -17,13 +16,7 @@ export const createWindow = () => {
 }
 
 const getEvents = () => {
-  // TODO: multi-window
-  if (!windows[1]) {
-    return []
-  }
-
-  // TODO: multi-window
-  return ffi.send({ window: 0, poll: animating }).events
+  return send(ApiMsg.GetEvents(animating))
 }
 
 // TODO: not yet sure if it should be global or per-window
@@ -39,13 +32,17 @@ const runLoop = () => {
   // maybe we could use async_hooks to know if there was anything requested and if not,
   // just wait indefinitely
 
-  for (const event of getEvents()) {
-    /*
-    if (event.tag === 'WindowEvent') {
-      this.windows[event.value.window].handleEvent(event.value.event)
+  const events = getEvents()
+
+  if (events !== undefined) {
+    for (const event of events) {
+      /*
+      if (event.tag === 'WindowEvent') {
+        this.windows[event.value.window].handleEvent(event.value.event)
+      }
+      */
+      windows[1].handleEvent(event)
     }
-    */
-    windows[1].handleEvent(event)
   }
 
   if (animating = animationFrames.length > 0) {
@@ -64,7 +61,9 @@ const runLoop = () => {
     windows[windowId].sceneContext.flush(animating)
   }
 
-  setTimeout(runLoop)
+  // setTimeout is too slow but we want to let other handlers fire too
+  setImmediate(runLoop)
+  //setTimeout(runLoop, 1000)
 }
 
 setTimeout(() => runLoop())

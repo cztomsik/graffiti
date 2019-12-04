@@ -7,6 +7,8 @@ import { CSSStyleDeclaration } from '../styles/CSSStyleDeclaration'
 export class Element extends Node {
   id?
   style = new CSSStyleDeclaration(this.ownerDocument._scene, this._surface)
+  // preact needs this sometimes
+  attributes = []
 
   constructor(public ownerDocument: Document, public tagName, _surface) {
     super(ownerDocument, Node.ELEMENT_NODE, _surface)
@@ -40,6 +42,28 @@ export class Element extends Node {
 
   removeAttribute(name) {
     delete this[camelCase(name)]
+  }
+
+  blur() {
+    if (this.ownerDocument.activeElement !== this) {
+      return
+    }
+
+    this._fire('blur')
+    this.ownerDocument.activeElement = null
+  }
+
+  focus() {
+    if (this.ownerDocument.activeElement === this) {
+      return
+    }
+
+    if (this.ownerDocument.activeElement) {
+      this.ownerDocument.activeElement.blur()
+    }
+
+    this.ownerDocument.activeElement = this
+    this._fire('focus')
   }
 
   querySelector(selectors: string): Element | null {

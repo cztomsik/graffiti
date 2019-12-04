@@ -15,7 +15,7 @@ miniserde = "0.1.12"
 # graffiti-yoga = { path = "../../graffiti-yoga/rust" }
 graffiti-yoga = { git = "https://github.com/cztomsik/graffiti-yoga", rev = "5df63ae" }
 # graffiti-glfw = { path = "../../graffiti-glfw/rust" }
-graffiti-glfw = { git = "https://github.com/cztomsik/graffiti-glfw", rev = "82026bb" }
+graffiti-glfw = { git = "https://github.com/cztomsik/graffiti-glfw", rev = "aafd93b" }
 
 # npm run build -- --features stretch
 stretch = { version = "0.3.2", optional = true }
@@ -23,10 +23,16 @@ stretch = { version = "0.3.2", optional = true }
 
 [features]
 default = []
-# include desperate debug msgs
+# include (desperate) debug msgs
+debug = []
 silly = []
 
+[profile.dev]
+panic = "abort"
+
 [profile.release]
+panic = "abort"
+
 # fix raspi --release builds
 # https://github.com/rust-lang/rust/issues/62896
 codegen-units = 1

@@ -14,5 +14,5 @@
     "skipLibCheck": true,
     "outDir": "lib"
   },
-  "include": ["src", "src/react"]
+  "include": ["src"]
 }
