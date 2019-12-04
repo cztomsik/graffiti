@@ -15,7 +15,7 @@ export function handleWindowEvent(document: Document, event) {
   // console.log(event)
 
   let e = event as any
-  let target = (e[1] !== undefined) && document._getEl(e[1])
+  let target = (e[1] !== undefined) ?document._getEl(e[1]) :document.documentElement
 
   switch (event[0]) {
     case EventKind.Close: {
@@ -23,20 +23,26 @@ export function handleWindowEvent(document: Document, event) {
     }
     case EventKind.MouseMove: {
       const prevTarget = document._overElement
-      dispatch('mousemove', document._overElement = target, { target })
+      document._overElement = target
+
+      target._fire('mousemove')
 
       if (target !== prevTarget) {
-        dispatch('mouseout', prevTarget, { target: prevTarget })
-        dispatch('mouseover', target, { target })
+        if (prevTarget) {
+          prevTarget._fire('mouseout')
+        }
+
+        target._fire('mouseover')
       }
 
       return
     }
     case EventKind.MouseDown: {
-      return dispatch('mousedown', document._clickedElement = target, { target })
+      document._clickedElement = target
+      return target._fire('mousedown')
     }
     case EventKind.MouseUp: {
-      dispatch('mouseup', target, { target })
+      target._fire('mouseup')
 
       // TODO: only els with tabindex should be focusable
 
@@ -47,7 +53,7 @@ export function handleWindowEvent(document: Document, event) {
           target.focus()
         }
 
-        dispatch('click', target, { target, button: 0 })
+        target._fire('click', { button: 0 })
       }
 
       return
@@ -60,31 +66,41 @@ export function handleWindowEvent(document: Document, event) {
     // input - like input, but after update (not sure if it's possible to do this on this level)
     case EventKind.KeyDown: {
       const target = document.activeElement
-      const code = getKeyCode(event[2])
-      dispatch('keydown', target, { target, code })
+      const [which, code] = getKey(event[2])
+      target._fire('keydown', { which, keyCode: which, code })
       return
     }
     case EventKind.KeyPress: {
       const target = document.activeElement
-      const key = String.fromCharCode(event[2])
+      const charCode = event[2]
+      const key = String.fromCharCode(charCode)
 
-      dispatch('keypress', target, { target, key })
+      target._fire('keypress', { charCode, key })
       return
     }
-  }
-
-  function dispatch(type, el = document as any, data) {
-    const e = Object.assign(new Event(type), data)
-    el.dispatchEvent(e)
   }
 }
 
 // TODO: https://w3c.github.io/uievents-code/#keyboard-key-codes
-function getKeyCode(scancode) {
+// TODO: array lookup
+function getKey(scancode) {
+  // TODO: return (js-specific numbers) from native, scancodes are platform-specific
   switch (scancode) {
+    case 49:
+      return [32, 'Space']
     case 36:
-      return 'Enter'
+      return [13, 'Enter']
+    case 123:
+      return [37, 'ArrowLeft']
+    case 124:
+      return [39, 'ArrowRight']
+    case 125:
+      return [40, 'ArrowDown']
+    case 126:
+      return [38, 'ArrowUp']
     case 51:
-      return 'Backspace'
+      return [8, 'Backspace']
   }
+
+  return []
 }
