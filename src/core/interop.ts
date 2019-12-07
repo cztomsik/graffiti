@@ -77,6 +77,7 @@ export enum TextAlign {
 
     
 export const Pos = (x,y) => [x,y]
+export const Bounds = (a,b) => [a,b]
 export const Color = (r,g,b,a) => [r,g,b,a]
 export const BoxShadow = (color,offset,blur,spread) => [color,offset,blur,spread]
 export const Border = (top,right,bottom,left) => [top,right,bottom,left]
@@ -92,6 +93,15 @@ export module ApiMsg {
     export const CreateWindow = (width,height) => [0, width,height]
     export const GetEvents = (poll) => [1, poll]
     export const UpdateScene = (window,changes) => [2, window,changes]
+    export const GetBounds = (window,surface) => [3, window,surface]
+      
+}
+    
+export module ApiResponse {
+        
+    export const Events = (events) => [0, events]
+    export const Nothing = () => [1, ]
+    export const Bounds = (bounds) => [2, bounds]
       
 }
     

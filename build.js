@@ -40,8 +40,8 @@ const targetDir = `${__dirname}/libgraffiti/target`
 // - ./libgraffiti/src/interop/generated.rs
 // - ./src/core/interop.ts
 generateInterop([
-  ['api', 'ApiMsg'],
-  ['commons', 'Pos', 'Color', 'BoxShadow', 'Border', 'BorderSide', 'BorderRadius', 'BorderStyle', 'Image'],
+  ['api', 'ApiMsg', 'ApiResponse'],
+  ['commons', 'Pos', 'Bounds', 'Color', 'BoxShadow', 'Border', 'BorderSide', 'BorderRadius', 'BorderStyle', 'Image'],
   ['window', 'SceneChange', 'Event', 'EventKind'],
   ['box_layout/mod', 'DimensionProp', 'Dimension', 'AlignProp', 'Align', 'FlexWrap', 'FlexDirection'],
   ['text_layout', 'Text', 'TextAlign']
@@ -111,7 +111,7 @@ function generateInterop(mods) {
       \n${taggedUnions
         .map(
           ([name, variants]) =>
-            `  ${name} { \n${variants.map(([v, fields]) => `    ${v} { ${fields.join(', ')} }`).join(',\n')} \n  }`
+            `  ${name} { \n${variants.map(([v, fields], i) => `    ${i} ${v} { ${fields.join(', ')} }`).join(',\n')} \n  }`
         )
         .join('\n')}
 

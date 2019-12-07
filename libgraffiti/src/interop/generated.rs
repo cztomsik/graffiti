@@ -1,8 +1,8 @@
 // generated
 
     
-use crate::api::{ApiMsg};
-use crate::commons::{Pos,Color,BoxShadow,Border,BorderSide,BorderRadius,BorderStyle,Image};
+use crate::api::{ApiMsg,ApiResponse};
+use crate::commons::{Pos,Bounds,Color,BoxShadow,Border,BorderSide,BorderRadius,BorderStyle,Image};
 use crate::window::{SceneChange,Event,EventKind};
 use crate::box_layout::{DimensionProp,Dimension,AlignProp,Align,FlexWrap,FlexDirection};
 use crate::text_layout::{Text,TextAlign};
@@ -11,35 +11,42 @@ use crate::text_layout::{Text,TextAlign};
 interop! {
       
   ApiMsg { 
-    CreateWindow { width, height },
-    GetEvents { poll },
-    UpdateScene { window, changes } 
+    0 CreateWindow { width, height },
+    1 GetEvents { poll },
+    2 UpdateScene { window, changes },
+    3 GetBounds { window, surface } 
+  }
+  ApiResponse { 
+    0 Events { events },
+    1 Nothing {  },
+    2 Bounds { bounds } 
   }
   SceneChange { 
-    Alloc {  },
-    InsertAt { parent, child, index },
-    RemoveChild { parent, child },
-    Dimension { surface, prop, value },
-    Align { surface, prop, value },
-    FlexWrap { surface, value },
-    FlexDirection { surface, value },
-    BackgroundColor { surface, value },
-    Border { surface, value },
-    BoxShadow { surface, value },
-    TextColor { surface, value },
-    BorderRadius { surface, value },
-    Image { surface, value },
-    Text { surface, text } 
+    0 Alloc {  },
+    1 InsertAt { parent, child, index },
+    2 RemoveChild { parent, child },
+    3 Dimension { surface, prop, value },
+    4 Align { surface, prop, value },
+    5 FlexWrap { surface, value },
+    6 FlexDirection { surface, value },
+    7 BackgroundColor { surface, value },
+    8 Border { surface, value },
+    9 BoxShadow { surface, value },
+    10 TextColor { surface, value },
+    11 BorderRadius { surface, value },
+    12 Image { surface, value },
+    13 Text { surface, text } 
   }
   Dimension { 
-    Undefined {  },
-    Auto {  },
-    Points { value },
-    Percent { value } 
+    0 Undefined {  },
+    1 Auto {  },
+    2 Points { value },
+    3 Percent { value } 
   }
 
       
   Pos [x,y]
+  Bounds [a,b]
   Color [r,g,b,a]
   BoxShadow [color,offset,blur,spread]
   Border [top,right,bottom,left]

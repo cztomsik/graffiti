@@ -16,7 +16,7 @@ export const createWindow = (width = 1024, height = 768) => {
 }
 
 const getEvents = () => {
-  return send(ApiMsg.GetEvents(animating))
+  return send(ApiMsg.GetEvents(animating))[1]
 }
 
 // TODO: not yet sure if it should be global or per-window
@@ -36,11 +36,7 @@ const runLoop = () => {
 
   if (events !== undefined) {
     for (const event of events) {
-      /*
-      if (event.tag === 'WindowEvent') {
-        this.windows[event.value.window].handleEvent(event.value.event)
-      }
-      */
+      // TODO: multi-window
       windows[1].handleEvent(event)
     }
   }

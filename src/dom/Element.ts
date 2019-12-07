@@ -75,16 +75,56 @@ export class Element extends Node {
     return []
   }
 
-  getBoundingClientRect() {
-    return { x: 0, left: 0, y: 0, top: 0, width: 100, height: 100 }
+  // TODO: display: none
+  get offsetParent() {
+    return this.parentElement
+  }
+
+  get offsetLeft() {
+    const [[left]] = this._bounds
+
+    return left
+  }
+
+  get offsetTop() {
+    const [[, top]] = this._bounds
+
+    return top
   }
 
   get offsetWidth() {
-    return 0
+    const [[left], [right]] = this._bounds
+
+    return right - left
   }
 
   get offsetHeight() {
+    const [[, top], [, bottom]] = this._bounds
+
+    return bottom - top
+  }
+
+  // TODO
+  get scrollLeft() {
     return 0
+  }
+
+  // TODO
+  get scrollTop() {
+    return 0
+  }
+
+  // TODO: "relative" to the viewport (excluding scrollX, scrollY)
+  getBoundingClientRect() {
+    // TODO: DOMRect
+    const [[left, top], [bottom, right]] = this._bounds
+
+    // TODO: spec allows negative width/height
+    return { x: left, y: top, left, top, bottom, right, width: right - left, height: bottom - top }
+  }
+
+  get _bounds() {
+    return this.ownerDocument._scene.getBounds(this._surface)
   }
 
   set textContent(v) {
