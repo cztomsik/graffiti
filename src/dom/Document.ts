@@ -24,6 +24,7 @@ export class Document extends Node {
   constructor(public defaultView: Window) {
     super(null, Node.DOCUMENT_NODE, 0)
 
+    this.documentElement.parentNode = this
     this.documentElement.style['flexDirection'] = 'column'
     this.documentElement.appendChild(this.body)
 
@@ -65,9 +66,8 @@ export class Document extends Node {
     return this._els[_surface]
   }
 
-  // react-dom listens on the top level
-  addEventListener(type, l) {
-    this.documentElement.addEventListener(type, l)
+  _getTheParent() {
+    return this.defaultView
   }
 }
 
