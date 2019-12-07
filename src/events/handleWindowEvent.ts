@@ -65,13 +65,13 @@ export function handleWindowEvent(document: Document, event) {
     // beforeinput - event.data contains new chars, may be empty when removing
     // input - like input, but after update (not sure if it's possible to do this on this level)
     case EventKind.KeyDown: {
-      const target = document.activeElement
+      const target = document.activeElement || document.documentElement
       const [which, code] = getKey(event[2])
       target._fire('keydown', { which, keyCode: which, code })
       return
     }
     case EventKind.KeyPress: {
-      const target = document.activeElement
+      const target = document.activeElement || document.documentElement
       const charCode = event[2]
       const key = String.fromCharCode(charCode)
 

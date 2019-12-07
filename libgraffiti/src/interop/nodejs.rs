@@ -437,6 +437,7 @@ macro_rules! interop {
         // (From<&MyEnum>, From<&String>, From<&u32>, ...)
         impl From<$rust_type> for NapiValue {
             #[allow(unused_assignments)]
+            #[allow(unused_unsafe)]
             fn from(value: $rust_type) -> Self {
                 unsafe {
                     match value {
