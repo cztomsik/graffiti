@@ -1,4 +1,4 @@
-use crate::commons::{Au, Pos};
+use crate::commons::{Au, Pos, SurfaceId, Bounds};
 use crate::window::{Window, Event, SceneChange};
 use std::collections::BTreeMap;
 use std::ptr;
@@ -9,6 +9,8 @@ use graffiti_glfw::*;
 // - access them with id
 // - get pending events (with surface targets) of all windows
 pub struct TheApp {
+    // keyed by GlfwWindow so that we can find Window quickly
+    // in native event handlers (they get GlfwWindow)
     windows: BTreeMap<*mut GlfwWindow, (Window, WindowId)>,
 
     next_window_id: WindowId,
@@ -123,6 +125,11 @@ impl TheApp {
         error!("tried to update nonexisting window {:?} {:?}", id, changes);
     }
 
+    pub fn get_bounds(&self, window: WindowId, surface: SurfaceId) -> Bounds {
+        let (w, _) = self.windows.values().find(|(_, w_id)| *w_id == window).expect("unknown window");
+        w.get_bounds(surface)
+    }
+
     pub fn destroy_window(&mut self, _id: WindowId) {
         // TODO
         //self.windows.remove(&id);
@@ -138,6 +145,7 @@ static mut PENDING_EVENTS_PTR: *mut Vec<Event> = ptr::null_mut();
 // function is not enough because the closure captures the args
 macro_rules! window_event {
     ($w:ident, $body:expr) => {{
+        // TODO: multi-window
         let ($w, _id) = (*WINDOWS_PTR).get_mut(&$w).expect("missing window");
         let event = $body;
 

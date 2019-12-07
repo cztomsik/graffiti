@@ -1,4 +1,4 @@
-use crate::commons::{Pos, SurfaceId, Color, BorderRadius, Border, BoxShadow, Image};
+use crate::commons::{Pos, SurfaceId, Color, BorderRadius, Border, BoxShadow, Image, Bounds};
 use crate::picker::SurfacePicker;
 use crate::box_layout::{BoxLayout, BoxLayoutImpl, DimensionProp, Dimension, AlignProp, Align, FlexDirection, FlexWrap};
 use crate::text_layout::{TextLayout, Text};
@@ -62,6 +62,10 @@ impl Window {
 
     // TODO: set_title, set_size, ...
     // (should just delegate to platform with the id/handle)
+
+    pub fn get_bounds(&self, surface: SurfaceId) -> Bounds {
+        self.box_layout.get_bounds()[surface]
+    }
 
     // translate events
 
@@ -182,7 +186,7 @@ impl Window {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SceneChange {
     // tree changes
     Alloc,

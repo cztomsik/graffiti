@@ -62,6 +62,13 @@ export class SceneContext {
     this.changes.push(SceneChange.Text(surface, text))
   }
 
+  getBounds(surface) {
+    // flush & return quickly
+    this.flush(true)
+
+    return send(ApiMsg.GetBounds(this.windowId, surface))[1]
+  }
+
   flush(animating) {
     if (this.changes.length === 0) {
       return

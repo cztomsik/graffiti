@@ -76,7 +76,11 @@ export class Element extends Node {
   }
 
   getBoundingClientRect() {
-    return { x: 0, left: 0, y: 0, top: 0, width: 100, height: 100 }
+    // TODO: DOMRect
+    const [[left, top], [bottom, right]] = this.ownerDocument._scene.getBounds(this._surface)
+
+    // TODO: spec allows negative width/height
+    return { x: left, y: top, left, top, bottom, right, width: right - left, height: bottom - top }
   }
 
   get offsetWidth() {
