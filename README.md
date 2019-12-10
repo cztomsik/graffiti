@@ -4,7 +4,8 @@ permalink: /
 ---
 
 # graffiti
-Rapid GUI development using familiar technologies (javascript, flexbox, css)
+GPU-rendered GUI toolkit for node.js. Lightweight alternative to electron.
+Note that there's no browser involved anywhere.
 
 ---
 
