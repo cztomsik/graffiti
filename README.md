@@ -4,8 +4,9 @@ permalink: /
 ---
 
 # graffiti
-GPU-rendered GUI toolkit for node.js. Lightweight alternative to electron.
-Note that there's no browser involved anywhere.
+Experimental GUI toolkit for node.js. The idea is to implement just enough subset of DOM & styling so that you can use react & other web frameworks, including the most of the related libraries but keep it as simple as possible so it can run fluently even on cheap devices like Raspberry Pi. The trick is to render everything using GPU and to keep the scope & abstractions at minimum.
+
+One day, it could be viable alternative to [electron](https://github.com/electron/electron) but you will never be able to just take an existing web app and run it with this (but it should be possible the other way around).
 
 ---
 
@@ -77,7 +78,7 @@ Please note that we are still finishing major rewrite which started almost 3 mon
 
 ## Documentation
 Please refer to respective sub-page on the
-[project website](http://tomsik.cz/stain)
+[project website](http://tomsik.cz/graffiti)
 
 ## License
 This project is [MIT licensed](./LICENSE). By contributing to this project, you also agree that your contributions will be licensed under the MIT license.
