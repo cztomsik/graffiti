@@ -1,27 +1,18 @@
-import { URL } from 'url'
-import { Event } from '../events/Event'
+import { History } from './History'
 
-export class Location {
-  _url = new URL('noprotocol://nohost/')
+export class Location implements globalThis.Location {
+  constructor(private _history: History) {}
 
-  constructor(private window) {}
+  get _url() {
+    return this._history._current.url
+  }
 
   get href() {
     return this._url.href
   }
 
   set href(v) {
-    //console.log('href =', v)
-    const oldURL = this.href
-
-    this._url = new URL(v, this.href)
-
-    this.window.dispatchEvent(
-      Object.assign(new Event('hashchange'), {
-        oldURL,
-        newURL: this.href
-      })
-    )
+    this.assign(v)
   }
 
   get pathname() {
@@ -29,7 +20,7 @@ export class Location {
   }
 
   set pathname(v) {
-    this.href = v
+    this.assign(v)
   }
 
   get search() {
@@ -37,7 +28,7 @@ export class Location {
   }
 
   set search(v) {
-    this.href = `?${v}`
+    this.assign(`?${v}`)
   }
 
   get hash() {
@@ -45,22 +36,31 @@ export class Location {
   }
 
   set hash(v) {
-    this.href = `#${v}`
+    this.assign(`#${v}`)
   }
 
   assign(href) {
-    this.href = href
-  }
-
-  reload() {
-    this.href = this.href
+    this._history._navigate(href, false)
   }
 
   replace(href) {
-    this.href = href
+    this._history._navigate(href, true)
+  }
+
+  reload() {
+    // TODO: not sure, it doesn't make much sense for native apps
+    console.warn('location.reload() is not supported')
   }
 
   toString() {
     return this.href
   }
+
+  // TODO: later
+  host
+  hostname
+  port
+  protocol
+  origin
+  ancestorOrigins
 }
