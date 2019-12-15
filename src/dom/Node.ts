@@ -67,6 +67,11 @@ export class Node extends EventTarget {
   removeChild(child: Node) {
     assert.equal(child.parentNode, this)
 
+    // so that events dont sink in unattached subtree
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      (child as Element).blur()
+    }
+
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
 
     if (this._surface && child._surface) {

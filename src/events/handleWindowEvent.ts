@@ -100,7 +100,9 @@ function getKey(scancode) {
       return [38, 'ArrowUp']
     case 51:
       return [8, 'Backspace']
-  }
+    case 53:
+      return [27, 'Escape']
+    }
 
   return []
 }
