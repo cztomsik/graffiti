@@ -67,7 +67,7 @@ export class History implements globalThis.History {
   }
 
   _notifyAfterTransition({ from, to }) {
-    console.log(`transition from ${from.url.href} to ${to.url.href}`)
+    // console.log(`transition from ${from.url.href} to ${to.url.href}`)
 
     if (from === to) {
       return
