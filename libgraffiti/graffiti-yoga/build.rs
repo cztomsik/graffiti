@@ -1,9 +1,20 @@
 use cc::Build;
+use std::process::Command;
 
 // based on:
 // - https://github.com/facebook/yoga/blob/master/BUCK
 // - https://github.com/facebook/yoga/blob/master/tools/build_defs/oss/yoga_defs.bzl
 fn main() {
+    Command::new("git")
+        .args(&["submodule", "init"])
+        .status()
+        .expect("git submodule init");
+
+    Command::new("git")
+        .args(&["submodule", "update"])
+        .status()
+        .expect("git submodule update");
+
     Build::new()
         .cpp(true)
         .flag("-fno-omit-frame-pointer")

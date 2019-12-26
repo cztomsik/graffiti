@@ -17,7 +17,9 @@
     "lib",
     "libgraffiti/Cargo.*",
     "libgraffiti/resources",
-    "libgraffiti/src"
+    "libgraffiti/src",
+    "libgraffiti/graffiti-glfw",
+    "libgraffiti/graffiti-yoga"
   ],
   "scripts": {
     "build": "node build.js",
