@@ -1,7 +1,7 @@
 {
   "name": "graffiti",
   "version": "0.2.0",
-  "description": "",
+  "description": "Cross-platform GUI toolkit for node.js",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "author": "Kamil Tomšík <info@tomsik.cz>",
@@ -30,13 +30,10 @@
   "devDependencies": {
     "@types/node": "^10.14.6",
     "axios": "^0.19.0",
-    "esm": "^3.2.25",
-    "hyperapp": "^2.0.3",
     "mithril": "^2.0.4",
     "preact": "^10.0.0",
     "react": "^16.8.6",
     "react-dom": "^16.10.2",
-    "svelte": "^3.12.1",
     "ts-node": "^8.5.2",
     "typescript": "^3.7.2",
     "ws": "^6.2.1"
