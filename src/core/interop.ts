@@ -128,7 +128,7 @@ export module Dimension {
         
     export const Undefined = () => [0, ]
     export const Auto = () => [1, ]
-    export const Points = (value) => [2, value]
+    export const Px = (value) => [2, value]
     export const Percent = (value) => [3, value]
       
 }

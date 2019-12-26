@@ -134,7 +134,7 @@ impl BoxLayout for YogaLayout {
                         error!("unexpected {:?} {:?}", &prop, &value);
                     }
                 },
-                Dimension::Points { value: v } => {
+                Dimension::Px { value: v } => {
                     match prop {
                         DimensionProp::Width => YGNodeStyleSetWidth(n, v),
                         DimensionProp::Height => YGNodeStyleSetHeight(n, v),
@@ -159,7 +159,7 @@ impl BoxLayout for YogaLayout {
                     }
                 }
                 Dimension::Undefined => {
-                    self.set_dimension(surface, prop, Dimension::Points { value: YGUndefined })
+                    self.set_dimension(surface, prop, Dimension::Px { value: YGUndefined })
                 }
             }
         }

@@ -40,7 +40,7 @@ interop! {
   Dimension { 
     0 Undefined {  },
     1 Auto {  },
-    2 Points { value },
+    2 Px { value },
     3 Percent { value } 
   }
 
