@@ -1,0 +1,6 @@
+[submodule "libgraffiti/graffiti_yoga/yoga"]
+	path = libgraffiti/graffiti-yoga/yoga
+	url = https://github.com/facebook/yoga
+[submodule "libgraffiti/graffiti_glfw/glfw"]
+	path = libgraffiti/graffiti-glfw/glfw
+	url = https://github.com/glfw/glfw

@@ -48,6 +48,11 @@ pub enum DimensionProp {
     MaxWidth,
     MaxHeight,
 
+    Top,
+    Right,
+    Bottom,
+    Left,
+
     PaddingLeft,
     PaddingRight,
     PaddingTop,
@@ -67,7 +72,7 @@ pub enum DimensionProp {
 pub enum Dimension {
     Undefined,
     Auto,
-    Points { value: f32 },
+    Px { value: f32 },
     Percent { value: f32 },
 }
 

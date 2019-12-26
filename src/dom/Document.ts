@@ -38,6 +38,9 @@ export class Document extends Node {
     // apply default styles
     Object.assign(el.style, defaultStyles[tagName] || {})
 
+    // TODO: consider instantiating some subclass so
+    // that it's for example possible to open links in native browser, etc.
+
     return el
   }
 

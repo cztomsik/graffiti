@@ -9,8 +9,6 @@ Moreover, some features (innerHTML, cookies, frames) are in fact **undesired** a
 Note that just like in electron you can directly communicate with your database without exposing any server locally.
 
 ## Notable limitations
-Note that there's also [react-native](https://github.com/cztomsik/stain/tree/master/examples/react) API.
-
 The table below provides some info about what's left out completely, what can be done with plain `nodejs` or with some 3rd party module from `npm`. Some of them might be introduced in the future but don't have any false hopes.
 
 Note that you can always use/implement native module for anything.

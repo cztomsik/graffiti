@@ -1,7 +1,7 @@
 {
   "name": "graffiti",
   "version": "0.2.0",
-  "description": "",
+  "description": "Cross-platform GUI toolkit for node.js",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "author": "Kamil Tomšík <info@tomsik.cz>",
@@ -10,33 +10,31 @@
     "type": "git",
     "url": "git+https://github.com/cztomsik/graffiti.git"
   },
-  "dependencies": {
-    "open": "^6.2.0"
-  },
+  "dependencies": {},
   "files": [
     "build.js",
     "src",
     "lib",
     "libgraffiti/Cargo.*",
     "libgraffiti/resources",
-    "libgraffiti/src"
+    "libgraffiti/src",
+    "libgraffiti/graffiti-glfw",
+    "libgraffiti/graffiti-yoga"
   ],
   "scripts": {
     "build": "node build.js",
     "postinstall": "npm run build -- --release",
     "prepare": "tsc -d",
-    "example": "ts-node examples/react/main"
+    "example": "node -r ts-node/register/transpile-only -r ./src/register -e 'require(`./examples/${process.argv[1] || \"example-browser\"}`)'"
   },
   "devDependencies": {
     "@types/node": "^10.14.6",
     "axios": "^0.19.0",
-    "esm": "^3.2.25",
-    "hyperapp": "^2.0.3",
     "mithril": "^2.0.4",
+    "open": "^7.0.0",
     "preact": "^10.0.0",
     "react": "^16.8.6",
     "react-dom": "^16.10.2",
-    "svelte": "^3.12.1",
     "ts-node": "^8.5.2",
     "typescript": "^3.7.2",
     "ws": "^6.2.1"

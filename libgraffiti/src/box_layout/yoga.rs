@@ -120,6 +120,11 @@ impl BoxLayout for YogaLayout {
 
                     DimensionProp::FlexBasis => YGNodeStyleSetFlexBasisPercent(n, v),
 
+                    DimensionProp::Top => YGNodeStyleSetPositionPercent(n, YGEdge::Top, v),
+                    DimensionProp::Right => YGNodeStyleSetPositionPercent(n, YGEdge::Right, v),
+                    DimensionProp::Bottom => YGNodeStyleSetPositionPercent(n, YGEdge::Bottom, v),
+                    DimensionProp::Left => YGNodeStyleSetPositionPercent(n, YGEdge::Left, v),
+
                     DimensionProp::MarginTop => YGNodeStyleSetMarginPercent(n, YGEdge::Top, v),
                     DimensionProp::MarginRight => YGNodeStyleSetMarginPercent(n, YGEdge::Right, v),
                     DimensionProp::MarginBottom => YGNodeStyleSetMarginPercent(n, YGEdge::Bottom, v),
@@ -134,7 +139,7 @@ impl BoxLayout for YogaLayout {
                         error!("unexpected {:?} {:?}", &prop, &value);
                     }
                 },
-                Dimension::Points { value: v } => {
+                Dimension::Px { value: v } => {
                     match prop {
                         DimensionProp::Width => YGNodeStyleSetWidth(n, v),
                         DimensionProp::Height => YGNodeStyleSetHeight(n, v),
@@ -142,6 +147,11 @@ impl BoxLayout for YogaLayout {
                         DimensionProp::MinHeight => YGNodeStyleSetMinHeight(n, v),
                         DimensionProp::MaxWidth => YGNodeStyleSetMaxWidth(n, v),
                         DimensionProp::MaxHeight => YGNodeStyleSetMaxHeight(n, v),
+
+                        DimensionProp::Top => YGNodeStyleSetPosition(n, YGEdge::Top, v),
+                        DimensionProp::Right => YGNodeStyleSetPosition(n, YGEdge::Right, v),
+                        DimensionProp::Bottom => YGNodeStyleSetPosition(n, YGEdge::Bottom, v),
+                        DimensionProp::Left => YGNodeStyleSetPosition(n, YGEdge::Left, v),
 
                         DimensionProp::MarginTop => YGNodeStyleSetMargin(n, YGEdge::Top, v),
                         DimensionProp::MarginRight => YGNodeStyleSetMargin(n, YGEdge::Right, v),
@@ -159,7 +169,7 @@ impl BoxLayout for YogaLayout {
                     }
                 }
                 Dimension::Undefined => {
-                    self.set_dimension(surface, prop, Dimension::Points { value: YGUndefined })
+                    self.set_dimension(surface, prop, Dimension::Px { value: YGUndefined })
                 }
             }
         }

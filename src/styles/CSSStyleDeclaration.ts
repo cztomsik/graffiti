@@ -91,6 +91,10 @@ export class CSSStyleDeclaration {
       case 'flex-basis':
       case 'flex-grow':
       case 'flex-shrink':
+      case 'top':
+      case 'right':
+      case 'bottom':
+      case 'left':
       case 'padding-top':
       case 'padding-right':
       case 'padding-bottom':

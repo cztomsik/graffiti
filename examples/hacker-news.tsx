@@ -1,5 +1,3 @@
-// node -r ts-node/register -r ./src/register.ts examples/mithril/hacker-news.tsx
-
 /* @jsx m */
 import * as m from 'mithril'
 import axios from 'axios'
