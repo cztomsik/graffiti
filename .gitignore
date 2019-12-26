@@ -10,3 +10,4 @@ native/artifacts.json
 .vscode
 lib
 _site/
+*.sublime-*

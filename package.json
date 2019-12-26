@@ -10,9 +10,7 @@
     "type": "git",
     "url": "git+https://github.com/cztomsik/graffiti.git"
   },
-  "dependencies": {
-    "open": "^6.2.0"
-  },
+  "dependencies": {},
   "files": [
     "build.js",
     "src",
@@ -25,12 +23,13 @@
     "build": "node build.js",
     "postinstall": "npm run build -- --release",
     "prepare": "tsc -d",
-    "example": "ts-node examples/react/main"
+    "example": "node -r ts-node/register/transpile-only -r ./src/register -e 'require(`./examples/${process.argv[1] || \"example-browser\"}`)'"
   },
   "devDependencies": {
     "@types/node": "^10.14.6",
     "axios": "^0.19.0",
     "mithril": "^2.0.4",
+    "open": "^7.0.0",
     "preact": "^10.0.0",
     "react": "^16.8.6",
     "react-dom": "^16.10.2",

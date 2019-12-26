@@ -1,5 +1,3 @@
-// node -r ts-node/register -r ./src/register.ts examples/react-dom/counter.tsx
-
 import * as React from 'react'
 import { render } from 'react-dom'
 
@@ -10,7 +8,7 @@ const Counter = () => {
 
   return (
     <div style={styles.counter}>
-      <span>{count}</span>
+      <h3>{count}</h3>
 
       <div style={{ ...styles.bar, width: count * 5 }} />
 
@@ -25,6 +23,8 @@ const Counter = () => {
 const styles = {
   counter: {
     flex: 1,
+    maxWidth: 250,
+    maxHeight: 200,
     padding: 20,
     justifyContent: 'space-between'
   },

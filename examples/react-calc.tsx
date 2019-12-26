@@ -1,21 +1,20 @@
 import * as React from 'react'
-import { useState } from 'react'
-import { View, Button, Text, StyleSheet } from '../../src/react'
+import { render } from 'react-dom'
 
 const Calculator = () => {
-  const [expr, setExpr] = useState('0')
+  const [expr, setExpr] = React.useState('0')
 
   const CaButton = ({ ch }) => (
-    <View style={styles.caButton}>
-      <Button title={ch} onPress={() => setExpr(expr + ch)} />
-    </View>
+    <div style={styles.caButton}>
+      <button onClick={() => setExpr(expr + ch)}>{ch}</button>
+    </div>
   )
 
   return (
-    <View style={styles.container}>
+    <div style={styles.container}>
       <Display value={expr} />
 
-      <View style={styles.buttons}>
+      <div style={styles.buttons}>
         <CaButton ch="7" />
         <CaButton ch="8" />
         <CaButton ch="9" />
@@ -35,18 +34,18 @@ const Calculator = () => {
         <CaButton ch="," />
         <CaButton ch="/" />
         <CaButton ch="=" />
-      </View>
-    </View>
+      </div>
+    </div>
   )
 }
 
 const Display = ({ value }) => (
-  <View style={styles.display}>
-    <Text style={styles.displayText}>{value}</Text>
-  </View>
+  <div style={styles.display}>
+    <span style={styles.displayText}>{value}</span>
+  </div>
 )
 
-const styles = StyleSheet.create({
+const styles = {
   container: {
     flex: 1,
     backgroundColor: '#444466'
@@ -76,6 +75,6 @@ const styles = StyleSheet.create({
     width: '25%',
     padding: 3
   }
-})
+}
 
-export { Calculator }
+render(<Calculator />, document.body)

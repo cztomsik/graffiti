@@ -1,5 +1,3 @@
-// node -r ts-node/register -r ./src/register.ts examples/mithril/counter.tsx
-
 /* @jsx m */
 import * as m from 'mithril'
 

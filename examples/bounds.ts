@@ -1,4 +1,5 @@
-// node -r ts-node/register -r ./src/register examples/vanilla/bounds.ts
+// like most examples here, this is rather for testing purposes
+// to see if we can get correct position
 
 const h1 = document.createElement('h1')
 h1.style.backgroundColor = '#ccc'
