@@ -187,9 +187,9 @@ extern "C" {
 
     /*
     pub fn YGNodeStyleSetPositionType(node: YGNodeRef, positionType: YGPositionType);
+    */
     pub fn YGNodeStyleSetPosition(node: YGNodeRef, edge: YGEdge, position: c_float);
     pub fn YGNodeStyleSetPositionPercent(node: YGNodeRef, edge: YGEdge, position: c_float);
-    */
 
     pub fn YGNodeStyleSetMargin(node: YGNodeRef, edge: YGEdge, margin: c_float);
     pub fn YGNodeStyleSetMarginPercent(node: YGNodeRef, edge: YGEdge, margin: c_float);
