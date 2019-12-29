@@ -4,13 +4,14 @@ use crate::box_layout::{BoxLayout, BoxLayoutImpl, DimensionProp, Dimension, Alig
 use crate::text_layout::{TextLayout, Text};
 use crate::render::Renderer;
 
-// - delegates to platform for window-related things (TODO)
+// Holds the state & systems needed for one UI "viewport"
+// basically, this is the window "content" area but
+// nothing here is coupled to the window
+// 
 // - holds the scene & everything needed for rendering
 // - translates events (target needs to be looked up)
 // - accepts batch of updates to be applied to the scene
-pub struct Window {
-    // TODO: platform window id
-
+pub struct Viewport {
     box_layout: Box<dyn BoxLayout>,
     text_layout: TextLayout,
     renderer: Renderer,
@@ -47,9 +48,9 @@ pub enum EventKind {
     Close,
 }
 
-impl Window {
+impl Viewport {
     pub fn new(width: i32, height: i32) -> Self {
-        Window {
+        Viewport {
             mouse_pos: Pos::zero(),
 
             box_layout: Box::new(BoxLayoutImpl::new(width, height)),
@@ -60,14 +61,14 @@ impl Window {
         }
     }
 
-    // TODO: set_title, set_size, ...
-    // (should just delegate to platform with the id/handle)
-
     pub fn get_bounds(&self, surface: SurfaceId) -> Bounds {
         self.box_layout.get_bounds()[surface]
     }
 
-    // translate events
+    // translate events (break coupling)
+    // app delegates to platform, which gets native events & calls
+    // these methods to get events specific to this window/viewport
+    // apart from the method signature, there's no need for other abstractions
 
     pub fn mouse_move(&mut self, pos: Pos) -> Event {
         self.mouse_pos = pos;

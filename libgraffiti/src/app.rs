@@ -1,75 +1,62 @@
-use crate::commons::{Au, Pos, SurfaceId, Bounds};
-use crate::window::{Window, Event, SceneChange};
+use crate::platform::{WINDOWS_PTR, PENDING_EVENTS_PTR};
+use crate::commons::{SurfaceId, Bounds};
+use crate::viewport::{Viewport, Event, SceneChange};
 use std::collections::BTreeMap;
 use std::ptr;
-use std::os::raw::{c_int, c_uint, c_double};
-use graffiti_glfw::*;
+use crate::platform;
+use crate::platform::{NativeWindow};
 
-// - create/destroy windows
-// - access them with id
-// - get pending events (with surface targets) of all windows
-pub struct TheApp {
-    // keyed by GlfwWindow so that we can find Window quickly
-    // in native event handlers (they get GlfwWindow)
-    windows: BTreeMap<*mut GlfwWindow, (Window, WindowId)>,
+/// Root for the whole native part
+/// Only one instance is allowed
+///
+/// - create/destroy windows
+/// - update their viewports
+/// - get pending events (with surface targets) of all windows
+pub struct App {
+    // primary storage
+    //
+    // keyed by NativeWimdow so that we can find viewport quickly
+    // in native event handlers
+    window_viewports: BTreeMap<NativeWindow, Viewport>,
 
-    next_window_id: WindowId,
+    // quickly get to a window/viewport using WindowId
+    native_windows: Vec<NativeWindow>,
+    //viewports: Vec<&'a mut Viewport>,
 }
 
 pub type WindowId = usize;
 
-impl TheApp {
+impl App {
     pub unsafe fn init() -> Self {
-        assert_eq!(glfwInit(), GLFW_TRUE, "init GLFW");
+        platform::init();
 
-        #[cfg(target_os="macos")] {
-            glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
-
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-            glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        if INIT_CALLED {
+            panic!("Already initialized")
+        } else {
+            INIT_CALLED = true;
         }
 
-        TheApp {
-            windows: BTreeMap::new(),
-            next_window_id: 1,
+        App {
+            window_viewports: BTreeMap::new(),
+            //viewports: Vec::new(),
+            native_windows: Vec::new(),
         }
     }
 }
 
-impl TheApp {
+static mut INIT_CALLED: bool = false;
+
+impl App {
     pub fn get_events(&mut self, poll: bool) -> Vec<Event> {
         // TODO: share the vec, clear it only
         // maybe it can be part of App state?
         let mut events = Vec::new();
 
         unsafe {
-            WINDOWS_PTR = &mut self.windows;
+            WINDOWS_PTR = &mut self.window_viewports;
             PENDING_EVENTS_PTR = &mut events;
 
-            if poll {
-                glfwPollEvents()
-            } else {
-                // wait a bit otherwise (save battery)
-                //
-                // this number limits node.js responsivity
-                // lower means sooner handling of I/O & timers
-                // at the expense of some extra CPU overhead
-                //
-                // higher it is, more laggy it might feel
-                // (http responses "taking too long", etc.)
-                //
-                // this number should be fine unless somebody is animating
-                // with setTimeout or some other bad things
-                //
-                // ideally, we should just block with glfwWaitEvents()
-                // but that would need somehow to send glfwPostEmptyEvent()
-                // if anything in node.js is ready (not just I/O but also timers)
-                // and it's not yet obvious to me how that could be done
-                // so this is definitely good enough for now
-                glfwWaitEventsTimeout(0.15);
-            }
+            platform::get_events(poll);
 
             PENDING_EVENTS_PTR = ptr::null_mut();
         }
@@ -77,120 +64,40 @@ impl TheApp {
         events
     }
 
-    pub fn create_window(&mut self, width: i32, height: i32) -> WindowId {
-        let id = self.next_window_id;
+    pub fn create_window(&mut self, title: &str, width: i32, height: i32) -> WindowId {
+        let id = self.native_windows.len();
 
-        let glfw_window = unsafe {
-            let w = glfwCreateWindow(width, height, c_str!("graffiti"), ptr::null_mut(), ptr::null_mut());
-            assert!(!w.is_null(), "create GLFW window");
+        let native_window = unsafe { platform::create_window(title, width, height) };
+        let viewport = Viewport::new(width, height);
 
-            glfwMakeContextCurrent(w);
-            gl::load_with(|addr| glfwGetProcAddress(c_str!(addr)));
-
-            glfwSetCursorPosCallback(w, handle_glfw_cursor_pos);
-            glfwSetScrollCallback(w, handle_glfw_scroll);
-            glfwSetMouseButtonCallback(w, handle_glfw_mouse_button);
-            glfwSetCharCallback(w, handle_glfw_char);
-            glfwSetKeyCallback(w, handle_glfw_key);
-            glfwSetWindowSizeCallback(w, handle_glfw_window_size);
-            glfwSetFramebufferSizeCallback(w, handle_glfw_framebuffer_size);
-            glfwSetWindowCloseCallback(w, handle_glfw_window_close);
-
-            // VSYNC=0 to disable
-            let vsync = std::env::var("VSYNC").map(|s| s.parse().expect("vsync number")).unwrap_or(1);
-            glfwSwapInterval(vsync);
-
-            w
-        };
-
-        let window = Window::new(width, height);
-
-        self.windows.insert(glfw_window, (window, id));
-
-        self.next_window_id = self.next_window_id + 1;
+        self.native_windows.push(native_window);
+        self.window_viewports.insert(native_window, viewport);
 
         id
     }
 
     pub fn update_window_scene(&mut self, id: WindowId, changes: &[SceneChange]) {
-        // can be values_mut once we have glfw_window in window
-        for (glfw_window, (w, w_id)) in self.windows.iter_mut() {
-            if *w_id == id {
-                w.update_scene(changes);
-                unsafe { glfwSwapBuffers(*glfw_window) };
-                return;
-            }
-        }
+        let native_window = self.native_windows[id];
+        let viewport = self.window_viewports.get_mut(&native_window).expect("window not found");
 
-        error!("tried to update nonexisting window {:?} {:?}", id, changes);
+        viewport.update_scene(changes);
+        unsafe {
+            platform::swap_buffers(native_window)
+        }
     }
 
     pub fn get_bounds(&self, window: WindowId, surface: SurfaceId) -> Bounds {
-        let (w, _) = self.windows.values().find(|(_, w_id)| *w_id == window).expect("unknown window");
-        w.get_bounds(surface)
+        let native_window = self.native_windows[window];
+        let viewport = self.window_viewports.get(&native_window).expect("window not found");
+
+        viewport.get_bounds(surface)
     }
 
     pub fn destroy_window(&mut self, _id: WindowId) {
         // TODO
-        //self.windows.remove(&id);
+        //   free viewports[id]
+        //   platform::destroy_window(native_windows[id])
     }
 }
 
-static mut WINDOWS_PTR: *mut BTreeMap<*mut GlfwWindow, (Window, WindowId)> = ptr::null_mut();
-static mut PENDING_EVENTS_PTR: *mut Vec<Event> = ptr::null_mut();
 
-
-// TODO: extract platform & move this to platform/glfw.rs
-
-// function is not enough because the closure captures the args
-macro_rules! window_event {
-    ($w:ident, $body:expr) => {{
-        // TODO: multi-window
-        let ($w, _id) = (*WINDOWS_PTR).get_mut(&$w).expect("missing window");
-        let event = $body;
-
-        (*PENDING_EVENTS_PTR).push(event);
-    }}
-}
-
-unsafe extern "C" fn handle_glfw_cursor_pos(w: *mut GlfwWindow, x: c_double, y: c_double) {
-    window_event!(w, w.mouse_move(Pos::new(x as Au, y as Au)))
-}
-
-unsafe extern "C" fn handle_glfw_scroll(_w: *mut GlfwWindow, _: c_double, _: c_double) {
-    error!("TODO: handle_glfw_scroll");
-}
-
-unsafe extern "C" fn handle_glfw_mouse_button(w: *mut GlfwWindow, _button: c_int, action: c_int, _mods: c_int) {
-    window_event!(w, match action {
-        GLFW_PRESS => w.mouse_down(),
-        GLFW_RELEASE => w.mouse_up(),
-        _ => unreachable!("press/release expected"),
-    })
-}
-
-unsafe extern "C" fn handle_glfw_key(w: *mut GlfwWindow, _key: c_int, scancode: c_int, action: c_int, _mods: c_int) {
-    window_event!(w, match action {
-        // TODO: repeat works for some keys but for some it doesn't
-        // not sure if it's specific for mac (special chars overlay)
-        GLFW_RELEASE => w.key_up(scancode as u16),
-        _ => w.key_down(scancode as u16),
-    })
-}
-
-unsafe extern "C" fn handle_glfw_char(w: *mut GlfwWindow, char: c_uint) {
-    window_event!(w, w.key_press(char as u16))
-}
-
-unsafe extern "C" fn handle_glfw_window_size(w: *mut GlfwWindow, width: c_int, height: c_int) {
-    window_event!(w, w.resize(width, height));
-    glfwSwapBuffers(w);
-}
-
-unsafe extern "C" fn handle_glfw_framebuffer_size(_w: *mut GlfwWindow, width: c_int, height: c_int) {
-    gl::Viewport(0, 0, width, height);
-}
-
-unsafe extern "C" fn handle_glfw_window_close(w: *mut GlfwWindow) {
-    window_event!(w, w.close())
-}

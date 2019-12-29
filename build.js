@@ -42,7 +42,7 @@ const targetDir = `${__dirname}/libgraffiti/target`
 generateInterop([
   ['api', 'ApiMsg', 'ApiResponse'],
   ['commons', 'Pos', 'Bounds', 'Color', 'BoxShadow', 'Border', 'BorderSide', 'BorderRadius', 'BorderStyle', 'Image'],
-  ['window', 'SceneChange', 'Event', 'EventKind'],
+  ['viewport', 'SceneChange', 'Event', 'EventKind'],
   ['box_layout/mod', 'DimensionProp', 'Dimension', 'AlignProp', 'Align', 'FlexWrap', 'FlexDirection'],
   ['text_layout', 'Text', 'TextAlign']
 ])

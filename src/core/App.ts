@@ -6,11 +6,11 @@ const windows: Window[] = []
 let animating = false
 let animationFrames: Function[] = []
 
-export const createWindow = (width = 1024, height = 768) => {
-  send(ApiMsg.CreateWindow(width, height))
+export const createWindow = ({ title = 'graffiti app', width = 1024, height = 768 } = {}) => {
+  send(ApiMsg.CreateWindow(title, width, height))
 
   // TODO: holes
-  const id = windows.length + 1
+  const id = windows.length
 
   return windows[id] = new Window(id)
 }
@@ -37,7 +37,7 @@ const runLoop = () => {
   if (events !== undefined) {
     for (const event of events) {
       // TODO: multi-window
-      windows[1].handleEvent(event)
+      windows[0].handleEvent(event)
     }
   }
 
