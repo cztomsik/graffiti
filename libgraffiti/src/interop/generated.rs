@@ -11,10 +11,12 @@ use crate::text_layout::{Text,TextAlign};
 interop! {
       
   ApiMsg { 
-    0 CreateWindow { width, height },
-    1 GetEvents { poll },
-    2 UpdateScene { window, changes },
-    3 GetBounds { window, surface } 
+    0 GetEvents { poll },
+    1 UpdateScene { window, changes },
+    2 GetBounds { window, surface },
+    3 CreateWindow { title, width, height },
+    4 ResizeWindow { window },
+    5 DestroyWindow { window } 
   }
   ApiResponse { 
     0 Events { events },

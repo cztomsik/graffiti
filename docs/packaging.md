@@ -4,6 +4,8 @@ nav_order: 60
 
 # Packaging
 
+**This is very outdated & likely not true anymore but it's still possible to build a package using electron-builder, it's just that the information here might not be exact/complete**
+
 ## Build optimized version native module (optional)
 Compiling rust takes forever so by default we build in dev mode. There's not a huge difference in performance
 but it's way smaller so it's something you probably want to do before shipping your app. All what you need to do

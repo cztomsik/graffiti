@@ -6,8 +6,8 @@ const windows: Window[] = []
 let animating = false
 let animationFrames: Function[] = []
 
-export const createWindow = (width = 1024, height = 768) => {
-  send(ApiMsg.CreateWindow(width, height))
+export const createWindow = ({ title = 'graffiti', width = 1024, height = 768 } = {}) => {
+  send(ApiMsg.CreateWindow(title, width, height))
 
   // TODO: holes
   const id = windows.length + 1

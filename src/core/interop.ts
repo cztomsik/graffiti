@@ -95,10 +95,12 @@ export const Text = (font_size,line_height,align,text) => [font_size,line_height
     
 export module ApiMsg {
         
-    export const CreateWindow = (width,height) => [0, width,height]
-    export const GetEvents = (poll) => [1, poll]
-    export const UpdateScene = (window,changes) => [2, window,changes]
-    export const GetBounds = (window,surface) => [3, window,surface]
+    export const GetEvents = (poll) => [0, poll]
+    export const UpdateScene = (window,changes) => [1, window,changes]
+    export const GetBounds = (window,surface) => [2, window,surface]
+    export const CreateWindow = (title,width,height) => [3, title,width,height]
+    export const ResizeWindow = (window) => [4, window]
+    export const DestroyWindow = (window) => [5, window]
       
 }
     

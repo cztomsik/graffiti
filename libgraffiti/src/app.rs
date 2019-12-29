@@ -77,11 +77,11 @@ impl TheApp {
         events
     }
 
-    pub fn create_window(&mut self, width: i32, height: i32) -> WindowId {
+    pub fn create_window(&mut self, title: &str, width: i32, height: i32) -> WindowId {
         let id = self.next_window_id;
 
         let glfw_window = unsafe {
-            let w = glfwCreateWindow(width, height, c_str!("graffiti"), ptr::null_mut(), ptr::null_mut());
+            let w = glfwCreateWindow(width, height, c_str!(title), ptr::null_mut(), ptr::null_mut());
             assert!(!w.is_null(), "create GLFW window");
 
             glfwMakeContextCurrent(w);

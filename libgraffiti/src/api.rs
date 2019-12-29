@@ -4,10 +4,13 @@ use crate::window::{SceneChange, Event};
 
 #[derive(Debug, Clone)]
 pub enum ApiMsg {
-    CreateWindow { width: i32, height: i32 },
+    // sorted by whats most common
     GetEvents { poll: bool },
     UpdateScene { window: WindowId, changes: Vec<SceneChange> },
-    GetBounds { window: WindowId, surface: SurfaceId }
+    GetBounds { window: WindowId, surface: SurfaceId },
+    CreateWindow { title: String, width: i32, height: i32 },
+    ResizeWindow { window: WindowId },
+    DestroyWindow { window: WindowId },
 }
 
 #[derive(Debug, Clone)]
@@ -41,10 +44,11 @@ impl Api {
         let Api { app, .. } = self;
 
         match msg {
-            CreateWindow { width, height } => { app.create_window(width, height); Nothing {} }
+            CreateWindow { title, width, height } => { app.create_window(&title, width, height); Nothing {} }
             GetEvents { poll } => Events { events: app.get_events(poll) },
             UpdateScene { window, changes } => { app.update_window_scene(window, &changes); Nothing {} }
-            GetBounds { window, surface } => Bounds { bounds: app.get_bounds(window, surface) }
+            GetBounds { window, surface } => Bounds { bounds: app.get_bounds(window, surface) },
+            _ => unimplemented!(),
         }
     }
 }

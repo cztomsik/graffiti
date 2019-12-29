@@ -1,5 +1,7 @@
 // node.js bindings
 
+#![allow(dead_code)]
+
 use crate::{Api, init_api};
 use std::os::raw::{c_int, c_uint, c_char, c_void};
 use std::ptr;
