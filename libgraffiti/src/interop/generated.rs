@@ -3,7 +3,7 @@
     
 use crate::api::{ApiMsg,ApiResponse};
 use crate::commons::{Pos,Bounds,Color,BoxShadow,Border,BorderSide,BorderRadius,BorderStyle,Image};
-use crate::window::{SceneChange,Event,EventKind};
+use crate::viewport::{SceneChange,Event,EventKind};
 use crate::box_layout::{DimensionProp,Dimension,AlignProp,Align,FlexWrap,FlexDirection};
 use crate::text_layout::{Text,TextAlign};
 

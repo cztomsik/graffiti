@@ -1,6 +1,6 @@
 use crate::commons::{SurfaceId, Bounds};
-use crate::app::{TheApp, WindowId};
-use crate::window::{SceneChange, Event};
+use crate::app::{App, WindowId};
+use crate::viewport::{SceneChange, Event};
 
 #[derive(Debug, Clone)]
 pub enum ApiMsg {
@@ -21,19 +21,11 @@ pub enum ApiResponse {
 }
 
 pub unsafe fn init_api() -> Api {
-    if INIT_CALLED {
-        panic!("Already initialized")
-    } else {
-        INIT_CALLED = true;
-    }
-
-    Api { app: TheApp::init() }
+    Api { app: App::init() }
 }
 
-static mut INIT_CALLED: bool = false;
-
 pub struct Api {
-    app: TheApp
+    app: App
 }
 
 impl Api {

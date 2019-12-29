@@ -150,6 +150,12 @@ impl <'a> RenderContext<'a> {
     fn draw_surface(&mut self, id: SurfaceId) {
         let parent_bounds = self.bounds;
 
+        // TODO: display: none
+        // TODO: transform: scale()
+        // TODO: opacity
+        // TODO: scroll
+        // TODO: text nodes
+
         // TODO: maybe layout should do this too and provide bounds in absolute coords
         self.bounds = self.all_bounds[id].relative_to(parent_bounds.a);
 
