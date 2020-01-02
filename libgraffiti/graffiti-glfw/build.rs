@@ -66,6 +66,9 @@ fn main() {
     ;
 
     // build lib
+    // do not emit lib for wasm
+    // (I have suspicion that it was the cause of the wasm issues)
+    #[cfg(not(target_arch = "wasm32"))]
     build
         .compile("libglfw3.a")
     ;

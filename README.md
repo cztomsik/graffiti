@@ -62,9 +62,6 @@ render(<Counter />, document.body)
 </div>
 <br>
 
-## Status
-Please note that we are still finishing major rewrite which started almost 3 months ago (yeah, I know but it was really needed) so the docs are off (a lot). That said, we've also gained some other cool features along the way (text-align, images, shadow). As with other hobby projects, there are no ETAs, but it's very close now. Follow me on my [twitter](https://twitter.com/cztomsik) to get notified :-)
-
 ## Why it's interesting
 - quick to setup, apart from rust, it should be just one `npm install` away
 - can be combined with most of the libraries you already know (react, mobx, lodash, ...)
@@ -73,6 +70,11 @@ Please note that we are still finishing major rewrite which started almost 3 mon
 - bundle can be made using already established and mature tools (ncc + electron-builder)
 - low memory footprint (when compared to electron)
 - the language & platform you already know (when compared to flutter)
+
+## Status
+It's getting very close to v1 now, so stay tuned if you're looking for something like this but as with other hobby projects, there are no deadlines. Follow me on my [twitter](https://twitter.com/cztomsik) to get notified :-)
+
+Note: I'm looking for somebody wiling to maintain windows part. It's not about just making it work (that should be easy) but rather about having some deeper knowledge of the platform and being familiar with the issues on various versions/configurations (basically, it implies you're daily windows user)
 
 ---
 

@@ -86,12 +86,14 @@ unsafe extern "C" fn handle_glfw_mouse_button(w: *mut GlfwWindow, _button: c_int
     })
 }
 
-unsafe extern "C" fn handle_glfw_key(w: *mut GlfwWindow, _key: c_int, scancode: c_int, action: c_int, _mods: c_int) {
+unsafe extern "C" fn handle_glfw_key(w: *mut GlfwWindow, key: c_int, _scancode: c_int, action: c_int, _mods: c_int) {
+    let key_code = get_key_code(key);
+
     window_event!(w, match action {
         // TODO: repeat works for some keys but for some it doesn't
         // not sure if it's specific for mac (special chars overlay)
-        GLFW_RELEASE => w.key_up(scancode as u16),
-        _ => w.key_down(scancode as u16),
+        GLFW_RELEASE => w.key_up(key_code),
+        _ => w.key_down(key_code),
     })
 }
 
@@ -110,4 +112,35 @@ unsafe extern "C" fn handle_glfw_framebuffer_size(_w: *mut GlfwWindow, width: c_
 
 unsafe extern "C" fn handle_glfw_window_close(w: *mut GlfwWindow) {
     window_event!(w, w.close())
+}
+
+// from glfw to js `e.which`
+// TODO: modifier (left/right for shift/ctrl/alt)
+fn get_key_code(key: c_int) -> u16 {
+    (match key {
+        // some codes are the same
+        32 | 48 ..= 57 | 65 ..= 90 => key,
+        91 ..= 93 => key + 128,
+
+        44 => 188,
+        45 => 187,
+        46 => 190,
+        47 => 189,
+        59 => 186,
+        61 => 187,
+        256 => 27,
+        257 => 13,
+        258 => 9,
+        259 => 8,
+        262 => 39,
+        263 => 37,
+        264 => 40,
+        265 => 38,
+
+        // TODO: -1, APOSTROPHE, GRAVE_ACCENT, WORLD1, WORLD2, INSERT, DELETE,
+        //   PAGE_UP, PAGE_DOWN, HOME, END, CAPS_LOCK, SCROLL_LOCK, NUM_LOCK
+        //   PRINT_SCREEN, PAUSE, F1-F25, KP0-KP9, KP_*
+        //   LEFT/RIGHT_SHIFT/CONTROL/ALT
+        _ => 0
+    }) as u16
 }

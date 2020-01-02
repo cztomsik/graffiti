@@ -401,7 +401,7 @@ impl <T> Quad<T> {
     }
 }
 
-/// Vertex including some primitive-specific attributes
+/// Vertex, including some primitive-specific attributes
 #[derive(Debug)]
 struct Vertex<T>(Pos, T);
 
