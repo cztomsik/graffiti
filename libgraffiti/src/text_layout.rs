@@ -6,6 +6,7 @@ use miniserde::{json, Deserialize, Serialize};
 
 // TODO: currently it does more than intended so either rename it or
 // split it...
+// (font loading should be provided by platform)
 
 /// Text layout algo
 ///

@@ -1,3 +1,7 @@
+// primary way libgraffiti is expected to be used
+// communication is done in batches to avoid overhead of
+// native <-> nodejs context-switching
+
 use crate::commons::{SurfaceId, Bounds};
 use crate::app::{App, WindowId};
 use crate::viewport::{SceneChange, Event};

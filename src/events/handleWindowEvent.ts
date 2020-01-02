@@ -59,14 +59,15 @@ export function handleWindowEvent(document: Document, event) {
       return
     }
 
-    // keydown - char is yet not known, scancode maps to physical os-dependent key, repeats
+    // keydown - char is yet not known, keyCode maps to physical os-dependent key, repeats
     // keypress - char is known, repeats
     // keydown - key is up, after action, can be prevented
     // beforeinput - event.data contains new chars, may be empty when removing
     // input - like input, but after update (not sure if it's possible to do this on this level)
     case EventKind.KeyDown: {
       const target = document.activeElement || document.documentElement
-      const [which, code] = getKey(event[2])
+      const which = event[2]
+      const code = KEY_CODES[which]
       target._fire('keydown', { which, keyCode: which, code })
       return
     }
@@ -81,28 +82,21 @@ export function handleWindowEvent(document: Document, event) {
   }
 }
 
-// TODO: https://w3c.github.io/uievents-code/#keyboard-key-codes
-// TODO: array lookup
-function getKey(scancode) {
-  // TODO: return (js-specific numbers) from native, scancodes are platform-specific
-  switch (scancode) {
-    case 49:
-      return [32, 'Space']
-    case 36:
-      return [13, 'Enter']
-    case 123:
-      return [37, 'ArrowLeft']
-    case 124:
-      return [39, 'ArrowRight']
-    case 125:
-      return [40, 'ArrowDown']
-    case 126:
-      return [38, 'ArrowUp']
-    case 51:
-      return [8, 'Backspace']
-    case 53:
-      return [27, 'Escape']
-    }
+// TODO: more mapping
+// https://w3c.github.io/uievents-code/#keyboard-key-codes
+// https://keycode.info/
+//
+// BTW: it should be fast because it's just array lookup but I'm not sure if it's not holey
+const KEY_CODES = Object.assign(Array(40).fill(''), {
+  8: 'Backspace',
+  9: 'Tab',
+  13: 'Enter',
+  27: 'Escape',
+  32: 'Space',
+  37: 'ArrowLeft',
+  38: 'ArrowUp',
+  39: 'ArrowRight',
+  40: 'ArrowDown',
 
-  return []
-}
+  // TODO: more codes
+})

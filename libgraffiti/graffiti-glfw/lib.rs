@@ -1,6 +1,17 @@
 use std::os::raw::{c_void, c_int, c_uint, c_char, c_double};
 
 // (emscripten does not need it)
+//
+// note that for dylib it's not enough to just change the kind
+// it's also necessary to not emit libglfw3.a in build.rs (not 100% sure why)
+//
+// but glfw is just 120 KB so I guess it's fine to link static for now and
+// it should be carefully evaluated in what exactly the dylib could be better
+//
+// I can see value in SDL2 (android, iOS) and that one is much bigger (1MB)
+// so using system-wide version might be a good idea there
+// but we need very little of its functionality so glfw feels like better fit
+// and mobile is not on the roadmap yet anyway (but it's something worth thinking)
 #[cfg(not(target_arch = "wasm32"))]
 #[link(name = "glfw3", kind = "static")]
 extern {}
