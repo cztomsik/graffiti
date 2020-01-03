@@ -34,7 +34,8 @@ version = "0.1.0"
 dependencies = [
  "gl 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "graffiti-glfw 3.3.0",
- "graffiti-yoga 3.3.0",
+ "graffiti-stb 1.0.0",
+ "graffiti-yoga 1.18.0",
  "miniserde 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "stretch 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -47,8 +48,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "graffiti-stb"
+version = "1.0.0"
+dependencies = [
+ "cc 1.0.45 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "graffiti-yoga"
-version = "3.3.0"
+version = "1.18.0"
 dependencies = [
  "cc 1.0.45 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

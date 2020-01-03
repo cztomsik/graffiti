@@ -4,7 +4,7 @@ permalink: /
 ---
 
 # graffiti
-Experimental GUI toolkit for node.js. The idea is to implement just enough subset of DOM & styling so that you can use react & other web frameworks, including the most of the related libraries but keep it as simple as possible so it can run fluently even on cheap devices like Raspberry Pi. The trick is to render everything using GPU and to keep the scope & abstractions at minimum.
+Experimental GUI toolkit for node.js. The idea is to re-implement just enough subset of DOM & styling so that you can use react & other web frameworks, including the most of the related libraries but keep it as simple as possible so it can run fluently even on cheap devices like Raspberry Pi. The trick is to render everything using GPU and to keep the scope & abstractions at minimum.
 
 One day, it could be viable alternative to [electron](https://github.com/electron/electron) but you will never be able to just take an existing web app and run it with this (but it should be possible the other way around).
 
