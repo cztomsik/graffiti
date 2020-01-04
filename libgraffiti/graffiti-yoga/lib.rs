@@ -1,3 +1,5 @@
+// hand-written to keep deps (and compile-time) low
+
 #![allow(non_upper_case_globals)]
 
 use std::os::raw::{c_float, c_void};

@@ -154,20 +154,37 @@ function parseDimension(value?: string | number) {
   value = '' + value
 
   if (value.endsWith('%')) {
-    return [3, parseFloat(value)]
+    return Dimension.Percent(parseFloat(value))
   }
 
   if (value === undefined) {
-    return [0]
+    return Dimension.Undefined()
   }
 
   if (value === 'auto') {
-    return [1]
+    return Dimension.Auto()
   }
 
-  return [2, parseFloat(value)]
+  return Dimension.Px(parseFloat(value))
 }
 
+/*
+
+  This wouldnt work:
+
+    Object.setPrototypeOf(
+      CSSStyleDeclaration.prototype,
+      new Proxy({} as any, {
+        set: (_o, k, v, style) => (style.setProperty(kebabCase(k), v), true)
+      })
+    )
+
+  TODO: maybe it's better to just define setters during init
+  (either strings or enumerating StyleChange variants)
+
+  that way, there would be just one prototype and it should have less overhead
+
+*/
 function installProxy(style: any) {
   style.__proto__ = new Proxy(style.__proto__, {
     set: (o, k, v) => (style.setProperty(kebabCase(k), v), true)

@@ -1,3 +1,9 @@
+// this is temporary, we rather should try to detect & use one of the system-available libraries
+// but maybe we can keep it as compile option or something
+//
+// stb is nice but it's not meant to be feature-complete and if you're
+// loading images from uncontrolled sources, it might also become a security issue
+
 use std::os::raw::{c_int, c_float, c_uchar, c_void};
 
 extern "C" {

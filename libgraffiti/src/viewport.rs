@@ -20,6 +20,7 @@ pub struct Viewport {
     picker: SurfacePicker,
 }
 
+// TODO: tagged enum, update interop & js event handling
 #[derive(Debug, Clone, Copy)]
 pub struct Event {
     pub kind: EventKind,
@@ -122,8 +123,6 @@ impl Viewport {
     // some of this could be done in parallel which means the batch
     // itself or some part of it has to be passed to somebody who owns
     // all of the systems
-    //
-    // other things (set_title) can be just plain old methods
     //
     // TODO: introduce some other struct responsible for this
     pub fn update_scene(&mut self, changes: &[SceneChange]) {

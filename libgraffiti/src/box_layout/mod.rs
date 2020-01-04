@@ -112,13 +112,12 @@ pub enum FlexWrap {
     WrapReverse,
 }
 
-#[cfg(feature = "stretch")]
-pub mod stretch;
 
 pub mod yoga;
-
-#[cfg(feature = "stretch")]
-pub type BoxLayoutImpl = stretch::StretchLayout;
-
 #[cfg(not(feature = "stretch"))]
 pub type BoxLayoutImpl = yoga::YogaLayout;
+
+#[cfg(feature = "stretch")]
+pub mod stretch;
+#[cfg(feature = "stretch")]
+pub type BoxLayoutImpl = stretch::StretchLayout;
