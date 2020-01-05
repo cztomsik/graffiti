@@ -46,7 +46,7 @@ Note that you can always use/implement native module for anything.
 
 | Styles                  |              |
 |-------------------------|--------------|
-| layout                  | flexbox-only |
+| layout                  | flex, block  |
 | CSSOM                   | minimal      |
 | word-break, white-space | N/A          |
 | getComputedStyle()      | N/A          |

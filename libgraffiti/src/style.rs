@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use crate::box_layout::{BoxLayout, BoxLayoutNode, BoxLayoutImpl, Display, Dimension, Align, FlexDirection, FlexWrap};
 use crate::commons::{SurfaceId, Color};
 use crate::render::{Renderer, BoxShadow};
@@ -12,7 +13,9 @@ use crate::text_layout::{TextLayout, Text};
 /// it could be part of `Viewport` but it's easier to read/change
 /// when it's separate
 ///
-/// also, some properties are not effective until other are set too
+/// this is not a  style engine in any way, it doesn't do rules resolution,
+/// it doesn't even keep defined rules, it just keeps some intermediate state
+/// because some style props are not effective until other are set too
 /// (`border-style` + `border-width` + `border-color`) and we need to store
 /// these intermediate values somewhere
 ///
@@ -21,6 +24,9 @@ use crate::text_layout::{TextLayout, Text};
 /// knows only flexbox
 pub struct StyleUpdater {
     // TODO: internal state (SurfaceId+StyleProp multimap)
+
+    // TODO: Vec<Surface> + contains() would be more compact but slower (test it)
+    flex_direction_set: BTreeSet<SurfaceId>,
 }
 
 #[derive(Debug, Clone)]
@@ -101,7 +107,9 @@ pub struct Image {
 
 impl StyleUpdater {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            flex_direction_set: BTreeSet::new(),
+        }
     }
 
     pub fn update_styles(&mut self, box_layout: &mut BoxLayoutImpl, text_layout: &mut TextLayout, renderer: &mut Renderer, changes: &[StyleChange]) -> StyleUpdateResult {
@@ -129,6 +137,16 @@ impl StyleUpdater {
                     let node = box_layout.get_node_mut(*surface);
 
                     match layout_change {
+                        StyleProp::Display { value } => {
+                            if !self.flex_direction_set.contains(surface) {
+                                match value {
+                                    Display::None => error!("TODO: display: none"),
+                                    Display::Block => node.set_flex_direction(FlexDirection::Column),
+                                    Display::Flex => node.set_flex_direction(FlexDirection::Row),
+                                }
+                            }
+                        }
+
                         StyleProp::Width { value } => node.set_width(*value),
                         StyleProp::Height { value } => node.set_height(*value),
                         StyleProp::MinWidth { value } => node.set_min_width(*value),
@@ -154,7 +172,10 @@ impl StyleUpdater {
                         StyleProp::FlexGrow { value } => node.set_flex_grow(*value),
                         StyleProp::FlexShrink { value } => node.set_flex_shrink(*value),
                         StyleProp::FlexBasis { value } => node.set_flex_basis(*value),
-                        StyleProp::FlexDirection { value } => node.set_flex_direction(*value),
+                        StyleProp::FlexDirection { value } => {
+                            self.flex_direction_set.insert(*surface);
+                            node.set_flex_direction(*value);
+                        },
                         StyleProp::FlexWrap { value } => node.set_flex_wrap(*value),
 
                         StyleProp::AlignSelf { value } => node.set_align_self(*value),

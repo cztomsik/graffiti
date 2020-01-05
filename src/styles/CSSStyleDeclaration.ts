@@ -1,6 +1,6 @@
 import { camelCase, pascalCase, kebabCase, parseColor, UNSUPPORTED } from '../core/utils'
 import { SceneContext } from '../core/SceneContext'
-import { Dimension, Text, TextAlign } from '../core/nativeApi'
+import { Display, Dimension, Text, TextAlign } from '../core/nativeApi'
 
 // minimal impl just to get something working
 export class CSSStyleDeclaration {
@@ -14,12 +14,7 @@ export class CSSStyleDeclaration {
   // kebab-case
   setProperty(k, v) {
     switch (k) {
-      // (naively) emulate display: block/flex
-      // this is probably very bad idea but it could work to some degree
-      // and then it might be either improved or removed respectively
-      case 'display':
-        this.setProperty('flex-direction', v === 'block' ?'column' :'row')
-        break
+      // shorthands first
 
       case 'flex':
         this.setProperty('flex-grow', v)
@@ -81,7 +76,13 @@ export class CSSStyleDeclaration {
         ))
         break
 
+      // props
       // TODO: defaults, but be careful
+
+      case 'display':
+        this._scene.setStyle(this._surfaceId, 'Display', Display[pascalCase(v)])
+        break
+
       case 'width':
       case 'height':
       case 'min-width':

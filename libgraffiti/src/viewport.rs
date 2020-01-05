@@ -117,6 +117,7 @@ impl Viewport {
     pub fn resize(&mut self, width: i32, height: i32) -> Event {
         self.renderer.resize(width, height);
         self.box_layout.resize(width, height);
+        self.box_layout.calculate();
 
         self.render();
 
