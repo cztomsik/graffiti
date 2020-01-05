@@ -5,11 +5,13 @@
 use crate::commons::{SurfaceId, Bounds};
 use crate::app::{App, WindowId};
 use crate::viewport::{SceneChange, Event};
+use crate::style::StyleChange;
 
 #[derive(Debug, Clone)]
 pub enum ApiMsg {
     // sorted by whats most common
     GetEvents { poll: bool },
+    UpdateStyles { window: WindowId, changes: Vec<StyleChange> },
     UpdateScene { window: WindowId, changes: Vec<SceneChange> },
     GetBounds { window: WindowId, surface: SurfaceId },
     CreateWindow { title: String, width: i32, height: i32 },
@@ -42,6 +44,7 @@ impl Api {
         match msg {
             CreateWindow { title, width, height } => { app.create_window(&title, width, height); Nothing {} }
             GetEvents { poll } => Events { events: app.get_events(poll) },
+            UpdateStyles { window, changes } => { app.update_window_styles(window, &changes); Nothing {} }
             UpdateScene { window, changes } => { app.update_window_scene(window, &changes); Nothing {} }
             GetBounds { window, surface } => Bounds { bounds: app.get_bounds(window, surface) },
             _ => unimplemented!(),

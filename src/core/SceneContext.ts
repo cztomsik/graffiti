@@ -1,4 +1,4 @@
-import { send, ApiMsg, SceneChange, AlignProp, Align, FlexDirection, FlexWrap, DimensionProp } from './nativeApi'
+import { send, ApiMsg, SceneChange, StyleChange, StyleProp, Align, FlexDirection, FlexWrap } from './nativeApi'
 
 /**
  * Provides indirect mutation api for the scene, so that we can freely change an
@@ -9,57 +9,59 @@ import { send, ApiMsg, SceneChange, AlignProp, Align, FlexDirection, FlexWrap, D
 export class SceneContext {
   // because root is 0
   nextId = 1
-  changes = []
+  tree_changes = []
+  style_changes = []
 
   constructor(private windowId) {}
 
   createSurface() {
-    this.changes.push(SceneChange.Alloc())
+    this.tree_changes.push(SceneChange.Alloc())
     return this.nextId++
   }
 
   insertAt(parent, child, index) {
-    this.changes.push(SceneChange.InsertAt(parent, child, index))
+    this.tree_changes.push(SceneChange.InsertAt(parent, child, index))
   }
 
   removeChild(parent, child) {
-    this.changes.push(SceneChange.RemoveChild(parent, child))
+    this.tree_changes.push(SceneChange.RemoveChild(parent, child))
+  }
+
+  setStyle(surface, prop, value) {
+    if (StyleProp[prop]) {
+      this.style_changes.push(StyleChange(surface, StyleProp[prop](value)))
+    } else {
+      console.log('TODO: set', surface, prop, value)
+    }
   }
 
   setDimension(surface, prop, dim) {
-    this.changes.push(SceneChange.Dimension(surface, DimensionProp[prop], dim))
+    this.setStyle(surface, prop, dim)
   }
 
   setAlign(surface, prop, align) {
-    this.changes.push(SceneChange.Align(surface, AlignProp[prop], Align[align]))
+    this.setStyle(surface, prop, Align[align])
   }
 
-  setFlexWrap(surface, flexWrap) {
-    this.changes.push(SceneChange.FlexWrap(surface, FlexWrap[flexWrap]))
+  setFlexWrap(surface, wrap) {
+    this.setStyle(surface, 'FlexWrap', FlexWrap[wrap])
   }
 
-  setFlexDirection(surface, flex_direction) {
-    this.changes.push(SceneChange.FlexDirection(surface, FlexDirection[flex_direction]))
+  setFlexDirection(surface, dir) {
+    this.setStyle(surface, 'FlexDirection', FlexDirection[dir])
   }
 
   setBackgroundColor(surface, color) {
-    this.changes.push(SceneChange.BackgroundColor(surface, color))
-  }
-
-  setBorder(surface, border) {
-    this.changes.push(SceneChange.Border(surface, border))
-  }
-
-  setBoxShadow(surface, shadow) {
-    this.changes.push(SceneChange.BoxShadow(surface, shadow))
+    this.setStyle(surface, 'BackgroundColor', color)
   }
 
   setTextColor(surface, color) {
-    this.changes.push(SceneChange.TextColor(surface, color))
+    this.setStyle(surface, 'Color', color)
   }
 
   setText(surface, text) {
-    this.changes.push(SceneChange.Text(surface, text))
+    // TODO: this is temporary
+    this.setStyle(surface, 'Text', text)
   }
 
   getBounds(surface) {
@@ -70,13 +72,14 @@ export class SceneContext {
   }
 
   flush(animating) {
-    if (this.changes.length === 0) {
-      return
+    if (this.tree_changes.length) {
+      send(ApiMsg.UpdateScene(this.windowId, this.tree_changes))
+      this.tree_changes.length = 0
     }
 
-    //console.log(require('util').inspect(this.msg, { depth: 4 }))
-    send(ApiMsg.UpdateScene(this.windowId, this.changes))
-
-    this.changes.length = 0
+    if (this.style_changes.length) {
+      send(ApiMsg.UpdateStyles(this.windowId, this.style_changes))
+      this.style_changes.length = 0
+    }
   }
 }

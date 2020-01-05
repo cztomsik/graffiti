@@ -1,6 +1,6 @@
 import { camelCase, pascalCase, kebabCase, parseColor, UNSUPPORTED } from '../core/utils'
 import { SceneContext } from '../core/SceneContext'
-import { Text, TextAlign } from '../core/nativeApi'
+import { Dimension, Text, TextAlign } from '../core/nativeApi'
 
 // minimal impl just to get something working
 export class CSSStyleDeclaration {
@@ -89,8 +89,6 @@ export class CSSStyleDeclaration {
       case 'max-width':
       case 'max-height':
       case 'flex-basis':
-      case 'flex-grow':
-      case 'flex-shrink':
       case 'top':
       case 'right':
       case 'bottom':
@@ -105,6 +103,10 @@ export class CSSStyleDeclaration {
       case 'margin-left':
         this._scene.setDimension(this._surfaceId, pascalCase(k), parseDimension(v || 0))
         break
+      case 'flex-grow':
+      case 'flex-shrink':
+        this._scene.setStyle(this._surfaceId, pascalCase(k), +v || 0)
+        break;
 
       case 'align-content':
       case 'align-items':

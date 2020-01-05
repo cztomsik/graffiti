@@ -2,21 +2,24 @@
 
     
 use crate::api::{ApiMsg,ApiResponse};
-use crate::commons::{Pos,Bounds,Color,BoxShadow,Border,BorderSide,BorderRadius,BorderStyle,Image};
+use crate::commons::{Pos,Bounds,Color};
 use crate::viewport::{SceneChange,Event,EventKind};
-use crate::box_layout::{DimensionProp,Dimension,AlignProp,Align,FlexWrap,FlexDirection};
+use crate::style::{StyleChange,StyleProp};
+use crate::box_layout::{Display,Dimension,Align,FlexWrap,FlexDirection};
 use crate::text_layout::{Text,TextAlign};
+use crate::render::{BorderRadius,BoxShadow};
 
     
 interop! {
       
   ApiMsg { 
     0 GetEvents { poll },
-    1 UpdateScene { window, changes },
-    2 GetBounds { window, surface },
-    3 CreateWindow { title, width, height },
-    4 ResizeWindow { window },
-    5 DestroyWindow { window } 
+    1 UpdateStyles { window, changes },
+    2 UpdateScene { window, changes },
+    3 GetBounds { window, surface },
+    4 CreateWindow { title, width, height },
+    5 ResizeWindow { window },
+    6 DestroyWindow { window } 
   }
   ApiResponse { 
     0 Events { events },
@@ -26,18 +29,45 @@ interop! {
   SceneChange { 
     0 Alloc {  },
     1 InsertAt { parent, child, index },
-    2 RemoveChild { parent, child },
-    3 Dimension { surface, prop, value },
-    4 Align { surface, prop, value },
-    5 FlexWrap { surface, value },
-    6 FlexDirection { surface, value },
-    7 BackgroundColor { surface, value },
-    8 Border { surface, value },
-    9 BoxShadow { surface, value },
-    10 TextColor { surface, value },
-    11 BorderRadius { surface, value },
-    12 Image { surface, value },
-    13 Text { surface, text } 
+    2 RemoveChild { parent, child } 
+  }
+  StyleProp { 
+    0 Display { value },
+    1 Width { value },
+    2 Height { value },
+    3 MinWidth { value },
+    4 MinHeight { value },
+    5 MaxWidth { value },
+    6 MaxHeight { value },
+    7 Top { value },
+    8 Right { value },
+    9 Bottom { value },
+    10 Left { value },
+    11 MarginTop { value },
+    12 MarginRight { value },
+    13 MarginBottom { value },
+    14 MarginLeft { value },
+    15 PaddingTop { value },
+    16 PaddingRight { value },
+    17 PaddingBottom { value },
+    18 PaddingLeft { value },
+    19 FlexGrow { value },
+    20 FlexShrink { value },
+    21 FlexBasis { value },
+    22 FlexDirection { value },
+    23 FlexWrap { value },
+    24 AlignSelf { value },
+    25 AlignContent { value },
+    26 AlignItems { value },
+    27 JustifyContent { value },
+    28 Color { value },
+    29 BackgroundColor { value },
+    30 BorderTopLeftRadius { value },
+    31 BorderTopRightRadius { value },
+    32 BorderBottomLeftRadius { value },
+    33 BorderBottomRightRadius { value },
+    34 BoxShadow { value },
+    35 Text { value } 
   }
   Dimension { 
     0 Undefined {  },
@@ -50,19 +80,15 @@ interop! {
   Pos [x,y]
   Bounds [a,b]
   Color [r,g,b,a]
-  BoxShadow [color,offset,blur,spread]
-  Border [top,right,bottom,left]
-  BorderSide [width,style,color]
-  BorderRadius [top,right,bottom,left]
-  Image [url]
   Event [kind,target,key]
+  StyleChange [surface,prop]
   Text [font_size,line_height,align,text]
+  BorderRadius [top,right,bottom,left]
+  BoxShadow [color,offset,blur,spread]
 
       
-  BorderStyle(u8)
   EventKind(u8)
-  DimensionProp(u8)
-  AlignProp(u8)
+  Display(u8)
   Align(u8)
   FlexWrap(u8)
   FlexDirection(u8)

@@ -1,6 +1,7 @@
 use crate::platform::{WINDOWS_PTR, PENDING_EVENTS_PTR};
 use crate::commons::{SurfaceId, Bounds};
 use crate::viewport::{Viewport, Event, SceneChange};
+use crate::style::{StyleChange};
 use std::collections::BTreeMap;
 use std::ptr;
 use crate::platform;
@@ -74,6 +75,18 @@ impl App {
         self.window_viewports.insert(native_window, viewport);
 
         id
+    }
+
+    // TODO: DRY, add Window & get_window_mut()
+
+    pub fn update_window_styles(&mut self, id: WindowId, changes: &[StyleChange]) {
+        let native_window = self.native_windows[id];
+        let viewport = self.window_viewports.get_mut(&native_window).expect("window not found");
+
+        viewport.update_styles(changes);
+        unsafe {
+            platform::swap_buffers(native_window)
+        }
     }
 
     pub fn update_window_scene(&mut self, id: WindowId, changes: &[SceneChange]) {

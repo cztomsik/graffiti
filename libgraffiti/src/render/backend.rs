@@ -9,8 +9,12 @@ use crate::render::{Frame, Batch, Vertex, VertexIndex};
 /// Low-level renderer, specific to the given graphics api (OpenGL/Vulkan/SW)
 /// Knows how to draw primitive batches, prepared by higher-level `Renderer`
 ///
+/// Backend does the real drawing but it's also very simple and can't do any
+/// optimizations and has absolutely no idea about scene, surfaces or anything else.
+/// You don't want to use it directly and so it's useless just by itself.
+///
 /// TODO: transpile shaders for different devices (raspi)
-///       (maybe macros?)
+///       (maybe GLSL macros?)
 ///
 /// TODO: extract trait, provide other implementations
 pub struct RenderBackend {
@@ -222,83 +226,10 @@ impl RenderBackend {
     }
 }
 
-
-
-
-const RECT_VS: &str = r#"
-      #version 100
-
-      uniform vec2 u_win_size;
-
-      attribute vec2 a_pos;
-      attribute vec4 a_color;
-
-      varying vec4 v_color;
-
-      void main() {
-            vec2 xy = (a_pos / (u_win_size / 2.)) - 1.;
-            xy.y *= -1.;
-
-            gl_Position = vec4(xy, 0.0, 1.0);
-            v_color = a_color;
-      }
-"#;
-
-const RECT_FS: &str = r#"
-      #version 100
-
-      precision mediump float;
-
-      varying vec4 v_color;
-
-      void main() {
-            // TODO: move division to VS
-            gl_FragColor = v_color / 256.;
-      }
-"#;
-
-const TEXT_VS: &str = r#"
-      #version 100
-
-      uniform vec2 u_win_size;
-
-      attribute vec2 a_pos;
-      attribute vec2 a_uvv;
-
-      varying vec2 v_uv;
-
-      void main() {
-            vec2 xy = (a_pos / (u_win_size / 2.)) - 1.;
-            xy.y *= -1.;
-
-            gl_Position = vec4(xy, 0.0, 1.0);
-            v_uv = a_uvv;
-      }
-"#;
-
-const TEXT_FS: &str = r#"
-      #version 100
-
-      precision mediump float;
-
-      uniform vec4 u_color;
-      uniform float u_dist_factor;
-      uniform sampler2D u_texture;
-
-      varying vec2 v_uv;
-
-      float median(vec3 col) {
-          return max(min(col.r, col.g), min(max(col.r, col.g), col.b));
-      }
-
-      void main() {
-            // TODO: seems like it's BGRA instead of RGBA
-            float distance = u_dist_factor * (median(texture2D(u_texture, v_uv).rgb) - 0.5);
-            float opacity = 1. - clamp(distance + 0.5, 0.0, 1.0);
-
-            gl_FragColor = vec4(u_color.rgb, u_color.a * opacity);
-      }
-"#;
+const RECT_VS: &str = include_str!("shaders/rect.vert");
+const RECT_FS: &str = include_str!("shaders/rect.frag");
+const TEXT_VS: &str = include_str!("shaders/text.vert");
+const TEXT_FS: &str = include_str!("shaders/text.frag");
 
 const SDF_TEXTURE: &[u8; 512 * 512 * 4] = include_bytes!("../../resources/sheet0.raw");
 

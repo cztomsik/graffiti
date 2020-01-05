@@ -1,4 +1,4 @@
-use crate::commons::{Au, Pos, Bounds, SurfaceId, Color, Image, BoxShadow, Border, BorderRadius};
+use crate::commons::{Au, Pos, Bounds, SurfaceId, Color};
 use std::collections::BTreeMap;
 use std::io::Write;
 use crate::text_layout::{TextLayout, Text, GlyphInstance};
@@ -38,13 +38,13 @@ impl Renderer {
         let mut res = Self {
             backend: RenderBackend::new(),
             scene: Scene {
-                border_radii: BTreeMap::new(),
+                //border_radii: BTreeMap::new(),
                 box_shadows: BTreeMap::new(),
                 text_colors: Vec::new(),
                 background_colors: BTreeMap::new(),
-                images: BTreeMap::new(),
+                //images: BTreeMap::new(),
                 texts: BTreeMap::new(),
-                borders: BTreeMap::new(),
+                //borders: BTreeMap::new(),
                 children: Vec::new(),
             }
         };
@@ -79,9 +79,11 @@ impl Renderer {
         self.render_frame(frame);
     }
 
+    /*
     pub fn set_border_radius(&mut self, surface: SurfaceId, radius: Option<BorderRadius>) {
         self.scene.border_radii.set(surface, radius);
     }
+    */
 
     pub fn set_box_shadow(&mut self, surface: SurfaceId, shadow: Option<BoxShadow>) {
         self.scene.box_shadows.set(surface, shadow);
@@ -95,18 +97,22 @@ impl Renderer {
         self.scene.background_colors.set(surface, color);
     }
 
+    /*
     pub fn set_image(&mut self, surface: SurfaceId, image: Option<Image>) {
         self.scene.images.set(surface, image);
     }
+    */
 
     pub fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
         // TODO: inspect perf, create/remove_text, cache buffers
         self.scene.texts.set(surface, text);
     }
 
+    /*
     pub fn set_border(&mut self, surface: SurfaceId, border: Option<Border>) {
         self.scene.borders.set(surface, border);
     }
+    */
 
     fn prepare_frame(&mut self, all_bounds: &[Bounds], text_layout: &TextLayout) -> Frame {
         let root = 0;
@@ -167,9 +173,11 @@ impl <'a> RenderContext<'a> {
             self.draw_background_color(color);
         }
 
+        /*
         if let Some(image) = self.scene.images.get(&id) {
             self.draw_image(image);
         }
+        */
 
         if let Some(text) = self.scene.texts.get(&id) {
             self.draw_text(text, self.scene.text_colors[id], self.text_layout.get_glyphs(id));
@@ -180,9 +188,11 @@ impl <'a> RenderContext<'a> {
             self.draw_surface(*c);
         }
 
+        /*
         if let Some(border) = self.scene.borders.get(&id) {
             self.draw_border(border);
         }
+        */
 
         // restore because of recursion
         self.bounds = parent_bounds;
@@ -198,10 +208,12 @@ impl <'a> RenderContext<'a> {
         self.builder.push_rect(self.bounds, color);
     }
 
+    /*
     fn draw_image(&mut self, _image: &Image) {
         // TODO
         self.builder.push_rect(self.bounds, &Color::new(100, 200, 255, 255));
     }
+    */
 
     // TODO: create_text() -> TextId & Batch::Text(text_id)
     fn draw_text(&mut self, text: &Text, color: Color, glyphs: impl Iterator<Item = GlyphInstance>) {
@@ -235,6 +247,7 @@ impl <'a> RenderContext<'a> {
         self.builder.count = 0;
     }
 
+    /*
     fn draw_border(&mut self, Border { top, right, left, bottom }: &Border) {
         // TODO: BorderRadius
         // TODO: width > 0. & style != None
@@ -257,7 +270,51 @@ impl <'a> RenderContext<'a> {
         self.builder.push_rect(bottom_bounds, &bottom.color);
         self.builder.push_rect(left_bounds, &left.color);
     }
+    */
 }
+
+// some structs in the renderer-friendly way
+// for example border radius is just a bunch of numbers but it means we will
+// need to do clipping and so it's together and it's either there or not at all
+
+#[derive(Debug, Clone, Copy)]
+pub struct BorderRadius {
+    pub top: f32,
+    pub right: f32,
+    pub bottom: f32,
+    pub left: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct BoxShadow {
+    pub color: Color,
+    pub offset: Pos,
+    pub blur: f32,
+    pub spread: f32,
+}
+
+/*
+#[derive(Debug, Clone, Copy)]
+pub struct Border {
+    pub top: BorderSide,
+    pub right: BorderSide,
+    pub bottom: BorderSide,
+    pub left: BorderSide,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct BorderSide {
+    pub width: f32,
+    pub style: BorderStyle,
+    pub color: Color,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum BorderStyle {
+    None,
+    Solid,
+}
+*/
 
 /// Represents the work which has to be done to render one "frame".
 /// It is split to multiple "batches", sometimes because it's faster
@@ -373,13 +430,13 @@ impl FrameBuilder {
 /// so it can be borrowed together
 /// TODO: rename to UiState (or something what makes more sense)
 pub struct Scene {
-    border_radii: BTreeMap<SurfaceId, BorderRadius>,
+    //border_radii: BTreeMap<SurfaceId, BorderRadius>,
     box_shadows: BTreeMap<SurfaceId, BoxShadow>,
     text_colors: Vec<Color>,
     background_colors: BTreeMap<SurfaceId, Color>,
-    images: BTreeMap<SurfaceId, Image>,
+    //images: BTreeMap<SurfaceId, Image>,
     texts: BTreeMap<SurfaceId, Text>,
-    borders: BTreeMap<SurfaceId, Border>,
+    //borders: BTreeMap<SurfaceId, Border>,
 
     // TODO: lift children up
     pub children: Vec<Vec<SurfaceId>>

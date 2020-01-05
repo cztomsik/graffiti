@@ -1,8 +1,10 @@
-use crate::commons::{Pos, SurfaceId, Color, BorderRadius, Border, BoxShadow, Image, Bounds};
+use crate::style::{StyleChange};
+use crate::commons::{Pos, SurfaceId, Bounds};
 use crate::picker::SurfacePicker;
-use crate::box_layout::{BoxLayout, BoxLayoutImpl, DimensionProp, Dimension, AlignProp, Align, FlexDirection, FlexWrap};
-use crate::text_layout::{TextLayout, Text};
+use crate::box_layout::{BoxLayout, BoxLayoutImpl};
+use crate::text_layout::{TextLayout};
 use crate::render::Renderer;
+use crate::style::StyleUpdater;
 
 // Holds the state & systems needed for one UI "viewport"
 // basically, this is the window "content" area but
@@ -12,8 +14,9 @@ use crate::render::Renderer;
 // - translates events (target needs to be looked up)
 // - accepts batch of updates to be applied to the scene
 pub struct Viewport {
-    box_layout: Box<dyn BoxLayout>,
-    text_layout: TextLayout,
+    box_layout: BoxLayoutImpl,
+    text_layout: Box<TextLayout>,
+    style_updater: StyleUpdater,
     renderer: Renderer,
 
     mouse_pos: Pos,
@@ -50,12 +53,17 @@ pub enum EventKind {
 }
 
 impl Viewport {
-    pub fn new(width: i32, height: i32) -> Self {
+    // Box is important because of move vs. pointers
+    pub fn new(width: i32, height: i32) -> Viewport {
+        let mut text_layout = Box::new(TextLayout::new());
+
         Viewport {
             mouse_pos: Pos::zero(),
 
-            box_layout: Box::new(BoxLayoutImpl::new(width, height)),
-            text_layout: TextLayout::new(),
+            // TODO: this is temporary until we find a way to pass measure safely
+            box_layout: BoxLayoutImpl::new(width, height, &mut *text_layout),
+            text_layout,
+            style_updater: StyleUpdater::new(),
             picker: SurfacePicker::new(),
 
             renderer: Renderer::new(width, height),
@@ -119,6 +127,21 @@ impl Viewport {
         Event::new(EventKind::Close, 0, 0)
     }
 
+    pub fn update_styles(&mut self, changes: &[StyleChange]) {
+        let res = self.style_updater.update_styles(
+            &mut self.box_layout,
+            &mut self.text_layout,
+            &mut self.renderer,
+            changes
+        );
+
+        if res.needs_layout {
+            self.box_layout.calculate();
+        }
+
+        self.render();
+    }
+
     // apply batch of changes
     // some of this could be done in parallel which means the batch
     // itself or some part of it has to be passed to somebody who owns
@@ -142,41 +165,15 @@ impl Viewport {
                     self.box_layout.alloc();
                     self.renderer.alloc();
                 }
-
-                Text { surface, text } => {
-                    // TODO: box_layout needs only true/false flag if measure is needed
-                    // TODO: renderer needs only font_size, which could be provided from the text_layout,
-                    //   along with the glyph iterator
-                    self.box_layout.set_text(*surface, text.clone());
-                    self.text_layout.set_text(*surface, text.clone());
-                    self.renderer.set_text(*surface, text.clone());
-                }
-
-                BackgroundColor { surface, value } => self.renderer.set_background_color(*surface, *value),
-                Border { surface, value } => self.renderer.set_border(*surface, *value),
-                BoxShadow { surface, value } => self.renderer.set_box_shadow(*surface, *value),
-                TextColor { surface, value } => self.renderer.set_text_color(*surface, *value),
-                BorderRadius { surface, value } => self.renderer.set_border_radius(*surface, *value),
-                Image { surface, value } => self.renderer.set_image(*surface, value.clone()),
-
-                Dimension { surface, prop, value } => self.box_layout.set_dimension(*surface, *prop, *value),
-                Align { surface, prop, value } => self.box_layout.set_align(*surface, *prop, *value),
-                FlexWrap { surface, value } => self.box_layout.set_flex_wrap(*surface, *value),
-                FlexDirection { surface, value } => self.box_layout.set_flex_direction(*surface, *value),
             }
         }
 
+        self.box_layout.calculate();
         self.render();
     }
 
     fn render(&mut self) {
         silly!("render");
-
-        let text_layout = &mut self.text_layout;
-
-        self.box_layout.calculate(&mut |surface, max_width| {
-            text_layout.wrap(surface, max_width)
-        });
 
         self.renderer.render(&self.box_layout.get_bounds(), &self.text_layout);
     }
@@ -191,22 +188,5 @@ pub enum SceneChange {
     // tree changes
     Alloc,
     InsertAt { parent: SurfaceId, child: SurfaceId, index: usize },
-    RemoveChild { parent: SurfaceId, child: SurfaceId },
-
-    // layout changes
-    Dimension { surface: SurfaceId, prop: DimensionProp, value: Dimension },
-    Align { surface: SurfaceId, prop: AlignProp, value: Align },
-    FlexWrap { surface: SurfaceId, value: FlexWrap },
-    FlexDirection { surface: SurfaceId, value: FlexDirection },
-
-    // visual changes
-    BackgroundColor { surface: SurfaceId, value: Option<Color> },
-    Border { surface: SurfaceId, value: Option<Border> },
-    BoxShadow { surface: SurfaceId, value: Option<BoxShadow> },
-    TextColor { surface: SurfaceId, value: Color },
-    BorderRadius { surface: SurfaceId, value: Option<BorderRadius> },
-    Image { surface: SurfaceId, value: Option<Image> },
-
-    // text changes
-    Text { surface: SurfaceId, text: Option<Text> },
+    RemoveChild { parent: SurfaceId, child: SurfaceId }
 }

@@ -41,10 +41,12 @@ const targetDir = `${__dirname}/libgraffiti/target`
 // - ./src/core/interop.ts
 generateInterop([
   ['api', 'ApiMsg', 'ApiResponse'],
-  ['commons', 'Pos', 'Bounds', 'Color', 'BoxShadow', 'Border', 'BorderSide', 'BorderRadius', 'BorderStyle', 'Image'],
+  ['commons', 'Pos', 'Bounds', 'Color'],
   ['viewport', 'SceneChange', 'Event', 'EventKind'],
-  ['box_layout/mod', 'DimensionProp', 'Dimension', 'AlignProp', 'Align', 'FlexWrap', 'FlexDirection'],
-  ['text_layout', 'Text', 'TextAlign']
+  ['style', 'StyleChange', 'StyleProp'],
+  ['box_layout', 'Display', 'Dimension', 'Align', 'FlexWrap', 'FlexDirection'],
+  ['text_layout', 'Text', 'TextAlign'],
+  ['render', 'BorderRadius', 'BoxShadow', /*'Border', 'BorderSide', 'BorderStyle'*/]
 ])
 
 const { status } = child_process.spawnSync('cargo', ['rustc', ...extraArgs, '--', linkerOpts], {
@@ -69,7 +71,8 @@ function generateInterop(mods) {
 
   // parse each module & find respective types
   for (const [mod, ...types] of mods) {
-    const source = fs.readFileSync(`${__dirname}/libgraffiti/src/${mod}.rs`, 'utf-8')
+    // read & strip comments (easy to fool but whatever)
+    const source = fs.readFileSync(`${__dirname}/libgraffiti/src/${mod}.rs`, 'utf-8').replace(/\/\/.*/gm, '').replace(/\/\*.*?\*\//sg,'')
 
     for (const t of types) {
       // recursive regex is not supported so we try to match to the next token/EOF which should be enough
