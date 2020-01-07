@@ -19,8 +19,10 @@ use miniserde::{json, Deserialize, Serialize};
 /// TODO: scaling could be done in vertex shader
 /// (not sure if worth but it could save some FP which raspi is not good at)
 pub struct TextLayout {
+    // TODO: separate elements & text nodes to avoid BTreeMap
     layouts: BTreeMap<SurfaceId, TextLayoutState>,
     // TODO: more fonts, ttf
+    // TODO: lookup in map is costy, 
     font_glyphs: BTreeMap<char, FontGlyph>,
     x_height: f32,
 }

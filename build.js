@@ -46,7 +46,7 @@ generateInterop([
   ['style', 'StyleChange', 'StyleProp'],
   ['box_layout', 'Display', 'Dimension', 'Align', 'FlexWrap', 'FlexDirection'],
   ['text_layout', 'Text', 'TextAlign'],
-  ['render', 'BorderRadius', 'BoxShadow', /*'Border', 'BorderSide', 'BorderStyle'*/]
+  ['render', /*'BorderRadius',*/ 'BoxShadow', /*'Border', 'BorderSide', 'BorderStyle'*/]
 ])
 
 const { status } = child_process.spawnSync('cargo', ['rustc', ...extraArgs, '--', linkerOpts], {

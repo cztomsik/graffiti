@@ -7,7 +7,7 @@ use crate::viewport::{SceneChange,Event,EventKind};
 use crate::style::{StyleChange,StyleProp};
 use crate::box_layout::{Display,Dimension,Align,FlexWrap,FlexDirection};
 use crate::text_layout::{Text,TextAlign};
-use crate::render::{BorderRadius,BoxShadow};
+use crate::render::{BoxShadow};
 
     
 interop! {
@@ -83,7 +83,6 @@ interop! {
   Event [kind,target,key]
   StyleChange [surface,prop]
   Text [font_size,line_height,align,text]
-  BorderRadius [top,right,bottom,left]
   BoxShadow [color,offset,blur,spread]
 
       

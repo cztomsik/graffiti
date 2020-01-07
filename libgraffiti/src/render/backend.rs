@@ -3,11 +3,51 @@ use std::ptr;
 use std::ffi::CString;
 use gl::types::*;
 
-use crate::commons::{Pos, Color};
-use crate::render::{Frame, Batch, Vertex, VertexIndex};
+use crate::commons::{Pos, Bounds, Color};
+use crate::render::{Frame, RenderOp, RectId};
+
+// We can't use instanced drawing for raspi
+// TODO: try other mem layouts
+#[derive(Debug, Default, Clone, Copy)]
+struct Rect([Vertex<Color>; 4]);
+
+impl Rect {
+    const VERTEX_SIZE: usize = mem::size_of::<Vertex<Color>>();
+
+    fn new (bounds: Bounds, color: Color) -> Self {
+        let mut res = Self::default();
+
+        res.set_bounds(bounds);
+        res.set_color(color);
+
+        res
+    }
+
+    fn set_bounds(&mut self, Bounds { a, b }: Bounds) {
+        (self.0)[0].0 = a;
+        (self.0)[1].0 = Pos::new(b.x, a.y);
+        (self.0)[2].0 = Pos::new(a.x, b.y);
+        (self.0)[3].0 = b;
+    }
+
+    fn set_color(&mut self, color: Color) {
+        (self.0)[0].1 = color;
+        (self.0)[1].1 = color;
+        (self.0)[2].1 = color;
+        (self.0)[3].1 = color;
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+struct Vertex<T>(Pos, T);
+
+// for indexed drawing
+// raspi can do only 65k vertices in one batch
+// could be configurable but it's probably better to play it safe
+type VertexIndex = u16;
 
 /// Low-level renderer, specific to the given graphics api (OpenGL/Vulkan/SW)
-/// Knows how to draw primitive batches, prepared by higher-level `Renderer`
+/// Knows how to draw primitive batches (frames), prepared by higher-level `Renderer`
 ///
 /// Backend does the real drawing but it's also very simple and can't do any
 /// optimizations and has absolutely no idea about scene, surfaces or anything else.
@@ -18,16 +58,18 @@ use crate::render::{Frame, Batch, Vertex, VertexIndex};
 ///
 /// TODO: extract trait, provide other implementations
 pub struct RenderBackend {
-    rect_program: u32,
-    text_program: u32,
+    rect_program: GLuint,
+    text_program: GLuint,
     resize_uniforms: [(u32, i32); 2],
     text_color_uniform: i32,
     text_factor_uniform: i32,
 
-    ibo: u32,
-    vbo: u32,
+    ibo: GLuint,
+    vbo: GLuint,
 
-    // TODO: frame-shared buffers (text)
+    indices: Vec<VertexIndex>,
+    rects: Vec<Rect>,
+    text_bos: Vec<GLuint>,
 }
 
 impl RenderBackend {
@@ -102,6 +144,10 @@ impl RenderBackend {
 
                 ibo,
                 vbo,
+
+                indices: Vec::new(),
+                rects: Vec::new(),
+                text_bos: Vec::new(),
             }
         }
     }
@@ -116,6 +162,21 @@ impl RenderBackend {
         }
     }
 
+    pub(crate) fn create_rect(&mut self) -> RectId {
+        let id = self.rects.len();
+
+        self.rects.push(Rect::new(Bounds::zero(), Color::TRANSPARENT));
+        id
+    }
+
+    pub(crate) fn set_rect_bounds(&mut self, rect: RectId, bounds: Bounds) {
+        self.rects[rect].set_bounds(bounds);
+    }
+
+    pub(crate) fn set_rect_color(&mut self, rect: RectId, color: Color) {
+        self.rects[rect].set_color(color);
+    }
+
     pub(crate) fn render_frame(&mut self, frame: Frame) {
         silly!("frame {:?}", &frame);
 
@@ -126,38 +187,48 @@ impl RenderBackend {
             // TODO: | DEPTH_BUFFER_BIT
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            if frame.indices.is_empty() {
-                return;
+            // needed because of &self.indices[0]
+            if frame.rects.is_empty() {
+                return
+            }
+
+            // clear & generate indices
+            self.indices.set_len(0);
+            for i in frame.rects {
+                let base = (i * 4) as VertexIndex;
+
+                // 6 indices for 2 triangles
+                self.indices.push(base);
+                self.indices.push(base + 3);
+                self.indices.push(base + 2);
+                // second one
+                self.indices.push(base);
+                self.indices.push(base + 1);
+                self.indices.push(base + 3);
             }
 
             // upload indices
             // (can stay bound for the whole time)
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
-            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, (mem::size_of::<VertexIndex>() * frame.indices.len()) as isize, mem::transmute(&frame.indices[0]), gl::STATIC_DRAW);
+            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, (mem::size_of::<VertexIndex>() * self.indices.len()) as GLsizeiptr, mem::transmute(&self.indices[0]), gl::STATIC_DRAW);
             check("ibo");
 
-            // upload opaque & alpha vertices
-            // TODO: opaque
+            // upload vertices
             // (have to be bound again during rendering)
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-            gl::BufferData(gl::ARRAY_BUFFER, frame.alpha_data.len() as isize, mem::transmute(&frame.alpha_data[0]), gl::STATIC_DRAW);
+            gl::BufferData(gl::ARRAY_BUFFER, (mem::size_of::<Rect>() * self.rects.len()) as GLsizeiptr, mem::transmute(&self.rects[0]), gl::STATIC_DRAW);
             check("vbo");
-
-            // TODO: upload textures (and shared data if needed)
 
             // buffer sharing
             let mut vbo_offset = 0;
             let mut ibo_offset = 0;
 
-            for b in frame.batches {
-                let vertex_size;
+            for op in frame.ops {
                 let quad_count;
 
-                // TODO: every quad vertex has pos -> VertexAttribPointer for the first attr can be set once
-                match b {
-                    Batch::AlphaRects { num } => {
-                        vertex_size = mem::size_of::<Vertex<Color>>();
-                        quad_count = num;
+                match op {
+                    RenderOp::DrawRects { count } => {
+                        quad_count = count;
 
                         gl::UseProgram(self.rect_program);
                         gl::EnableVertexAttribArray(0);
@@ -166,7 +237,7 @@ impl RenderBackend {
                             2,
                             gl::FLOAT,
                             gl::FALSE,
-                            vertex_size as GLint,
+                            Rect::VERTEX_SIZE as GLint,
                             vbo_offset as *const std::ffi::c_void,
                         );
                         gl::EnableVertexAttribArray(1);
@@ -175,53 +246,54 @@ impl RenderBackend {
                             4,
                             gl::UNSIGNED_BYTE,
                             gl::FALSE,
-                            vertex_size as GLint,
+                            Rect::VERTEX_SIZE as GLint,
                             (vbo_offset + mem::size_of::<Pos>()) as *const std::ffi::c_void,
                         );
                     }
-                    Batch::Text { color, distance_factor, num } => {
-                        vertex_size = mem::size_of::<Vertex<Pos>>();
-                        quad_count = num;
-
-                        gl::UseProgram(self.text_program);
-                        gl::EnableVertexAttribArray(0);
-                        gl::VertexAttribPointer(
-                            0,
-                            2,
-                            gl::FLOAT,
-                            gl::FALSE,
-                            vertex_size as GLint,
-                            vbo_offset as *const std::ffi::c_void,
-                        );
-                        gl::EnableVertexAttribArray(1);
-                        gl::VertexAttribPointer(
-                            1,
-                            2,
-                            gl::FLOAT,
-                            gl::FALSE,
-                            vertex_size as GLint,
-                            (vbo_offset + mem::size_of::<Pos>()) as *const std::ffi::c_void,
-                        );
-
-                        // unpack it here, maybe even in builder
-                        let color: [f32; 4] = [color.r as f32 / 256., color.g as f32 / 256., color.b as f32 / 256., color.a as f32 / 256.];
-                        gl::Uniform4fv(self.text_color_uniform, 1, &color as *const GLfloat);
-                        gl::Uniform1f(self.text_factor_uniform, distance_factor);
-                    }
-                    /*
-                    _ => {
-                        // everything else is alpha, with shared indices buffer
-                        gl::Enable(gl::ALPHA);
-                    }
-                    */
                 }
 
+                // draw
                 gl::DrawElements(gl::TRIANGLES, (quad_count * 6) as i32, gl::UNSIGNED_SHORT, ibo_offset as *const std::ffi::c_void);
                 check("draw els");
 
-                vbo_offset += quad_count * 4 * vertex_size;
+                vbo_offset += quad_count * 4 * Rect::VERTEX_SIZE;
                 ibo_offset += quad_count * 6 * mem::size_of::<VertexIndex>();
             }
+
+
+            /*
+            match b {
+                RenderOp::DrawText { color, distance_factor, count } => {
+                    vertex_size = mem::size_of::<Vertex<Pos>>();
+                    quad_count = count;
+
+                    gl::UseProgram(self.text_program);
+                    gl::EnableVertexAttribArray(0);
+                    gl::VertexAttribPointer(
+                        0,
+                        2,
+                        gl::FLOAT,
+                        gl::FALSE,
+                        vertex_size as GLint,
+                        vbo_offset as *const std::ffi::c_void,
+                    );
+                    gl::EnableVertexAttribArray(1);
+                    gl::VertexAttribPointer(
+                        1,
+                        2,
+                        gl::FLOAT,
+                        gl::FALSE,
+                        vertex_size as GLint,
+                        (vbo_offset + mem::size_of::<Pos>()) as *const std::ffi::c_void,
+                    );
+
+                    // unpack it here, maybe even in builder
+                    let color: [f32; 4] = [color.r as f32 / 256., color.g as f32 / 256., color.b as f32 / 256., color.a as f32 / 256.];
+                    gl::Uniform4fv(self.text_color_uniform, 1, &color as *const GLfloat);
+                    gl::Uniform1f(self.text_factor_uniform, distance_factor);
+                }
+            }
+            */
         }
     }
 }

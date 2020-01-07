@@ -1,14 +1,15 @@
-use crate::commons::{Au, Pos, Bounds, SurfaceId, Color};
+// TODO: display: none
+// TODO: transform: scale()
+// TODO: opacity
+// TODO: scroll
+// TODO: text nodes
+
 use std::collections::BTreeMap;
-use std::io::Write;
-use crate::text_layout::{TextLayout, Text, GlyphInstance};
-use crate::util::Storage;
+use crate::commons::{Pos, Bounds, SurfaceId, Color};
+use crate::util::{Storage};
+use crate::text_layout::{TextLayout, Text};
 
-mod backend;
-use crate::render::backend::RenderBackend;
-
-/// All of this is basically just a `render(scene)` function which goes
-/// through the tree and draws appropriate visuals using positions & sizes from
+/// Goes through the tree and draws appropriate visuals using positions & sizes from
 /// the `box_layout` & `text_layout` respectively.
 ///
 /// Drawing is expected to be done on the GPU which means we need to first
@@ -16,103 +17,163 @@ use crate::render::backend::RenderBackend;
 ///
 /// Some of the work can be shared between the frames so that's why this is
 /// stateful and why it's necessary to call some methods if the scene
-/// has been changed. The rest of the frame is rebuilt every frame because it's
-/// way simpler then.
+/// has been changed.
 ///
-/// TODO: opaque pass to reduce both overdraw & amount of other batches
+/// This implementation is intentionally incorrect for the sake of simplicity and
+/// CPU performance. It is designed to be fast enough to run on raspi and
+/// it takes some shortcuts in order to do so. For example, it's possible to fool
+/// clipping if you know how to.
 ///
-/// TODO: we can split building (preparing the work for the GPU)
-///     and the actual rendering (executing gl draw commands) so that we will be
-///     1 frame in the past but we can pipeline the work then
-///     (build a new frame & draw the previous one in parallel)
-//
-/// TODO: optimize alloc
+/// This will be either fixed or maybe in the future, we might introduce some other
+/// (optional) impl which would delegate to something more demanding but also
+/// more complete (skia, maybe pathfinder but that would require GL3)
 pub struct Renderer {
-    // TODO: dyn
     backend: RenderBackend,
-    pub scene: Scene,
+    pub children: Vec<Vec<SurfaceId>>,
+    texts: BTreeMap<SurfaceId, f32>,
 }
 
 impl Renderer {
     pub fn new(width: i32, height: i32) -> Self {
-        let mut res = Self {
+        let mut res = Renderer {
             backend: RenderBackend::new(),
-            scene: Scene {
-                //border_radii: BTreeMap::new(),
-                box_shadows: BTreeMap::new(),
-                text_colors: Vec::new(),
-                background_colors: BTreeMap::new(),
-                //images: BTreeMap::new(),
-                texts: BTreeMap::new(),
-                //borders: BTreeMap::new(),
-                children: Vec::new(),
-            }
+            children: Vec::new(),
+            texts: BTreeMap::new(),
         };
 
-        res.alloc();
         res.resize(width, height);
+        res.alloc();
 
         res
-    }
-
-    pub fn alloc(&mut self) {
-        self.scene.children.push(Vec::new());
-        self.scene.text_colors.push(Color::black());
     }
 
     pub fn resize(&mut self, width: i32, height: i32) {
         self.backend.resize(width, height);
     }
 
+    pub fn alloc(&mut self) {
+        self.children.push(Vec::new());
+        self.backend.create_rect();
+    }
+
     pub fn insert_at(&mut self, parent: SurfaceId, child: SurfaceId, index: usize) {
-        self.scene.children[parent].insert(index, child);
+        self.children[parent].insert(index, child);
     }
 
     pub fn remove_child(&mut self, parent: SurfaceId, child: SurfaceId) {
-        self.scene.children[parent].retain(|ch| *ch != child);
+        self.children[parent].retain(|ch| *ch != child);
     }
 
-    // TODO: async/pipeline
+    pub fn render(&mut self, all_bounds: &[Bounds], _text_layout: &TextLayout) {
+        let mut frame = Frame {
+            rects: Vec::new(),
+            ops: vec![]
+        };
+
+        self.draw_surface(0, all_bounds, Bounds::zero(), &mut frame);
+
+        // TODO: interleaving!!!!
+        frame.ops.push(RenderOp::DrawRects { count: frame.rects.len() });
+
+        self.backend.render_frame(frame)
+    }
+
+    pub fn set_text_color(&mut self, _surface: SurfaceId, _color: Color) {}
+
+    pub fn set_background_color(&mut self, surface: SurfaceId, color: Option<Color>) {
+        self.backend.set_rect_color(surface, color.unwrap_or(Color::TRANSPARENT));
+    }
+
+    // TODO: cache glyphs, after box_layout
+    pub fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
+        self.texts.set(surface, text.map(|t| t.font_size));
+    }
+
+    fn draw_surface(&mut self, surface: SurfaceId, all_bounds: &[Bounds], parent_bounds: Bounds, frame: &mut Frame) {
+        let bounds = all_bounds[surface].relative_to(parent_bounds.a);
+
+        self.backend.set_rect_bounds(surface, bounds);
+
+        frame.rects.push(surface);
+
+        for c in self.children[surface].clone() {
+            self.draw_surface(c, all_bounds, bounds, frame);
+        }
+    }
+}
+
+mod backend;
+use backend::{RenderBackend};
+
+/// The work which has to be done to render one "frame".
+/// It is split to multiple batches/ops, sometimes because it's faster
+/// and sometimes because of texture/buffer limits, correct drawing-order, etc.
+#[derive(Debug)]
+pub struct Frame {
+    rects: Vec<RectId>,
+    ops: Vec<RenderOp>
+}
+
+/// Primitives/ops in the GPU pipeline implemented by backend.
+#[derive(Debug)]
+pub enum RenderOp {
+    // SetAlpha
+    // SetOpacity
+    // SetClip { bounds, radii }
+    DrawRects { count: usize },
+    //DrawText { text: TextId },
+    //DrawImage { image: ImageId },
+    //DrawBorder
+}
+
+pub type RectId = usize;
+pub type TextId = usize;
+
+
+
+
+
+
+
+#[derive(Debug, Clone, Copy)]
+pub struct BoxShadow {
+    pub color: Color,
+    pub offset: Pos,
+    pub blur: f32,
+    pub spread: f32,
+}
+
+
+
+
+
+
+
+
+/*
+
+use crate::commons::{Pos, Bounds, SurfaceId, Color};
+use std::collections::BTreeMap;
+use std::io::Write;
+use crate::text_layout::{TextLayout, Text, GlyphInstance};
+use crate::util::Storage;
+
+
+impl Renderer {
     // TODO: Index<SurfaceId, Iterator<GlyphInstance>> could be enough
     pub fn render(&mut self, all_bounds: &[Bounds], text_layout: &TextLayout) {
         let frame = self.prepare_frame(all_bounds, text_layout);
-        self.render_frame(frame);
-    }
-
-    /*
-    pub fn set_border_radius(&mut self, surface: SurfaceId, radius: Option<BorderRadius>) {
-        self.scene.border_radii.set(surface, radius);
-    }
-    */
-
-    pub fn set_box_shadow(&mut self, surface: SurfaceId, shadow: Option<BoxShadow>) {
-        self.scene.box_shadows.set(surface, shadow);
+        self.backend.render_frame(frame);
     }
 
     pub fn set_text_color(&mut self, surface: SurfaceId, color: Color) {
         self.scene.text_colors[surface] = color;
     }
 
-    pub fn set_background_color(&mut self, surface: SurfaceId, color: Option<Color>) {
-        self.scene.background_colors.set(surface, color);
-    }
-
-    /*
-    pub fn set_image(&mut self, surface: SurfaceId, image: Option<Image>) {
-        self.scene.images.set(surface, image);
-    }
-    */
-
     pub fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
         // TODO: inspect perf, create/remove_text, cache buffers
         self.scene.texts.set(surface, text);
     }
-
-    /*
-    pub fn set_border(&mut self, surface: SurfaceId, border: Option<Border>) {
-        self.scene.borders.set(surface, border);
-    }
-    */
 
     fn prepare_frame(&mut self, all_bounds: &[Bounds], text_layout: &TextLayout) -> Frame {
         let root = 0;
@@ -134,10 +195,6 @@ impl Renderer {
 
         builder.frame
     }
-
-    fn render_frame(&mut self, frame: Frame) {
-        self.backend.render_frame(frame);
-    }
 }
 
 struct RenderContext<'a> {
@@ -156,28 +213,8 @@ impl <'a> RenderContext<'a> {
     fn draw_surface(&mut self, id: SurfaceId) {
         let parent_bounds = self.bounds;
 
-        // TODO: display: none
-        // TODO: transform: scale()
-        // TODO: opacity
-        // TODO: scroll
-        // TODO: text nodes
-
         // TODO: maybe layout should do this too and provide bounds in absolute coords
         self.bounds = self.all_bounds[id].relative_to(parent_bounds.a);
-
-        if let Some(box_shadow) = self.scene.box_shadows.get(&id) {
-            self.draw_box_shadow(box_shadow);
-        }
-
-        if let Some(color) = self.scene.background_colors.get(&id) {
-            self.draw_background_color(color);
-        }
-
-        /*
-        if let Some(image) = self.scene.images.get(&id) {
-            self.draw_image(image);
-        }
-        */
 
         if let Some(text) = self.scene.texts.get(&id) {
             self.draw_text(text, self.scene.text_colors[id], self.text_layout.get_glyphs(id));
@@ -188,32 +225,13 @@ impl <'a> RenderContext<'a> {
             self.draw_surface(*c);
         }
 
-        /*
-        if let Some(border) = self.scene.borders.get(&id) {
-            self.draw_border(border);
-        }
-        */
-
         // restore because of recursion
         self.bounds = parent_bounds;
-    }
-
-    fn draw_box_shadow(&mut self, shadow: &BoxShadow) {
-        // TODO: spread
-        // TODO: blur
-        self.builder.push_rect(self.bounds, &shadow.color);
     }
 
     fn draw_background_color(&mut self, color: &Color) {
         self.builder.push_rect(self.bounds, color);
     }
-
-    /*
-    fn draw_image(&mut self, _image: &Image) {
-        // TODO
-        self.builder.push_rect(self.bounds, &Color::new(100, 200, 255, 255));
-    }
-    */
 
     // TODO: create_text() -> TextId & Batch::Text(text_id)
     fn draw_text(&mut self, text: &Text, color: Color, glyphs: impl Iterator<Item = GlyphInstance>) {
@@ -246,31 +264,6 @@ impl <'a> RenderContext<'a> {
         self.builder.append_indices();
         self.builder.count = 0;
     }
-
-    /*
-    fn draw_border(&mut self, Border { top, right, left, bottom }: &Border) {
-        // TODO: BorderRadius
-        // TODO: width > 0. & style != None
-
-        // TODO: rethink this
-        let mut right_bounds = self.bounds;
-        right_bounds.a.x = self.bounds.b.x - right.width;
-
-        let mut bottom_bounds = self.bounds;
-        bottom_bounds.a.y = self.bounds.b.y - bottom.width;
-
-        let mut left_bounds = self.bounds;
-        left_bounds.b.x = self.bounds.a.x + left.width;
-
-        let mut top_bounds = self.bounds;
-        top_bounds.b.y = self.bounds.a.y + top.width;
-
-        self.builder.push_rect(top_bounds, &top.color);
-        self.builder.push_rect(right_bounds, &right.color);
-        self.builder.push_rect(bottom_bounds, &bottom.color);
-        self.builder.push_rect(left_bounds, &left.color);
-    }
-    */
 }
 
 // some structs in the renderer-friendly way
@@ -293,179 +286,4 @@ pub struct BoxShadow {
     pub spread: f32,
 }
 
-/*
-#[derive(Debug, Clone, Copy)]
-pub struct Border {
-    pub top: BorderSide,
-    pub right: BorderSide,
-    pub bottom: BorderSide,
-    pub left: BorderSide,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct BorderSide {
-    pub width: f32,
-    pub style: BorderStyle,
-    pub color: Color,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum BorderStyle {
-    None,
-    Solid,
-}
 */
-
-/// Represents the work which has to be done to render one "frame".
-/// It is split to multiple "batches", sometimes because it's faster
-/// and sometimes because of texture/buffer limits, etc.
-///
-/// It also contains data for this frame.
-#[derive(Debug)]
-pub(crate) struct Frame {
-    // vertices for generated alpha passes, packed in one buffer
-    // this is possible, because they're always written in the drawing order
-    alpha_data: Vec<u8>,
-
-    // vertices for opaque primitives have to be separate because they are built
-    // out-of-order and memcpy would probably kill all of the benefits of
-    // the shared buffer
-    //
-    // opaque_rects: Vec<Rect>,
-
-    // for all of the batches
-    indices: Vec<VertexIndex>,
-
-    batches: Vec<Batch>
-}
-
-#[derive(Debug)]
-enum Batch {
-    AlphaRects { num: usize },
-    Text { color: Color, distance_factor: f32, num: usize }
-}
-
-/// Low-level frame building, can push primitives at given bounds and do
-/// some simple optimizations (out-of-order opaque pass)
-///
-/// Should be unaware of the scene, renderer or anything else
-/// (because simple things are more likely to be finished)
-///
-/// TODO: inspect Vec perf, pushing will be hot
-struct FrameBuilder {
-    frame: Frame,
-
-    // TODO
-    z: Au,
-
-    // quads written, so that we can generate indices
-    count: usize,
-}
-
-impl FrameBuilder {
-    fn new() -> Self {
-        Self {
-            frame: Frame {
-                alpha_data: Vec::new(),
-                indices: Vec::new(),
-                batches: Vec::new(),
-            },
-            z: 0.,
-            count: 0,
-        }
-    }
-
-    fn push_rect(&mut self, bounds: Bounds, color: &Color) {
-        self.push_quad(color.a == 255, &Quad::new(bounds, [*color, *color, *color, *color]));
-    }
-
-    // TODO: this is alpha only, opaque cannot be generic!
-    fn push_quad<T>(&mut self, _opaque: bool, quad: &Quad<T>) {
-        // TODO: alpha colors should be drawn in alpha batches
-        // all indices would be relative to the current batch
-        // each batch has to start at new offset (important for vertex attrib pointer)
-        //
-        // if opaque {
-        //
-        // }
-
-        let slice = unsafe { std::slice::from_raw_parts(std::mem::transmute(quad), std::mem::size_of::<Quad<T>>()) };
-
-        self.frame.alpha_data.write(slice).expect("buf write");
-
-        self.count += 1;
-    }
-
-    fn finish(&mut self) {
-        // TODO: interleaving
-        if self.count > 0 {
-            self.frame.batches.push(Batch::AlphaRects { num: self.count });
-        }
-
-        // TODO: opaque
-
-        // TODO: this should be also at the end of each batch
-        self.append_indices();
-    }
-
-    fn append_indices(&mut self) {
-        let data = &mut self.frame.indices;
-
-        for i in 0..self.count {
-            let base = (i * 4) as VertexIndex;
-
-            // 6 indices for 2 triangles
-            data.push(base);
-            data.push(base + 3);
-            data.push(base + 2);
-            // second one
-            data.push(base);
-            data.push(base + 1);
-            data.push(base + 3);
-        }
-    }
-}
-
-/// All of the state needed during the frame preparation in one struct
-/// so it can be borrowed together
-/// TODO: rename to UiState (or something what makes more sense)
-pub struct Scene {
-    //border_radii: BTreeMap<SurfaceId, BorderRadius>,
-    box_shadows: BTreeMap<SurfaceId, BoxShadow>,
-    text_colors: Vec<Color>,
-    background_colors: BTreeMap<SurfaceId, Color>,
-    //images: BTreeMap<SurfaceId, Image>,
-    texts: BTreeMap<SurfaceId, Text>,
-    //borders: BTreeMap<SurfaceId, Border>,
-
-    // TODO: lift children up
-    pub children: Vec<Vec<SurfaceId>>
-}
-
-
-/// Everything what's rendered, is quad-based, it's easier to imagine then
-#[derive(Debug)]
-struct Quad<T>([Vertex<T>; 4]);
-
-impl <T> Quad<T> {
-    fn new (Bounds { a, b }: Bounds, [d1, d2, d3, d4]: [T; 4]) -> Self {
-        Self([
-            Vertex(a, d1),
-            Vertex(Pos::new(b.x, a.y), d2),
-            Vertex(Pos::new(a.x, b.y), d3),
-            Vertex(b, d4),
-        ])
-    }
-}
-
-/// Vertex, including some primitive-specific attributes
-#[derive(Debug)]
-struct Vertex<T>(Pos, T);
-
-// for indexed drawing
-// raspi can do only 65k vertices in one batch
-// could be configurable but it's probably better to play it safe
-type VertexIndex = u16;
-
-// TODO: once opaque pass is added, Z is needed for both opaque & alpha passes!
-type Rect = Quad<Color>;

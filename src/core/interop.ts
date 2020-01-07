@@ -55,7 +55,6 @@ export const Color = (r,g,b,a) => [r,g,b,a]
 export const Event = (kind,target,key) => [kind,target,key]
 export const StyleChange = (surface,prop) => [surface,prop]
 export const Text = (font_size,line_height,align,text) => [font_size,line_height,align,text]
-export const BorderRadius = (top,right,bottom,left) => [top,right,bottom,left]
 export const BoxShadow = (color,offset,blur,spread) => [color,offset,blur,spread]
 
     

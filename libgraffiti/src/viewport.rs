@@ -180,7 +180,7 @@ impl Viewport {
     }
 
     fn get_mouse_target(&self) -> SurfaceId {
-        self.picker.pick_at(self.mouse_pos, &self.renderer.scene.children, &self.box_layout.get_bounds())
+        self.picker.pick_at(self.mouse_pos, &self.renderer.children, &self.box_layout.get_bounds())
     }
 }
 

@@ -10,7 +10,7 @@ pub type SurfaceId = usize;
 /// Packed color
 // TODO: inspect if Color is really copied and consider #[repr(u32)] instead
 // TODO: inspect Bounds copying too
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -19,17 +19,16 @@ pub struct Color {
 }
 
 impl Color {
+    pub const TRANSPARENT: Color = Self { r: 0, g: 0, b: 0, a: 0 };
+    pub const BLACK: Color = Self { r: 0, g: 0, b: 0, a: 255 };
+
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }
-    }
-
-    pub fn black() -> Self {
-        Self { r: 0, g: 0, b: 0, a: 255 }
     }
 }
 
 /// 2D Point
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Pos {
     pub x: Au,
     pub y: Au

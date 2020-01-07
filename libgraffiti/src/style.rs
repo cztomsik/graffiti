@@ -25,7 +25,6 @@ use crate::text_layout::{TextLayout, Text};
 pub struct StyleUpdater {
     // TODO: internal state (SurfaceId+StyleProp multimap)
 
-    // TODO: Vec<Surface> + contains() would be more compact but slower (test it)
     flex_direction_set: BTreeSet<SurfaceId>,
 }
 
@@ -81,6 +80,17 @@ pub enum StyleProp {
     BackgroundColor { value: Option<Color> },
 
     // TODO: border
+    /*
+    BorderTopWidth { value: f32 },
+    BorderRightWidth { value: f32 },
+    BorderBottomWidth { value: f32 },
+    BorderLeftWidth { value: f32 },
+
+    BorderTopStyle { value: BorderStyle },
+    BorderRightStyle { value: BorderStyle },
+    BorderBottomStyle { value: BorderStyle },
+    BorderLeftStyle { value: BorderStyle },
+    */
 
     // TODO: intermediate; clip in renderer
     BorderTopLeftRadius { value: Option<f32> },
@@ -88,7 +98,7 @@ pub enum StyleProp {
     BorderBottomLeftRadius { value: Option<f32> },
     BorderBottomRightRadius { value: Option<f32> },
 
-    // TODO: image
+    // BackgroundImageUrl { value: String },
 
     // TODO: multiple
     BoxShadow { value: Option<BoxShadow> },
@@ -120,7 +130,7 @@ impl StyleUpdater {
                 // start with layout-independent things
                 StyleProp::Color { value } => renderer.set_text_color(*surface, *value),
                 StyleProp::BackgroundColor { value } => renderer.set_background_color(*surface, *value),
-                StyleProp::BoxShadow { value } => renderer.set_box_shadow(*surface, *value),
+                //StyleProp::BoxShadow { value } => renderer.set_box_shadow(*surface, *value),
 
                 // TODO: intermediate (top-left, top-right, ...) & set Option<BorderRadius>
                 // StyleProp::BorderRadius { surface, value } => renderer.set_border_radius(*surface, *value),
@@ -175,7 +185,7 @@ impl StyleUpdater {
                         StyleProp::FlexDirection { value } => {
                             self.flex_direction_set.insert(*surface);
                             node.set_flex_direction(*value);
-                        },
+                        }
                         StyleProp::FlexWrap { value } => node.set_flex_wrap(*value),
 
                         StyleProp::AlignSelf { value } => node.set_align_self(*value),
@@ -190,7 +200,13 @@ impl StyleUpdater {
                             renderer.set_text(*surface, value.clone());
 
                             box_layout.set_measure_text(*surface, value.is_some())
-                        },
+                        }
+
+                        /*
+                        StyleProp::BackgroundImageUrl { value } => {
+                            renderer.set_image(*surface, value);
+                        }
+                        */
 
                         _ => { error!("TODO: set {:?}", &layout_change); }
                     }
