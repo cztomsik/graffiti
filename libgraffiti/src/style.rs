@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use crate::box_layout::{BoxLayout, BoxLayoutNode, BoxLayoutImpl, Display, Dimension, Align, FlexDirection, FlexWrap};
+use crate::box_layout::{BoxLayoutTree, BoxLayoutImpl, Display, Dimension, Align, FlexDirection, FlexWrap};
 use crate::commons::{SurfaceId, Color};
 use crate::render::{Renderer, BoxShadow};
 use crate::text_layout::{TextLayout, Text};
@@ -144,54 +144,52 @@ impl StyleUpdater {
                 layout_change => {
                     result.needs_layout = true;
 
-                    let node = box_layout.get_node_mut(*surface);
-
                     match layout_change {
                         StyleProp::Display { value } => {
                             if !self.flex_direction_set.contains(surface) {
                                 match value {
                                     Display::None => error!("TODO: display: none"),
-                                    Display::Block => node.set_flex_direction(FlexDirection::Column),
-                                    Display::Flex => node.set_flex_direction(FlexDirection::Row),
+                                    Display::Block => box_layout.set_flex_direction(*surface, FlexDirection::Column),
+                                    Display::Flex => box_layout.set_flex_direction(*surface, FlexDirection::Row),
                                 }
                             }
                         }
 
-                        StyleProp::Width { value } => node.set_width(*value),
-                        StyleProp::Height { value } => node.set_height(*value),
-                        StyleProp::MinWidth { value } => node.set_min_width(*value),
-                        StyleProp::MinHeight { value } => node.set_min_height(*value),
-                        StyleProp::MaxWidth { value } => node.set_max_width(*value),
-                        StyleProp::MaxHeight { value } => node.set_max_height(*value),
+                        StyleProp::Width { value } => box_layout.set_width(*surface, *value),
+                        StyleProp::Height { value } => box_layout.set_height(*surface, *value),
+                        StyleProp::MinWidth { value } => box_layout.set_min_width(*surface, *value),
+                        StyleProp::MinHeight { value } => box_layout.set_min_height(*surface, *value),
+                        StyleProp::MaxWidth { value } => box_layout.set_max_width(*surface, *value),
+                        StyleProp::MaxHeight { value } => box_layout.set_max_height(*surface, *value),
 
-                        StyleProp::Top { value } => node.set_top(*value),
-                        StyleProp::Right { value } => node.set_right(*value),
-                        StyleProp::Bottom { value } => node.set_bottom(*value),
-                        StyleProp::Left { value } => node.set_left(*value),
+                        StyleProp::Top { value } => box_layout.set_top(*surface, *value),
+                        StyleProp::Right { value } => box_layout.set_right(*surface, *value),
+                        StyleProp::Bottom { value } => box_layout.set_bottom(*surface, *value),
+                        StyleProp::Left { value } => box_layout.set_left(*surface, *value),
 
-                        StyleProp::MarginTop { value } => node.set_margin_top(*value),
-                        StyleProp::MarginRight { value } => node.set_margin_right(*value),
-                        StyleProp::MarginBottom { value } => node.set_margin_bottom(*value),
-                        StyleProp::MarginLeft { value } => node.set_margin_left(*value),
+                        StyleProp::MarginTop { value } => box_layout.set_margin_top(*surface, *value),
+                        StyleProp::MarginRight { value } => box_layout.set_margin_right(*surface, *value),
+                        StyleProp::MarginBottom { value } => box_layout.set_margin_bottom(*surface, *value),
+                        StyleProp::MarginLeft { value } => box_layout.set_margin_left(*surface, *value),
 
-                        StyleProp::PaddingTop { value } => node.set_padding_top(*value),
-                        StyleProp::PaddingRight { value } => node.set_padding_right(*value),
-                        StyleProp::PaddingBottom { value } => node.set_padding_bottom(*value),
-                        StyleProp::PaddingLeft { value } => node.set_padding_left(*value),
+                        StyleProp::PaddingTop { value } => box_layout.set_padding_top(*surface, *value),
+                        StyleProp::PaddingRight { value } => box_layout.set_padding_right(*surface, *value),
+                        StyleProp::PaddingBottom { value } => box_layout.set_padding_bottom(*surface, *value),
+                        StyleProp::PaddingLeft { value } => box_layout.set_padding_left(*surface, *value),
 
-                        StyleProp::FlexGrow { value } => node.set_flex_grow(*value),
-                        StyleProp::FlexShrink { value } => node.set_flex_shrink(*value),
-                        StyleProp::FlexBasis { value } => node.set_flex_basis(*value),
+                        StyleProp::FlexGrow { value } => box_layout.set_flex_grow(*surface, *value),
+                        StyleProp::FlexShrink { value } => box_layout.set_flex_shrink(*surface, *value),
+                        StyleProp::FlexBasis { value } => box_layout.set_flex_basis(*surface, *value),
                         StyleProp::FlexDirection { value } => {
                             self.flex_direction_set.insert(*surface);
-                            node.set_flex_direction(*value);
+                            box_layout.set_flex_direction(*surface, *value);
                         }
-                        StyleProp::FlexWrap { value } => node.set_flex_wrap(*value),
+                        StyleProp::FlexWrap { value } => box_layout.set_flex_wrap(*surface, *value),
 
-                        StyleProp::AlignSelf { value } => node.set_align_self(*value),
-                        StyleProp::AlignContent { value } => node.set_align_content(*value),
-                        StyleProp::AlignItems { value } => node.set_align_items(*value),
-                        StyleProp::JustifyContent { value } => node.set_justify_content(*value),
+                        StyleProp::AlignSelf { value } => box_layout.set_align_self(*surface, *value),
+                        StyleProp::AlignContent { value } => box_layout.set_align_content(*surface, *value),
+                        StyleProp::AlignItems { value } => box_layout.set_align_items(*surface, *value),
+                        StyleProp::JustifyContent { value } => box_layout.set_justify_content(*surface, *value),
 
                         // TODO: this is temporary
                         StyleProp::Text { value } => {
@@ -199,7 +197,10 @@ impl StyleUpdater {
                             // TODO: renderer needs just size & color (which is not part of the text)
                             renderer.set_text(*surface, value.clone());
 
-                            box_layout.set_measure_text(*surface, value.is_some())
+                            box_layout.set_measure_key(*surface, match value.is_some() {
+                                true => Some(*surface),
+                                false => None
+                            })
                         }
 
                         /*

@@ -1,7 +1,7 @@
 use crate::style::{StyleChange};
 use crate::commons::{Pos, SurfaceId, Bounds};
 use crate::picker::SurfacePicker;
-use crate::box_layout::{BoxLayout, BoxLayoutImpl};
+use crate::box_layout::{BoxLayoutTree, BoxLayoutImpl};
 use crate::text_layout::{TextLayout};
 use crate::render::Renderer;
 use crate::style::StyleUpdater;
@@ -15,7 +15,7 @@ use crate::style::StyleUpdater;
 // - accepts batch of updates to be applied to the scene
 pub struct Viewport {
     box_layout: BoxLayoutImpl,
-    text_layout: Box<TextLayout>,
+    text_layout: TextLayout,
     style_updater: StyleUpdater,
     renderer: Renderer,
 
@@ -53,16 +53,12 @@ pub enum EventKind {
 }
 
 impl Viewport {
-    // Box is important because of move vs. pointers
     pub fn new(width: i32, height: i32) -> Viewport {
-        let mut text_layout = Box::new(TextLayout::new());
-
         Viewport {
             mouse_pos: Pos::zero(),
 
-            // TODO: this is temporary until we find a way to pass measure safely
-            box_layout: BoxLayoutImpl::new(width, height, &mut *text_layout),
-            text_layout,
+            box_layout: BoxLayoutImpl::new(width, height),
+            text_layout: TextLayout::new(),
             style_updater: StyleUpdater::new(),
             picker: SurfacePicker::new(),
 
@@ -117,7 +113,7 @@ impl Viewport {
     pub fn resize(&mut self, width: i32, height: i32) -> Event {
         self.renderer.resize(width, height);
         self.box_layout.resize(width, height);
-        self.box_layout.calculate();
+        self.calculate();
 
         self.render();
 
@@ -137,7 +133,7 @@ impl Viewport {
         );
 
         if res.needs_layout {
-            self.box_layout.calculate();
+            self.calculate();
         }
 
         self.render();
@@ -163,14 +159,25 @@ impl Viewport {
                     self.renderer.remove_child(*parent, *child);
                 }
                 Alloc => {
-                    self.box_layout.alloc();
+                    self.box_layout.create_node();
                     self.renderer.alloc();
                 }
             }
         }
 
-        self.box_layout.calculate();
+        self.calculate();
         self.render();
+    }
+
+    fn calculate(&mut self) {
+        let text_layout = &mut self.text_layout;
+        let mut wraps = Vec::new();
+
+        // TODO: update text batches in renderer
+        self.box_layout.calculate(&mut |surface, max_width| {
+            wraps.push(surface);
+            text_layout.wrap(surface, max_width)
+        });
     }
 
     fn render(&mut self) {

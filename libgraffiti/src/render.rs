@@ -119,6 +119,8 @@ pub struct Frame {
 pub enum RenderOp {
     // SetAlpha
     // SetOpacity
+    // SetTranslate
+    // SetScale
     // SetClip { bounds, radii }
     DrawRects { count: usize },
     //DrawText { text: TextId },
