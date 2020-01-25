@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use crate::commons::{Pos, Bounds, SurfaceId};
+use crate::commons::{Pos, Bounds, TextId};
 use std::collections::BTreeMap;
 use miniserde::{json, Deserialize, Serialize};
 
@@ -19,12 +19,11 @@ use miniserde::{json, Deserialize, Serialize};
 /// TODO: scaling could be done in vertex shader
 /// (not sure if worth but it could save some FP which raspi is not good at)
 pub struct TextLayout {
-    // TODO: separate elements & text nodes to avoid BTreeMap
-    layouts: BTreeMap<SurfaceId, TextLayoutState>,
+    layouts: Vec<TextLayoutState>,
     // TODO: more fonts, ttf
     // TODO: lookup in map is costy, 
     font_glyphs: BTreeMap<char, FontGlyph>,
-    x_height: f32,
+    _x_height: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -70,21 +69,29 @@ impl TextLayout {
 
         TextLayout {
             font_glyphs,
-            x_height,
-            layouts: BTreeMap::new(),
+            _x_height: x_height,
+            layouts: Vec::new(),
         }
     }
 
-    pub fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
-        match text {
-            None => {
-                self.layouts.remove(&surface);
-            }
-            Some(text) => {
-                let layout = self.layout_text(&text);
-                self.layouts.insert(surface, layout);
-            }
-        }
+    pub fn realloc(&mut self, texts_count: TextId) {
+        self.layouts.resize_with(texts_count, || {
+            TextLayoutState {
+                font_size: 16.,
+                line_height: 20.,
+
+                width: 0.,
+
+                glyph_ids: Vec::new(),
+                xs: Vec::new(),
+                break_hints: Vec::new(),
+                breaks: Vec::new(),
+            }            
+        });
+    }
+
+    pub fn set_text(&mut self, text_id: TextId, text: &Text) {
+        self.layouts[text_id] = self.layout_text(text)
     }
 
     // do initial layout, \n is respected but any other wrapping is
@@ -149,11 +156,9 @@ impl TextLayout {
                 break_hints.push((i, std::f32::MAX));
                 breaks.push(i);
                 found_space = false;
-            } else {
-                if found_space {
-                    hint = Some(i);
-                    found_space = false;
-                }
+            } else if found_space {
+                hint = Some(i);
+                found_space = false;
             }
 
             x += font_glyph.advance * text.font_size;
@@ -183,8 +188,8 @@ impl TextLayout {
     /// If the `Text` is changed & relayouted, wrapping is reset but
     /// the box layout should again call measure which should again
     /// call the `wrap` so it should be fine (if the wrap is necessary at all)
-    pub fn wrap(&mut self, surface: SurfaceId, max_width: f32) -> (f32, f32) {
-        let layout = self.layouts.get_mut(&surface).expect("not a text");
+    pub fn wrap(&mut self, text_id: TextId, max_width: f32) -> (f32, f32) {
+        let layout = &mut self.layouts[text_id];
 
         // TODO: skip if no work is needed
 
@@ -226,8 +231,8 @@ impl TextLayout {
     // TODO: https://iamvdo.me/en/blog/css-font-metrics-line-height-and-vertical-align
     // TODO: align center
     // (align right could be done in vertex shader)
-    pub fn get_glyphs(&self, surface: SurfaceId) -> impl Iterator<Item = GlyphInstance> + '_ {
-        let layout = self.layouts.get(&surface).expect("not a text");
+    pub fn get_glyphs(&self, text_id: TextId) -> impl Iterator<Item = GlyphInstance> + '_ {
+        let layout = &self.layouts[text_id];
 
         let mut offset = 0.;
         // TODO: find out from which offset_y is computed (x_height/cap_height/ascender/?)
@@ -331,5 +336,4 @@ pub struct MsdfChar {
     xadvance: f32,
 }
 
-// ::default() cannot be used to initialize static :-/
-const MISSING_GLYPH: FontGlyph = FontGlyph { offset_y: 0., size: Pos { x: 0., y: 0. }, coords: Bounds { a: Pos { x: 0., y: 0. }, b: Pos { x: 0., y: 0. } }, advance: 0. };
+const MISSING_GLYPH: FontGlyph = FontGlyph { offset_y: 0., size: Pos::ZERO, coords: Bounds::ZERO, advance: 0. };

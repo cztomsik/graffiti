@@ -7,7 +7,7 @@ export class CSSStyleDeclaration {
   // temp state for text changes
   text = undefined
 
-  constructor(private _scene: SceneContext, private _surfaceId) {
+  constructor(private _scene: SceneContext, private _elementId) {
     installProxy(this)
   }
 
@@ -58,29 +58,20 @@ export class CSSStyleDeclaration {
         break
 
       case 'color':
-        this._scene.setTextColor(this._surfaceId, parseColor(v || '#000'))
+        this._scene.setColor(this._elementId, parseColor(v || '#000'))
         break
       case 'font-size':
+        //this._scene.setFontSize(this._elementId, v)
+        break
       case 'line-height':
         v = parseFloat(v)
-      case 'text-align':
-      // TODO: this was bad idea
-      case 'content':
-        this.text = { ...this.text, [camelCase(k)]: v }
-
-        this._scene.setText(this._surfaceId, (this.text.content || undefined) && Text(
-          this.text.fontSize || 16,
-          this.text.lineHeight || this.text.fontSize || 16,
-          TextAlign[pascalCase(this.text.align || 'left')],
-          this.text.content
-        ))
         break
 
       // props
       // TODO: defaults, but be careful
 
       case 'display':
-        this._scene.setStyle(this._surfaceId, 'Display', Display[pascalCase(v)])
+        this._scene.setStyle(this._elementId, 'Display', Display[pascalCase(v || 'block')])
         break
 
       case 'width':
@@ -102,29 +93,29 @@ export class CSSStyleDeclaration {
       case 'margin-right':
       case 'margin-bottom':
       case 'margin-left':
-        this._scene.setDimension(this._surfaceId, pascalCase(k), parseDimension(v || 0))
+        this._scene.setDimension(this._elementId, pascalCase(k), parseDimension(v || 0))
         break
       case 'flex-grow':
       case 'flex-shrink':
-        this._scene.setStyle(this._surfaceId, pascalCase(k), +v || 0)
+        this._scene.setStyle(this._elementId, pascalCase(k), +v || 0)
         break;
 
       case 'align-content':
       case 'align-items':
       case 'align-self':
       case 'justify-content':
-        this._scene.setAlign(this._surfaceId, pascalCase(k), pascalCase(v || 'FlexStart'))
+        this._scene.setAlign(this._elementId, pascalCase(k), pascalCase(v || 'FlexStart'))
         break
 
       case 'background-color':
-        this._scene.setBackgroundColor(this._surfaceId, parseColor(v))
+        this._scene.setBackgroundColor(this._elementId, parseColor(v))
         break
 
       case 'flex-direction':
-        this._scene.setFlexDirection(this._surfaceId, pascalCase(v))
+        this._scene.setFlexDirection(this._elementId, pascalCase(v))
         break
       case 'flex-wrap':
-        this._scene.setFlexWrap(this._surfaceId, pascalCase(v))
+        this._scene.setFlexWrap(this._elementId, pascalCase(v))
         break
       /*
       case 'overflow':

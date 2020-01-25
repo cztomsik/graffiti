@@ -1,73 +1,255 @@
-use crate::style::{StyleChange};
-use crate::commons::{Pos, SurfaceId, Bounds};
+use crate::box_layout::{Display, Dimension, Align, FlexDirection, FlexWrap};
+use crate::commons::{ElementId, TextId, ElementChild, Pos, Bounds, Color};
 use crate::picker::SurfacePicker;
 use crate::box_layout::{BoxLayoutTree, BoxLayoutImpl};
-use crate::text_layout::{TextLayout};
-use crate::render::Renderer;
-use crate::style::StyleUpdater;
+use crate::text_layout::{TextLayout, Text};
+use crate::render::{Renderer, RendererImpl, BoxShadow};
 
-// Holds the state & systems needed for one UI "viewport"
-// basically, this is the window "content" area but
-// nothing here is coupled to the window
-// 
-// - holds the scene & everything needed for rendering
-// - translates events (target needs to be looked up)
-// - accepts batch of updates to be applied to the scene
+/// Holds the state & systems needed for one UI "viewport"
+/// basically, this is the window's "content" area but
+/// nothing here is actually coupled to the window
+/// 
+/// It also:
+/// - translates events (target needs to be looked up)
+/// - accepts batch of updates to be applied to the scene
 pub struct Viewport {
+    size: (f32, f32),
+
+    children: Vec<Vec<ElementChild>>,
+    texts_count: usize,
+
     box_layout: BoxLayoutImpl,
     text_layout: TextLayout,
-    style_updater: StyleUpdater,
-    renderer: Renderer,
+    renderer: RendererImpl,
+
+    // TODO: fullscreen + track the element id
+    // (and use it in render/calculate)
 
     mouse_pos: Pos,
     picker: SurfacePicker,
 }
 
-// TODO: tagged enum, update interop & js event handling
 #[derive(Debug, Clone, Copy)]
-pub struct Event {
-    pub kind: EventKind,
-    pub target: SurfaceId,
-    pub key: u16,
+pub enum Event {
+    MouseMove { target: ElementId },
+    MouseDown { target: ElementId },
+    MouseUp { target: ElementId },
+    Scroll { target: ElementId },
+    KeyDown { target: ElementId, key: u16 },
+    KeyPress { target: ElementId, key: u16 },
+    KeyUp { target: ElementId, key: u16 },
+    Resize { target: ElementId },
+    Close { target: ElementId },
 }
 
-impl Event {
-    fn new(kind: EventKind, target: SurfaceId, key: u16) -> Self {
-        Self { kind, target, key }
-    }
-}
+#[derive(Debug, Clone)]
+pub enum SceneChange {
+    // TODO: realloc (it's silly to realloc multiple times)
+    CreateElement,
+    CreateText,
 
-#[derive(Debug, Clone, Copy)]
-pub enum EventKind {
-    MouseMove,
-    MouseDown,
-    MouseUp,
-    Scroll,
-    KeyDown,
-    KeyPress,
-    KeyUp,
-    Focus,
-    Blur,
-    Resize,
-    Close,
+    InsertAt { parent: ElementId, child: ElementChild, index: usize },
+    RemoveChild { parent: ElementId, child: ElementChild },
+    SetText { id: TextId, text: Text },
+
+    Display { element: ElementId, value: Display },
+
+    Width { element: ElementId, value: Dimension },
+    Height { element: ElementId, value: Dimension },
+    MinWidth { element: ElementId, value: Dimension },
+    MinHeight { element: ElementId, value: Dimension },
+    MaxWidth { element: ElementId, value: Dimension },
+    MaxHeight { element: ElementId, value: Dimension },
+
+    Top { element: ElementId, value: Dimension },
+    Right { element: ElementId, value: Dimension },
+    Bottom { element: ElementId, value: Dimension },
+    Left { element: ElementId, value: Dimension },
+
+    MarginTop { element: ElementId, value: Dimension },
+    MarginRight { element: ElementId, value: Dimension },
+    MarginBottom { element: ElementId, value: Dimension },
+    MarginLeft { element: ElementId, value: Dimension },
+
+    PaddingTop { element: ElementId, value: Dimension },
+    PaddingRight { element: ElementId, value: Dimension },
+    PaddingBottom { element: ElementId, value: Dimension },
+    PaddingLeft { element: ElementId, value: Dimension },
+
+    FlexGrow { element: ElementId, value: f32 },
+    FlexShrink { element: ElementId, value: f32 },
+    FlexBasis { element: ElementId, value: Dimension },
+    FlexDirection { element: ElementId, value: FlexDirection },
+    FlexWrap { element: ElementId, value: FlexWrap },
+
+    AlignSelf { element: ElementId, value: Align },
+    AlignContent { element: ElementId, value: Align },
+    AlignItems { element: ElementId, value: Align },
+    JustifyContent { element: ElementId, value: Align },
+
+    Color { element: ElementId, value: Color },
+    BackgroundColor { element: ElementId, value: Option<Color> },
+
+    // TODO: border
+    /*
+    BorderTopWidth { element: ElementId, value: f32 },
+    BorderRightWidth { element: ElementId, value: f32 },
+    BorderBottomWidth { element: ElementId, value: f32 },
+    BorderLeftWidth { element: ElementId, value: f32 },
+
+    BorderTopStyle { element: ElementId, value: BorderStyle },
+    BorderRightStyle { element: ElementId, value: BorderStyle },
+    BorderBottomStyle { element: ElementId, value: BorderStyle },
+    BorderLeftStyle { element: ElementId, value: BorderStyle },
+    */
+
+    // TODO: intermediate; clip in renderer
+    BorderTopLeftRadius { element: ElementId, value: Option<f32> },
+    BorderTopRightRadius { element: ElementId, value: Option<f32> },
+    BorderBottomLeftRadius { element: ElementId, value: Option<f32> },
+    BorderBottomRightRadius { element: ElementId, value: Option<f32> },
+
+    // BackgroundImageUrl { element: ElementId, value: String },
+
+    // TODO: multiple
+    BoxShadow { element: ElementId, value: Option<BoxShadow> },
 }
 
 impl Viewport {
-    pub fn new(width: i32, height: i32) -> Viewport {
-        Viewport {
-            mouse_pos: Pos::zero(),
+    const ROOT: ElementId = 0;
 
-            box_layout: BoxLayoutImpl::new(width, height),
+    pub fn new(size: (f32, f32)) -> Viewport {
+        let mut viewport = Viewport {
+            size,
+
+            children: Vec::new(),
+            texts_count: 0,
+
+            box_layout: BoxLayoutImpl::new(),
             text_layout: TextLayout::new(),
-            style_updater: StyleUpdater::new(),
+
+            mouse_pos: Pos::ZERO,
             picker: SurfacePicker::new(),
 
-            renderer: Renderer::new(width, height),
-        }
+            renderer: RendererImpl::new(size),
+        };
+
+        // create root
+        viewport.update_scene(&[SceneChange::CreateElement]);
+
+        viewport
     }
 
-    pub fn get_bounds(&self, surface: SurfaceId) -> Bounds {
-        self.box_layout.get_bounds()[surface]
+    pub fn update_scene(&mut self, changes: &[SceneChange]) {
+        let mut needs_layout = false;
+
+        use SceneChange::*;
+
+        for c in changes {
+            // order by likelihood (perf)
+
+            match c {
+                // start with layout-independent things
+                Color { element, value } => self.renderer.set_text_color(*element, *value),
+                BackgroundColor { element, value } => self.renderer.set_background_color(*element, (*value).unwrap_or(crate::commons::Color::TRANSPARENT)),
+                //BoxShadow { element, value } => self.renderer.set_box_shadow(*element, *value),
+
+                // TODO: intermediate (top-left, top-right, ...) & set Option<BorderRadius>
+                // BorderRadius { element, value } => self.renderer.set_border_radius(*element, *value),
+
+                // TODO: Image
+
+                // TODO: Border
+                // might need relayout!
+
+                // layout will be needed
+                c => {
+                    needs_layout = true;
+
+                    match c {
+                        Display { element, value } => self.box_layout.set_display(*element, *value),
+
+                        Width { element, value } => self.box_layout.set_width(*element, *value),
+                        Height { element, value } => self.box_layout.set_height(*element, *value),
+                        MinWidth { element, value } => self.box_layout.set_min_width(*element, *value),
+                        MinHeight { element, value } => self.box_layout.set_min_height(*element, *value),
+                        MaxWidth { element, value } => self.box_layout.set_max_width(*element, *value),
+                        MaxHeight { element, value } => self.box_layout.set_max_height(*element, *value),
+
+                        Top { element, value } => self.box_layout.set_top(*element, *value),
+                        Right { element, value } => self.box_layout.set_right(*element, *value),
+                        Bottom { element, value } => self.box_layout.set_bottom(*element, *value),
+                        Left { element, value } => self.box_layout.set_left(*element, *value),
+
+                        MarginTop { element, value } => self.box_layout.set_margin_top(*element, *value),
+                        MarginRight { element, value } => self.box_layout.set_margin_right(*element, *value),
+                        MarginBottom { element, value } => self.box_layout.set_margin_bottom(*element, *value),
+                        MarginLeft { element, value } => self.box_layout.set_margin_left(*element, *value),
+
+                        PaddingTop { element, value } => self.box_layout.set_padding_top(*element, *value),
+                        PaddingRight { element, value } => self.box_layout.set_padding_right(*element, *value),
+                        PaddingBottom { element, value } => self.box_layout.set_padding_bottom(*element, *value),
+                        PaddingLeft { element, value } => self.box_layout.set_padding_left(*element, *value),
+
+                        FlexGrow { element, value } => self.box_layout.set_flex_grow(*element, *value),
+                        FlexShrink { element, value } => self.box_layout.set_flex_shrink(*element, *value),
+                        FlexBasis { element, value } => self.box_layout.set_flex_basis(*element, *value),
+                        FlexDirection { element, value } => self.box_layout.set_flex_direction(*element, *value),
+                        FlexWrap { element, value } => self.box_layout.set_flex_wrap(*element, *value),
+
+                        AlignSelf { element, value } => self.box_layout.set_align_self(*element, *value),
+                        AlignContent { element, value } => self.box_layout.set_align_content(*element, *value),
+                        AlignItems { element, value } => self.box_layout.set_align_items(*element, *value),
+                        JustifyContent { element, value } => self.box_layout.set_justify_content(*element, *value),
+
+                        InsertAt { parent, child, index } => {
+                            self.children[*parent].insert(*index, *child);
+                            self.box_layout.insert_at(*parent, *child, *index);
+                        }
+
+                        RemoveChild { parent, child } => {
+                            self.children[*parent].retain(|ch| *ch != *child);
+                            self.box_layout.remove_child(*parent, *child);
+                        }
+
+                        CreateElement => {
+                            self.children.push(Vec::new());
+                            self.realloc()
+                        }
+
+                        CreateText => {
+                            self.texts_count += 1;
+                            self.realloc()
+                        }
+
+                        SetText { id, text } => {
+                            self.text_layout.set_text(*id, text);
+                        },
+
+                        _ => { error!("TODO: set {:?}", &c); }
+                    }
+                }
+            }
+        }
+
+        if needs_layout {
+            self.calculate();
+        }
+
+        self.render();
+    }
+
+    // making systems "resizable" simplifies a lot of things
+    // notably there's no need to return anything, ids are shared
+    // across the whole viewport and freelists are also needed just here
+    fn realloc(&mut self) {
+        self.text_layout.realloc(self.texts_count);
+        self.box_layout.realloc(self.children.len(), self.texts_count);
+        self.renderer.realloc(self.children.len(), self.texts_count);
+    }
+
+    pub fn get_offset_bounds(&self, element: ElementId) -> Bounds {
+        self.box_layout.get_element_bounds(element)
     }
 
     // translate events (break coupling)
@@ -78,95 +260,53 @@ impl Viewport {
     pub fn mouse_move(&mut self, pos: Pos) -> Event {
         self.mouse_pos = pos;
 
-        Event::new(EventKind::MouseMove, self.get_mouse_target(), 0)
+        Event::MouseMove { target: self.get_mouse_target() }
     }
 
+    /*
     pub fn scroll(&mut self, _delta: (f32, f32)) -> Event {
         let _target = self.get_mouse_target();
 
         // TODO: just like ScrollBy/ScrollAt update message (& render() after that)
         //self.renderer.scroll(self.mouse_pos, delta);
 
-        Event::new(EventKind::Scroll, self.get_mouse_target(), 0)
+        Event::Scroll { target: self.get_mouse_target() }
     }
+    */
 
     pub fn mouse_down(&mut self) -> Event {
-        Event::new(EventKind::MouseDown, self.get_mouse_target(), 0)
+        Event::MouseDown { target: self.get_mouse_target() }
     }
 
     pub fn mouse_up(&mut self) -> Event {
-        Event::new(EventKind::MouseUp, self.get_mouse_target(), 0)
+        Event::MouseUp { target: self.get_mouse_target() }
     }
 
     pub fn key_down(&mut self, scancode: u16) -> Event {
-        Event::new(EventKind::KeyDown, 0, scancode)
+        Event::KeyDown { target: 0, key: scancode }
     }
 
     pub fn key_press(&mut self, char: u16) -> Event {
-        Event::new(EventKind::KeyPress, 0, char)
+        Event::KeyPress { target: 0, key: char }
     }
 
     pub fn key_up(&mut self, scancode: u16) -> Event {
-        Event::new(EventKind::KeyUp, 0, scancode)
+        Event::KeyUp { target: 0, key: scancode }
     }
 
-    pub fn resize(&mut self, width: i32, height: i32) -> Event {
-        self.renderer.resize(width, height);
-        self.box_layout.resize(width, height);
-        self.calculate();
+    pub fn resize(&mut self, size: (f32, f32)) -> Event {
+        self.size = size;
 
+        self.renderer.resize(size);
+
+        self.calculate();
         self.render();
 
-        Event::new(EventKind::Resize, 0, 0)
+        Event::Resize { target: Self::ROOT }
     }
 
     pub fn close(&mut self) -> Event {
-        Event::new(EventKind::Close, 0, 0)
-    }
-
-    pub fn update_styles(&mut self, changes: &[StyleChange]) {
-        let res = self.style_updater.update_styles(
-            &mut self.box_layout,
-            &mut self.text_layout,
-            &mut self.renderer,
-            changes
-        );
-
-        if res.needs_layout {
-            self.calculate();
-        }
-
-        self.render();
-    }
-
-    // apply batch of changes
-    // some of this could be done in parallel which means the batch
-    // itself or some part of it has to be passed to somebody who owns
-    // all of the systems
-    //
-    // TODO: introduce some other struct responsible for this
-    pub fn update_scene(&mut self, changes: &[SceneChange]) {
-        use SceneChange::*;
-
-        for c in changes {
-            match c {
-                InsertAt { parent, child, index } => {
-                    self.box_layout.insert_at(*parent, *child, *index);
-                    self.renderer.insert_at(*parent, *child, *index);
-                }
-                RemoveChild { parent, child } => {
-                    self.box_layout.remove_child(*parent, *child);
-                    self.renderer.remove_child(*parent, *child);
-                }
-                Alloc => {
-                    self.box_layout.create_node();
-                    self.renderer.alloc();
-                }
-            }
-        }
-
-        self.calculate();
-        self.render();
+        Event::Close { target: Self::ROOT }
     }
 
     fn calculate(&mut self) {
@@ -174,7 +314,9 @@ impl Viewport {
         let mut wraps = Vec::new();
 
         // TODO: update text batches in renderer
-        self.box_layout.calculate(&mut |surface, max_width| {
+        self.box_layout.calculate(Self::ROOT, self.size, &mut |surface, max_width| {
+            // TODO: it seems it's called even when not needed in bounds example
+            //println!("wrap called");
             wraps.push(surface);
             text_layout.wrap(surface, max_width)
         });
@@ -183,18 +325,14 @@ impl Viewport {
     fn render(&mut self) {
         silly!("render");
 
-        self.renderer.render(&self.box_layout.get_bounds(), &self.text_layout);
+        self.renderer.render(
+            Self::ROOT,
+            &self.children,
+            &self.box_layout
+        );
     }
 
-    fn get_mouse_target(&self) -> SurfaceId {
-        self.picker.pick_at(self.mouse_pos, &self.renderer.children, &self.box_layout.get_bounds())
+    fn get_mouse_target(&self) -> ElementId {
+        self.picker.pick_at(self.mouse_pos, &self.children, &self.box_layout)
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum SceneChange {
-    // tree changes
-    Alloc,
-    InsertAt { parent: SurfaceId, child: SurfaceId, index: usize },
-    RemoveChild { parent: SurfaceId, child: SurfaceId }
 }

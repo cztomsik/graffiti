@@ -1,80 +1,65 @@
-use crate::commons::{Bounds};
+use crate::commons::{ElementId, TextId, ElementChild, Bounds};
 
 /// Generic trait for box layout trees/solvers:
 /// - keep & organize layout nodes
 /// - set layout style props
 /// - calculate & provide box bounds for rendering
-///
-/// Only flexbox is expected for now
-///
-/// Sometimes, the width/height needs to be computed (for text).
-/// To do that, you need to call `set_measure_key(node, key)` and then you
-/// need to provide `measure_fn(key, max_width)` to `calculate()`.
-pub trait BoxLayoutTree<NodeId, MeasureKey> {
-    fn create_node(&mut self) -> NodeId;
-    fn insert_at(&mut self, parent: NodeId, child: NodeId, index: usize);
-    fn remove_child(&mut self, parent: NodeId, child: NodeId);
+/// - bounds are relative to their parents
+pub trait BoxLayoutTree {
+    fn realloc(&mut self, elements_count: ElementId, texts_count: TextId);
+
+    // hiearchy
+    fn insert_at(&mut self, parent: ElementId, child: ElementChild, index: usize);
+    fn remove_child(&mut self, parent: ElementId, child: ElementChild);
 
     // prop setters (supported layout features)
     // we could publish Node trait too but this way impls
     // have flexibility to change whatever state they need to
 
-    fn set_display(&mut self, node: NodeId, v: Display);
+    fn set_display(&mut self, element: ElementId, v: Display);
 
-    fn set_width(&mut self, node: NodeId, v: Dimension);
-    fn set_height(&mut self, node: NodeId, v: Dimension);
-    fn set_min_width(&mut self, node: NodeId, v: Dimension);
-    fn set_min_height(&mut self, node: NodeId, v: Dimension);
-    fn set_max_width(&mut self, node: NodeId, v: Dimension);
-    fn set_max_height(&mut self, node: NodeId, v: Dimension);
+    fn set_width(&mut self, element: ElementId, v: Dimension);
+    fn set_height(&mut self, element: ElementId, v: Dimension);
+    fn set_min_width(&mut self, element: ElementId, v: Dimension);
+    fn set_min_height(&mut self, element: ElementId, v: Dimension);
+    fn set_max_width(&mut self, element: ElementId, v: Dimension);
+    fn set_max_height(&mut self, element: ElementId, v: Dimension);
 
-    fn set_top(&mut self, node: NodeId, v: Dimension);
-    fn set_right(&mut self, node: NodeId, v: Dimension);
-    fn set_bottom(&mut self, node: NodeId, v: Dimension);
-    fn set_left(&mut self, node: NodeId, v: Dimension);
+    fn set_top(&mut self, element: ElementId, v: Dimension);
+    fn set_right(&mut self, element: ElementId, v: Dimension);
+    fn set_bottom(&mut self, element: ElementId, v: Dimension);
+    fn set_left(&mut self, element: ElementId, v: Dimension);
 
-    fn set_margin_top(&mut self, node: NodeId, v: Dimension);
-    fn set_margin_right(&mut self, node: NodeId, v: Dimension);
-    fn set_margin_bottom(&mut self, node: NodeId, v: Dimension);
-    fn set_margin_left(&mut self, node: NodeId, v: Dimension);
+    fn set_margin_top(&mut self, element: ElementId, v: Dimension);
+    fn set_margin_right(&mut self, element: ElementId, v: Dimension);
+    fn set_margin_bottom(&mut self, element: ElementId, v: Dimension);
+    fn set_margin_left(&mut self, element: ElementId, v: Dimension);
 
-    fn set_padding_top(&mut self, node: NodeId, v: Dimension);
-    fn set_padding_right(&mut self, node: NodeId, v: Dimension);
-    fn set_padding_bottom(&mut self, node: NodeId, v: Dimension);
-    fn set_padding_left(&mut self, node: NodeId, v: Dimension);
+    fn set_padding_top(&mut self, element: ElementId, v: Dimension);
+    fn set_padding_right(&mut self, element: ElementId, v: Dimension);
+    fn set_padding_bottom(&mut self, element: ElementId, v: Dimension);
+    fn set_padding_left(&mut self, element: ElementId, v: Dimension);
 
-    fn set_border_top(&mut self, node: NodeId, v: f32);
-    fn set_border_right(&mut self, node: NodeId, v: f32);
-    fn set_border_bottom(&mut self, node: NodeId, v: f32);
-    fn set_border_left(&mut self, node: NodeId, v: f32);
+    fn set_border_top(&mut self, element: ElementId, v: f32);
+    fn set_border_right(&mut self, element: ElementId, v: f32);
+    fn set_border_bottom(&mut self, element: ElementId, v: f32);
+    fn set_border_left(&mut self, element: ElementId, v: f32);
 
-    fn set_flex_grow(&mut self, node: NodeId, v: f32);
-    fn set_flex_shrink(&mut self, node: NodeId, v: f32);
-    fn set_flex_basis(&mut self, node: NodeId, v: Dimension);
-    fn set_flex_direction(&mut self, node: NodeId, v: FlexDirection);
-    fn set_flex_wrap(&mut self, node: NodeId, v: FlexWrap);
+    fn set_flex_grow(&mut self, element: ElementId, v: f32);
+    fn set_flex_shrink(&mut self, element: ElementId, v: f32);
+    fn set_flex_basis(&mut self, element: ElementId, v: Dimension);
+    fn set_flex_direction(&mut self, element: ElementId, v: FlexDirection);
+    fn set_flex_wrap(&mut self, element: ElementId, v: FlexWrap);
 
-    fn set_align_self(&mut self, node: NodeId, v: Align);
-    fn set_align_content(&mut self, node: NodeId, v: Align);
-    fn set_align_items(&mut self, node: NodeId, v: Align);
-    fn set_justify_content(&mut self, node: NodeId, v: Align);
+    fn set_align_self(&mut self, element: ElementId, v: Align);
+    fn set_align_content(&mut self, element: ElementId, v: Align);
+    fn set_align_items(&mut self, element: ElementId, v: Align);
+    fn set_justify_content(&mut self, element: ElementId, v: Align);
 
-    fn set_measure_key(&mut self, node: NodeId, key: Option<MeasureKey>);
+    fn calculate(&mut self, element: ElementId, size: (f32, f32), measure_text_fn: &mut dyn FnMut(TextId, f32) -> (f32, f32));
 
-    // TODO: find out if it's somehow possible to detect what has been changed
-    // and provide iterator over those
-    // maybe even do parent/child offsetting?
-    // not sure if it's possible to do at this level, maybe it should be
-    // somewhere else
-    fn calculate(&mut self, measure_fn: &mut dyn FnMut(MeasureKey, f32) -> (f32, f32));
-
-    fn resize(&mut self, width: i32, height: i32);
-
-    // TODO: not sure if it's necessary for the picker but for rendering
-    // we could be fine with <T: Index<SurfaceId>> because the bounds
-    // are looked up only once for each surface context so technically,
-    // it doesn't have to be continuous slice in memory
-    fn get_bounds(&self) -> &[Bounds];
+    fn get_element_bounds(&self, element: ElementId) -> Bounds;
+    fn get_text_bounds(&self, element: ElementId) -> Bounds;
 }
 
 #[derive(Debug, Clone, Copy)]

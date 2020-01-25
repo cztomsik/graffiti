@@ -30,6 +30,7 @@ silly = []
 panic = "abort"
 
 [profile.release]
+lto = true
 panic = "abort"
 
 # fix raspi --release builds

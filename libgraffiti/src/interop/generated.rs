@@ -1,73 +1,73 @@
 // generated
 
     
-use crate::api::{ApiMsg,ApiResponse};
-use crate::commons::{Pos,Bounds,Color};
-use crate::viewport::{SceneChange,Event,EventKind};
-use crate::style::{StyleChange,StyleProp};
+use crate::commons::{ElementChild,Pos,Bounds,Color};
+use crate::app::{WindowEvent};
+use crate::viewport::{SceneChange,Event};
 use crate::box_layout::{Display,Dimension,Align,FlexWrap,FlexDirection};
 use crate::text_layout::{Text,TextAlign};
 use crate::render::{BoxShadow};
+use crate::interop::{AppMsg,AppResponse};
 
     
 interop! {
       
-  ApiMsg { 
-    0 GetEvents { poll },
-    1 UpdateStyles { window, changes },
-    2 UpdateScene { window, changes },
-    3 GetBounds { window, surface },
-    4 CreateWindow { title, width, height },
-    5 ResizeWindow { window },
-    6 DestroyWindow { window } 
-  }
-  ApiResponse { 
-    0 Events { events },
-    1 Nothing {  },
-    2 Bounds { bounds } 
+  ElementChild { 
+    0 Element { id },
+    1 Text { id } 
   }
   SceneChange { 
-    0 Alloc {  },
-    1 InsertAt { parent, child, index },
-    2 RemoveChild { parent, child } 
+    0 CreateElement {  },
+    1 CreateText {  },
+    2 InsertAt { parent, child, index },
+    3 RemoveChild { parent, child },
+    4 SetText { id, text },
+    5 Display { element, value },
+    6 Width { element, value },
+    7 Height { element, value },
+    8 MinWidth { element, value },
+    9 MinHeight { element, value },
+    10 MaxWidth { element, value },
+    11 MaxHeight { element, value },
+    12 Top { element, value },
+    13 Right { element, value },
+    14 Bottom { element, value },
+    15 Left { element, value },
+    16 MarginTop { element, value },
+    17 MarginRight { element, value },
+    18 MarginBottom { element, value },
+    19 MarginLeft { element, value },
+    20 PaddingTop { element, value },
+    21 PaddingRight { element, value },
+    22 PaddingBottom { element, value },
+    23 PaddingLeft { element, value },
+    24 FlexGrow { element, value },
+    25 FlexShrink { element, value },
+    26 FlexBasis { element, value },
+    27 FlexDirection { element, value },
+    28 FlexWrap { element, value },
+    29 AlignSelf { element, value },
+    30 AlignContent { element, value },
+    31 AlignItems { element, value },
+    32 JustifyContent { element, value },
+    33 Color { element, value },
+    34 BackgroundColor { element, value },
+    35 BorderTopLeftRadius { element, value },
+    36 BorderTopRightRadius { element, value },
+    37 BorderBottomLeftRadius { element, value },
+    38 BorderBottomRightRadius { element, value },
+    39 BoxShadow { element, value } 
   }
-  StyleProp { 
-    0 Display { value },
-    1 Width { value },
-    2 Height { value },
-    3 MinWidth { value },
-    4 MinHeight { value },
-    5 MaxWidth { value },
-    6 MaxHeight { value },
-    7 Top { value },
-    8 Right { value },
-    9 Bottom { value },
-    10 Left { value },
-    11 MarginTop { value },
-    12 MarginRight { value },
-    13 MarginBottom { value },
-    14 MarginLeft { value },
-    15 PaddingTop { value },
-    16 PaddingRight { value },
-    17 PaddingBottom { value },
-    18 PaddingLeft { value },
-    19 FlexGrow { value },
-    20 FlexShrink { value },
-    21 FlexBasis { value },
-    22 FlexDirection { value },
-    23 FlexWrap { value },
-    24 AlignSelf { value },
-    25 AlignContent { value },
-    26 AlignItems { value },
-    27 JustifyContent { value },
-    28 Color { value },
-    29 BackgroundColor { value },
-    30 BorderTopLeftRadius { value },
-    31 BorderTopRightRadius { value },
-    32 BorderBottomLeftRadius { value },
-    33 BorderBottomRightRadius { value },
-    34 BoxShadow { value },
-    35 Text { value } 
+  Event { 
+    0 MouseMove { target },
+    1 MouseDown { target },
+    2 MouseUp { target },
+    3 Scroll { target },
+    4 KeyDown { target, key },
+    5 KeyPress { target, key },
+    6 KeyUp { target, key },
+    7 Resize { target },
+    8 Close { target } 
   }
   Dimension { 
     0 Undefined {  },
@@ -75,18 +75,30 @@ interop! {
     2 Px { value },
     3 Percent { value } 
   }
+  AppMsg { 
+    0 GetEvents { poll },
+    1 CreateWindow { title, width, height },
+    2 ResizeWindow { window, width, height },
+    3 UpdateScene { window, changes },
+    4 GetOffsetBounds { window, element },
+    5 DestroyWindow { window } 
+  }
+  AppResponse { 
+    0 WindowId { id },
+    1 Ack {  },
+    2 Events { events },
+    3 Bounds { bounds } 
+  }
 
       
   Pos [x,y]
   Bounds [a,b]
   Color [r,g,b,a]
-  Event [kind,target,key]
-  StyleChange [surface,prop]
+  WindowEvent [window,event]
   Text [font_size,line_height,align,text]
   BoxShadow [color,offset,blur,spread]
 
       
-  EventKind(u8)
   Display(u8)
   Align(u8)
   FlexWrap(u8)

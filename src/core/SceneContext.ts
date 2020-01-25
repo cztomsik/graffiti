@@ -1,4 +1,4 @@
-import { send, ApiMsg, SceneChange, StyleChange, StyleProp, Align, FlexDirection, FlexWrap } from './nativeApi'
+import { send, AppMsg, SceneChange, ElementChild, Align, FlexDirection, FlexWrap, Text, TextAlign } from './nativeApi'
 
 /**
  * Provides indirect mutation api for the scene, so that we can freely change an
@@ -7,79 +7,98 @@ import { send, ApiMsg, SceneChange, StyleChange, StyleProp, Align, FlexDirection
  * Operations are batched and not sent until the `flush()` is called
  */
 export class SceneContext {
+  // TODO: freelist, reusing, resetting
+  //
+  // pooling could improve perf a lot but resetting el/node in a way
+  // which is both fast & correct is next to impossible so
+  // we can at least reuse the id, send `Reset` msg and avoid
+  // the realloc
+  //
+  // (some GC hook will be needed in `Node`)
+
   // because root is 0
-  nextId = 1
-  tree_changes = []
-  style_changes = []
+  nextElementId = 1
+  nextTextId = 0
+  changes = []
 
   constructor(private windowId) {}
 
-  createSurface() {
-    this.tree_changes.push(SceneChange.Alloc())
-    return this.nextId++
+  createElement() {
+    this.changes.push(SceneChange.CreateElement())
+    return this.nextElementId++
   }
 
-  insertAt(parent, child, index) {
-    this.tree_changes.push(SceneChange.InsertAt(parent, child, index))
+  createText() {
+    this.changes.push(SceneChange.CreateText())
+    return this.nextTextId++
   }
 
-  removeChild(parent, child) {
-    this.tree_changes.push(SceneChange.RemoveChild(parent, child))
+  insertElementAt(parent, childElement, index) {
+    this.changes.push(SceneChange.InsertAt(parent, ElementChild.Element(childElement), index))
   }
 
-  setStyle(surface, prop, value) {
-    if (StyleProp[prop]) {
-      this.style_changes.push(StyleChange(surface, StyleProp[prop](value)))
+  insertTextAt(parent, childText, index) {
+    this.changes.push(SceneChange.InsertAt(parent, ElementChild.Text(childText), index))
+  }
+
+  removeElement(parent, childElement) {
+    this.changes.push(SceneChange.RemoveChild(parent, ElementChild.Element(childElement)))
+  }
+
+  removeText(parent, childText) {
+    this.changes.push(SceneChange.RemoveChild(parent, ElementChild.Text(childText)))
+  }
+
+  setStyle(element, prop, value) {
+    if (SceneChange[prop]) {
+      this.changes.push(SceneChange[prop](element, value))
+      //this.flush()
     } else {
-      console.log('TODO: set', surface, prop, value)
+      console.log('TODO: set', element, prop, value)
     }
   }
 
-  setDimension(surface, prop, dim) {
-    this.setStyle(surface, prop, dim)
+  setDimension(element, prop, dim) {
+    this.setStyle(element, prop, dim)
   }
 
-  setAlign(surface, prop, align) {
-    this.setStyle(surface, prop, Align[align])
+  setAlign(element, prop, align) {
+    this.setStyle(element, prop, Align[align])
   }
 
-  setFlexWrap(surface, wrap) {
-    this.setStyle(surface, 'FlexWrap', FlexWrap[wrap])
+  setFlexWrap(element, wrap) {
+    this.setStyle(element, 'FlexWrap', FlexWrap[wrap])
   }
 
-  setFlexDirection(surface, dir) {
-    this.setStyle(surface, 'FlexDirection', FlexDirection[dir])
+  setFlexDirection(element, dir) {
+    this.setStyle(element, 'FlexDirection', FlexDirection[dir])
   }
 
-  setBackgroundColor(surface, color) {
-    this.setStyle(surface, 'BackgroundColor', color)
+  setBackgroundColor(element, color) {
+    this.setStyle(element, 'BackgroundColor', color)
   }
 
-  setTextColor(surface, color) {
-    this.setStyle(surface, 'Color', color)
+  setColor(element, color) {
+    this.setStyle(element, 'Color', color)
   }
 
-  setText(surface, text) {
-    // TODO: this is temporary
-    this.setStyle(surface, 'Text', text)
+  setText(textId, size, lineHeight, align, text) {
+    this.changes.push(SceneChange.SetText(textId, Text(size, lineHeight, align, text)))
   }
 
-  getBounds(surface) {
+  getOffsetBounds(element) {
     // flush & return quickly
     this.flush(true)
 
-    return send(ApiMsg.GetBounds(this.windowId, surface))[1]
+    return send(AppMsg.GetOffsetBounds(this.windowId, element))[1]
   }
 
   flush(animating) {
-    if (this.tree_changes.length) {
-      send(ApiMsg.UpdateScene(this.windowId, this.tree_changes))
-      this.tree_changes.length = 0
-    }
+    //console.log(this.changes)
 
-    if (this.style_changes.length) {
-      send(ApiMsg.UpdateStyles(this.windowId, this.style_changes))
-      this.style_changes.length = 0
+    if (this.changes.length) {
+      send(AppMsg.UpdateScene(this.windowId, this.changes))
+      this.changes.length = 0
     }
   }
 }

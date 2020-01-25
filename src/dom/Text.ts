@@ -1,11 +1,11 @@
-import { Node } from "./Node";
+import { Node } from './Node'
 
 export class Text extends Node {
   _data
 
-  constructor(doc, data) {
-    super(doc, Node.TEXT_NODE, undefined)
-    this._data = data
+  constructor(doc, data, _nativeId) {
+    super(doc, Node.TEXT_NODE, _nativeId)
+    this.data = data
   }
 
   get data() {
@@ -15,9 +15,8 @@ export class Text extends Node {
   set data(text) {
     this._data = text
 
-    if (this.parentElement) {
-      this.parentElement._updateText()
-    }
+    // TODO: get text style from parentElement
+    this.ownerDocument._scene.setText(this._nativeId, 16, 20, 0, this._data)
   }
 
   set textContent(v) {

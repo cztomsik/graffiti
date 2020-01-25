@@ -34,12 +34,12 @@ pub enum GlfwMonitor {}
 
 pub const GLFW_TRUE: c_int = 1;
 pub const GLFW_FALSE: c_int = 0;
-pub const GLFW_COCOA_CHDIR_RESOURCES: c_int = 0x00051001;
-pub const GLFW_CONTEXT_VERSION_MAJOR: c_int = 0x00022002;
-pub const GLFW_CONTEXT_VERSION_MINOR: c_int = 0x00022003;
-pub const GLFW_OPENGL_FORWARD_COMPAT: c_int = 0x00022006;
-pub const GLFW_OPENGL_PROFILE: c_int = 0x00022008;
-pub const GLFW_OPENGL_CORE_PROFILE: c_int = 0x00032001;
+pub const GLFW_COCOA_CHDIR_RESOURCES: c_int = 0x0005_1001;
+pub const GLFW_CONTEXT_VERSION_MAJOR: c_int = 0x0002_2002;
+pub const GLFW_CONTEXT_VERSION_MINOR: c_int = 0x0002_2003;
+pub const GLFW_OPENGL_FORWARD_COMPAT: c_int = 0x0002_2006;
+pub const GLFW_OPENGL_PROFILE: c_int = 0x0002_2008;
+pub const GLFW_OPENGL_CORE_PROFILE: c_int = 0x0003_2001;
 pub const GLFW_RELEASE: c_int = 0;
 pub const GLFW_PRESS: c_int = 1;
 pub const GLFW_REPEAT: c_int = 2;

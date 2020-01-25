@@ -3,19 +3,39 @@ use std::ptr;
 use std::ffi::CString;
 use gl::types::*;
 
-use crate::commons::{Pos, Bounds, Color};
-use crate::render::{Frame, RenderOp, RectId};
+use crate::commons::{Pos, Bounds, Color, TextId};
+use super::{RenderBackend, RenderOp, RectId};
+
+// TODO: transpile shaders (mac vs raspi vs. GLES)
+//       (maybe GLSL macros?)
+//       (but we are not using any extensions currently)
+
+pub struct GlRenderBackend {
+    rects: Vec<Rect>,
+    indices: Vec<VertexIndex>,
+
+    rect_program: GLuint,
+    text_program: GLuint,
+    resize_uniforms: [(GLuint, GLint); 2],
+    text_color_uniform: GLint,
+    text_factor_uniform: GLint,
+
+    ibo: GlBuffer,
+    vbo: GlBuffer,
+    text_vbos: Vec<GlBuffer>,
+}
 
 // We can't use instanced drawing for raspi
+// so we need real quad for each rectangular area
 // TODO: try other mem layouts
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct Rect([Vertex<Color>; 4]);
 
 impl Rect {
     const VERTEX_SIZE: usize = mem::size_of::<Vertex<Color>>();
 
     fn new (bounds: Bounds, color: Color) -> Self {
-        let mut res = Self::default();
+        let mut res = Self([Vertex(Pos::ZERO, Color::TRANSPARENT); 4]);
 
         res.set_bounds(bounds);
         res.set_color(color);
@@ -38,41 +58,18 @@ impl Rect {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
+struct Glyph([Vertex<Pos>; 4]);
+
+
+#[derive(Debug, Clone, Copy)]
 struct Vertex<T>(Pos, T);
 
 // for indexed drawing
 // raspi can do only 65k vertices in one batch
-// could be configurable but it's probably better to play it safe
 type VertexIndex = u16;
 
-/// Low-level renderer, specific to the given graphics api (OpenGL/Vulkan/SW)
-/// Knows how to draw primitive batches (frames), prepared by higher-level `Renderer`
-///
-/// Backend does the real drawing but it's also very simple and can't do any
-/// optimizations and has absolutely no idea about scene, surfaces or anything else.
-/// You don't want to use it directly and so it's useless just by itself.
-///
-/// TODO: transpile shaders for different devices (raspi)
-///       (maybe GLSL macros?)
-///
-/// TODO: extract trait, provide other implementations
-pub struct RenderBackend {
-    rect_program: GLuint,
-    text_program: GLuint,
-    resize_uniforms: [(u32, i32); 2],
-    text_color_uniform: i32,
-    text_factor_uniform: i32,
-
-    ibo: GLuint,
-    vbo: GLuint,
-
-    indices: Vec<VertexIndex>,
-    rects: Vec<Rect>,
-    text_bos: Vec<GLuint>,
-}
-
-impl RenderBackend {
+impl GlRenderBackend {
     pub(crate) fn new() -> Self {
         unsafe {
             // not used but webgl & opengl core profile require it
@@ -81,30 +78,26 @@ impl RenderBackend {
             gl::BindVertexArray(vao);
             check("vao");
 
-            let mut ibo = 0;
-            let mut vbo = 0;
-
-            gl::GenBuffers(1, &mut ibo);
-            gl::GenBuffers(1, &mut vbo);
+            let ibo = GlBuffer::new();
+            let vbo = GlBuffer::new();
 
             // TODO
             let mut tex = 0;
             gl::GenTextures(1, &mut tex);
             gl::BindTexture(gl::TEXTURE_2D, tex);
             // TODO: mipmap could improve small sizes but I'm not sure if it wouldn't need additional texture space
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
             // because of RGB
             //gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
-            //gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as i32, 64, 64, 0, gl::RGB, gl::UNSIGNED_BYTE, mem::transmute(SDF_TEXTURE));
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as i32, 512, 512, 0, gl::RGBA, gl::UNSIGNED_BYTE, mem::transmute(SDF_TEXTURE));
+            //gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, 64, 64, 0, gl::RGB, gl::UNSIGNED_BYTE, mem::transmute(SDF_TEXTURE));
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as GLint, 512, 512, 0, gl::RGBA, gl::UNSIGNED_BYTE, mem::transmute(SDF_TEXTURE));
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, tex);
             check("texture");
 
-            // TODO: opaque
             gl::Disable(gl::DEPTH_TEST);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
@@ -115,7 +108,7 @@ impl RenderBackend {
             let text_program = shader_program(TEXT_VS, TEXT_FS);
             check("text_program");
 
-            // this is important otherwise indices sometimes does not reflect
+            // this is important otherwise indices sometimes do not reflect
             // the order in the shader!!!
             // TODO: works but it should be done before linking
             gl::BindAttribLocation(rect_program, 0, c_str!("a_pos"));
@@ -135,6 +128,9 @@ impl RenderBackend {
             check("uniforms");
 
             Self {
+                rects: Vec::new(),
+                indices: Vec::new(),
+
                 rect_program,
                 text_program,
 
@@ -144,57 +140,45 @@ impl RenderBackend {
 
                 ibo,
                 vbo,
-
-                indices: Vec::new(),
-                rects: Vec::new(),
-                text_bos: Vec::new(),
+                text_vbos: Vec::new(),
             }
         }
     }
+}
 
-    pub(crate) fn resize(&mut self, width: i32, height: i32) {
-        unsafe {
-            for (program, uniform) in &self.resize_uniforms {
-                gl::UseProgram(*program);
-                gl::Uniform2f(*uniform, width as f32, height as f32);
-            }
-            check("resize");
-        }
+impl RenderBackend for GlRenderBackend {
+    fn realloc(&mut self, rects_count: RectId, texts_count: TextId) {
+        self.rects.resize(rects_count, Rect::new(Bounds::ZERO, Color::TRANSPARENT));
+
+        // for now, each text has its own buffer
+        self.text_vbos.resize_with(texts_count, || unsafe { GlBuffer::new() })
     }
 
-    pub(crate) fn create_rect(&mut self) -> RectId {
-        let id = self.rects.len();
-
-        self.rects.push(Rect::new(Bounds::zero(), Color::TRANSPARENT));
-        id
-    }
-
-    pub(crate) fn set_rect_bounds(&mut self, rect: RectId, bounds: Bounds) {
+    fn set_rect_bounds(&mut self, rect: RectId, bounds: Bounds) {
         self.rects[rect].set_bounds(bounds);
     }
 
-    pub(crate) fn set_rect_color(&mut self, rect: RectId, color: Color) {
+    fn set_rect_color(&mut self, rect: RectId, color: Color) {
         self.rects[rect].set_color(color);
     }
 
-    pub(crate) fn render_frame(&mut self, frame: Frame) {
-        silly!("frame {:?}", &frame);
-
+    fn render(&mut self, rects: &[RectId], ops: &[RenderOp]) {
         unsafe {
             // TODO: opaque rect in bg (last item) might be faster
             // clear needs to fill all pixels, bg rect fills only what's left
+            // maybe just `documentElement.style.backgroundColor = '#fff'` and don't clear at all
             gl::ClearColor(1.0, 1.0, 1.0, 1.0);
             // TODO: | DEPTH_BUFFER_BIT
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
             // needed because of &self.indices[0]
-            if frame.rects.is_empty() {
+            if rects.is_empty() {
                 return
             }
 
             // clear & generate indices
             self.indices.set_len(0);
-            for i in frame.rects {
+            for i in rects {
                 let base = (i * 4) as VertexIndex;
 
                 // 6 indices for 2 triangles
@@ -209,21 +193,20 @@ impl RenderBackend {
 
             // upload indices
             // (can stay bound for the whole time)
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
-            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, (mem::size_of::<VertexIndex>() * self.indices.len()) as GLsizeiptr, mem::transmute(&self.indices[0]), gl::STATIC_DRAW);
+            self.ibo.data(gl::ELEMENT_ARRAY_BUFFER, &self.indices);
             check("ibo");
 
             // upload vertices
             // (have to be bound again during rendering)
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-            gl::BufferData(gl::ARRAY_BUFFER, (mem::size_of::<Rect>() * self.rects.len()) as GLsizeiptr, mem::transmute(&self.rects[0]), gl::STATIC_DRAW);
+            //
+            // TODO: skip if up-to-date
+            self.vbo.data(gl::ARRAY_BUFFER, &self.rects);
             check("vbo");
 
-            // buffer sharing
-            let mut vbo_offset = 0;
+            // index buffer is shared for everything rect-based (except text)
             let mut ibo_offset = 0;
 
-            for op in frame.ops {
+            for op in ops {
                 let quad_count;
 
                 match op {
@@ -238,7 +221,7 @@ impl RenderBackend {
                             gl::FLOAT,
                             gl::FALSE,
                             Rect::VERTEX_SIZE as GLint,
-                            vbo_offset as *const std::ffi::c_void,
+                            ptr::null(),
                         );
                         gl::EnableVertexAttribArray(1);
                         gl::VertexAttribPointer(
@@ -247,16 +230,15 @@ impl RenderBackend {
                             gl::UNSIGNED_BYTE,
                             gl::FALSE,
                             Rect::VERTEX_SIZE as GLint,
-                            (vbo_offset + mem::size_of::<Pos>()) as *const std::ffi::c_void,
+                            mem::size_of::<Pos>() as *const std::ffi::c_void,
                         );
                     }
                 }
 
                 // draw
-                gl::DrawElements(gl::TRIANGLES, (quad_count * 6) as i32, gl::UNSIGNED_SHORT, ibo_offset as *const std::ffi::c_void);
+                gl::DrawElements(gl::TRIANGLES, (quad_count * 6) as GLint, gl::UNSIGNED_SHORT, ibo_offset as *const std::ffi::c_void);
                 check("draw els");
 
-                vbo_offset += quad_count * 4 * Rect::VERTEX_SIZE;
                 ibo_offset += quad_count * 6 * mem::size_of::<VertexIndex>();
             }
 
@@ -275,7 +257,7 @@ impl RenderBackend {
                         gl::FLOAT,
                         gl::FALSE,
                         vertex_size as GLint,
-                        vbo_offset as *const std::ffi::c_void,
+                        ptr::null(),
                     );
                     gl::EnableVertexAttribArray(1);
                     gl::VertexAttribPointer(
@@ -284,7 +266,7 @@ impl RenderBackend {
                         gl::FLOAT,
                         gl::FALSE,
                         vertex_size as GLint,
-                        (vbo_offset + mem::size_of::<Pos>()) as *const std::ffi::c_void,
+                        mem::size_of::<Pos>() as *const std::ffi::c_void,
                     );
 
                     // unpack it here, maybe even in builder
@@ -296,6 +278,16 @@ impl RenderBackend {
             */
         }
     }
+
+    fn resize(&mut self, (width, height): (f32, f32)) {
+        unsafe {
+            for (program, uniform) in &self.resize_uniforms {
+                gl::UseProgram(*program);
+                gl::Uniform2f(*uniform, width, height);
+            }
+            check("resize");
+        }
+    }
 }
 
 const RECT_VS: &str = include_str!("shaders/rect.vert");
@@ -305,7 +297,49 @@ const TEXT_FS: &str = include_str!("shaders/text.frag");
 
 const SDF_TEXTURE: &[u8; 512 * 512 * 4] = include_bytes!("../../resources/sheet0.raw");
 
-unsafe fn shader_program(vertex_shader_source: &str, fragment_shader_source: &str) -> u32 {
+struct GlBuffer { id: GLuint }
+
+impl GlBuffer {
+    unsafe fn new() -> Self {
+        let mut id = 0;
+
+        gl::GenBuffers(1, &mut id);
+        check("gen buffer");
+
+        Self { id }
+    }
+
+    unsafe fn data<T>(&mut self, target: GLuint, data: &[T]) {
+        let size = (mem::size_of::<T>() * data.len()) as GLsizeiptr;
+
+        gl::BindBuffer(target, self.id);
+
+        // orphaning to avoid implicit sync
+        //
+        // TODO: not sure if this is how it should be done and it's also possible it has no effect on
+        //   raspi and other iGPUs (maybe glMapBufferRange would be better)
+        //   
+        //   maybe pooling & round-robin buffers with SubData might have bigger effect but that would require bigger
+        //   changes and it's not clear if that would actually help
+        //
+        //   https://www.seas.upenn.edu/~pcozzi/OpenGLInsights/OpenGLInsights-AsynchronousBufferTransfers.pdf
+        gl::BufferData(target, size, std::ptr::null_mut(), gl::STREAM_DRAW);
+        gl::BufferData(target, size, mem::transmute(&data[0]), gl::STREAM_DRAW);
+
+        check("buffer data");
+    }
+}
+
+impl Drop for GlBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteBuffers(1, &self.id);
+            check("drop buf");
+        }
+    }
+}
+
+unsafe fn shader_program(vertex_shader_source: &str, fragment_shader_source: &str) -> GLuint {
     let vertex_shader = shader(gl::VERTEX_SHADER, vertex_shader_source);
     let fragment_shader = shader(gl::FRAGMENT_SHADER, fragment_shader_source);
 
@@ -328,7 +362,7 @@ unsafe fn shader_program(vertex_shader_source: &str, fragment_shader_source: &st
     program
 }
 
-unsafe fn shader(shader_type: u32, source: &str) -> u32 {
+unsafe fn shader(shader_type: GLuint, source: &str) -> GLuint {
     let shader = gl::CreateShader(shader_type);
 
     gl::ShaderSource(

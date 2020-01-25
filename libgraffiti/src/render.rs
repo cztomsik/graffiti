@@ -1,25 +1,12 @@
-// TODO: display: none
-// TODO: transform: scale()
-// TODO: opacity
-// TODO: scroll
-// TODO: text nodes
+use crate::commons::{ElementId, TextId, ElementChild, Pos, Bounds, Color};
+use crate::box_layout::{BoxLayoutTree, BoxLayoutImpl};
 
-use std::collections::BTreeMap;
-use crate::commons::{Pos, Bounds, SurfaceId, Color};
-use crate::util::{Storage};
-use crate::text_layout::{TextLayout, Text};
-
-/// Goes through the tree and draws appropriate visuals using positions & sizes from
-/// the `box_layout` & `text_layout` respectively.
+/// Goes through the tree and draws appropriate visuals at given bounds.
 ///
 /// Drawing is expected to be done on the GPU which means we need to first
-/// prepare the work (`Frame`) before it can be executed on the `Backend`.
+/// prepare the work before it can be executed on the `RenderBackend`.
 ///
-/// Some of the work can be shared between the frames so that's why this is
-/// stateful and why it's necessary to call some methods if the scene
-/// has been changed.
-///
-/// This implementation is intentionally incorrect for the sake of simplicity and
+/// The implementation is intentionally incorrect for the sake of simplicity and
 /// CPU performance. It is designed to be fast enough to run on raspi and
 /// it takes some shortcuts in order to do so. For example, it's possible to fool
 /// clipping if you know how to.
@@ -27,115 +14,35 @@ use crate::text_layout::{TextLayout, Text};
 /// This will be either fixed or maybe in the future, we might introduce some other
 /// (optional) impl which would delegate to something more demanding but also
 /// more complete (skia, maybe pathfinder but that would require GL3)
-pub struct Renderer {
-    backend: RenderBackend,
-    pub children: Vec<Vec<SurfaceId>>,
-    texts: BTreeMap<SurfaceId, f32>,
+pub trait Renderer {
+    fn realloc(&mut self, elements_count: ElementId, texts_count: TextId);
+
+    fn set_border_radius(&mut self, element: ElementId, border_radius: Option<BorderRadius>);
+    fn set_box_shadow(&mut self, element: ElementId, box_shadow: Option<BoxShadow>);
+    fn set_background_color(&mut self, element: ElementId, color: Color);
+    fn set_image(&mut self, element: ElementId, image: Option<Image>);
+    fn set_border(&mut self, element: ElementId, border: Option<Border>);
+
+    // TODO: glyphs
+    fn set_text_color(&mut self, text: TextId, color: Color);
+
+    // TODO: Index<ElementId/TextId, Output=Bounds> to break coupling
+    // TODO: flags (bounds changed, tree changed)
+    fn render(&mut self, element: ElementId, children: &[Vec<ElementChild>], box_layout: &BoxLayoutImpl);
+
+    fn resize(&mut self, size: (f32, f32));
 }
 
-impl Renderer {
-    pub fn new(width: i32, height: i32) -> Self {
-        let mut res = Renderer {
-            backend: RenderBackend::new(),
-            children: Vec::new(),
-            texts: BTreeMap::new(),
-        };
+// some structs in the renderer-friendly way
+// Option<BorderRadius> vs testing if any of the values is non-zero
 
-        res.resize(width, height);
-        res.alloc();
-
-        res
-    }
-
-    pub fn resize(&mut self, width: i32, height: i32) {
-        self.backend.resize(width, height);
-    }
-
-    pub fn alloc(&mut self) {
-        self.children.push(Vec::new());
-        self.backend.create_rect();
-    }
-
-    pub fn insert_at(&mut self, parent: SurfaceId, child: SurfaceId, index: usize) {
-        self.children[parent].insert(index, child);
-    }
-
-    pub fn remove_child(&mut self, parent: SurfaceId, child: SurfaceId) {
-        self.children[parent].retain(|ch| *ch != child);
-    }
-
-    pub fn render(&mut self, all_bounds: &[Bounds], _text_layout: &TextLayout) {
-        let mut frame = Frame {
-            rects: Vec::new(),
-            ops: vec![]
-        };
-
-        self.draw_surface(0, all_bounds, Bounds::zero(), &mut frame);
-
-        // TODO: interleaving!!!!
-        frame.ops.push(RenderOp::DrawRects { count: frame.rects.len() });
-
-        self.backend.render_frame(frame)
-    }
-
-    pub fn set_text_color(&mut self, _surface: SurfaceId, _color: Color) {}
-
-    pub fn set_background_color(&mut self, surface: SurfaceId, color: Option<Color>) {
-        self.backend.set_rect_color(surface, color.unwrap_or(Color::TRANSPARENT));
-    }
-
-    // TODO: cache glyphs, after box_layout
-    pub fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
-        self.texts.set(surface, text.map(|t| t.font_size));
-    }
-
-    fn draw_surface(&mut self, surface: SurfaceId, all_bounds: &[Bounds], parent_bounds: Bounds, frame: &mut Frame) {
-        let bounds = all_bounds[surface].relative_to(parent_bounds.a);
-
-        self.backend.set_rect_bounds(surface, bounds);
-
-        frame.rects.push(surface);
-
-        for c in self.children[surface].clone() {
-            self.draw_surface(c, all_bounds, bounds, frame);
-        }
-    }
+#[derive(Debug, Clone, Copy)]
+pub struct BorderRadius {
+    pub top: f32,
+    pub right: f32,
+    pub bottom: f32,
+    pub left: f32,
 }
-
-mod backend;
-use backend::{RenderBackend};
-
-/// The work which has to be done to render one "frame".
-/// It is split to multiple batches/ops, sometimes because it's faster
-/// and sometimes because of texture/buffer limits, correct drawing-order, etc.
-#[derive(Debug)]
-pub struct Frame {
-    rects: Vec<RectId>,
-    ops: Vec<RenderOp>
-}
-
-/// Primitives/ops in the GPU pipeline implemented by backend.
-#[derive(Debug)]
-pub enum RenderOp {
-    // SetAlpha
-    // SetOpacity
-    // SetTranslate
-    // SetScale
-    // SetClip { bounds, radii }
-    DrawRects { count: usize },
-    //DrawText { text: TextId },
-    //DrawImage { image: ImageId },
-    //DrawBorder
-}
-
-pub type RectId = usize;
-pub type TextId = usize;
-
-
-
-
-
-
 
 #[derive(Debug, Clone, Copy)]
 pub struct BoxShadow {
@@ -145,6 +52,208 @@ pub struct BoxShadow {
     pub spread: f32,
 }
 
+// TODO
+pub struct Image {}
+pub struct Border {}
+
+// impl starts here
+
+pub struct RendererImpl {
+    backend: GlRenderBackend,
+    ui_state: UiState,
+
+    // reused to avoid allocs
+    render_rects: Vec<RectId>,
+    render_rects_bounds: Vec<Bounds>,
+    render_ops: Vec<RenderOp>,
+}
+
+// TODO: rename
+// (read-only) input for rendering which was prepared during set_* calls
+struct UiState {
+    //flags: Vec<FastPathFlags>,
+    texts: Vec<(Color,)>,
+    //border_radii: BTreeMap<ElementId, BorderRadius>,
+    //box_shadows: BTreeMap<ElementId, BoxShadow>,
+    //images: BTreeMap<ElementId, Image>,
+    //borders: BTreeMap<Element, Border>,
+}
+
+type FastPathFlags = u8;
+
+impl RendererImpl {
+    pub fn new(size: (f32, f32)) -> Self {
+        let mut res = RendererImpl {
+            backend: GlRenderBackend::new(),
+            ui_state: UiState {
+                texts: Vec::new(),
+            },
+
+            render_rects: Vec::new(),
+            render_rects_bounds: Vec::new(),
+            render_ops: Vec::new()
+        };
+
+        res.resize(size);
+
+        res
+    }
+}
+
+impl Renderer for RendererImpl {
+    fn realloc(&mut self, elements_count: ElementId, texts_count: TextId) {
+        self.ui_state.texts.resize(elements_count, (Color::TRANSPARENT,));
+        self.render_rects_bounds.resize(elements_count, Bounds::ZERO);
+
+        self.backend.realloc(elements_count, texts_count);
+    }
+
+    fn set_border_radius(&mut self, _element: ElementId, _border_radius: Option<BorderRadius>) {
+        todo!()
+    }
+
+    fn set_box_shadow(&mut self, _element: ElementId, _shadow: Option<BoxShadow>) {
+        todo!()
+    }
+
+    fn set_background_color(&mut self, element: ElementId, color: Color) {
+        self.backend.set_rect_color(element as RectId, color);
+    }
+
+    fn set_image(&mut self, _element: ElementId, _image: Option<Image>) {
+        todo!()
+    }
+
+    fn set_border(&mut self, _element: ElementId, _border: Option<Border>) {
+        todo!()
+    }
+
+    fn set_text_color(&mut self, text: TextId, color: Color) {
+        self.ui_state.texts[text].0 = color
+    }
+
+    fn render(&mut self, element: ElementId, children: &[Vec<ElementChild>], box_layout: &BoxLayoutImpl) {
+        unsafe {
+            self.render_rects.set_len(0);
+            self.render_ops.set_len(0);
+        }
+
+        // TODO:
+        // - skip bounds
+        // - skip rects
+        // - skip ops
+        let mut ctx = RenderContext {
+            children,
+            box_layout,
+
+            ui_state: &self.ui_state,
+            parent_bounds: Bounds::ZERO,
+
+            rects: &mut self.render_rects,
+            rects_bounds: &mut self.render_rects_bounds,
+            ops: &mut self.render_ops,
+        };
+
+        ctx.render_element(element);
+
+        // TODO: set all at once
+        for (i, b) in self.render_rects_bounds.iter().enumerate() {
+            self.backend.set_rect_bounds(i, *b);
+        }
+
+        self.backend.render(&self.render_rects, &self.render_ops);
+    }
+
+    fn resize(&mut self, size: (f32, f32)) {
+        self.backend.resize(size);
+    }
+}
+
+struct RenderContext<'a> {
+    children: &'a [Vec<ElementChild>],
+    box_layout: &'a BoxLayoutImpl,
+
+    ui_state: &'a UiState,
+    parent_bounds: Bounds,
+
+    rects: &'a mut Vec<RectId>,
+    rects_bounds: &'a mut Vec<Bounds>,
+    ops: &'a mut Vec<RenderOp>,
+}
+
+impl <'a> RenderContext<'a> {
+    fn render_element(&mut self, element: ElementId) {
+        // TODO: skip if empty/hidden
+
+        // TODO: skip if layout is up-to-date
+        let bounds = self.box_layout.get_element_bounds(element).relative_to(self.parent_bounds.a);
+        self.rects_bounds[element] = bounds;
+
+        // TODO: clip
+
+        // TODO: shadow
+
+        self.rects.push(element as RectId);
+
+        // TODO: skip if transparent
+        // TODO: batching & interleaving
+        self.ops.push(RenderOp::DrawRects { count: 1 });
+
+        // TODO: bg color
+        // TODO: gradient
+        // TODO: image
+        // TODO: inner shadow
+
+        // TODO: clip children too if overflow: hidden
+        // render children
+        let parent_bounds = self.parent_bounds;
+        self.parent_bounds = bounds;
+
+        for c in &self.children[element] {
+            match c {
+                // TODO: replace recursion with iteration
+                ElementChild::Element { id } => self.render_element(*id),
+                _ => {}//println!("TODO: render_text")
+            }
+        }
+
+        // TODO: border
+
+        self.parent_bounds = parent_bounds;
+    }
+}
+
+/// Low-level renderer, specific to the given graphics api (OpenGL/Vulkan/SW)
+/// Knows how to draw primitives, prepared by higher-level `Renderer`
+///
+/// Backend does the real drawing but it's also very simple and can't do any
+/// optimizations and has absolutely no idea about scene or anything else.
+/// You don't want to use it directly and so it's useless just by itself.
+pub trait RenderBackend {
+    fn realloc(&mut self, rects_count: RectId, texts_count: TextId);
+
+    fn set_rect_bounds(&mut self, rect: RectId, bounds: Bounds);
+    fn set_rect_color(&mut self, rect: RectId, color: Color);
+
+    // TODO: initial_clip (update region) to reduce overdraw (of up-to-date parts)
+    // and given how GPUs work it should finish faster (more free units) 
+    fn render(&mut self, rects: &[RectId], ops: &[RenderOp]);
+
+    fn resize(&mut self, size: (f32, f32));
+}
+
+pub type RectId = usize;
+
+/// Primitives/ops implemented by backend.
+#[derive(Debug)]
+pub enum RenderOp {
+    // TODO: opacity, translate, scale, clip, clipRadii
+    DrawRects { count: usize },
+    // TODO: text, image, border, shadow, ...
+}
+
+mod gl;
+use self::gl::GlRenderBackend;
 
 
 
@@ -154,87 +263,8 @@ pub struct BoxShadow {
 
 /*
 
-use crate::commons::{Pos, Bounds, SurfaceId, Color};
-use std::collections::BTreeMap;
-use std::io::Write;
-use crate::text_layout::{TextLayout, Text, GlyphInstance};
-use crate::util::Storage;
-
-
-impl Renderer {
-    // TODO: Index<SurfaceId, Iterator<GlyphInstance>> could be enough
-    pub fn render(&mut self, all_bounds: &[Bounds], text_layout: &TextLayout) {
-        let frame = self.prepare_frame(all_bounds, text_layout);
-        self.backend.render_frame(frame);
-    }
-
-    pub fn set_text_color(&mut self, surface: SurfaceId, color: Color) {
-        self.scene.text_colors[surface] = color;
-    }
-
-    pub fn set_text(&mut self, surface: SurfaceId, text: Option<Text>) {
-        // TODO: inspect perf, create/remove_text, cache buffers
-        self.scene.texts.set(surface, text);
-    }
-
-    fn prepare_frame(&mut self, all_bounds: &[Bounds], text_layout: &TextLayout) -> Frame {
-        let root = 0;
-        let mut builder = FrameBuilder::new();
-
-        let mut context = RenderContext {
-            text_layout,
-
-            scene: &self.scene,
-            all_bounds,
-            bounds: all_bounds[root],
-
-            // TODO: find a way to avoid allocations (maybe pool frames?)
-            builder: &mut builder,
-        };
-
-        context.draw_surface(root);
-        builder.finish();
-
-        builder.frame
-    }
-}
-
-struct RenderContext<'a> {
-    text_layout: &'a TextLayout,
-    scene: &'a Scene,
-    all_bounds: &'a[Bounds],
-
-    // TODO: clip
-    bounds: Bounds,
-
-    builder: &'a mut FrameBuilder
-}
 
 impl <'a> RenderContext<'a> {
-    // TODO: bitflags
-    fn draw_surface(&mut self, id: SurfaceId) {
-        let parent_bounds = self.bounds;
-
-        // TODO: maybe layout should do this too and provide bounds in absolute coords
-        self.bounds = self.all_bounds[id].relative_to(parent_bounds.a);
-
-        if let Some(text) = self.scene.texts.get(&id) {
-            self.draw_text(text, self.scene.text_colors[id], self.text_layout.get_glyphs(id));
-        }
-
-        // TODO: try to avoid recursion?
-        for c in &self.scene.children[id] {
-            self.draw_surface(*c);
-        }
-
-        // restore because of recursion
-        self.bounds = parent_bounds;
-    }
-
-    fn draw_background_color(&mut self, color: &Color) {
-        self.builder.push_rect(self.bounds, color);
-    }
-
     // TODO: create_text() -> TextId & Batch::Text(text_id)
     fn draw_text(&mut self, text: &Text, color: Color, glyphs: impl Iterator<Item = GlyphInstance>) {
         // TODO: should be uniform
@@ -266,26 +296,6 @@ impl <'a> RenderContext<'a> {
         self.builder.append_indices();
         self.builder.count = 0;
     }
-}
-
-// some structs in the renderer-friendly way
-// for example border radius is just a bunch of numbers but it means we will
-// need to do clipping and so it's together and it's either there or not at all
-
-#[derive(Debug, Clone, Copy)]
-pub struct BorderRadius {
-    pub top: f32,
-    pub right: f32,
-    pub bottom: f32,
-    pub left: f32,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct BoxShadow {
-    pub color: Color,
-    pub offset: Pos,
-    pub blur: f32,
-    pub spread: f32,
 }
 
 */

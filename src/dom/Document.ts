@@ -1,6 +1,7 @@
 import { Node } from './Node'
 import { Element } from './Element'
 import { Text } from './Text'
+import { Comment } from './Comment'
 import { Window } from './Window'
 import { DocumentFragment } from './DocumentFragment'
 
@@ -25,14 +26,13 @@ export class Document extends Node {
     super(null, Node.DOCUMENT_NODE, 0)
 
     this.documentElement.parentNode = this
-    this.documentElement.style['flexDirection'] = 'column'
     this.documentElement.appendChild(this.body)
 
     this.parentNode = this.defaultView as unknown as Node
   }
 
   createElement(tagName: string) {
-    const el = new Element(this, tagName, this._scene.createSurface())
+    const el = new Element(this, tagName, this._scene.createElement())
     this._els.push(el)
 
     // apply default styles
@@ -45,7 +45,12 @@ export class Document extends Node {
   }
 
   createTextNode(text: string): Text {
-    return new Text(this, text)
+    return new Text(this, text, this._scene.createText())
+  }
+
+  createComment(data: string): Comment {
+    // empty text node for now (should be fine)
+    return new Comment(this, data, this._scene.createText())
   }
 
   createDocumentFragment() {
@@ -65,8 +70,8 @@ export class Document extends Node {
     return this.documentElement.querySelectorAll(selectors)
   }
 
-  _getEl(_surface) {
-    return this._els[_surface]
+  _getEl(_nativeId) {
+    return this._els[_nativeId]
   }
 
   _getTheParent() {
@@ -120,11 +125,6 @@ const defaultStyles = {
     justifyContent: 'space-around',
   },
 
-  body: {
-    flexDirection: 'column',
-    flex: 1,
-  },
-
   a: {
     color: '#4338ad',
   },
@@ -132,16 +132,4 @@ const defaultStyles = {
   p: {
     marginBottom: 1 * EM,
   },
-
-  div: {
-    display: 'block',
-  },
-
-  ul: {
-    display: 'block'
-  },
-
-  li: {
-    display: 'block'
-  }
 }

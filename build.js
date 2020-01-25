@@ -40,13 +40,13 @@ const targetDir = `${__dirname}/libgraffiti/target`
 // - ./libgraffiti/src/interop/generated.rs
 // - ./src/core/interop.ts
 generateInterop([
-  ['api', 'ApiMsg', 'ApiResponse'],
-  ['commons', 'Pos', 'Bounds', 'Color'],
-  ['viewport', 'SceneChange', 'Event', 'EventKind'],
-  ['style', 'StyleChange', 'StyleProp'],
+  ['commons', 'ElementChild', 'Pos', 'Bounds', 'Color'],
+  ['app', 'WindowEvent'],
+  ['viewport', 'SceneChange', 'Event'],
   ['box_layout', 'Display', 'Dimension', 'Align', 'FlexWrap', 'FlexDirection'],
   ['text_layout', 'Text', 'TextAlign'],
-  ['render', /*'BorderRadius',*/ 'BoxShadow', /*'Border', 'BorderSide', 'BorderStyle'*/]
+  ['render', /*'BorderRadius',*/ 'BoxShadow', /*'Border', 'BorderSide', 'BorderStyle'*/],
+  ['interop', 'AppMsg', 'AppResponse'],
 ])
 
 const { status } = child_process.spawnSync('cargo', ['rustc', ...extraArgs, '--', linkerOpts], {
@@ -136,7 +136,8 @@ function generateInterop(mods) {
       .map(
         ([name, variants]) => `export module ${name} {
         \n${variants.map(([v, fields], i) => `    export const ${v} = (${fields}) => [${i}, ${fields}]`).join('\n')}
-      \n}
+
+        \n    export const TAGS = {\n${variants.map(([v, fields], i) => `      ${v}: ${i},`).join('\n')}\n}\n      }
     `
       )
       .join('\n')}

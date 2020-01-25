@@ -1,9 +1,9 @@
 use crate::commons::{Au, Pos};
+use crate::app::{WindowEvent};
 use crate::platform::NativeWindow;
 use graffiti_glfw::*;
 use std::ptr;
 use std::os::raw::{c_int, c_uint, c_double, c_void};
-use crate::platform::{WINDOWS_PTR, PENDING_EVENTS_PTR};
 
 pub unsafe fn init() {
     assert_eq!(glfwInit(), GLFW_TRUE, "init GLFW");
@@ -66,6 +66,14 @@ pub unsafe fn create_window(title: &str, width: i32, height: i32) -> NativeWindo
     w as *mut c_void
 }
 
+pub unsafe fn make_current(native_window: NativeWindow) {
+    glfwMakeContextCurrent(native_window as *mut GlfwWindow)
+}
+
+pub unsafe fn detach_current() {
+    glfwMakeContextCurrent(ptr::null_mut());
+}
+
 pub unsafe fn swap_buffers(native_window: NativeWindow) {
     glfwSwapBuffers(native_window as *mut GlfwWindow)
 }
@@ -102,7 +110,7 @@ unsafe extern "C" fn handle_glfw_char(w: *mut GlfwWindow, char: c_uint) {
 }
 
 unsafe extern "C" fn handle_glfw_window_size(w: *mut GlfwWindow, width: c_int, height: c_int) {
-    window_event!(w, w.resize(width, height));
+    window_event!(w, w.resize((width as f32, height as f32)));
     glfwSwapBuffers(w);
 }
 

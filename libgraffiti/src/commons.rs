@@ -1,16 +1,21 @@
 // common types & things used everywhere
 
+pub type ElementId = usize;
+
+pub type TextId = usize;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ElementChild {
+    Element { id: ElementId },
+    Text { id: TextId },
+}
+
 /// Application unit (or something similar, unit of measure)
-/// TODO(later): Integer type could save some CPU & memory
 pub type Au = f32;
 
-/// Surfaces are everywhere
-pub type SurfaceId = usize;
-
 /// Packed color
-// TODO: inspect if Color is really copied and consider #[repr(u32)] instead
-// TODO: inspect Bounds copying too
-#[derive(Debug, Clone, Copy, Default)]
+/// TODO: consider #[repr(u32)]
+#[derive(Debug, Clone, Copy)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -28,19 +33,17 @@ impl Color {
 }
 
 /// 2D Point
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Pos {
     pub x: Au,
     pub y: Au
 }
 
 impl Pos {
+    pub const ZERO: Pos = Self { x: 0., y: 0. };
+
     pub fn new(x: Au, y: Au) -> Self {
         Self { x, y }
-    }
-
-    pub fn zero() -> Self {
-        Self::new(0., 0.)
     }
 
     pub fn mul(&self, n: Au) -> Pos {
@@ -60,9 +63,7 @@ pub struct Bounds {
 }
 
 impl Bounds {
-    pub fn zero() -> Self {
-        Self { a: Pos::zero(), b: Pos::zero() }
-    }
+    pub const ZERO: Bounds = Self { a: Pos::ZERO, b: Pos::ZERO };
 
     pub fn mul(&self, n: Au) -> Bounds {
         let a = self.a.mul(n);
@@ -71,6 +72,7 @@ impl Bounds {
         Bounds { a, b }
     }
 
+    // TODO: rename to `translate`
     pub fn relative_to(&self, pos: Pos) -> Bounds {
         let a = self.a.relative_to(pos);
         let b = self.b.relative_to(pos);
