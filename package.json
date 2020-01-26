@@ -19,7 +19,8 @@
     "libgraffiti/resources",
     "libgraffiti/src",
     "libgraffiti/graffiti-glfw",
-    "libgraffiti/graffiti-yoga"
+    "libgraffiti/graffiti-yoga",
+    "libgraffiti/graffiti-stb"
   ],
   "scripts": {
     "build": "node build.js",
