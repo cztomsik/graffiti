@@ -22,7 +22,7 @@ const Counter = () => {
 
 const styles = {
   counter: {
-    flex: 1,
+    height: '100%',
     maxWidth: 250,
     maxHeight: 200,
     padding: 20,

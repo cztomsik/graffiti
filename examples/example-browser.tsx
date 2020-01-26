@@ -4,7 +4,7 @@ import { readdir, readFile } from 'fs'
 import { basename } from 'path'
 import { spawn } from 'child_process'
 
-const App = () => {
+const ExampleBrowser = () => {
   const [files, setFiles] = React.useState(null)
   const [selection, select] = React.useState(THIS_FILE)
   const [source, setSource] = React.useState('')
@@ -14,6 +14,7 @@ const App = () => {
   }, [])
 
   React.useEffect(() => {
+    setSource(null)
     readFile(`${__dirname}/${selection}`, (err, source) => setSource('' + source))
   }, [selection])
 
@@ -60,10 +61,11 @@ const ExampleItem: any = ({ text, active, ...rest }) => {
 
 const runExample = example => {
   spawn('npm', ['run', 'example', example], {
-    shell: true
+    shell: true,
+    stdio: 'inherit',
   })
 }
 
 const THIS_FILE = basename(__filename)
 
-render(<App />, document.body)
+render(<ExampleBrowser />, document.body)

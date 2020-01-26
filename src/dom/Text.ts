@@ -15,8 +15,16 @@ export class Text extends Node {
   set data(text) {
     this._data = text
 
+    if (this.parentElement) {
+      this._updateText()
+    }
+  }
+
+  _updateText() {
+    const { fontSize, lineHeight } = this.parentElement.style._textStyle
+
     // TODO: get text style from parentElement
-    this.ownerDocument._scene.setText(this._nativeId, 16, 20, 0, this._data)
+    this.ownerDocument._scene.setText(this._nativeId, fontSize, lineHeight, 0, this._data)
   }
 
   set textContent(v) {

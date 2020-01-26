@@ -1,10 +1,12 @@
 use std::mem;
 use std::ptr;
 use std::ffi::CString;
+use std::convert::TryInto;
 use gl::types::*;
 
 use crate::commons::{Pos, Bounds, Color, TextId};
 use super::{RenderBackend, RenderOp, RectId};
+use crate::text_layout::GlyphInstance;
 
 // TODO: transpile shaders (mac vs raspi vs. GLES)
 //       (maybe GLSL macros?)
@@ -14,11 +16,9 @@ pub struct GlRenderBackend {
     rects: Vec<Rect>,
     indices: Vec<VertexIndex>,
 
-    rect_program: GLuint,
-    text_program: GLuint,
-    resize_uniforms: [(GLuint, GLint); 2],
-    text_color_uniform: GLint,
-    text_factor_uniform: GLint,
+    gpu: Gpu,
+    rect_program: ShaderProgram,
+    text_program: ShaderProgram,
 
     ibo: GlBuffer,
     vbo: GlBuffer,
@@ -32,7 +32,7 @@ pub struct GlRenderBackend {
 struct Rect([Vertex<Color>; 4]);
 
 impl Rect {
-    const VERTEX_SIZE: usize = mem::size_of::<Vertex<Color>>();
+    const VERTEX_SIZE: GLint = mem::size_of::<Vertex<Color>>()  as GLint;
 
     fn new (bounds: Bounds, color: Color) -> Self {
         let mut res = Self([Vertex(Pos::ZERO, Color::TRANSPARENT); 4]);
@@ -58,9 +58,14 @@ impl Rect {
     }
 }
 
+// we use glDrawArrays for glyphs so that we don't need ibo
+// (but that could change in future)
 #[derive(Debug, Clone, Copy)]
-struct Glyph([Vertex<Pos>; 4]);
+struct Glyph([Vertex<Pos>; 6]);
 
+impl Glyph {
+    const VERTEX_SIZE: GLint = mem::size_of::<Vertex<Pos>>()  as GLint;
+}
 
 #[derive(Debug, Clone, Copy)]
 struct Vertex<T>(Pos, T);
@@ -72,14 +77,9 @@ type VertexIndex = u16;
 impl GlRenderBackend {
     pub(crate) fn new() -> Self {
         unsafe {
-            // not used but webgl & opengl core profile require it
-            let mut vao = 0;
-            gl::GenVertexArrays(1, &mut vao);
-            gl::BindVertexArray(vao);
-            check("vao");
-
-            let ibo = GlBuffer::new();
-            let vbo = GlBuffer::new();
+            let mut gpu = Gpu::new();
+            let ibo = gpu.create_buffer();
+            let vbo = gpu.create_buffer();
 
             // TODO
             let mut tex = 0;
@@ -103,40 +103,27 @@ impl GlRenderBackend {
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             gl::BlendEquation(gl::FUNC_ADD);
 
-            let rect_program = shader_program(RECT_VS, RECT_FS);
-            check("rect_program");
-            let text_program = shader_program(TEXT_VS, TEXT_FS);
-            check("text_program");
+            let rect_program = gpu.create_program(
+                include_str!("shaders/rect.vert"),
+                include_str!("shaders/rect.frag"),
+                &["u_projection"],
+                &["a_pos", "a_color"]
+            );
 
-            // this is important otherwise indices sometimes do not reflect
-            // the order in the shader!!!
-            // TODO: works but it should be done before linking
-            gl::BindAttribLocation(rect_program, 0, c_str!("a_pos"));
-            gl::BindAttribLocation(rect_program, 1, c_str!("a_color"));
-            check("rect attrs");
-
-            gl::BindAttribLocation(text_program, 0, c_str!("a_pos"));
-            gl::BindAttribLocation(text_program, 1, c_str!("a_uv"));
-            check("text attrs");
-
-            let resize_uniforms = [
-                (rect_program, gl::GetUniformLocation(rect_program, c_str!("u_win_size"))),
-                (text_program, gl::GetUniformLocation(text_program, c_str!("u_win_size")))
-            ];
-            let text_color_uniform = gl::GetUniformLocation(text_program, c_str!("u_color"));
-            let text_factor_uniform = gl::GetUniformLocation(text_program, c_str!("u_dist_factor"));
-            check("uniforms");
+            let text_program = gpu.create_program(
+                include_str!("shaders/text.vert"),
+                include_str!("shaders/text.frag"),
+                &["u_projection", "u_pos", "u_color", "u_dist_factor"],
+                &["a_pos", "a_uv"]
+            );
 
             Self {
                 rects: Vec::new(),
                 indices: Vec::new(),
 
+                gpu,
                 rect_program,
                 text_program,
-
-                resize_uniforms,
-                text_color_uniform,
-                text_factor_uniform,
 
                 ibo,
                 vbo,
@@ -148,10 +135,12 @@ impl GlRenderBackend {
 
 impl RenderBackend for GlRenderBackend {
     fn realloc(&mut self, rects_count: RectId, texts_count: TextId) {
-        self.rects.resize(rects_count, Rect::new(Bounds::ZERO, Color::TRANSPARENT));
+        let Self { gpu, rects, text_vbos, .. } = self;
+
+        rects.resize(rects_count, Rect::new(Bounds::ZERO, Color::TRANSPARENT));
 
         // for now, each text has its own buffer
-        self.text_vbos.resize_with(texts_count, || unsafe { GlBuffer::new() })
+        text_vbos.resize_with(texts_count, || unsafe { gpu.create_buffer() })
     }
 
     fn set_rect_bounds(&mut self, rect: RectId, bounds: Bounds) {
@@ -162,19 +151,30 @@ impl RenderBackend for GlRenderBackend {
         self.rects[rect].set_color(color);
     }
 
-    fn render(&mut self, rects: &[RectId], ops: &[RenderOp]) {
-        unsafe {
-            // TODO: opaque rect in bg (last item) might be faster
-            // clear needs to fill all pixels, bg rect fills only what's left
-            // maybe just `documentElement.style.backgroundColor = '#fff'` and don't clear at all
-            gl::ClearColor(1.0, 1.0, 1.0, 1.0);
-            // TODO: | DEPTH_BUFFER_BIT
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+    fn set_text_glyphs<I>(&mut self, text: TextId, glyphs: I) where I: Iterator<Item=GlyphInstance> {
+        let glyphs: Vec<Glyph> = glyphs.map(|GlyphInstance { bounds, coords }| {
+            Glyph([
+                Vertex(bounds.a, coords.a),
+                Vertex(Pos::new(bounds.b.x, bounds.a.y), Pos::new(coords.b.x, coords.a.y)),
+                Vertex(Pos::new(bounds.a.x, bounds.b.y), Pos::new(coords.a.x, coords.b.y)),
+                Vertex(Pos::new(bounds.b.x, bounds.a.y), Pos::new(coords.b.x, coords.a.y)),
+                Vertex(Pos::new(bounds.a.x, bounds.b.y), Pos::new(coords.a.x, coords.b.y)),
+                Vertex(bounds.b, coords.b),
+            ])
+        }).collect();
 
-            // needed because of &self.indices[0]
-            if rects.is_empty() {
-                return
-            }
+        unsafe { self.gpu.buffer_data(&mut self.text_vbos[text], gl::ARRAY_BUFFER, &glyphs) }
+    }
+
+    fn render(&mut self, rects: &[RectId], ops: &[RenderOp]) {
+        // needed because of &self.indices[0]
+        if rects.is_empty() {
+            return
+        }
+
+        unsafe {
+            gl::ClearColor(1.0, 1.0, 1.0, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
 
             // clear & generate indices
             self.indices.set_len(0);
@@ -193,140 +193,221 @@ impl RenderBackend for GlRenderBackend {
 
             // upload indices
             // (can stay bound for the whole time)
-            self.ibo.data(gl::ELEMENT_ARRAY_BUFFER, &self.indices);
+            self.gpu.buffer_data(&mut self.ibo, gl::ELEMENT_ARRAY_BUFFER, &self.indices);
             check("ibo");
 
             // upload vertices
             // (have to be bound again during rendering)
             //
             // TODO: skip if up-to-date
-            self.vbo.data(gl::ARRAY_BUFFER, &self.rects);
+            self.gpu.buffer_data(&mut self.vbo, gl::ARRAY_BUFFER, &self.rects);
             check("vbo");
 
             // index buffer is shared for everything rect-based (except text)
             let mut ibo_offset = 0;
 
             for op in ops {
-                let quad_count;
-
                 match op {
                     RenderOp::DrawRects { count } => {
-                        quad_count = count;
-
-                        gl::UseProgram(self.rect_program);
-                        gl::EnableVertexAttribArray(0);
+                        gl::UseProgram(self.rect_program.id);
+                        self.gpu.bind_buffer(&self.vbo, gl::ARRAY_BUFFER);
                         gl::VertexAttribPointer(
-                            0,
+                            self.rect_program.attributes[0].loc,
                             2,
                             gl::FLOAT,
                             gl::FALSE,
-                            Rect::VERTEX_SIZE as GLint,
+                            Rect::VERTEX_SIZE,
                             ptr::null(),
                         );
-                        gl::EnableVertexAttribArray(1);
                         gl::VertexAttribPointer(
-                            1,
+                            self.rect_program.attributes[1].loc,
                             4,
                             gl::UNSIGNED_BYTE,
                             gl::FALSE,
-                            Rect::VERTEX_SIZE as GLint,
+                            Rect::VERTEX_SIZE,
                             mem::size_of::<Pos>() as *const std::ffi::c_void,
                         );
+
+                        // draw
+                        gl::DrawElements(gl::TRIANGLES, (count * 6) as GLint, gl::UNSIGNED_SHORT, ibo_offset as *const std::ffi::c_void);
+                        check("draw els");
+
+                        ibo_offset += count * 6 * mem::size_of::<VertexIndex>();
+                    }
+
+                    RenderOp::DrawText { id, pos, color, distance_factor } => {
+                        let vbo = &self.text_vbos[*id];
+
+                        gl::UseProgram(self.text_program.id);
+                        self.gpu.bind_buffer(vbo, gl::ARRAY_BUFFER);
+                        gl::VertexAttribPointer(
+                            self.text_program.attributes[0].loc,
+                            2,
+                            gl::FLOAT,
+                            gl::FALSE,
+                            Glyph::VERTEX_SIZE,
+                            ptr::null(),
+                        );
+                        gl::VertexAttribPointer(
+                            self.text_program.attributes[1].loc,
+                            2,
+                            gl::FLOAT,
+                            gl::FALSE,
+                            Glyph::VERTEX_SIZE,
+                            mem::size_of::<Pos>() as *const std::ffi::c_void,
+                        );
+
+                        gl::Uniform2f(self.text_program.uniforms[1].loc, pos.x, pos.y);
+
+                        // unpack it here, maybe even in builder
+                        let color: [f32; 4] = [color.r as f32 / 256., color.g as f32 / 256., color.b as f32 / 256., color.a as f32 / 256.];
+                        gl::Uniform4fv(self.text_program.uniforms[2].loc, 1, &color as *const GLfloat);
+
+                        gl::Uniform1f(self.text_program.uniforms[3].loc, *distance_factor);
+
+                        // draw
+                        gl::DrawArrays(gl::TRIANGLES, 0, (vbo.len() * 6) as GLint);
+                        check("draw text");
                     }
                 }
-
-                // draw
-                gl::DrawElements(gl::TRIANGLES, (quad_count * 6) as GLint, gl::UNSIGNED_SHORT, ibo_offset as *const std::ffi::c_void);
-                check("draw els");
-
-                ibo_offset += quad_count * 6 * mem::size_of::<VertexIndex>();
             }
-
-
-            /*
-            match b {
-                RenderOp::DrawText { color, distance_factor, count } => {
-                    vertex_size = mem::size_of::<Vertex<Pos>>();
-                    quad_count = count;
-
-                    gl::UseProgram(self.text_program);
-                    gl::EnableVertexAttribArray(0);
-                    gl::VertexAttribPointer(
-                        0,
-                        2,
-                        gl::FLOAT,
-                        gl::FALSE,
-                        vertex_size as GLint,
-                        ptr::null(),
-                    );
-                    gl::EnableVertexAttribArray(1);
-                    gl::VertexAttribPointer(
-                        1,
-                        2,
-                        gl::FLOAT,
-                        gl::FALSE,
-                        vertex_size as GLint,
-                        mem::size_of::<Pos>() as *const std::ffi::c_void,
-                    );
-
-                    // unpack it here, maybe even in builder
-                    let color: [f32; 4] = [color.r as f32 / 256., color.g as f32 / 256., color.b as f32 / 256., color.a as f32 / 256.];
-                    gl::Uniform4fv(self.text_color_uniform, 1, &color as *const GLfloat);
-                    gl::Uniform1f(self.text_factor_uniform, distance_factor);
-                }
-            }
-            */
         }
     }
 
     fn resize(&mut self, (width, height): (f32, f32)) {
+        let mat = Mat3([
+            2. / width, 0., -1.,
+            0., -2. / height, 1.,
+            0., 0., 1.
+        ]);
+
         unsafe {
-            for (program, uniform) in &self.resize_uniforms {
-                gl::UseProgram(*program);
-                gl::Uniform2f(*uniform, width, height);
-            }
+            gl::UseProgram(self.rect_program.id);
+            gl::UniformMatrix3fv(self.rect_program.uniforms[0].loc, 1, gl::FALSE, &mat.0 as *const f32);
+
+            gl::UseProgram(self.text_program.id);
+            gl::UniformMatrix3fv(self.text_program.uniforms[0].loc, 1, gl::FALSE, &mat.0 as *const f32);
             check("resize");
         }
     }
 }
 
-const RECT_VS: &str = include_str!("shaders/rect.vert");
-const RECT_FS: &str = include_str!("shaders/rect.frag");
-const TEXT_VS: &str = include_str!("shaders/text.vert");
-const TEXT_FS: &str = include_str!("shaders/text.frag");
-
 const SDF_TEXTURE: &[u8; 512 * 512 * 4] = include_bytes!("../../resources/sheet0.raw");
 
-struct GlBuffer { id: GLuint }
+struct Mat3([f32;9]);
 
-impl GlBuffer {
+struct Gpu;
+
+impl Gpu {
     unsafe fn new() -> Self {
+        // not used but webgl & opengl core profile require it
+        let mut vao = 0;
+        gl::GenVertexArrays(1, &mut vao);
+        gl::BindVertexArray(vao);
+        check("vao");
+
+        Self
+    }
+
+    unsafe fn create_program(&mut self, vs: &str, fs: &str, uniforms: &[&str], attributes: &[&str]) -> ShaderProgram {
+        let vs = shader(gl::VERTEX_SHADER, vs);
+        check("vertex shader");
+
+        let fs = shader(gl::FRAGMENT_SHADER, fs);
+        check("fragment shader");
+
+        let program = gl::CreateProgram();
+        gl::AttachShader(program, vs);
+        gl::AttachShader(program, fs);
+        gl::LinkProgram(program);
+
+        let mut success = gl::FALSE as GLint;
+
+        gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
+
+        if success != gl::TRUE as GLint {
+            panic!(get_program_info_log(program));
+        }
+
+        gl::DeleteShader(vs);
+        gl::DeleteShader(fs);
+
+        gl::UseProgram(program);
+
+        let uniforms = uniforms.iter().map(|name| {
+            let loc = gl::GetUniformLocation(program, c_str!(name.clone()));
+            check("uniform location");
+
+            ProgramUniform { loc }
+        }).collect();
+
+        let attributes = attributes.iter().map(|name| {
+            let loc = gl::GetAttribLocation(program, c_str!(name.clone())).try_into().expect("invalid attr loc");
+            check("uniform location");
+
+            gl::EnableVertexAttribArray(loc);
+            check("enable attrib arr");
+
+            ProgramAttribute { loc }
+        }).collect();
+
+        ShaderProgram {
+            id: program,
+            uniforms,
+            attributes,
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn create_buffer(&mut self) -> GlBuffer {
         let mut id = 0;
 
         gl::GenBuffers(1, &mut id);
         check("gen buffer");
 
-        Self { id }
+        GlBuffer { id, len: 0 }
     }
 
-    unsafe fn data<T>(&mut self, target: GLuint, data: &[T]) {
+    #[inline(always)]
+    unsafe fn bind_buffer(&mut self, buffer: &GlBuffer, target: GLuint) {
+        gl::BindBuffer(target, buffer.id);
+        check("bind buffer");
+    }
+
+    #[inline(always)]
+    unsafe fn buffer_data<T>(&mut self, buffer: &mut GlBuffer, target: GLuint, data: &[T]) {
         let size = (mem::size_of::<T>() * data.len()) as GLsizeiptr;
 
-        gl::BindBuffer(target, self.id);
+        self.bind_buffer(buffer, target);
 
-        // orphaning to avoid implicit sync
-        //
-        // TODO: not sure if this is how it should be done and it's also possible it has no effect on
-        //   raspi and other iGPUs (maybe glMapBufferRange would be better)
-        //   
-        //   maybe pooling & round-robin buffers with SubData might have bigger effect but that would require bigger
-        //   changes and it's not clear if that would actually help
-        //
-        //   https://www.seas.upenn.edu/~pcozzi/OpenGLInsights/OpenGLInsights-AsynchronousBufferTransfers.pdf
+        // orphaning
+        // https://www.seas.upenn.edu/~pcozzi/OpenGLInsights/OpenGLInsights-AsynchronousBufferTransfers.pdf
         gl::BufferData(target, size, std::ptr::null_mut(), gl::STREAM_DRAW);
-        gl::BufferData(target, size, mem::transmute(&data[0]), gl::STREAM_DRAW);
+
+        if !data.is_empty() {
+            gl::BufferData(target, size, mem::transmute(&data[0]), gl::STREAM_DRAW);
+        }
 
         check("buffer data");
+
+        buffer.len = data.len();
+    }
+}
+
+struct ShaderProgram {
+    id: GLuint,
+    uniforms: Vec<ProgramUniform>,
+    attributes: Vec<ProgramAttribute>,
+}
+
+struct ProgramUniform { loc: GLint }
+struct ProgramAttribute { loc: GLuint }
+
+struct GlBuffer { id: GLuint, len: usize }
+
+impl GlBuffer {
+    fn len(&self) -> usize {
+        self.len
     }
 }
 
@@ -337,29 +418,6 @@ impl Drop for GlBuffer {
             check("drop buf");
         }
     }
-}
-
-unsafe fn shader_program(vertex_shader_source: &str, fragment_shader_source: &str) -> GLuint {
-    let vertex_shader = shader(gl::VERTEX_SHADER, vertex_shader_source);
-    let fragment_shader = shader(gl::FRAGMENT_SHADER, fragment_shader_source);
-
-    let program = gl::CreateProgram();
-    gl::AttachShader(program, vertex_shader);
-    gl::AttachShader(program, fragment_shader);
-    gl::LinkProgram(program);
-
-    let mut success = gl::FALSE as GLint;
-
-    gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
-
-    if success != gl::TRUE as GLint {
-        panic!(get_program_info_log(program));
-    }
-
-    gl::DeleteShader(vertex_shader);
-    gl::DeleteShader(fragment_shader);
-
-    program
 }
 
 unsafe fn shader(shader_type: GLuint, source: &str) -> GLuint {

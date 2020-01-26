@@ -56,6 +56,8 @@ pub trait BoxLayoutTree {
     fn set_align_items(&mut self, element: ElementId, v: Align);
     fn set_justify_content(&mut self, element: ElementId, v: Align);
 
+    fn mark_text_dirty(&mut self, text: TextId);
+
     fn calculate(&mut self, element: ElementId, size: (f32, f32), measure_text_fn: &mut dyn FnMut(TextId, f32) -> (f32, f32));
 
     fn get_element_bounds(&self, element: ElementId) -> Bounds;

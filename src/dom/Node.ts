@@ -30,22 +30,29 @@ export class Node extends EventTarget {
 
     child.remove()
 
-    switch (child.nodeType) {
-      case Node.ELEMENT_NODE:
-        this.ownerDocument._scene.insertElementAt(this._nativeId, child._nativeId, index)
-        break
-
-      case Node.TEXT_NODE:
-      case Node.COMMENT_NODE:
-        this.ownerDocument._scene.insertTextAt(this._nativeId, child._nativeId, index)
-        break
-
-      default:
-        throw new Error('unsupported node type')
-    }
-
     child.parentNode = this
     this.childNodes.splice(index, 0, child)
+
+    // fragment does not have an id
+    if (this._nativeId !== undefined) {
+      switch (child.nodeType) {
+        case Node.ELEMENT_NODE:
+          this.ownerDocument._scene.insertElementAt(this._nativeId, child._nativeId, index)
+          break
+
+        case Node.TEXT_NODE:
+          this.ownerDocument._scene.insertTextAt(this._nativeId, child._nativeId, index)
+          ;(child as any)._updateText()
+          break
+
+        case Node.COMMENT_NODE:
+          this.ownerDocument._scene.insertTextAt(this._nativeId, child._nativeId, index)
+          break
+
+        default:
+          throw new Error('unsupported node type')
+      }
+    }
 
     return child
   }
@@ -64,14 +71,21 @@ export class Node extends EventTarget {
       ;(child as Element).blur()
     }
 
-    switch (child.nodeType) {
-      case Node.ELEMENT_NODE:
-        this.ownerDocument._scene.removeElement(this._nativeId, child._nativeId)
-        break
+    // fragment does not have an id
+    if (this._nativeId !== undefined) {
+      switch (child.nodeType) {
+        case Node.ELEMENT_NODE:
+          this.ownerDocument._scene.removeElement(this._nativeId, child._nativeId)
+          break
 
-      case Node.TEXT_NODE:
-      case Node.COMMENT_NODE:
-        this.ownerDocument._scene.removeText(this._nativeId, child._nativeId)
+        case Node.TEXT_NODE:
+          this.ownerDocument._scene.removeText(this._nativeId, child._nativeId)
+          break
+
+        case Node.COMMENT_NODE:
+          this.ownerDocument._scene.removeText(this._nativeId, child._nativeId)
+          break
+      }
     }
 
     this.childNodes.splice(this.childNodes.indexOf(child), 1)

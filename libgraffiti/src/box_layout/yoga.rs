@@ -85,6 +85,8 @@ impl BoxLayoutTree for YogaLayoutTree {
             self.set_flex_basis(id, Dimension::Auto);
             self.set_flex_shrink(id, 1.);
 
+            // TODO: in the browser, default display is "inline", we dont support that
+            // but this is wrong too (move display block rules back to the document.ts)
             // TODO: block emulation needs to be reimplemented anyway
             self.flex_direction_set.remove(&id);
             self.set_display(id, Display::Block);
@@ -234,6 +236,10 @@ impl BoxLayoutTree for YogaLayoutTree {
 
     fn set_justify_content(&mut self, element: ElementId, v: Align) {
         unsafe { YGNodeStyleSetJustifyContent(self.element_yoga_nodes[element], v.into()) }
+    }
+
+    fn mark_text_dirty(&mut self, text: TextId) {
+        unsafe { YGNodeMarkDirty(self.text_yoga_nodes[text]) }
     }
 }
 

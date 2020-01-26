@@ -1,5 +1,6 @@
 use crate::commons::{ElementId, TextId, ElementChild, Pos, Bounds, Color};
 use crate::box_layout::{BoxLayoutTree, BoxLayoutImpl};
+use crate::text_layout::{GlyphInstance};
 
 /// Goes through the tree and draws appropriate visuals at given bounds.
 ///
@@ -20,11 +21,11 @@ pub trait Renderer {
     fn set_border_radius(&mut self, element: ElementId, border_radius: Option<BorderRadius>);
     fn set_box_shadow(&mut self, element: ElementId, box_shadow: Option<BoxShadow>);
     fn set_background_color(&mut self, element: ElementId, color: Color);
+    fn set_color(&mut self, element: ElementId, color: Color);
     fn set_image(&mut self, element: ElementId, image: Option<Image>);
     fn set_border(&mut self, element: ElementId, border: Option<Border>);
 
-    // TODO: glyphs
-    fn set_text_color(&mut self, text: TextId, color: Color);
+    fn set_text_glyphs<I>(&mut self, text: TextId, glyphs: I) where I: Iterator<Item=GlyphInstance>;
 
     // TODO: Index<ElementId/TextId, Output=Bounds> to break coupling
     // TODO: flags (bounds changed, tree changed)
@@ -72,7 +73,7 @@ pub struct RendererImpl {
 // (read-only) input for rendering which was prepared during set_* calls
 struct UiState {
     //flags: Vec<FastPathFlags>,
-    texts: Vec<(Color,)>,
+    colors: Vec<Color>,
     //border_radii: BTreeMap<ElementId, BorderRadius>,
     //box_shadows: BTreeMap<ElementId, BoxShadow>,
     //images: BTreeMap<ElementId, Image>,
@@ -86,7 +87,7 @@ impl RendererImpl {
         let mut res = RendererImpl {
             backend: GlRenderBackend::new(),
             ui_state: UiState {
-                texts: Vec::new(),
+                colors: Vec::new(),
             },
 
             render_rects: Vec::new(),
@@ -102,7 +103,7 @@ impl RendererImpl {
 
 impl Renderer for RendererImpl {
     fn realloc(&mut self, elements_count: ElementId, texts_count: TextId) {
-        self.ui_state.texts.resize(elements_count, (Color::TRANSPARENT,));
+        self.ui_state.colors.resize(elements_count, Color::BLACK);
         self.render_rects_bounds.resize(elements_count, Bounds::ZERO);
 
         self.backend.realloc(elements_count, texts_count);
@@ -120,6 +121,10 @@ impl Renderer for RendererImpl {
         self.backend.set_rect_color(element as RectId, color);
     }
 
+    fn set_color(&mut self, element: ElementId, color: Color) {
+        self.ui_state.colors[element] = color
+    }
+
     fn set_image(&mut self, _element: ElementId, _image: Option<Image>) {
         todo!()
     }
@@ -128,8 +133,8 @@ impl Renderer for RendererImpl {
         todo!()
     }
 
-    fn set_text_color(&mut self, text: TextId, color: Color) {
-        self.ui_state.texts[text].0 = color
+    fn set_text_glyphs<I>(&mut self, text: TextId, glyphs: I) where I: Iterator<Item=GlyphInstance> {
+        self.backend.set_text_glyphs(text, glyphs);
     }
 
     fn render(&mut self, element: ElementId, children: &[Vec<ElementChild>], box_layout: &BoxLayoutImpl) {
@@ -213,13 +218,17 @@ impl <'a> RenderContext<'a> {
             match c {
                 // TODO: replace recursion with iteration
                 ElementChild::Element { id } => self.render_element(*id),
-                _ => {}//println!("TODO: render_text")
+                ElementChild::Text { id } => self.render_text(*id, self.box_layout.get_text_bounds(*id).a, self.ui_state.colors[element]),
             }
         }
 
         // TODO: border
 
         self.parent_bounds = parent_bounds;
+    }
+
+    fn render_text(&mut self, id: TextId, pos: Pos, color: Color) {
+        self.ops.push(RenderOp::DrawText { id, pos: pos.relative_to(self.parent_bounds.a), color, distance_factor: 1.1428571429 });
     }
 }
 
@@ -235,6 +244,8 @@ pub trait RenderBackend {
     fn set_rect_bounds(&mut self, rect: RectId, bounds: Bounds);
     fn set_rect_color(&mut self, rect: RectId, color: Color);
 
+    fn set_text_glyphs<I>(&mut self, text: TextId, glyphs: I) where I: Iterator<Item=GlyphInstance>;
+
     // TODO: initial_clip (update region) to reduce overdraw (of up-to-date parts)
     // and given how GPUs work it should finish faster (more free units) 
     fn render(&mut self, rects: &[RectId], ops: &[RenderOp]);
@@ -249,6 +260,7 @@ pub type RectId = usize;
 pub enum RenderOp {
     // TODO: opacity, translate, scale, clip, clipRadii
     DrawRects { count: usize },
+    DrawText { id: TextId, color: Color, pos: Pos, distance_factor: f32 },
     // TODO: text, image, border, shadow, ...
 }
 

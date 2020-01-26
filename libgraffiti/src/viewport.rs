@@ -113,6 +113,9 @@ pub enum SceneChange {
 
     // TODO: multiple
     BoxShadow { element: ElementId, value: Option<BoxShadow> },
+
+    // Transform { element: ElementId, value: Option<Vec<Transform>> },
+    // enum Transform { Scale(x, y), Skew(x, y), Translate(x, y), Rotate(deg), }
 }
 
 impl Viewport {
@@ -150,7 +153,7 @@ impl Viewport {
 
             match c {
                 // start with layout-independent things
-                Color { element, value } => self.renderer.set_text_color(*element, *value),
+                Color { element, value } => self.renderer.set_color(*element, *value),
                 BackgroundColor { element, value } => self.renderer.set_background_color(*element, (*value).unwrap_or(crate::commons::Color::TRANSPARENT)),
                 //BoxShadow { element, value } => self.renderer.set_box_shadow(*element, *value),
 
@@ -223,6 +226,7 @@ impl Viewport {
                         }
 
                         SetText { id, text } => {
+                            self.box_layout.mark_text_dirty(*id);
                             self.text_layout.set_text(*id, text);
                         },
 
@@ -313,13 +317,16 @@ impl Viewport {
         let text_layout = &mut self.text_layout;
         let mut wraps = Vec::new();
 
-        // TODO: update text batches in renderer
-        self.box_layout.calculate(Self::ROOT, self.size, &mut |surface, max_width| {
+        self.box_layout.calculate(Self::ROOT, self.size, &mut |text_id, max_width| {
             // TODO: it seems it's called even when not needed in bounds example
             //println!("wrap called");
-            wraps.push(surface);
-            text_layout.wrap(surface, max_width)
+            wraps.push(text_id);
+            text_layout.wrap(text_id, max_width)
         });
+
+        for id in wraps {
+            self.renderer.set_text_glyphs(id, self.text_layout.get_glyphs(id))
+        }
     }
 
     fn render(&mut self) {

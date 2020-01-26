@@ -1,11 +1,11 @@
 import { camelCase, pascalCase, kebabCase, parseColor, UNSUPPORTED } from '../core/utils'
 import { SceneContext } from '../core/SceneContext'
 import { Display, Dimension, Text, TextAlign } from '../core/nativeApi'
+import { Node } from '../dom/Node'
 
 // minimal impl just to get something working
 export class CSSStyleDeclaration {
-  // temp state for text changes
-  text = undefined
+  _textStyle: any = { fontSize: 16, lineHeight: 20 }
 
   constructor(private _scene: SceneContext, private _elementId) {
     installProxy(this)
@@ -61,10 +61,12 @@ export class CSSStyleDeclaration {
         this._scene.setColor(this._elementId, parseColor(v || '#000'))
         break
       case 'font-size':
-        //this._scene.setFontSize(this._elementId, v)
+        this._textStyle = { ...this._textStyle, fontSize: parseFloat(v) }
+        this._updateTexts()
         break
       case 'line-height':
-        v = parseFloat(v)
+        this._textStyle = { ...this._textStyle, lineHeight: parseFloat(v) }
+        this._updateTexts()
         break
 
       // props
@@ -140,6 +142,14 @@ export class CSSStyleDeclaration {
 
       default:
         console.log(`TODO: style.${k} ${v}`)
+    }
+  }
+
+  _updateTexts() {
+    for (const c of (document as any)._getEl(this._elementId).childNodes) {
+      if (c.nodeType === Node.TEXT_NODE) {
+        (c as any)._updateText()
+      }
     }
   }
 }

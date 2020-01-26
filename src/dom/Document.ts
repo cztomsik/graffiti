@@ -25,6 +25,7 @@ export class Document extends Node {
   constructor(public defaultView: Window) {
     super(null, Node.DOCUMENT_NODE, 0)
 
+    this.documentElement.style.setProperty('min-height', '100%')
     this.documentElement.parentNode = this
     this.documentElement.appendChild(this.body)
 
