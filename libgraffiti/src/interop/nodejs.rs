@@ -2,7 +2,8 @@
 
 #![allow(dead_code)]
 
-use crate::{Api, init_api};
+use crate::app::{App};
+use crate::interop::{InteropApi};
 use std::os::raw::{c_int, c_uint, c_char, c_void};
 use std::ptr;
 use std::mem;
@@ -129,7 +130,7 @@ macro_rules! get_res {
 unsafe extern "C" fn init_node_module(env: NapiEnv, exports: NapiValue) -> NapiValue {
     silly!("init_node_module");
 
-    API = Box::into_raw(Box::new(init_api()));
+    APP = Box::into_raw(Box::new(App::init()));
     ENV = env;
 
     let method = get_res!(napi_create_function, c_str!("libgraffitiSend"), NAPI_AUTO_LENGTH, send_wrapper, ptr::null());
@@ -150,10 +151,10 @@ unsafe extern "C" fn send_wrapper(env: NapiEnv, cb_info: NapiCallbackInfo) -> Na
     let msg = argv[0].into2();
     debug!("msg {:?}", &msg);
     
-    (*API).send(msg).into()
+    (*APP).send(msg).into()
 }
 
-static mut API: *mut Api = ptr::null_mut();
+static mut APP: *mut App = ptr::null_mut();
 static mut ENV: NapiEnv = NapiEnv(ptr::null_mut());
 
 // hack our own From, Into traits

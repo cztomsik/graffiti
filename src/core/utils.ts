@@ -31,7 +31,7 @@ export const parseColor = (str: string) => {
     return parseHashColor(str.slice(1))
   }
 
-  throw new Error('only colors starting with # are supported')
+  throw new Error(`only colors starting with # are supported (got ${JSON.stringify(str)})`)
 }
 
 // note that in rgba(xx, xx, xx, x), alpha is 0-1

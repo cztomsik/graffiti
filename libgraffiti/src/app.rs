@@ -1,100 +1,124 @@
-use crate::platform::{WINDOWS_PTR, PENDING_EVENTS_PTR};
-use crate::commons::{SurfaceId, Bounds};
+use crate::commons::{ElementId, Bounds};
 use crate::viewport::{Viewport, Event, SceneChange};
-use std::collections::BTreeMap;
-use std::ptr;
 use crate::platform;
-use crate::platform::{NativeWindow};
+use crate::platform::{NativeWindow, WINDOWS_PTR, VIEWPORTS_PTR, PENDING_EVENTS_PTR};
+
+
 
 /// Root for the whole native part
 /// Only one instance is allowed
 ///
 /// - create/destroy windows
 /// - update their viewports
-/// - get pending events (with surface targets) of all windows
+/// - get pending events (with resolved targets) of all windows
 pub struct App {
-    // primary storage
-    //
-    // keyed by NativeWimdow so that we can find viewport quickly
-    // in native event handlers
-    window_viewports: BTreeMap<NativeWindow, Viewport>,
+    // there's not many windows so it should be fine
+    windows: Vec<NativeWindow>,
+    viewports: Vec<Viewport>,
 
-    // quickly get to a window/viewport using WindowId
-    native_windows: Vec<NativeWindow>,
-    //viewports: Vec<&'a mut Viewport>,
+    //async_updates: Sender<AsyncUpdate>,
 }
 
+//struct AsyncUpdate(WindowId, NativeWindow, Vec<SceneChange>);
+//unsafe impl std::marker::Send for AsyncUpdate {}
+
 pub type WindowId = usize;
+
+#[derive(Debug, Clone)]
+pub struct WindowEvent {
+    pub window: WindowId,
+    pub event: Event,
+}
 
 impl App {
     pub unsafe fn init() -> Self {
         platform::init();
 
-        if INIT_CALLED {
-            panic!("Already initialized")
-        } else {
-            INIT_CALLED = true;
-        }
+        /* worker poc
+        let viewports: Vec<Viewport> = Vec::new();
+        let viewports = Arc::new(Mutex::new(viewports));
+
+        // worker
+        let (async_updates, rx) = channel();
+        let worker_viewports = viewports.clone();
+        std::thread::spawn(move || {
+            loop {
+                let AsyncUpdate(id, native_window, updates) = rx.recv().unwrap();
+
+                unsafe { platform::make_current(native_window) }
+
+                println!("update");
+                worker_viewports.lock().unwrap().deref_mut()[id].update_styles(&updates);
+
+                unsafe {
+                    println!("swap");
+                    platform::swap_buffers(native_window)
+                }
+           }
+        });
+        */
 
         App {
-            window_viewports: BTreeMap::new(),
-            //viewports: Vec::new(),
-            native_windows: Vec::new(),
+            windows: Vec::new(),
+            viewports: Vec::new(),
         }
     }
 }
 
-static mut INIT_CALLED: bool = false;
-
 impl App {
-    pub fn get_events(&mut self, poll: bool) -> Vec<Event> {
-        // TODO: share the vec, clear it only
-        // maybe it can be part of App state?
+    pub fn get_events(&mut self, poll: bool) -> Vec<WindowEvent> {
         let mut events = Vec::new();
 
         unsafe {
-            WINDOWS_PTR = &mut self.window_viewports;
+            WINDOWS_PTR = &mut self.windows;
+            VIEWPORTS_PTR = &mut self.viewports;
             PENDING_EVENTS_PTR = &mut events;
 
             platform::get_events(poll);
 
-            PENDING_EVENTS_PTR = ptr::null_mut();
+            WINDOWS_PTR = std::ptr::null_mut();
+            VIEWPORTS_PTR = std::ptr::null_mut();
+            PENDING_EVENTS_PTR = std::ptr::null_mut();
         }
 
         events
     }
 
     pub fn create_window(&mut self, title: &str, width: i32, height: i32) -> WindowId {
-        let id = self.native_windows.len();
+        let id = self.windows.len();
 
         let native_window = unsafe { platform::create_window(title, width, height) };
-        let viewport = Viewport::new(width, height);
+        let viewport = Viewport::new((width as f32, height as f32));
 
-        self.native_windows.push(native_window);
-        self.window_viewports.insert(native_window, viewport);
+        // detach so it can be attached by another thread
+        unsafe { platform::detach_current() }
+
+        self.windows.push(native_window);
+        self.viewports.push(viewport);
 
         id
     }
 
     pub fn update_window_scene(&mut self, id: WindowId, changes: &[SceneChange]) {
-        let native_window = self.native_windows[id];
-        let viewport = self.window_viewports.get_mut(&native_window).expect("window not found");
+        let native_window = &mut self.windows[id];
+        let viewport = &mut self.viewports[id];
+
+        unsafe { platform::make_current(*native_window) }
 
         viewport.update_scene(changes);
         unsafe {
-            platform::swap_buffers(native_window)
+            platform::swap_buffers(*native_window)
         }
     }
 
-    pub fn get_bounds(&self, window: WindowId, surface: SurfaceId) -> Bounds {
-        let native_window = self.native_windows[window];
-        let viewport = self.window_viewports.get(&native_window).expect("window not found");
-
-        viewport.get_bounds(surface)
+    pub fn get_offset_bounds(&self, window: WindowId, element: ElementId) -> Bounds {
+        self.viewports[window].get_offset_bounds(element)
     }
 
     pub fn destroy_window(&mut self, _id: WindowId) {
-        // TODO
+        todo!()
+
+        // TODO (+freelist)
         //   free viewports[id]
         //   platform::destroy_window(native_windows[id])
     }

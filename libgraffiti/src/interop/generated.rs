@@ -1,43 +1,73 @@
 // generated
 
     
-use crate::api::{ApiMsg,ApiResponse};
-use crate::commons::{Pos,Bounds,Color,BoxShadow,Border,BorderSide,BorderRadius,BorderStyle,Image};
-use crate::viewport::{SceneChange,Event,EventKind};
-use crate::box_layout::{DimensionProp,Dimension,AlignProp,Align,FlexWrap,FlexDirection};
+use crate::commons::{ElementChild,Pos,Bounds,Color};
+use crate::app::{WindowEvent};
+use crate::viewport::{SceneChange,Event};
+use crate::box_layout::{Display,Dimension,Align,FlexWrap,FlexDirection};
 use crate::text_layout::{Text,TextAlign};
+use crate::render::{BoxShadow};
+use crate::interop::{AppMsg,AppResponse};
 
     
 interop! {
       
-  ApiMsg { 
-    0 GetEvents { poll },
-    1 UpdateScene { window, changes },
-    2 GetBounds { window, surface },
-    3 CreateWindow { title, width, height },
-    4 ResizeWindow { window },
-    5 DestroyWindow { window } 
-  }
-  ApiResponse { 
-    0 Events { events },
-    1 Nothing {  },
-    2 Bounds { bounds } 
+  ElementChild { 
+    0 Element { id },
+    1 Text { id } 
   }
   SceneChange { 
-    0 Alloc {  },
-    1 InsertAt { parent, child, index },
-    2 RemoveChild { parent, child },
-    3 Dimension { surface, prop, value },
-    4 Align { surface, prop, value },
-    5 FlexWrap { surface, value },
-    6 FlexDirection { surface, value },
-    7 BackgroundColor { surface, value },
-    8 Border { surface, value },
-    9 BoxShadow { surface, value },
-    10 TextColor { surface, value },
-    11 BorderRadius { surface, value },
-    12 Image { surface, value },
-    13 Text { surface, text } 
+    0 CreateElement {  },
+    1 CreateText {  },
+    2 InsertAt { parent, child, index },
+    3 RemoveChild { parent, child },
+    4 SetText { id, text },
+    5 Display { element, value },
+    6 Width { element, value },
+    7 Height { element, value },
+    8 MinWidth { element, value },
+    9 MinHeight { element, value },
+    10 MaxWidth { element, value },
+    11 MaxHeight { element, value },
+    12 Top { element, value },
+    13 Right { element, value },
+    14 Bottom { element, value },
+    15 Left { element, value },
+    16 MarginTop { element, value },
+    17 MarginRight { element, value },
+    18 MarginBottom { element, value },
+    19 MarginLeft { element, value },
+    20 PaddingTop { element, value },
+    21 PaddingRight { element, value },
+    22 PaddingBottom { element, value },
+    23 PaddingLeft { element, value },
+    24 FlexGrow { element, value },
+    25 FlexShrink { element, value },
+    26 FlexBasis { element, value },
+    27 FlexDirection { element, value },
+    28 FlexWrap { element, value },
+    29 AlignSelf { element, value },
+    30 AlignContent { element, value },
+    31 AlignItems { element, value },
+    32 JustifyContent { element, value },
+    33 Color { element, value },
+    34 BackgroundColor { element, value },
+    35 BorderTopLeftRadius { element, value },
+    36 BorderTopRightRadius { element, value },
+    37 BorderBottomLeftRadius { element, value },
+    38 BorderBottomRightRadius { element, value },
+    39 BoxShadow { element, value } 
+  }
+  Event { 
+    0 MouseMove { target },
+    1 MouseDown { target },
+    2 MouseUp { target },
+    3 Scroll { target },
+    4 KeyDown { target, key },
+    5 KeyPress { target, key },
+    6 KeyUp { target, key },
+    7 Resize { target },
+    8 Close { target } 
   }
   Dimension { 
     0 Undefined {  },
@@ -45,24 +75,31 @@ interop! {
     2 Px { value },
     3 Percent { value } 
   }
+  AppMsg { 
+    0 GetEvents { poll },
+    1 CreateWindow { title, width, height },
+    2 ResizeWindow { window, width, height },
+    3 UpdateScene { window, changes },
+    4 GetOffsetBounds { window, element },
+    5 DestroyWindow { window } 
+  }
+  AppResponse { 
+    0 WindowId { id },
+    1 Ack {  },
+    2 Events { events },
+    3 Bounds { bounds } 
+  }
 
       
   Pos [x,y]
   Bounds [a,b]
   Color [r,g,b,a]
-  BoxShadow [color,offset,blur,spread]
-  Border [top,right,bottom,left]
-  BorderSide [width,style,color]
-  BorderRadius [top,right,bottom,left]
-  Image [url]
-  Event [kind,target,key]
+  WindowEvent [window,event]
   Text [font_size,line_height,align,text]
+  BoxShadow [color,offset,blur,spread]
 
       
-  BorderStyle(u8)
-  EventKind(u8)
-  DimensionProp(u8)
-  AlignProp(u8)
+  Display(u8)
   Align(u8)
   FlexWrap(u8)
   FlexDirection(u8)

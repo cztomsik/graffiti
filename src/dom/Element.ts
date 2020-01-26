@@ -6,34 +6,18 @@ import { CSSStyleDeclaration } from '../styles/CSSStyleDeclaration'
 
 export class Element extends Node {
   id?
-  style = new CSSStyleDeclaration(this.ownerDocument._scene, this._surface)
+  style = new CSSStyleDeclaration(this.ownerDocument._scene, this._nativeId)
   // preact needs this sometimes
   attributes = []
 
-  constructor(public ownerDocument: Document, public tagName, _surface) {
-    super(ownerDocument, Node.ELEMENT_NODE, _surface)
+  constructor(public ownerDocument: Document, public tagName, _nativeId) {
+    super(ownerDocument, Node.ELEMENT_NODE, _nativeId)
   }
 
   // so the events can bubble
   // @see EventTarget
   _getTheParent() {
     return this.parentElement
-  }
-
-  _updateText() {
-    // this is very ugly temporary hack just to have something working
-    // we dont support mixing text & elements yet so we
-    // just set the text to the concatenated result
-    let content = '', len = this.childNodes.length
-    for (let i = 0; i < len; i++) {
-      const c = this.childNodes[i]
-
-      if (c.nodeType === Node.TEXT_NODE) {
-        content += (c as Text)._data
-      }
-    }
-
-    this.style['content'] = content
   }
 
   setAttribute(name, value) {
@@ -124,14 +108,17 @@ export class Element extends Node {
   }
 
   get _bounds() {
-    return this.ownerDocument._scene.getBounds(this._surface)
+    return this.ownerDocument._scene.getOffsetBounds(this._nativeId)
   }
 
   set textContent(v) {
+    if ((this.childNodes.length) === 1 && (this.childNodes[0].nodeType === Node.TEXT_NODE)) {
+      (this.childNodes[0] as Text).data = v
+      return
+    }
+
     this.childNodes.forEach(c => c.remove())
 
     this.appendChild(this.ownerDocument.createTextNode(v))
-
-    this._updateText()
   }
 }

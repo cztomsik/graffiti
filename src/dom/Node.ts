@@ -7,7 +7,7 @@ export class Node extends EventTarget {
   readonly childNodes: Node[] = []
   parentNode: Node = null
 
-  constructor(public readonly ownerDocument: Document, public readonly nodeType, public readonly _surface) {
+  constructor(public readonly ownerDocument: Document, public readonly nodeType, public readonly _nativeId) {
     super()
   }
 
@@ -16,42 +16,41 @@ export class Node extends EventTarget {
   }
 
   insertBefore(child: Node, refNode: Node | null) {
-    // should be !== null but some frameworks pass undefined too
+    // should be !== null but some libs pass undefined too
     if (refNode) {
       assert.equal(refNode.parentNode, this)
     }
 
     if (child.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
       child.childNodes.splice(0).forEach(c => this.appendChild(c))
-    } else {
-      // find insertion index for both childNodes & for native
-      //
-      // TODO: not yet sure if it's better to compute index like this or
-      // to pass prevSurface to the native and do it there
-      // (possibly in each sub-system)
-      // but comments are DOM-specific and it probably shouldn't leak there
-      let c, index, nativeOffset = 0, len = this.childNodes.length
+      return child
+    }
 
-      for (index = 0; index < len; index++) {
-        if ((c = this.childNodes[index]) === refNode) {
+    let index = refNode ? this.childNodes.indexOf(refNode) : this.childNodes.length
+
+    child.remove()
+
+    child.parentNode = this
+    this.childNodes.splice(index, 0, child)
+
+    // fragment does not have an id
+    if (this._nativeId !== undefined) {
+      switch (child.nodeType) {
+        case Node.ELEMENT_NODE:
+          this.ownerDocument._scene.insertElementAt(this._nativeId, child._nativeId, index)
           break
-        } else if (c._surface === undefined) {
-          nativeOffset--
-        }
-      }
 
-      child.remove()
-      child.parentNode = this
-      this.childNodes.splice(index, 0, child)
+        case Node.TEXT_NODE:
+          this.ownerDocument._scene.insertTextAt(this._nativeId, child._nativeId, index)
+          ;(child as any)._updateText()
+          break
 
-      if (child.nodeType === Node.TEXT_NODE) {
-        (this as any)._updateText()
-      }
+        case Node.COMMENT_NODE:
+          this.ownerDocument._scene.insertTextAt(this._nativeId, child._nativeId, index)
+          break
 
-      // comment/text, insert into fragment
-      // undefined is needed because root is 0
-      if ((child._surface !== undefined) && (this._surface !== undefined)) {
-        this.ownerDocument._scene.insertAt(this._surface, child._surface, index + nativeOffset)
+        default:
+          throw new Error('unsupported node type')
       }
     }
 
@@ -69,15 +68,27 @@ export class Node extends EventTarget {
 
     // so that events dont sink in unattached subtree
     if (child.nodeType === Node.ELEMENT_NODE) {
-      (child as Element).blur()
+      ;(child as Element).blur()
+    }
+
+    // fragment does not have an id
+    if (this._nativeId !== undefined) {
+      switch (child.nodeType) {
+        case Node.ELEMENT_NODE:
+          this.ownerDocument._scene.removeElement(this._nativeId, child._nativeId)
+          break
+
+        case Node.TEXT_NODE:
+          this.ownerDocument._scene.removeText(this._nativeId, child._nativeId)
+          break
+
+        case Node.COMMENT_NODE:
+          this.ownerDocument._scene.removeText(this._nativeId, child._nativeId)
+          break
+      }
     }
 
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
-
-    if (this._surface && child._surface) {
-      this.ownerDocument._scene.removeChild(this._surface, child._surface)
-    }
-
     return child
   }
 
@@ -110,11 +121,16 @@ export class Node extends EventTarget {
     const node = this as any
 
     switch (this.nodeType) {
-      case Node.ELEMENT_NODE: return node.tagName
-      case Node.DOCUMENT_FRAGMENT_NODE: return '#document-fragment'
-      case Node.DOCUMENT_NODE: return '#document'
-      case Node.TEXT_NODE: return '#text'
-      case Node.COMMENT_NODE: return '#comment'
+      case Node.ELEMENT_NODE:
+        return node.tagName.toUpperCase()
+      case Node.DOCUMENT_FRAGMENT_NODE:
+        return '#document-fragment'
+      case Node.DOCUMENT_NODE:
+        return '#document'
+      case Node.TEXT_NODE:
+        return '#text'
+      case Node.COMMENT_NODE:
+        return '#comment'
     }
   }
 
@@ -132,6 +148,4 @@ export class Node extends EventTarget {
   static DOCUMENT_FRAGMENT_NODE = 11
 }
 
-function sibling(parent, child, offset) {
-  return parent && parent.childNodes[parent.childNodes.indexOf(child) + offset]
-}
+const sibling = (parent, child, offset) => parent && parent.childNodes[parent.childNodes.indexOf(child) + offset]

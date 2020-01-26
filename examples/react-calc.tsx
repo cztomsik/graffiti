@@ -47,7 +47,7 @@ const Display = ({ value }) => (
 
 const styles = {
   container: {
-    flex: 1,
+    height: '100%',
     backgroundColor: '#444466'
   },
 

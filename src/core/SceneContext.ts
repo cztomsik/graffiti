@@ -1,4 +1,4 @@
-import { send, ApiMsg, SceneChange, AlignProp, Align, FlexDirection, FlexWrap, DimensionProp } from './nativeApi'
+import { send, AppMsg, SceneChange, ElementChild, Align, FlexDirection, FlexWrap, Text, TextAlign } from './nativeApi'
 
 /**
  * Provides indirect mutation api for the scene, so that we can freely change an
@@ -7,76 +7,98 @@ import { send, ApiMsg, SceneChange, AlignProp, Align, FlexDirection, FlexWrap, D
  * Operations are batched and not sent until the `flush()` is called
  */
 export class SceneContext {
+  // TODO: freelist, reusing, resetting
+  //
+  // pooling could improve perf a lot but resetting el/node in a way
+  // which is both fast & correct is next to impossible so
+  // we can at least reuse the id, send `Reset` msg and avoid
+  // the realloc
+  //
+  // (some GC hook will be needed in `Node`)
+
   // because root is 0
-  nextId = 1
+  nextElementId = 1
+  nextTextId = 0
   changes = []
 
   constructor(private windowId) {}
 
-  createSurface() {
-    this.changes.push(SceneChange.Alloc())
-    return this.nextId++
+  createElement() {
+    this.changes.push(SceneChange.CreateElement())
+    return this.nextElementId++
   }
 
-  insertAt(parent, child, index) {
-    this.changes.push(SceneChange.InsertAt(parent, child, index))
+  createText() {
+    this.changes.push(SceneChange.CreateText())
+    return this.nextTextId++
   }
 
-  removeChild(parent, child) {
-    this.changes.push(SceneChange.RemoveChild(parent, child))
+  insertElementAt(parent, childElement, index) {
+    this.changes.push(SceneChange.InsertAt(parent, ElementChild.Element(childElement), index))
   }
 
-  setDimension(surface, prop, dim) {
-    this.changes.push(SceneChange.Dimension(surface, DimensionProp[prop], dim))
+  insertTextAt(parent, childText, index) {
+    this.changes.push(SceneChange.InsertAt(parent, ElementChild.Text(childText), index))
   }
 
-  setAlign(surface, prop, align) {
-    this.changes.push(SceneChange.Align(surface, AlignProp[prop], Align[align]))
+  removeElement(parent, childElement) {
+    this.changes.push(SceneChange.RemoveChild(parent, ElementChild.Element(childElement)))
   }
 
-  setFlexWrap(surface, flexWrap) {
-    this.changes.push(SceneChange.FlexWrap(surface, FlexWrap[flexWrap]))
+  removeText(parent, childText) {
+    this.changes.push(SceneChange.RemoveChild(parent, ElementChild.Text(childText)))
   }
 
-  setFlexDirection(surface, flex_direction) {
-    this.changes.push(SceneChange.FlexDirection(surface, FlexDirection[flex_direction]))
+  setStyle(element, prop, value) {
+    if (SceneChange[prop]) {
+      this.changes.push(SceneChange[prop](element, value))
+      //this.flush()
+    } else {
+      console.log('TODO: set', element, prop, value)
+    }
   }
 
-  setBackgroundColor(surface, color) {
-    this.changes.push(SceneChange.BackgroundColor(surface, color))
+  setDimension(element, prop, dim) {
+    this.setStyle(element, prop, dim)
   }
 
-  setBorder(surface, border) {
-    this.changes.push(SceneChange.Border(surface, border))
+  setAlign(element, prop, align) {
+    this.setStyle(element, prop, Align[align])
   }
 
-  setBoxShadow(surface, shadow) {
-    this.changes.push(SceneChange.BoxShadow(surface, shadow))
+  setFlexWrap(element, wrap) {
+    this.setStyle(element, 'FlexWrap', FlexWrap[wrap])
   }
 
-  setTextColor(surface, color) {
-    this.changes.push(SceneChange.TextColor(surface, color))
+  setFlexDirection(element, dir) {
+    this.setStyle(element, 'FlexDirection', FlexDirection[dir])
   }
 
-  setText(surface, text) {
-    this.changes.push(SceneChange.Text(surface, text))
+  setBackgroundColor(element, color) {
+    this.setStyle(element, 'BackgroundColor', color)
   }
 
-  getBounds(surface) {
+  setColor(element, color) {
+    this.setStyle(element, 'Color', color)
+  }
+
+  setText(textId, size, lineHeight, align, text) {
+    this.changes.push(SceneChange.SetText(textId, Text(size, lineHeight, align, text)))
+  }
+
+  getOffsetBounds(element) {
     // flush & return quickly
     this.flush(true)
 
-    return send(ApiMsg.GetBounds(this.windowId, surface))[1]
+    return send(AppMsg.GetOffsetBounds(this.windowId, element))[1]
   }
 
   flush(animating) {
-    if (this.changes.length === 0) {
-      return
+    //console.log(this.changes)
+
+    if (this.changes.length) {
+      send(AppMsg.UpdateScene(this.windowId, this.changes))
+      this.changes.length = 0
     }
-
-    //console.log(require('util').inspect(this.msg, { depth: 4 }))
-    send(ApiMsg.UpdateScene(this.windowId, this.changes))
-
-    this.changes.length = 0
   }
 }

@@ -30,6 +30,7 @@ fn main() {
 
         // optim
         .flag("-O3")
+
         // so that #include <yoga/*> works
         .include("yoga")
         // all c++ files in yoga dir

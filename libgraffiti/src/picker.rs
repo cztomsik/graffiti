@@ -1,4 +1,5 @@
-use crate::commons::{Pos, Bounds, SurfaceId};
+use crate::commons::{ElementId, ElementChild, Pos};
+use crate::box_layout::{BoxLayoutTree, BoxLayoutImpl};
 
 /// Useful for events, to find the uppermost surface at given position
 ///
@@ -23,22 +24,25 @@ impl SurfacePicker {
     // TODO: display: none
     // TODO: scroll
     // TODO: clip
-    pub fn pick_at(&self, pos: Pos, children: &Vec<Vec<SurfaceId>>, bounds: &[Bounds]) -> SurfaceId {
+    // TODO: render bounds?
+    pub fn pick_at(&self, pos: Pos, children: &[Vec<ElementChild>], box_layout: &BoxLayoutImpl) -> ElementId {
         let mut parent = 0;
         let mut continue_down;
 
         // TODO: because bounds are not absolute
-        let mut offset = Pos::zero();
+        let mut offset = Pos::ZERO;
 
         // go down (starting from root) through each matching surface and return the last & deepest one
         loop {
             continue_down = false;
-            offset = bounds[parent].a.relative_to(offset);
+            offset = box_layout.get_element_bounds(parent).a.relative_to(offset);
 
             for c in &children[parent] {
-                if bounds[*c].relative_to(offset).contains(pos) {
-                    parent = *c;
-                    continue_down = true;
+                if let ElementChild::Element { id } = c {
+                    if box_layout.get_element_bounds(*id).relative_to(offset).contains(pos) {
+                        parent = *id;
+                        continue_down = true;
+                    }
                 }
             }
 

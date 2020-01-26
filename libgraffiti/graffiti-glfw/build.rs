@@ -18,6 +18,9 @@ fn main() {
     // no warns
     build.flag("-w");
 
+    // optim
+    build.flag("-O3");
+
     // define platform first
     #[cfg(target_os="macos")]
     build.define("_GLFW_COCOA", Some("1"));

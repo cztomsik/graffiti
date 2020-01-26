@@ -1,6 +1,6 @@
 import { Document } from '../dom/Document'
 import { Event } from './Event'
-import { EventKind } from '../core/nativeApi'
+import { Event as SceneEvent } from '../core/nativeApi'
 
 // events
 //
@@ -18,10 +18,10 @@ export function handleWindowEvent(document: Document, event) {
   let target = (e[1] !== undefined) ?document._getEl(e[1]) :document.documentElement
 
   switch (event[0]) {
-    case EventKind.Close: {
+    case SceneEvent.TAGS.Close: {
       return process.exit(0)
     }
-    case EventKind.MouseMove: {
+    case SceneEvent.TAGS.MouseMove: {
       const prevTarget = document._overElement
       document._overElement = target
 
@@ -37,11 +37,11 @@ export function handleWindowEvent(document: Document, event) {
 
       return
     }
-    case EventKind.MouseDown: {
+    case SceneEvent.TAGS.MouseDown: {
       document._clickedElement = target
       return target._fire('mousedown')
     }
-    case EventKind.MouseUp: {
+    case SceneEvent.TAGS.MouseUp: {
       target._fire('mouseup')
 
       // TODO: only els with tabindex should be focusable
@@ -64,14 +64,14 @@ export function handleWindowEvent(document: Document, event) {
     // keydown - key is up, after action, can be prevented
     // beforeinput - event.data contains new chars, may be empty when removing
     // input - like input, but after update (not sure if it's possible to do this on this level)
-    case EventKind.KeyDown: {
+    case SceneEvent.TAGS.KeyDown: {
       const target = document.activeElement || document.documentElement
       const which = event[2]
       const code = KEY_CODES[which]
       target._fire('keydown', { which, keyCode: which, code })
       return
     }
-    case EventKind.KeyPress: {
+    case SceneEvent.TAGS.KeyPress: {
       const target = document.activeElement || document.documentElement
       const charCode = event[2]
       const key = String.fromCharCode(charCode)

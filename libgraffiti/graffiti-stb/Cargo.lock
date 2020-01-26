@@ -6,8 +6,8 @@ version = "1.0.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "graffiti-yoga"
-version = "1.18.0"
+name = "graffiti-stb"
+version = "1.0.0"
 dependencies = [
  "cc 1.0.48 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

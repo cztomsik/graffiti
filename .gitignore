@@ -1,6 +1,7 @@
 libgraffiti/target
 libgraffiti/graffiti-glfw/target
 libgraffiti/graffiti-yoga/target
+libgraffiti/graffiti-stb/target
 native/target
 native/index.node
 native/artifacts.json

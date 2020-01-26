@@ -1,15 +1,20 @@
 // common types & things used everywhere
 
+pub type ElementId = usize;
+
+pub type TextId = usize;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ElementChild {
+    Element { id: ElementId },
+    Text { id: TextId },
+}
+
 /// Application unit (or something similar, unit of measure)
-/// TODO(later): Integer type could save some CPU & memory
 pub type Au = f32;
 
-/// Surfaces are everywhere
-pub type SurfaceId = usize;
-
 /// Packed color
-// TODO: inspect if Color is really copied and consider #[repr(u32)] instead
-// TODO: inspect Bounds copying too
+/// TODO: consider #[repr(u32)]
 #[derive(Debug, Clone, Copy)]
 pub struct Color {
     pub r: u8,
@@ -19,12 +24,11 @@ pub struct Color {
 }
 
 impl Color {
+    pub const TRANSPARENT: Color = Self { r: 0, g: 0, b: 0, a: 0 };
+    pub const BLACK: Color = Self { r: 0, g: 0, b: 0, a: 255 };
+
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }
-    }
-
-    pub fn black() -> Self {
-        Self { r: 0, g: 0, b: 0, a: 255 }
     }
 }
 
@@ -36,12 +40,10 @@ pub struct Pos {
 }
 
 impl Pos {
+    pub const ZERO: Pos = Self { x: 0., y: 0. };
+
     pub fn new(x: Au, y: Au) -> Self {
         Self { x, y }
-    }
-
-    pub fn zero() -> Self {
-        Self::new(0., 0.)
     }
 
     pub fn mul(&self, n: Au) -> Pos {
@@ -61,9 +63,7 @@ pub struct Bounds {
 }
 
 impl Bounds {
-    pub fn zero() -> Self {
-        Self { a: Pos::zero(), b: Pos::zero() }
-    }
+    pub const ZERO: Bounds = Self { a: Pos::ZERO, b: Pos::ZERO };
 
     pub fn mul(&self, n: Au) -> Bounds {
         let a = self.a.mul(n);
@@ -72,6 +72,7 @@ impl Bounds {
         Bounds { a, b }
     }
 
+    // TODO: rename to `translate`
     pub fn relative_to(&self, pos: Pos) -> Bounds {
         let a = self.a.relative_to(pos);
         let b = self.b.relative_to(pos);
@@ -85,48 +86,4 @@ impl Bounds {
         pos.y > self.a.y &&
         pos.y < self.b.y
     }
-}
-
-// not yet sure where to put these
-
-#[derive(Debug, Clone, Copy)]
-pub struct BorderRadius {
-    pub top: f32,
-    pub right: f32,
-    pub bottom: f32,
-    pub left: f32,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Border {
-    pub top: BorderSide,
-    pub right: BorderSide,
-    pub bottom: BorderSide,
-    pub left: BorderSide,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct BorderSide {
-    pub width: f32,
-    pub style: BorderStyle,
-    pub color: Color,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum BorderStyle {
-    None,
-    Solid,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct BoxShadow {
-    pub color: Color,
-    pub offset: Pos,
-    pub blur: f32,
-    pub spread: f32,
-}
-
-#[derive(Debug, Clone)]
-pub struct Image {
-    pub url: String,
 }

@@ -1,5 +1,5 @@
 import { Window } from "../dom/Window";
-import { send, ApiMsg } from './nativeApi'
+import { send, AppMsg } from './nativeApi'
 import { performance } from 'perf_hooks'
 
 const windows: Window[] = []
@@ -7,16 +7,13 @@ let animating = false
 let animationFrames: Function[] = []
 
 export const createWindow = ({ title = 'graffiti app', width = 1024, height = 768 } = {}) => {
-  send(ApiMsg.CreateWindow(title, width, height))
-
-  // TODO: holes
-  const id = windows.length
+  const [, id] = send(AppMsg.CreateWindow(title, width, height))
 
   return windows[id] = new Window(id)
 }
 
 const getEvents = () => {
-  return send(ApiMsg.GetEvents(animating))[1]
+  return send(AppMsg.GetEvents(animating))[1]
 }
 
 // TODO: not yet sure if it should be global or per-window
@@ -35,9 +32,8 @@ const runLoop = () => {
   const events = getEvents()
 
   if (events !== undefined) {
-    for (const event of events) {
-      // TODO: multi-window
-      windows[0].handleEvent(event)
+    for (const [id, event] of events) {
+      windows[id].handleEvent(event)
     }
   }
 
