@@ -1,3 +1,7 @@
+// straight-forward drawArrays-based primitive renderer
+// there was some perf-issue with indexed drawing
+// and this is much simpler too
+
 use std::mem;
 use std::ptr;
 use std::ffi::CString;
@@ -5,80 +9,59 @@ use std::convert::TryInto;
 use gl::types::*;
 
 use crate::commons::{Pos, Bounds, Color, TextId};
-use super::{RenderBackend, RenderOp, RectId};
-use crate::text_layout::GlyphInstance;
+use super::{RenderBackend};
 
-// TODO: transpile shaders (mac vs raspi vs. GLES)
-//       (maybe GLSL macros?)
-//       (but we are not using any extensions currently)
 
 pub struct GlRenderBackend {
     rects: Vec<Rect>,
-    indices: Vec<VertexIndex>,
+    ops: Vec<RenderOp>,
 
     gpu: Gpu,
     rect_program: ShaderProgram,
     text_program: ShaderProgram,
 
-    ibo: GlBuffer,
     vbo: GlBuffer,
-    text_vbos: Vec<GlBuffer>,
+    texts: Vec<(GlBuffer, GLint, f32)>,
 }
 
-// We can't use instanced drawing for raspi
-// so we need real quad for each rectangular area
-// TODO: try other mem layouts
-#[derive(Debug, Clone, Copy)]
-struct Rect([Vertex<Color>; 4]);
-
-impl Rect {
-    const VERTEX_SIZE: GLint = mem::size_of::<Vertex<Color>>()  as GLint;
-
-    fn new (bounds: Bounds, color: Color) -> Self {
-        let mut res = Self([Vertex(Pos::ZERO, Color::TRANSPARENT); 4]);
-
-        res.set_bounds(bounds);
-        res.set_color(color);
-
-        res
-    }
-
-    fn set_bounds(&mut self, Bounds { a, b }: Bounds) {
-        (self.0)[0].0 = a;
-        (self.0)[1].0 = Pos::new(b.x, a.y);
-        (self.0)[2].0 = Pos::new(a.x, b.y);
-        (self.0)[3].0 = b;
-    }
-
-    fn set_color(&mut self, color: Color) {
-        (self.0)[0].1 = color;
-        (self.0)[1].1 = color;
-        (self.0)[2].1 = color;
-        (self.0)[3].1 = color;
-    }
+#[derive(Debug)]
+enum RenderOp {
+    PushTransform { transform: Mat3 },
+    PopTransform,
+    DrawRects { count: GLint },
+    DrawText { id: TextId, pos: Pos, color: Color },
 }
 
-// we use glDrawArrays for glyphs so that we don't need ibo
-// (but that could change in future)
-#[derive(Debug, Clone, Copy)]
-struct Glyph([Vertex<Pos>; 6]);
+// we can't use instanced drawing (UBOs) on raspi
+// so we need real vertices
+type Rect = Quad<Color>;
+type Glyph = Quad<Pos>;
 
-impl Glyph {
-    const VERTEX_SIZE: GLint = mem::size_of::<Vertex<Pos>>()  as GLint;
+#[derive(Debug, Clone, Copy)]
+struct Quad<T>([Vertex<T>; 6]);
+
+impl <T: Copy> Quad<T> {
+    const VERTEX_SIZE: GLint = mem::size_of::<Vertex<T>>() as GLint;
+
+    fn new(bounds: Bounds, data: [T; 4]) -> Self {
+        Self([
+                Vertex(bounds.a, data[0]),
+                Vertex(Pos::new(bounds.b.x, bounds.a.y), data[1]),
+                Vertex(Pos::new(bounds.a.x, bounds.b.y), data[2]),
+                Vertex(Pos::new(bounds.a.x, bounds.b.y), data[2]),
+                Vertex(Pos::new(bounds.b.x, bounds.a.y), data[1]),
+                Vertex(bounds.b, data[3])
+        ])
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
 struct Vertex<T>(Pos, T);
 
-// for indexed drawing
-// raspi can do only 65k vertices in one batch
-type VertexIndex = u16;
-
 impl GlRenderBackend {
     pub(crate) fn new() -> Self {
         unsafe {
             let mut gpu = Gpu::new();
-            let ibo = gpu.create_buffer();
             let vbo = gpu.create_buffer();
 
             // TODO
@@ -93,7 +76,7 @@ impl GlRenderBackend {
             // because of RGB
             //gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
             //gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, 64, 64, 0, gl::RGB, gl::UNSIGNED_BYTE, mem::transmute(SDF_TEXTURE));
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as GLint, 512, 512, 0, gl::RGBA, gl::UNSIGNED_BYTE, mem::transmute(SDF_TEXTURE));
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as GLint, 512, 512, 0, gl::RGBA, gl::UNSIGNED_BYTE, &SDF_TEXTURE[0] as *const u8 as *const std::ffi::c_void);
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, tex);
             check("texture");
@@ -106,108 +89,160 @@ impl GlRenderBackend {
             let rect_program = gpu.create_program(
                 include_str!("shaders/rect.vert"),
                 include_str!("shaders/rect.frag"),
-                &["u_projection"],
+                &["u_transform"],
                 &["a_pos", "a_color"]
             );
 
             let text_program = gpu.create_program(
                 include_str!("shaders/text.vert"),
                 include_str!("shaders/text.frag"),
-                &["u_projection", "u_pos", "u_color", "u_dist_factor"],
+                &["u_pos", "u_color", "u_dist_factor"],
                 &["a_pos", "a_uv"]
             );
 
             Self {
                 rects: Vec::new(),
-                indices: Vec::new(),
+                ops: Vec::new(),
 
                 gpu,
                 rect_program,
                 text_program,
 
-                ibo,
                 vbo,
-                text_vbos: Vec::new(),
+                texts: Vec::new(),
             }
         }
     }
 }
 
 impl RenderBackend for GlRenderBackend {
-    fn realloc(&mut self, rects_count: RectId, texts_count: TextId) {
-        let Self { gpu, rects, text_vbos, .. } = self;
-
-        rects.resize(rects_count, Rect::new(Bounds::ZERO, Color::TRANSPARENT));
+    fn realloc(&mut self, texts_count: TextId) {
+        let Self { gpu, texts, .. } = self;
 
         // for now, each text has its own buffer
-        text_vbos.resize_with(texts_count, || unsafe { gpu.create_buffer() })
+        // some ideas:
+        // - keep short texts together
+        // - keep together all texts set during given frame
+        //   (so that old ones stay untouched)
+        // - combine?
+        texts.resize_with(texts_count, || unsafe { (gpu.create_buffer(), 0, 0.) })
     }
 
-    fn set_rect_bounds(&mut self, rect: RectId, bounds: Bounds) {
-        self.rects[rect].set_bounds(bounds);
-    }
-
-    fn set_rect_color(&mut self, rect: RectId, color: Color) {
-        self.rects[rect].set_color(color);
-    }
-
-    fn set_text_glyphs<I>(&mut self, text: TextId, glyphs: I) where I: Iterator<Item=GlyphInstance> {
-        let glyphs: Vec<Glyph> = glyphs.map(|GlyphInstance { bounds, coords }| {
-            Glyph([
-                Vertex(bounds.a, coords.a),
-                Vertex(Pos::new(bounds.b.x, bounds.a.y), Pos::new(coords.b.x, coords.a.y)),
-                Vertex(Pos::new(bounds.a.x, bounds.b.y), Pos::new(coords.a.x, coords.b.y)),
-                Vertex(Pos::new(bounds.b.x, bounds.a.y), Pos::new(coords.b.x, coords.a.y)),
-                Vertex(Pos::new(bounds.a.x, bounds.b.y), Pos::new(coords.a.x, coords.b.y)),
-                Vertex(bounds.b, coords.b),
+    fn set_text_glyphs(&mut self, text: TextId, size: f32, glyphs: impl Iterator<Item=(Bounds, Bounds)>) {
+        let glyphs: Vec<Glyph> = glyphs.map(|(bounds, coords)| {
+            Glyph::new(bounds, [
+                coords.a,
+                Pos::new(coords.b.x, coords.a.y),
+                Pos::new(coords.a.x, coords.b.y),
+                coords.b
             ])
         }).collect();
 
-        unsafe { self.gpu.buffer_data(&mut self.text_vbos[text], gl::ARRAY_BUFFER, &glyphs) }
+        let (vbo, glyphs_count, distance_factor) = &mut self.texts[text];
+
+        unsafe { self.gpu.buffer_data(vbo, gl::ARRAY_BUFFER, &glyphs) }
+
+        *glyphs_count = glyphs.len() as GLint;
+
+        // TODO: read from font file
+        let texture_font_size = 42.;
+        let px_range = 3.;
+        // https://github.com/Chlumsky/msdfgen/issues/22
+        // https://github.com/Chlumsky/msdfgen/issues/36
+        *distance_factor = (size / texture_font_size) * px_range;
     }
 
-    fn render(&mut self, rects: &[RectId], ops: &[RenderOp]) {
-        // needed because of &self.indices[0]
-        if rects.is_empty() {
-            return
+    fn clear(&mut self) {
+        debug!("-- clear");
+
+        unsafe {
+            self.rects.set_len(0);
+            self.ops.set_len(0);
         }
 
+        self.ops.push(RenderOp::PushTransform {
+            transform: Mat3([
+                1., 0., 0.,
+                0., 1., 0.,
+                0., 0., 1.,
+            ])
+        });
+    }
+
+    fn push_transform(&mut self, mut transform: Mat3, origin: Pos) {
+        // TODO: this will work for translate/scale() only
+        // (multiply with translate(-origin), transform, translate(origin) again)
+
+        transform.0[2] -= (transform.0[0] * origin.x) - origin.x;
+        transform.0[5] -= (transform.0[4] * origin.y) - origin.y;
+
+        self.ops.push(RenderOp::PushTransform { transform });
+    }
+
+    fn pop_transform(&mut self) {
+        self.ops.push(RenderOp::PopTransform);
+    }
+
+    fn push_rect(&mut self, bounds: Bounds, color: Color) {
+        self.rects.push(
+            Rect::new(bounds, [color; 4])
+        );
+
+        if let Some(RenderOp::DrawRects { count }) = self.ops.last_mut() {
+            *count += 1
+        } else {
+            self.ops.push(RenderOp::DrawRects { count: 1 })
+        }
+    }
+
+    fn push_text(&mut self, id: TextId, pos: Pos, color: Color) {
+        self.ops.push(RenderOp::DrawText { id, pos, color });
+    }
+
+    fn render(&mut self) {
         unsafe {
             gl::ClearColor(1.0, 1.0, 1.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            // clear & generate indices
-            self.indices.set_len(0);
-            for i in rects {
-                let base = (i * 4) as VertexIndex;
-
-                // 6 indices for 2 triangles
-                self.indices.push(base);
-                self.indices.push(base + 3);
-                self.indices.push(base + 2);
-                // second one
-                self.indices.push(base);
-                self.indices.push(base + 1);
-                self.indices.push(base + 3);
-            }
-
-            // upload indices
-            // (can stay bound for the whole time)
-            self.gpu.buffer_data(&mut self.ibo, gl::ELEMENT_ARRAY_BUFFER, &self.indices);
-            check("ibo");
-
-            // upload vertices
+            // upload vbo
             // (have to be bound again during rendering)
             //
             // TODO: skip if up-to-date
-            self.gpu.buffer_data(&mut self.vbo, gl::ARRAY_BUFFER, &self.rects);
-            check("vbo");
+            // (but keep that empty check because of &rects[0] ref)
+            if !self.rects.is_empty() {
+                self.gpu.buffer_data(&mut self.vbo, gl::ARRAY_BUFFER, &self.rects);
+                check("upload vbo");
+            }
 
-            // index buffer is shared for everything rect-based (except text)
-            let mut ibo_offset = 0;
+            // TODO: avoid alloc
+            let mut transform_stack = Vec::new();
 
-            for op in ops {
+            // all rects share one vbo
+            let mut vbo_offset = 0;
+
+            for op in &self.ops {
                 match op {
+                    RenderOp::PushTransform { transform } => {
+                        // TODO: multiply by current
+                        transform_stack.push(*transform);
+
+                        // TODO: some prepare() which will do this (and skip if we're up-to-date)
+                        // note we don't need index, we just need some (autoincreasing) id, which can be pushed to the stack with the matrix itself
+                        // (maybe ops.len() could be used as identifier)
+                        // but with index we could possibly premultiply it just once for many renders
+                        gl::UseProgram(self.rect_program.id);
+                        gl::UniformMatrix3fv(self.rect_program.uniforms[1].loc, 1, gl::FALSE, &transform.0 as *const f32);
+                        check("set transform");
+                    }
+
+                    RenderOp::PopTransform => {
+                        transform_stack.pop().unwrap();
+
+                        gl::UseProgram(self.rect_program.id);
+                        gl::UniformMatrix3fv(self.rect_program.uniforms[1].loc, 1, gl::FALSE, &transform_stack.last().unwrap().0 as *const f32);
+                        check("restore transform");
+                    }
+
                     RenderOp::DrawRects { count } => {
                         gl::UseProgram(self.rect_program.id);
                         self.gpu.bind_buffer(&self.vbo, gl::ARRAY_BUFFER);
@@ -229,14 +264,14 @@ impl RenderBackend for GlRenderBackend {
                         );
 
                         // draw
-                        gl::DrawElements(gl::TRIANGLES, (count * 6) as GLint, gl::UNSIGNED_SHORT, ibo_offset as *const std::ffi::c_void);
+                        gl::DrawArrays(gl::TRIANGLES, vbo_offset, count * 6);
                         check("draw els");
 
-                        ibo_offset += count * 6 * mem::size_of::<VertexIndex>();
+                        vbo_offset += count * 6;
                     }
 
-                    RenderOp::DrawText { id, pos, color, distance_factor } => {
-                        let vbo = &self.text_vbos[*id];
+                    RenderOp::DrawText { id, pos, color } => {
+                        let (vbo, glyphs_count, distance_factor) = &self.texts[*id];
 
                         gl::UseProgram(self.text_program.id);
                         self.gpu.bind_buffer(vbo, gl::ARRAY_BUFFER);
@@ -266,7 +301,7 @@ impl RenderBackend for GlRenderBackend {
                         gl::Uniform1f(self.text_program.uniforms[3].loc, *distance_factor);
 
                         // draw
-                        gl::DrawArrays(gl::TRIANGLES, 0, (vbo.len() * 6) as GLint);
+                        gl::DrawArrays(gl::TRIANGLES, 0, *glyphs_count * 6);
                         check("draw text");
                     }
                 }
@@ -294,7 +329,8 @@ impl RenderBackend for GlRenderBackend {
 
 const SDF_TEXTURE: &[u8; 512 * 512 * 4] = include_bytes!("../../resources/sheet0.raw");
 
-struct Mat3([f32;9]);
+#[derive(Debug, Clone, Copy)]
+pub struct Mat3(pub [f32;9]);
 
 struct Gpu;
 
@@ -309,7 +345,7 @@ impl Gpu {
         Self
     }
 
-    unsafe fn create_program(&mut self, vs: &str, fs: &str, uniforms: &[&str], attributes: &[&str]) -> ShaderProgram {
+    unsafe fn create_program(&mut self, vs: &str, fs: &str, extra_uniforms: &[&str], attributes: &[&str]) -> ShaderProgram {
         let vs = shader(gl::VERTEX_SHADER, vs);
         check("vertex shader");
 
@@ -334,7 +370,7 @@ impl Gpu {
 
         gl::UseProgram(program);
 
-        let uniforms = uniforms.iter().map(|name| {
+        let uniforms = ["u_projection"].iter().chain(extra_uniforms.iter()).map(|name| {
             let loc = gl::GetUniformLocation(program, c_str!(name.clone()));
             check("uniform location");
 
@@ -365,7 +401,7 @@ impl Gpu {
         gl::GenBuffers(1, &mut id);
         check("gen buffer");
 
-        GlBuffer { id, len: 0 }
+        GlBuffer { id }
     }
 
     #[inline(always)]
@@ -385,12 +421,10 @@ impl Gpu {
         gl::BufferData(target, size, std::ptr::null_mut(), gl::STREAM_DRAW);
 
         if !data.is_empty() {
-            gl::BufferData(target, size, mem::transmute(&data[0]), gl::STREAM_DRAW);
+            gl::BufferData(target, size, &data[0] as *const T as *const std::ffi::c_void, gl::STREAM_DRAW);
         }
 
         check("buffer data");
-
-        buffer.len = data.len();
     }
 }
 
@@ -403,13 +437,7 @@ struct ShaderProgram {
 struct ProgramUniform { loc: GLint }
 struct ProgramAttribute { loc: GLuint }
 
-struct GlBuffer { id: GLuint, len: usize }
-
-impl GlBuffer {
-    fn len(&self) -> usize {
-        self.len
-    }
-}
+struct GlBuffer { id: GLuint }
 
 impl Drop for GlBuffer {
     fn drop(&mut self) {

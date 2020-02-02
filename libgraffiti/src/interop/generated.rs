@@ -4,9 +4,9 @@
 use crate::commons::{ElementChild,Pos,Bounds,Color};
 use crate::app::{WindowEvent};
 use crate::viewport::{SceneChange,Event};
-use crate::box_layout::{Display,Dimension,Align,FlexWrap,FlexDirection};
+use crate::box_layout::{Display,Overflow,Dimension,Align,FlexWrap,FlexDirection};
 use crate::text_layout::{Text,TextAlign};
-use crate::render::{BoxShadow};
+use crate::render::{Transform,BoxShadow};
 use crate::interop::{AppMsg,AppResponse};
 
     
@@ -17,12 +17,12 @@ interop! {
     1 Text { id } 
   }
   SceneChange { 
-    0 CreateElement {  },
-    1 CreateText {  },
-    2 InsertAt { parent, child, index },
-    3 RemoveChild { parent, child },
-    4 SetText { id, text },
-    5 Display { element, value },
+    0 Realloc { elements_count, texts_count },
+    1 InsertAt { parent, child, index },
+    2 RemoveChild { parent, child },
+    3 SetText { id, text },
+    4 Display { element, value },
+    5 Overflow { element, value },
     6 Width { element, value },
     7 Height { element, value },
     8 MinWidth { element, value },
@@ -56,7 +56,8 @@ interop! {
     36 BorderTopRightRadius { element, value },
     37 BorderBottomLeftRadius { element, value },
     38 BorderBottomRightRadius { element, value },
-    39 BoxShadow { element, value } 
+    39 BoxShadow { element, value },
+    40 Transform { element, value } 
   }
   Event { 
     0 MouseMove { target },
@@ -74,6 +75,9 @@ interop! {
     1 Auto {  },
     2 Px { value },
     3 Percent { value } 
+  }
+  Transform { 
+    0 Scale { x, y } 
   }
   AppMsg { 
     0 GetEvents { poll },
@@ -100,6 +104,7 @@ interop! {
 
       
   Display(u8)
+  Overflow(u8)
   Align(u8)
   FlexWrap(u8)
   FlexDirection(u8)

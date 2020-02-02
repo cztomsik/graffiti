@@ -1,4 +1,4 @@
-import { send, AppMsg, SceneChange, ElementChild, Align, FlexDirection, FlexWrap, Text, TextAlign } from './nativeApi'
+import { send, AppMsg, SceneChange, ElementChild, Align, FlexDirection, FlexWrap, Text, TextAlign, Transform } from './nativeApi'
 
 /**
  * Provides indirect mutation api for the scene, so that we can freely change an
@@ -17,20 +17,39 @@ export class SceneContext {
   // (some GC hook will be needed in `Node`)
 
   // because root is 0
-  nextElementId = 1
-  nextTextId = 0
+  elementsCount = 1
+  textsCount = 0
   changes = []
+
+  // so we can merge allocs together
+  reallocMsg = null
 
   constructor(private windowId) {}
 
   createElement() {
-    this.changes.push(SceneChange.CreateElement())
-    return this.nextElementId++
+    const id = this.elementsCount++
+
+    this.realloc()
+
+    return id
   }
 
   createText() {
-    this.changes.push(SceneChange.CreateText())
-    return this.nextTextId++
+    const id = this.textsCount++
+
+    this.realloc()
+
+    return id
+  }
+
+  realloc() {
+    // update existing
+    if (this.reallocMsg !== null) {
+      this.reallocMsg[1] = this.elementsCount
+      this.reallocMsg[2] = this.textsCount
+    } else {
+      this.changes.push(this.reallocMsg = SceneChange.Realloc(this.elementsCount, this.textsCount))
+    }
   }
 
   insertElementAt(parent, childElement, index) {
@@ -49,10 +68,12 @@ export class SceneContext {
     this.changes.push(SceneChange.RemoveChild(parent, ElementChild.Text(childText)))
   }
 
+  // TODO(perf): replace this with own methods
+  // or at least accept functions and call them monomorphically
   setStyle(element, prop, value) {
     if (SceneChange[prop]) {
       this.changes.push(SceneChange[prop](element, value))
-      //this.flush()
+      //this.flush(false)
     } else {
       console.log('TODO: set', element, prop, value)
     }
@@ -62,24 +83,24 @@ export class SceneContext {
     this.setStyle(element, prop, dim)
   }
 
-  setAlign(element, prop, align) {
-    this.setStyle(element, prop, Align[align])
+  setAlign(element, prop, v) {
+    this.setStyle(element, prop, Align[v])
   }
 
-  setFlexWrap(element, wrap) {
-    this.setStyle(element, 'FlexWrap', FlexWrap[wrap])
+  setFlexWrap(element, v) {
+    this.changes.push(SceneChange.FlexWrap(element, FlexWrap[v]))
   }
 
-  setFlexDirection(element, dir) {
-    this.setStyle(element, 'FlexDirection', FlexDirection[dir])
+  setFlexDirection(element, v) {
+    this.changes.push(SceneChange.FlexDirection(element, FlexDirection[v]))
   }
 
-  setBackgroundColor(element, color) {
-    this.setStyle(element, 'BackgroundColor', color)
+  setBackgroundColor(element, v) {
+    this.changes.push(SceneChange.BackgroundColor(element, v))
   }
 
-  setColor(element, color) {
-    this.setStyle(element, 'Color', color)
+  setColor(element, v) {
+    this.changes.push(SceneChange.Color(element, v))
   }
 
   setText(textId, size, lineHeight, align, text) {
@@ -94,10 +115,11 @@ export class SceneContext {
   }
 
   flush(animating) {
-    //console.log(this.changes)
-
     if (this.changes.length) {
+      //console.log(this.changes)
+
       send(AppMsg.UpdateScene(this.windowId, this.changes))
+      this.reallocMsg = null
       this.changes.length = 0
     }
   }

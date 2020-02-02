@@ -21,7 +21,7 @@ const ExampleBrowser = () => {
   return (
     files && (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: 20 }}>
           <h3>{selection}</h3>
 
           <button onClick={() => runExample(selection)}>Run example</button>

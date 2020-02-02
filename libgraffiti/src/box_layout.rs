@@ -17,6 +17,7 @@ pub trait BoxLayoutTree {
     // have flexibility to change whatever state they need to
 
     fn set_display(&mut self, element: ElementId, v: Display);
+    fn set_overflow(&mut self, element: ElementId, v: Overflow);
 
     fn set_width(&mut self, element: ElementId, v: Dimension);
     fn set_height(&mut self, element: ElementId, v: Dimension);
@@ -67,8 +68,15 @@ pub trait BoxLayoutTree {
 #[derive(Debug, Clone, Copy)]
 pub enum Display {
     None,
-    Flex,
     Block,
+    Flex,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Overflow {
+    Visible,
+    Hidden,
+    Scroll,
 }
 
 #[derive(Debug, Clone, Copy)]

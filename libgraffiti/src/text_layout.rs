@@ -80,7 +80,7 @@ impl TextLayout {
                 font_size: 16.,
                 line_height: 20.,
 
-                width: 0.,
+                single_line_width: 0.,
 
                 glyph_ids: Vec::new(),
                 xs: Vec::new(),
@@ -172,7 +172,7 @@ impl TextLayout {
             font_size: text.font_size,
             line_height: text.line_height,
 
-            width: x,
+            single_line_width: x,
 
             glyph_ids,
             xs,
@@ -191,41 +191,42 @@ impl TextLayout {
     pub fn wrap(&mut self, text_id: TextId, max_width: f32) -> (f32, f32) {
         let layout = &mut self.layouts[text_id];
 
+        if layout.single_line_width == 0. {
+            return (0., 0.)
+        }
+
+        if layout.break_hints.is_empty() {
+            return (layout.single_line_width, layout.line_height)
+        }
+
         // TODO: skip if no work is needed
 
         // TODO: stretch calls measure multiple times, which is not what we expect
         // first time it's with real value but second and third time it's unconstrained
 
-        // only break if it's possible
-        if !layout.break_hints.is_empty() {
-            layout.width = 0.;
-            layout.breaks.clear();
+        let mut width = 0.;
+        let mut offset = 0.;
+        layout.breaks.clear();
 
-            let mut offset = 0.;
+        // go through hints, make a break each time it overflows
+        for (i, xend) in &layout.break_hints {
+            if (xend - offset) > max_width {
+                let line_width = layout.xs[*i] - offset;
 
-            // go through hints, make a break each time it overflows
-            for (i, xend) in &layout.break_hints {
-                if (xend - offset) >= max_width {
-                    let line_width = layout.xs[*i] - offset;
-
-                    if line_width > layout.width {
-                        layout.width = line_width;
-                    }
-
-                    layout.breaks.push(*i);
-                    offset = layout.xs[*i];
+                if line_width > width {
+                    width = line_width;
                 }
-            }
 
-            // no breaks, restore width
-            if layout.breaks.is_empty() {
-                if let Some(x) = layout.xs.last() {
-                    layout.width = *x;
-                }
+                layout.breaks.push(*i);
+                offset = layout.xs[*i];
             }
         }
 
-        (layout.width, (layout.breaks.len() + 1) as f32 * layout.line_height)
+        if layout.breaks.len() == 0 {
+            return (layout.single_line_width, layout.line_height)
+        }
+
+        (width, (layout.breaks.len() + 1) as f32 * layout.line_height)
     }
 
     // TODO: https://iamvdo.me/en/blog/css-font-metrics-line-height-and-vertical-align
@@ -287,7 +288,7 @@ pub struct TextLayoutState {
     font_size: f32,
     line_height: f32,
 
-    width: f32,
+    single_line_width: f32,
 
     // what glyphs to render
     glyph_ids: Vec<char>,

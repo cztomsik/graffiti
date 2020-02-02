@@ -4,8 +4,13 @@
 
 export enum Display { 
     None,
-    Flex,
-    Block, 
+    Block,
+    Flex, 
+}
+export enum Overflow { 
+    Visible,
+    Hidden,
+    Scroll, 
 }
 export enum Align { 
     Auto,
@@ -58,12 +63,12 @@ export module ElementChild {
     
 export module SceneChange {
         
-    export const CreateElement = () => [0, ]
-    export const CreateText = () => [1, ]
-    export const InsertAt = (parent,child,index) => [2, parent,child,index]
-    export const RemoveChild = (parent,child) => [3, parent,child]
-    export const SetText = (id,text) => [4, id,text]
-    export const Display = (element,value) => [5, element,value]
+    export const Realloc = (elements_count,texts_count) => [0, elements_count,texts_count]
+    export const InsertAt = (parent,child,index) => [1, parent,child,index]
+    export const RemoveChild = (parent,child) => [2, parent,child]
+    export const SetText = (id,text) => [3, id,text]
+    export const Display = (element,value) => [4, element,value]
+    export const Overflow = (element,value) => [5, element,value]
     export const Width = (element,value) => [6, element,value]
     export const Height = (element,value) => [7, element,value]
     export const MinWidth = (element,value) => [8, element,value]
@@ -98,15 +103,16 @@ export module SceneChange {
     export const BorderBottomLeftRadius = (element,value) => [37, element,value]
     export const BorderBottomRightRadius = (element,value) => [38, element,value]
     export const BoxShadow = (element,value) => [39, element,value]
+    export const Transform = (element,value) => [40, element,value]
 
         
     export const TAGS = {
-      CreateElement: 0,
-      CreateText: 1,
-      InsertAt: 2,
-      RemoveChild: 3,
-      SetText: 4,
-      Display: 5,
+      Realloc: 0,
+      InsertAt: 1,
+      RemoveChild: 2,
+      SetText: 3,
+      Display: 4,
+      Overflow: 5,
       Width: 6,
       Height: 7,
       MinWidth: 8,
@@ -141,6 +147,7 @@ export module SceneChange {
       BorderBottomLeftRadius: 37,
       BorderBottomRightRadius: 38,
       BoxShadow: 39,
+      Transform: 40,
 }
       }
     
@@ -183,6 +190,16 @@ export module Dimension {
       Auto: 1,
       Px: 2,
       Percent: 3,
+}
+      }
+    
+export module Transform {
+        
+    export const Scale = (x,y) => [0, x,y]
+
+        
+    export const TAGS = {
+      Scale: 0,
 }
       }
     

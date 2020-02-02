@@ -43,9 +43,9 @@ generateInterop([
   ['commons', 'ElementChild', 'Pos', 'Bounds', 'Color'],
   ['app', 'WindowEvent'],
   ['viewport', 'SceneChange', 'Event'],
-  ['box_layout', 'Display', 'Dimension', 'Align', 'FlexWrap', 'FlexDirection'],
+  ['box_layout', 'Display', 'Overflow', 'Dimension', 'Align', 'FlexWrap', 'FlexDirection'],
   ['text_layout', 'Text', 'TextAlign'],
-  ['render', /*'BorderRadius',*/ 'BoxShadow', /*'Border', 'BorderSide', 'BorderStyle'*/],
+  ['render', 'Transform', /*'BorderRadius',*/ 'BoxShadow', /*'Border', 'BorderSide', 'BorderStyle'*/],
   ['interop', 'AppMsg', 'AppResponse'],
 ])
 

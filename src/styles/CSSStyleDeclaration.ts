@@ -1,7 +1,8 @@
 import { camelCase, pascalCase, kebabCase, parseColor, UNSUPPORTED } from '../core/utils'
 import { SceneContext } from '../core/SceneContext'
-import { Display, Dimension, Text, TextAlign } from '../core/nativeApi'
+import { Display, Dimension, Text, TextAlign, Transform } from '../core/nativeApi'
 import { Node } from '../dom/Node'
+import { updateText } from '../dom/Text'
 
 // minimal impl just to get something working
 export class CSSStyleDeclaration {
@@ -71,6 +72,10 @@ export class CSSStyleDeclaration {
 
       // props
       // TODO: defaults, but be careful
+
+      case 'transform':
+        this._scene.setStyle(this._elementId, 'Transform', (v || undefined) && parseTransform(v))
+        break
 
       case 'display':
         this._scene.setStyle(this._elementId, 'Display', Display[pascalCase(v || 'block')])
@@ -146,9 +151,17 @@ export class CSSStyleDeclaration {
   }
 
   _updateTexts() {
+    // update first only (text joining)
+    let first = true
+
     for (const c of (document as any)._getEl(this._elementId).childNodes) {
       if (c.nodeType === Node.TEXT_NODE) {
-        (c as any)._updateText()
+        if (first) {
+          updateText(c)
+          first = false
+        }
+      } else {
+        first = true
       }
     }
   }
@@ -170,6 +183,17 @@ function parseDimension(value?: string | number) {
   }
 
   return Dimension.Px(parseFloat(value))
+}
+
+function parseTransform(v) {
+  let match
+
+  if (match = v.match(/scale\(([\d\.\s]+)(?:,([\d\.\s]+))?\)/)) {
+    const [, x, y = x] = match
+    return Transform.Scale(parseFloat(x), parseFloat(y))
+  }
+
+  return undefined
 }
 
 /*

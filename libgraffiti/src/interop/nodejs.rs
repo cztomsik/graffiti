@@ -372,7 +372,7 @@ macro_rules! interop {
 
         impl From<$rust_type> for NapiValue {
             fn from(value: $rust_type) -> Self {
-                get_res!(napi_create_uint32, unsafe { std::mem::transmute(value as u32) })
+                get_res!(napi_create_uint32, unsafe { value as u32 })
             }
         }
 

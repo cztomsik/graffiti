@@ -1,14 +1,10 @@
 use crate::commons::{ElementId, TextId, ElementChild, Pos, Bounds};
-use super::{BoxLayoutTree, Display, Dimension, Align, FlexDirection, FlexWrap};
-use std::collections::BTreeSet;
+use super::{BoxLayoutTree, Display, Dimension, Align, FlexDirection, FlexWrap, Overflow};
 use graffiti_yoga::*;
 
 pub struct YogaLayoutTree {
     element_yoga_nodes: Vec<YGNodeRef>,
     text_yoga_nodes: Vec<YGNodeRef>,
-
-    // emulate display: block
-    flex_direction_set: BTreeSet<ElementId>,
 }
 
 // should be safe (no thread-locals, etc.)
@@ -19,8 +15,6 @@ impl YogaLayoutTree {
         YogaLayoutTree {
             element_yoga_nodes: Vec::new(),
             text_yoga_nodes: Vec::new(),
-
-            flex_direction_set: BTreeSet::new(),
         }
     }
 }
@@ -81,16 +75,13 @@ impl BoxLayoutTree for YogaLayoutTree {
         self.text_yoga_nodes.resize_with(texts_count, || unsafe { YGNodeNew() });
 
         for id in new_element_ids {
+            // TODO: in the browser, default display is "inline", we dont support that
+            // but this is wrong too (flex)
+
+            // set web defaults
             self.set_flex_direction(id, FlexDirection::Row);
             self.set_flex_basis(id, Dimension::Auto);
             self.set_flex_shrink(id, 1.);
-
-            // TODO: in the browser, default display is "inline", we dont support that
-            // but this is wrong too (move display block rules back to the document.ts)
-            // TODO: block emulation needs to be reimplemented anyway
-            self.flex_direction_set.remove(&id);
-            self.set_display(id, Display::Block);
-            self.flex_direction_set.remove(&id);
         }
 
         for id in new_text_ids {
@@ -99,7 +90,7 @@ impl BoxLayoutTree for YogaLayoutTree {
 
                 YGNodeSetMeasureFunc(node, Some(measure_text_node));
                 YGNodeMarkDirty(node);
-                YGNodeSetContext(node, std::mem::transmute(std::boxed::Box::<TextId>::leak(Box::new(id))));
+                YGNodeSetContext(node, std::boxed::Box::<TextId>::leak(Box::new(id)) as *mut usize as *mut std::ffi::c_void);
             }
         }
     }
@@ -127,7 +118,7 @@ impl BoxLayoutTree for YogaLayoutTree {
         }
     }
 
-    fn calculate(&mut self, element: ElementId, (width, height): (f32, f32), measure_fn: &mut dyn FnMut(TextId, f32) -> (f32, f32)) {
+    fn calculate(&mut self, element: ElementId, (width, _height): (f32, f32), measure_fn: &mut dyn FnMut(TextId, f32) -> (f32, f32)) {
         unsafe {
             if MEASURE_REF.is_some() {
                 panic!("layout not thread-safe");
@@ -135,7 +126,9 @@ impl BoxLayoutTree for YogaLayoutTree {
 
             MEASURE_REF = Some(std::mem::transmute(measure_fn));
 
-            YGNodeCalculateLayout(self.element_yoga_nodes[element], width, height, YGDirection::LTR);
+            // height is ignored (yoga treats it as maxHeight which is not what we want)
+            // @see resize() in viewport.rs
+            YGNodeCalculateLayout(self.element_yoga_nodes[element], width, YGUndefined, YGDirection::LTR);
 
             MEASURE_REF = None;
         }
@@ -155,12 +148,31 @@ impl BoxLayoutTree for YogaLayoutTree {
         // TODO: this is in-complete
         //     display: block works like override but it should keep previously set value
         //     (if it's different from default one)
-        if !self.flex_direction_set.contains(&element) {
-            match v {
-                Display::None => todo!("display: none"),
-                Display::Block => self.set_flex_direction(element, FlexDirection::Column),
-                Display::Flex => self.set_flex_direction(element, FlexDirection::Row),
-            }
+        //
+        // it works only because display: block/flex is usually the first rule
+        match v {
+            Display::None => todo!("display: none"),
+            Display::Block => {
+                // wouldn't work when inside flex (<Row>) because it would
+                // take whole row and push rest to the side
+                // (but that align-items: stretch should be enough in most cases)
+                //self.set_width(element, Dimension::Percent { value: 100. });
+                self.set_flex_direction(element, FlexDirection::Column);
+                self.set_align_items(element, Align::Stretch);
+            },
+            Display::Flex => {
+                self.set_flex_direction(element, FlexDirection::Row);
+            },
+        }
+    }
+
+    fn set_overflow(&mut self, element: ElementId, v: Overflow) {
+        unsafe {
+            YGNodeStyleSetOverflow(self.element_yoga_nodes[element], match v {
+                Overflow::Visible => YGOverflow::Visible,
+                Overflow::Hidden => YGOverflow::Hidden,
+                Overflow::Scroll => YGOverflow::Scroll,
+            })
         }
     }
 
@@ -213,8 +225,6 @@ impl BoxLayoutTree for YogaLayoutTree {
     dim_setter!(set_flex_basis YGNodeStyleSetFlexBasis YGNodeStyleSetFlexBasisPercent YGNodeStyleSetFlexBasisAuto);
 
     fn set_flex_direction(&mut self, element: ElementId, v: FlexDirection) {
-        self.flex_direction_set.insert(element);
-
         unsafe { YGNodeStyleSetFlexDirection(self.element_yoga_nodes[element], v.into()) }
     }
 
