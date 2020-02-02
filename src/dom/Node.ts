@@ -3,11 +3,18 @@ import { EventTarget } from '../events/EventTarget'
 import { Document } from './Document'
 import { Element } from './Element'
 
+// perf(const)
+const ELEMENT_NODE = 1
+const TEXT_NODE = 3
+const COMMENT_NODE = 8
+const DOCUMENT_NODE = 9
+const DOCUMENT_FRAGMENT_NODE = 11
+
 export class Node extends EventTarget {
   readonly childNodes: Node[] = []
   parentNode: Node = null
 
-  constructor(public readonly ownerDocument: Document, public readonly nodeType, public readonly _nativeId) {
+  constructor(public readonly ownerDocument: Document, public readonly nodeType, public _nativeId) {
     super()
   }
 
@@ -21,31 +28,51 @@ export class Node extends EventTarget {
       assert.equal(refNode.parentNode, this)
     }
 
-    if (child.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
-      child.childNodes.splice(0).forEach(c => this.appendChild(c))
+    // fragment
+    if (child.nodeType === DOCUMENT_FRAGMENT_NODE) {
+      child.childNodes.splice(0).forEach(c => this.insertBefore(c, refNode))
       return child
     }
 
-    let index = refNode ? this.childNodes.indexOf(refNode) : this.childNodes.length
-
+    // remove first (in case it was in the same element already)
     child.remove()
+
+    // final position
+    let index = refNode ? this.childNodes.indexOf(refNode) : this.childNodes.length
 
     child.parentNode = this
     this.childNodes.splice(index, 0, child)
 
     // fragment does not have an id
+    // overriding it in Element would be nicer but it'd been 1-2 extra calls
     if (this._nativeId !== undefined) {
+      const textBefore = index !== 0 && this.childNodes[index - 1].nodeType === TEXT_NODE
+      const textAfter = refNode && refNode.nodeType === TEXT_NODE
+
       switch (child.nodeType) {
-        case Node.ELEMENT_NODE:
+        case ELEMENT_NODE:
           this.ownerDocument._scene.insertElementAt(this._nativeId, child._nativeId, index)
+
+          if (textBefore && textAfter) {
+            splitTexts(this.childNodes[index - 1], refNode)
+          }
+
           break
 
-        case Node.TEXT_NODE:
+        case TEXT_NODE:
           this.ownerDocument._scene.insertTextAt(this._nativeId, child._nativeId, index)
-          ;(child as any)._updateText()
+
+          if (textBefore) {
+            joinTexts(this.childNodes[index - 1], child)
+          } else if (textAfter) {
+            joinTexts(child, refNode)
+          } else {
+            updateText(child)
+          }
+
           break
 
-        case Node.COMMENT_NODE:
+        case COMMENT_NODE:
           this.ownerDocument._scene.insertTextAt(this._nativeId, child._nativeId, index)
           break
 
@@ -66,29 +93,40 @@ export class Node extends EventTarget {
   removeChild(child: Node) {
     assert.equal(child.parentNode, this)
 
+    const index = this.childNodes.indexOf(child)
+
     // so that events dont sink in unattached subtree
-    if (child.nodeType === Node.ELEMENT_NODE) {
+    if (child.nodeType === ELEMENT_NODE) {
       ;(child as Element).blur()
     }
 
     // fragment does not have an id
     if (this._nativeId !== undefined) {
       switch (child.nodeType) {
-        case Node.ELEMENT_NODE:
+        case ELEMENT_NODE:
           this.ownerDocument._scene.removeElement(this._nativeId, child._nativeId)
+
+          const prev = this.childNodes[index - 1]
+          const next = this.childNodes[index + 1]
+
+          if (prev?.nodeType === TEXT_NODE && next?.nodeType === TEXT_NODE) {
+            joinTexts(prev, next)
+          }
+
           break
 
-        case Node.TEXT_NODE:
+        case TEXT_NODE:
+          removeText(child)
           this.ownerDocument._scene.removeText(this._nativeId, child._nativeId)
           break
 
-        case Node.COMMENT_NODE:
+        case COMMENT_NODE:
           this.ownerDocument._scene.removeText(this._nativeId, child._nativeId)
           break
       }
     }
 
-    this.childNodes.splice(this.childNodes.indexOf(child), 1)
+    this.childNodes.splice(index, 1)
     return child
   }
 
@@ -118,18 +156,16 @@ export class Node extends EventTarget {
   }
 
   get nodeName() {
-    const node = this as any
-
     switch (this.nodeType) {
-      case Node.ELEMENT_NODE:
-        return node.tagName.toUpperCase()
-      case Node.DOCUMENT_FRAGMENT_NODE:
+      case ELEMENT_NODE:
+        return (this as any).tagName.toUpperCase()
+      case DOCUMENT_FRAGMENT_NODE:
         return '#document-fragment'
-      case Node.DOCUMENT_NODE:
+      case DOCUMENT_NODE:
         return '#document'
-      case Node.TEXT_NODE:
+      case TEXT_NODE:
         return '#text'
-      case Node.COMMENT_NODE:
+      case COMMENT_NODE:
         return '#comment'
     }
   }
@@ -141,11 +177,15 @@ export class Node extends EventTarget {
     return null
   }
 
-  static ELEMENT_NODE = 1
-  static TEXT_NODE = 3
-  static COMMENT_NODE = 8
-  static DOCUMENT_NODE = 9
-  static DOCUMENT_FRAGMENT_NODE = 11
+  static ELEMENT_NODE = ELEMENT_NODE
+  static TEXT_NODE = TEXT_NODE
+  static COMMENT_NODE = COMMENT_NODE
+  static DOCUMENT_NODE = DOCUMENT_NODE
+  static DOCUMENT_FRAGMENT_NODE = DOCUMENT_FRAGMENT_NODE
 }
 
-const sibling = (parent, child, offset) => parent && parent.childNodes[parent.childNodes.indexOf(child) + offset]
+const sibling = (parent, child, offset) =>
+  parent && (parent.childNodes[parent.childNodes.indexOf(child) + offset] || null)
+
+// wouldn't work with import (circular dependency)
+const { joinTexts, updateText, splitTexts, removeText } = require('./Text')

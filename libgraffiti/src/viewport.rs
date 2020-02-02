@@ -1,9 +1,9 @@
-use crate::box_layout::{Display, Dimension, Align, FlexDirection, FlexWrap};
+use crate::box_layout::{Display, Dimension, Align, FlexDirection, FlexWrap, Overflow};
 use crate::commons::{ElementId, TextId, ElementChild, Pos, Bounds, Color};
 use crate::picker::SurfacePicker;
 use crate::box_layout::{BoxLayoutTree, BoxLayoutImpl};
 use crate::text_layout::{TextLayout, Text};
-use crate::render::{Renderer, RendererImpl, BoxShadow};
+use crate::render::{Renderer, RendererImpl, BoxShadow, Transform};
 
 /// Holds the state & systems needed for one UI "viewport"
 /// basically, this is the window's "content" area but
@@ -16,7 +16,6 @@ pub struct Viewport {
     size: (f32, f32),
 
     children: Vec<Vec<ElementChild>>,
-    texts_count: usize,
 
     box_layout: BoxLayoutImpl,
     text_layout: TextLayout,
@@ -44,15 +43,14 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum SceneChange {
-    // TODO: realloc (it's silly to realloc multiple times)
-    CreateElement,
-    CreateText,
+    Realloc { elements_count: ElementId, texts_count: TextId },
 
     InsertAt { parent: ElementId, child: ElementChild, index: usize },
     RemoveChild { parent: ElementId, child: ElementChild },
     SetText { id: TextId, text: Text },
 
     Display { element: ElementId, value: Display },
+    Overflow { element: ElementId, value: Overflow },
 
     Width { element: ElementId, value: Dimension },
     Height { element: ElementId, value: Dimension },
@@ -111,11 +109,11 @@ pub enum SceneChange {
 
     // BackgroundImageUrl { element: ElementId, value: String },
 
-    // TODO: multiple
+    // TODO: many
     BoxShadow { element: ElementId, value: Option<BoxShadow> },
 
-    // Transform { element: ElementId, value: Option<Vec<Transform>> },
-    // enum Transform { Scale(x, y), Skew(x, y), Translate(x, y), Rotate(deg), }
+    // TODO: many
+    Transform { element: ElementId, value: Option<Transform> },
 }
 
 impl Viewport {
@@ -126,7 +124,6 @@ impl Viewport {
             size,
 
             children: Vec::new(),
-            texts_count: 0,
 
             box_layout: BoxLayoutImpl::new(),
             text_layout: TextLayout::new(),
@@ -138,7 +135,10 @@ impl Viewport {
         };
 
         // create root
-        viewport.update_scene(&[SceneChange::CreateElement]);
+        viewport.update_scene(&[SceneChange::Realloc { elements_count: 1, texts_count: 0 }]);
+
+        // set min-height
+        viewport.resize(size);
 
         viewport
     }
@@ -153,6 +153,7 @@ impl Viewport {
 
             match c {
                 // start with layout-independent things
+                Transform { element, value } => self.renderer.set_transform(*element, *value),
                 Color { element, value } => self.renderer.set_color(*element, *value),
                 BackgroundColor { element, value } => self.renderer.set_background_color(*element, (*value).unwrap_or(crate::commons::Color::TRANSPARENT)),
                 //BoxShadow { element, value } => self.renderer.set_box_shadow(*element, *value),
@@ -215,14 +216,8 @@ impl Viewport {
                             self.box_layout.remove_child(*parent, *child);
                         }
 
-                        CreateElement => {
-                            self.children.push(Vec::new());
-                            self.realloc()
-                        }
-
-                        CreateText => {
-                            self.texts_count += 1;
-                            self.realloc()
+                        Realloc { elements_count, texts_count } => {
+                            self.realloc(*elements_count, *texts_count);
                         }
 
                         SetText { id, text } => {
@@ -246,10 +241,14 @@ impl Viewport {
     // making systems "resizable" simplifies a lot of things
     // notably there's no need to return anything, ids are shared
     // across the whole viewport and freelists are also needed just here
-    fn realloc(&mut self) {
-        self.text_layout.realloc(self.texts_count);
-        self.box_layout.realloc(self.children.len(), self.texts_count);
-        self.renderer.realloc(self.children.len(), self.texts_count);
+    fn realloc(&mut self, elements_count: ElementId, texts_count: TextId) {
+        assert!(elements_count > 0);
+
+        self.children.resize_with(elements_count, || Vec::new());
+
+        self.text_layout.realloc(texts_count);
+        self.box_layout.realloc(elements_count, texts_count);
+        self.renderer.realloc(elements_count, texts_count);
     }
 
     pub fn get_offset_bounds(&self, element: ElementId) -> Bounds {
@@ -303,8 +302,12 @@ impl Viewport {
 
         self.renderer.resize(size);
 
-        self.calculate();
-        self.render();
+        // let make screen overflow (for now)
+        // TODO: overflow: scroll could fix it
+        // @see calculate() in `yoga.rs`
+        self.update_scene(&[SceneChange::MinHeight { element: Self::ROOT, value: Dimension::Px { value: size.1 } }]);
+        //self.calculate();
+        //self.render();
 
         Event::Resize { target: Self::ROOT }
     }
@@ -325,7 +328,7 @@ impl Viewport {
         });
 
         for id in wraps {
-            self.renderer.set_text_glyphs(id, self.text_layout.get_glyphs(id))
+            self.renderer.set_text_glyphs(id, 16., self.text_layout.get_glyphs(id))
         }
     }
 

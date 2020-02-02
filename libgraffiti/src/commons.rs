@@ -72,6 +72,13 @@ impl Bounds {
         Bounds { a, b }
     }
 
+    pub fn center(&self) -> Pos {
+        Pos {
+            x: self.a.x + (self.b.x - self.a.x) / 2.,
+            y: self.a.y + (self.b.y - self.a.y) / 2.,
+        }
+    }
+
     // TODO: rename to `translate`
     pub fn relative_to(&self, pos: Pos) -> Bounds {
         let a = self.a.relative_to(pos);

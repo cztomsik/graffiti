@@ -25,7 +25,6 @@ export class Document extends Node {
   constructor(public defaultView: Window) {
     super(null, Node.DOCUMENT_NODE, 0)
 
-    this.documentElement.style.setProperty('min-height', '100%')
     this.documentElement.parentNode = this
     this.documentElement.appendChild(this.body)
 
@@ -85,33 +84,55 @@ const EM = 16
 
 // mostly inspired by css reboot
 const defaultStyles = {
+  body: {
+    display: 'block',
+    width: '100%',
+    minHeight: '100%',
+  },
+
+  div: {
+    display: 'block',
+  },
+
   h1: {
+    display: 'block',
     fontSize: 2.5 * EM,
+    lineHeight: 1.2 * 2.5 * EM,
     marginBottom: 0.5 * EM,
   },
 
   h2: {
+    display: 'block',
     fontSize: 2 * EM,
+    lineHeight: 1.2 * 2 * EM,
     marginBottom: 0.5 * EM,
   },
 
   h3: {
+    display: 'block',
     fontSize: 1.75 * EM,
+    lineHeight: 1.2 * 1.75 * EM,
     marginBottom: 0.5 * EM,
   },
 
   h4: {
+    display: 'block',
     fontSize: 1.5 * EM,
+    lineHeight: 1.2 * 1.5 * EM,
     marginBottom: 0.5 * EM,
   },
 
   h5: {
+    display: 'block',
     fontSize: 1.25 * EM,
+    lineHeight: 1.2 * 1.25 * EM,
     marginBottom: 0.5 * EM,
   },
 
   h6: {
+    display: 'block',
     fontSize: 1 * EM,
+    lineHeight: 1.2 * EM,
     marginBottom: 0.5 * EM,
   },
 
