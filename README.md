@@ -62,6 +62,9 @@ render(<Counter />, document.body)
 </div>
 <br>
 
+![hackable-tv](https://user-images.githubusercontent.com/3526922/74057963-4ad47f00-49e5-11ea-9e0d-b39c98f5fe1b.gif)
+Separate project of mine, [hackable-tv](https://github.com/cztomsik/hackable-tv), built using graffiti.
+
 ## Why it's interesting
 - quick to setup, apart from rust, it should be just one `npm install` away
 - can be combined with most of the libraries you already know (react, mobx, lodash, ...)
