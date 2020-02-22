@@ -28,6 +28,13 @@ extern {}
 #[link(name = "OpenGL", kind = "framework")]
 extern {}
 
+#[cfg(target_os="windows")]
+#[link(name = "opengl32")]
+#[link(name = "gdi32")]
+#[link(name = "user32")]
+#[link(name = "shell32")]
+extern {}
+
 // struct without any field is not FFI-safe
 pub enum GlfwWindow {}
 pub enum GlfwMonitor {}

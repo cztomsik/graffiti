@@ -28,6 +28,9 @@ fn main() {
     #[cfg(target_os="linux")]
     build.define("_GLFW_X11", Some("1"));
 
+    #[cfg(target_os="windows")]
+    build.define("_GLFW_WIN32", Some("1"));
+
     // shared
     build
         .file("glfw/src/context.c")
@@ -69,10 +72,14 @@ fn main() {
     ;
 
     // build lib
-    // do not emit lib for wasm
+    // TODO: do not emit lib for wasm
     // (I have suspicion that it was the cause of the wasm issues)
-    #[cfg(not(target_arch = "wasm32"))]
-    build
-        .compile("libglfw3.a")
-    ;
+    #[cfg(target_os = "linux")]
+    build.compile("libglfw3.a");
+
+    #[cfg(target_os = "macos")]
+    build.compile("libglfw3.a");
+
+    #[cfg(target_os = "windows")]
+    build.compile("libglfw3.lib");
 }
