@@ -32,8 +32,8 @@ const linkerOpts = isWasm
   ? '-Clink-args="-s USE_GLFW=3 -s USE_WEBGL2=1 -s FULL_ES3=1"'
   : os.platform() === 'darwin'
   ? '-Clink-args="-undefined dynamic_lookup"'
-  : '-Clink-args="-undefined=dynamic_lookup"'
-const libSuffix = os.platform() === 'darwin' ? 'dylib' : 'so'
+  : os.platform() === 'win32' ? '-Clink-args="/FORCE"' : '-Clink-args="-undefined=dynamic_lookup"'
+const libFile = os.platform() === 'darwin' ? 'libgraffiti.dylib' : os.platform() === 'win32' ? 'graffiti.dll' : 'libgraffiti.so'
 const targetDir = `${__dirname}/libgraffiti/target`
 
 // parse rust & generate interop:
@@ -60,7 +60,7 @@ if (status) {
 }
 
 fs.copyFileSync(
-  `${targetDir}/${isRelease ? 'release' : 'debug'}/libgraffiti.${libSuffix}`,
+  `${targetDir}/${isRelease ? 'release' : 'debug'}/${libFile}`,
   `${targetDir}/libgraffiti.node`
 )
 
