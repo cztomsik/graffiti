@@ -71,6 +71,20 @@ fn main() {
       .file("glfw/src/linux_joystick.c")
     ;
 
+    #[cfg(target_os="windows")]
+    build
+      .file("glfw/src/win32_init.c")
+      .file("glfw/src/win32_monitor.c")
+      .file("glfw/src/win32_window.c")
+
+      .file("glfw/src/win32_time.c")
+      .file("glfw/src/win32_thread.c")
+      .file("glfw/src/wgl_context.c")
+      .file("glfw/src/osmesa_context.c")
+
+      .file("glfw/src/win32_joystick.c")
+    ;
+
     // build lib
     // TODO: do not emit lib for wasm
     // (I have suspicion that it was the cause of the wasm issues)
@@ -81,5 +95,5 @@ fn main() {
     build.compile("libglfw3.a");
 
     #[cfg(target_os = "windows")]
-    build.compile("libglfw3.lib");
+    build.compile("glfw3");
 }

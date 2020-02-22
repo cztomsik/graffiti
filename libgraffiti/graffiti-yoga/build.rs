@@ -56,5 +56,5 @@ fn main() {
     build.compile("libyoga.a");
 
     #[cfg(target_os = "windows")]
-    build.compile("libyoga.lib");
+    build.compile("yoga");
 }
