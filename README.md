@@ -77,7 +77,7 @@ Separate project of mine, [hackable-tv](https://github.com/cztomsik/hackable-tv)
 ## Status
 It's getting very close to v1 now, so stay tuned if you're looking for something like this but as with other hobby projects, there are no deadlines. Follow me on my [twitter](https://twitter.com/cztomsik) to get notified :-)
 
-Note: I'm looking for somebody wiling to maintain windows part. It's not about just making it work (that should be easy) but rather about having some deeper knowledge of the platform and being familiar with the issues on various versions/configurations (basically, it implies you're daily windows user)
+**Note: I'm looking for somebody wiling to maintain windows part. It's not about just making it work (it should work now) but rather about having some deeper knowledge of the platform and being familiar with the issues on various versions/configurations (basically, it implies you're daily windows user)**
 
 ---
 
