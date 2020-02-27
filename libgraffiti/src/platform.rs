@@ -25,7 +25,7 @@ pub unsafe fn load_dylib(file: *const c_char, symbols: &mut[(&str, &mut *mut c_v
         let addr = dlsym(handle, c_str!(*name));
 
         #[cfg(target_os = "windows")]
-        let addr = GetProcAddress(handle, c_str!(name));
+        let addr = GetProcAddress(handle, c_str!(*name));
 
         if addr == std::ptr::null_mut() {
             panic!("load fn {} in lib {:?}", name, std::ffi::CStr::from_ptr(file));
