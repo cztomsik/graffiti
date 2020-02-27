@@ -1,11 +1,17 @@
+#![allow(non_snake_case, unused)] 
+
 use crate::commons::{Au, Pos};
 use crate::app::{WindowEvent};
-use crate::platform::NativeWindow;
-use graffiti_glfw::*;
+use crate::platform::{NativeWindow, dylib_file};
 use std::ptr;
-use std::os::raw::{c_int, c_uint, c_double, c_void};
+use std::os::raw::{c_int, c_uint, c_double, c_void, c_char};
 
 pub unsafe fn init() {
+    silly!("loading glfw");
+    load_glfw(c_str!(dylib_file("glfw", "3")));
+
+    debug!("using glfw {:?}", std::ffi::CStr::from_ptr(glfwGetVersionString()));
+
     assert_eq!(glfwInit(), GLFW_TRUE, "init GLFW");
 
     #[cfg(target_os="macos")] {
@@ -151,4 +157,49 @@ fn get_key_code(key: c_int) -> u16 {
         //   LEFT/RIGHT_SHIFT/CONTROL/ALT
         _ => 0
     }) as u16
+}
+
+// ffi
+
+// struct without any field is not FFI-safe
+pub enum GlfwWindow {}
+pub enum GlfwMonitor {}
+
+pub const GLFW_TRUE: c_int = 1;
+pub const GLFW_FALSE: c_int = 0;
+pub const GLFW_COCOA_CHDIR_RESOURCES: c_int = 0x0005_1001;
+pub const GLFW_CONTEXT_VERSION_MAJOR: c_int = 0x0002_2002;
+pub const GLFW_CONTEXT_VERSION_MINOR: c_int = 0x0002_2003;
+pub const GLFW_OPENGL_FORWARD_COMPAT: c_int = 0x0002_2006;
+pub const GLFW_OPENGL_PROFILE: c_int = 0x0002_2008;
+pub const GLFW_OPENGL_CORE_PROFILE: c_int = 0x0003_2001;
+pub const GLFW_RELEASE: c_int = 0;
+pub const GLFW_PRESS: c_int = 1;
+
+dylib! {
+    #[load_glfw]
+    extern "C" {
+        fn glfwGetVersionString() -> *const c_char;
+        fn glfwInitHint(hint: c_int, value: c_int);
+        fn glfwInit() -> c_int;
+
+        fn glfwWindowHint(hint: c_int, value: c_int);
+        fn glfwCreateWindow(width: c_int, height: c_int, title: *const c_char, monitor: *mut GlfwMonitor, share: *mut GlfwWindow) -> *mut GlfwWindow;
+        fn glfwMakeContextCurrent(window: *mut GlfwWindow);
+        fn glfwGetProcAddress(procname: *const c_char) -> *const c_void;
+        fn glfwSwapInterval(interval: c_int);
+
+        fn glfwSetCursorPosCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_double, c_double));
+        fn glfwSetScrollCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_double, c_double));
+        fn glfwSetMouseButtonCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_int, c_int, c_int));
+        fn glfwSetKeyCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_int, c_int, c_int, c_int));
+        fn glfwSetCharCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_uint));
+        fn glfwSetWindowSizeCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow, c_int, c_int));
+        fn glfwSetFramebufferSizeCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn (*mut GlfwWindow, c_int, c_int));
+        fn glfwSetWindowCloseCallback(window: *mut GlfwWindow, cbfun: unsafe extern "C" fn(*mut GlfwWindow));
+        fn glfwPollEvents();
+        fn glfwWaitEventsTimeout(timeout: f64);
+
+        fn glfwSwapBuffers(window: *mut GlfwWindow);
+    }
 }
