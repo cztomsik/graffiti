@@ -14,7 +14,7 @@ pub unsafe fn load_dylib(file: *const c_char, symbols: &mut[(&str, &mut *mut c_v
     let handle = dlopen(file, RTLD_NOW);
 
     #[cfg(target_family = "windows")]
-    let handle = LoadLibraryW(file);
+    let handle = LoadLibraryA(file);
 
     if handle == std::ptr::null_mut() {
         panic!("load lib {:?}", std::ffi::CStr::from_ptr(file));
@@ -57,7 +57,7 @@ extern {
 
 #[cfg(target_os = "windows")]
 extern {
-    fn LoadLibraryW(filename: *const c_char) -> *mut c_void;
+    fn LoadLibraryA(filename: *const c_char) -> *mut c_void;
     fn GetProcAddress(module: *mut c_void, name: *const c_char) -> *mut c_void;
 }
 

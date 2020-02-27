@@ -95,7 +95,12 @@ pub static REGISTER_NODE_MODULE: unsafe extern "C" fn() = {
 
     unsafe extern "C" fn register_node_module() {
         silly!("loading napi");
+
+        // can't use ternary because of c_str!
+        #[cfg(target_family = "unix")]
         load_napi(std::ptr::null());
+        #[cfg(target_os = "windows")]
+        load_napi(c_str!("node.exe"));
 
         NAPI_MODULE = Some(NapiModule {
             nm_version: 1,
