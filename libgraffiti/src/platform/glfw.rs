@@ -51,7 +51,14 @@ pub unsafe fn get_events(poll: bool) {
 
 pub unsafe fn create_window(title: &str, width: i32, height: i32) -> NativeWindow {
     let w = glfwCreateWindow(width, height, c_str!(title), ptr::null_mut(), ptr::null_mut());
-    assert!(!w.is_null(), "create GLFW window");
+
+    if w.is_null() {
+        let mut desc = std::ptr::null();
+
+        let code = glfwGetError(&mut desc);
+
+        panic!("create GLFW window, err {} {:?}", code, std::ffi::CStr::from_ptr(desc));
+    }
 
     glfwMakeContextCurrent(w);
     gl::load_with(|addr| glfwGetProcAddress(c_str!(addr)));
@@ -180,6 +187,7 @@ dylib! {
     #[load_glfw]
     extern "C" {
         fn glfwGetVersionString() -> *const c_char;
+        fn glfwGetError(desc: *mut *const c_char) -> c_int;
         fn glfwInitHint(hint: c_int, value: c_int);
         fn glfwInit() -> c_int;
 
