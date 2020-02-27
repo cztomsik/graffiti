@@ -31,6 +31,7 @@
   "devDependencies": {
     "@types/node": "^10.14.6",
     "axios": "^0.19.0",
+    "glfw-dylib": "github:cztomsik/node-glfw-dylib",
     "mithril": "^2.0.4",
     "open": "^7.0.0",
     "preact": "^10.0.0",

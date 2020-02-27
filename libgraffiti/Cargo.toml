@@ -13,7 +13,6 @@ crate-type = ["cdylib"]
 gl = "*"
 miniserde = "0.1.12"
 graffiti-yoga = { path = "graffiti-yoga" }
-graffiti-glfw = { path = "graffiti-glfw" }
 graffiti-stb = { path = "graffiti-stb" }
 
 # npm run build -- --features stretch

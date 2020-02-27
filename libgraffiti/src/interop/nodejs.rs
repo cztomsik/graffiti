@@ -8,27 +8,29 @@ use std::os::raw::{c_int, c_uint, c_char, c_void};
 use std::ptr;
 use std::mem;
 
-// note that special link args are needed (see /build.js)
-extern "C" {
-    fn napi_module_register(module: *mut NapiModule) -> NapiStatus;
-    fn napi_get_undefined(env: NapiEnv, result: *mut NapiValue) -> NapiStatus;
-    fn napi_set_named_property(env: NapiEnv, object: NapiValue, utf8name: *const c_char, value: NapiValue) -> NapiStatus;
-    fn napi_create_function(env: NapiEnv, utf8name: *const c_char, length: usize, cb: NapiCallback, data: *const c_void, result: *mut NapiValue) -> NapiStatus;
-    fn napi_get_cb_info(env: NapiEnv, cb_info: NapiCallbackInfo, argc: *mut usize, argv: *mut NapiValue, this_arg: *mut NapiValue, data: *mut c_void) -> NapiStatus;
-    fn napi_get_element(env: NapiEnv, arr: NapiValue, index: u32, result: *mut NapiValue) -> NapiStatus;
-    fn napi_set_element(env: NapiEnv, arr: NapiValue, index: u32, value: NapiValue) -> NapiStatus;
-    fn napi_get_value_uint32(env: NapiEnv, napi_value: NapiValue, result: *mut u32) -> NapiStatus;
-    fn napi_get_value_int32(env: NapiEnv, napi_value: NapiValue, result: *mut i32) -> NapiStatus;
-    fn napi_get_value_double(env: NapiEnv, napi_value: NapiValue, result: *mut f64) -> NapiStatus;
-    fn napi_get_value_bool(env: NapiEnv, napi_value: NapiValue, result: *mut bool) -> NapiStatus;
-    fn napi_get_array_length(env: NapiEnv, napi_value: NapiValue, result: *mut u32) -> NapiStatus;
-    fn napi_get_value_string_utf8(env: NapiEnv, napi_value: NapiValue, buf: *mut c_char, bufsize: usize, result: *mut usize) -> NapiStatus;
-    fn napi_typeof(env: NapiEnv, napi_value: NapiValue, result: *mut NapiValueType) -> NapiStatus;
-    fn napi_create_uint32(env: NapiEnv, value: u32, result: *mut NapiValue) -> NapiStatus;
-    fn napi_create_int32(env: NapiEnv, value: i32, result: *mut NapiValue) -> NapiStatus;
-    fn napi_create_double(env: NapiEnv, value: f64, result: *mut NapiValue) -> NapiStatus;
-    fn napi_create_bool(env: NapiEnv, value: bool, result: *mut NapiValue) -> NapiStatus;
-    fn napi_create_array(env: NapiEnv, result: *mut NapiValue) -> NapiStatus;
+dylib! {
+    #[load_napi]
+    extern "C" {
+        fn napi_module_register(module: *mut NapiModule) -> NapiStatus;
+        fn napi_get_undefined(env: NapiEnv, result: *mut NapiValue) -> NapiStatus;
+        fn napi_set_named_property(env: NapiEnv, object: NapiValue, utf8name: *const c_char, value: NapiValue) -> NapiStatus;
+        fn napi_create_function(env: NapiEnv, utf8name: *const c_char, length: usize, cb: NapiCallback, data: *const c_void, result: *mut NapiValue) -> NapiStatus;
+        fn napi_get_cb_info(env: NapiEnv, cb_info: NapiCallbackInfo, argc: *mut usize, argv: *mut NapiValue, this_arg: *mut NapiValue, data: *mut c_void) -> NapiStatus;
+        fn napi_get_element(env: NapiEnv, arr: NapiValue, index: u32, result: *mut NapiValue) -> NapiStatus;
+        fn napi_set_element(env: NapiEnv, arr: NapiValue, index: u32, value: NapiValue) -> NapiStatus;
+        fn napi_get_value_uint32(env: NapiEnv, napi_value: NapiValue, result: *mut u32) -> NapiStatus;
+        fn napi_get_value_int32(env: NapiEnv, napi_value: NapiValue, result: *mut i32) -> NapiStatus;
+        fn napi_get_value_double(env: NapiEnv, napi_value: NapiValue, result: *mut f64) -> NapiStatus;
+        fn napi_get_value_bool(env: NapiEnv, napi_value: NapiValue, result: *mut bool) -> NapiStatus;
+        fn napi_get_array_length(env: NapiEnv, napi_value: NapiValue, result: *mut u32) -> NapiStatus;
+        fn napi_get_value_string_utf8(env: NapiEnv, napi_value: NapiValue, buf: *mut c_char, bufsize: usize, result: *mut usize) -> NapiStatus;
+        fn napi_typeof(env: NapiEnv, napi_value: NapiValue, result: *mut NapiValueType) -> NapiStatus;
+        fn napi_create_uint32(env: NapiEnv, value: u32, result: *mut NapiValue) -> NapiStatus;
+        fn napi_create_int32(env: NapiEnv, value: i32, result: *mut NapiValue) -> NapiStatus;
+        fn napi_create_double(env: NapiEnv, value: f64, result: *mut NapiValue) -> NapiStatus;
+        fn napi_get_boolean(env: NapiEnv, value: bool, result: *mut NapiValue) -> NapiStatus;
+        fn napi_create_array(env: NapiEnv, result: *mut NapiValue) -> NapiStatus;
+    }
 }
 
 #[repr(C)]
@@ -92,7 +94,13 @@ pub static REGISTER_NODE_MODULE: unsafe extern "C" fn() = {
     static mut NAPI_MODULE: Option<NapiModule> = None;
 
     unsafe extern "C" fn register_node_module() {
-        silly!("register_node_module");
+        silly!("loading napi");
+
+        // can't use ternary because of c_str!
+        #[cfg(target_family = "unix")]
+        load_napi(std::ptr::null());
+        #[cfg(target_os = "windows")]
+        load_napi(c_str!("node.exe"));
 
         NAPI_MODULE = Some(NapiModule {
             nm_version: 1,
@@ -104,6 +112,7 @@ pub static REGISTER_NODE_MODULE: unsafe extern "C" fn() = {
             reserved: [ptr::null(); 4]
         });
 
+        silly!("registering napi module");
         napi_module_register(NAPI_MODULE.as_mut().unwrap() as *mut NapiModule);
     }
 
@@ -128,7 +137,7 @@ macro_rules! get_res {
 }
 
 unsafe extern "C" fn init_node_module(env: NapiEnv, exports: NapiValue) -> NapiValue {
-    silly!("init_node_module");
+    silly!("initializing app");
 
     APP = Box::into_raw(Box::new(App::init()));
     ENV = env;
@@ -240,7 +249,7 @@ impl From<String> for NapiValue {
 
 impl From<bool> for NapiValue {
     fn from(value: bool) -> Self {
-        get_res!(napi_create_bool, value)
+        get_res!(napi_get_boolean, value)
     }
 }
 

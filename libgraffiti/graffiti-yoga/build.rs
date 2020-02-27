@@ -15,7 +15,9 @@ fn main() {
         .status()
         .expect("git submodule update");
 
-    Build::new()
+    let mut build = Build::new();
+
+    build
         .cpp(true)
         .flag("-fno-omit-frame-pointer")
         .flag("-fexceptions")
@@ -44,6 +46,15 @@ fn main() {
         .file("yoga/yoga/YGValue.cpp")
         .file("yoga/yoga/Yoga.cpp")
         .file("yoga/yoga/log.cpp")
-        .file("yoga/yoga/event/event.cpp")
-        .compile("libyoga.a");
+        .file("yoga/yoga/event/event.cpp");
+
+    // build the lib
+    #[cfg(target_os = "linux")]
+    build.compile("libyoga.a");
+
+    #[cfg(target_os = "macos")]
+    build.compile("libyoga.a");
+
+    #[cfg(target_os = "windows")]
+    build.compile("yoga");
 }
