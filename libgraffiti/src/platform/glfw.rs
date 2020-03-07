@@ -14,9 +14,10 @@ pub unsafe fn init() {
 
     assert_eq!(glfwInit(), GLFW_TRUE, "init GLFW");
 
-    #[cfg(target_os="macos")] {
-        glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
+    silly!("setting err callback");
+    glfwSetErrorCallback(handle_glfw_error);
 
+    #[cfg(target_os="macos")] {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
@@ -52,13 +53,7 @@ pub unsafe fn get_events(poll: bool) {
 pub unsafe fn create_window(title: &str, width: i32, height: i32) -> NativeWindow {
     let w = glfwCreateWindow(width, height, c_str!(title), ptr::null_mut(), ptr::null_mut());
 
-    if w.is_null() {
-        let mut desc = std::ptr::null();
-
-        let code = glfwGetError(&mut desc);
-
-        panic!("create GLFW window, err {} {:?}", code, std::ffi::CStr::from_ptr(desc));
-    }
+    assert_ne!(w, std::ptr::null_mut(), "create GLFW window");
 
     glfwMakeContextCurrent(w);
     gl::load_with(|addr| glfwGetProcAddress(c_str!(addr)));
@@ -89,6 +84,10 @@ pub unsafe fn detach_current() {
 
 pub unsafe fn swap_buffers(native_window: NativeWindow) {
     glfwSwapBuffers(native_window as *mut GlfwWindow)
+}
+
+unsafe extern "C" fn handle_glfw_error(code: c_int, desc: *const c_char) {
+    eprintln!("GLFW error {} {:?}", code, std::ffi::CStr::from_ptr(desc));
 }
 
 unsafe extern "C" fn handle_glfw_cursor_pos(w: *mut GlfwWindow, x: c_double, y: c_double) {
@@ -187,9 +186,8 @@ dylib! {
     #[load_glfw]
     extern "C" {
         fn glfwGetVersionString() -> *const c_char;
-        fn glfwGetError(desc: *mut *const c_char) -> c_int;
-        fn glfwInitHint(hint: c_int, value: c_int);
         fn glfwInit() -> c_int;
+        fn glfwSetErrorCallback(cbfun: unsafe extern "C" fn(c_int, *const c_char)) -> *const c_void;
 
         fn glfwWindowHint(hint: c_int, value: c_int);
         fn glfwCreateWindow(width: c_int, height: c_int, title: *const c_char, monitor: *mut GlfwMonitor, share: *mut GlfwWindow) -> *mut GlfwWindow;
