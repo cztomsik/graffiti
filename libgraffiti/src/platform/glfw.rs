@@ -18,8 +18,6 @@ pub unsafe fn init() {
     glfwSetErrorCallback(handle_glfw_error);
 
     #[cfg(target_os="macos")] {
-        glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
-
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
@@ -188,7 +186,6 @@ dylib! {
     #[load_glfw]
     extern "C" {
         fn glfwGetVersionString() -> *const c_char;
-        fn glfwInitHint(hint: c_int, value: c_int);
         fn glfwInit() -> c_int;
         fn glfwSetErrorCallback(cbfun: unsafe extern "C" fn(c_int, *const c_char)) -> *const c_void;
 
