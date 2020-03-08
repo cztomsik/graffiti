@@ -18,7 +18,6 @@
     "libgraffiti/Cargo.*",
     "libgraffiti/resources",
     "libgraffiti/src",
-    "libgraffiti/graffiti-glfw",
     "libgraffiti/graffiti-yoga",
     "libgraffiti/graffiti-stb"
   ],
