@@ -16,7 +16,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os:       [ubuntu-latest, windows-2016, windows-2019]
+        os:       [ubuntu-latest, windows, macos]
         # platform: [x32, x64]
     
     runs-on: ${{ matrix.os }}
@@ -45,5 +45,5 @@ jobs:
     - name: Save artifact 
       uses: actions/upload-artifact@v1
       with:
-        name: libgraffiti
+        name: "libgraffiti-${{matrix.os}}"
         path: libgraffiti/target/libgraffiti.node
