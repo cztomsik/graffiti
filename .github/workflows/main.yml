@@ -35,4 +35,10 @@ jobs:
     - name: Run a multi-line script
       run: |
         npm i
-        echo test, and deploy your project.
+        echo build succeeded
+
+    - name: Save artifact 
+      uses: actions/upload-artifact@v1
+      with:
+        name: libgraffiti
+        path: libgraffiti/target/libgraffiti.node
