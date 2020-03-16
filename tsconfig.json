@@ -7,9 +7,10 @@
     "strictNullChecks": false,
     "strictFunctionTypes": true,
     "strictPropertyInitialization": false,
-    "lib": ["es2017", "dom"],
-    "target": "es2017",
+    "lib": ["es2018", "dom"],
+    "target": "es2018",
     "module": "commonjs",
+    "esModuleInterop": true,
     "jsx": "react",
     "skipLibCheck": true,
     "outDir": "lib"

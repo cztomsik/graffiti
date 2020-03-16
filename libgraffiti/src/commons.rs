@@ -14,7 +14,9 @@ pub enum ElementChild {
 pub type Au = f32;
 
 /// Packed color
-/// TODO: consider #[repr(u32)]
+/// note that u32 could improve interop or CPU but GPU is float-only
+/// and bitwise ops are slow so it still needs to be unpacked during
+/// `VertexAttribPointer()` as it is done now
 #[derive(Debug, Clone, Copy)]
 pub struct Color {
     pub r: u8,

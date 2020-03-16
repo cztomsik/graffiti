@@ -29,13 +29,12 @@
   },
   "devDependencies": {
     "@types/node": "^10.14.6",
-    "axios": "^0.19.0",
     "glfw-dylib": "github:cztomsik/node-glfw-dylib",
     "mithril": "^2.0.4",
     "open": "^7.0.0",
     "preact": "^10.0.0",
-    "react": "^16.8.6",
-    "react-dom": "^16.10.2",
+    "react": "^16.13.0",
+    "react-dom": "^16.13.0",
     "ts-node": "^8.5.2",
     "typescript": "^3.7.2",
     "ws": "^6.2.1"

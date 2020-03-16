@@ -13,6 +13,7 @@ nav_order: 70
 - sometimes you might need to:
   - `cd /usr/lib/arm-linux-gnueabihf`
   - `sudo ln -s libGL.so.1 libGL.so`
+- setting `UV_THREADPOOL_SIZE` to lower value can help
 
 ## raspi 3
 - Full KMS

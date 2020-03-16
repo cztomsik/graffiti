@@ -5,6 +5,9 @@ import { Comment } from './Comment'
 import { Window } from './Window'
 import { DocumentFragment } from './DocumentFragment'
 
+import { HTMLUnknownElement } from './HTMLUnknownElement'
+import { HTMLInputElement } from './HTMLInputElement'
+
 export class Document extends Node {
   _scene = this.defaultView.sceneContext
   _els: Element[] = [new Element(this, 'html', 0)]
@@ -22,6 +25,10 @@ export class Document extends Node {
   // mousedown origin
   _clickedElement
 
+  // react-dom does some feature-sniffing using `xxx in document`
+  // (isInputEventSupported)
+  oninput = null
+
   constructor(public defaultView: Window) {
     super(null, Node.DOCUMENT_NODE, 0)
 
@@ -32,14 +39,24 @@ export class Document extends Node {
   }
 
   createElement(tagName: string) {
-    const el = new Element(this, tagName, this._scene.createElement())
+    let nativeId = this._scene.createElement()
+    let el
+
+    switch (tagName) {
+      case 'input':
+        el = new HTMLInputElement(this, tagName, nativeId)
+        break
+
+      default:
+        el = new HTMLUnknownElement(this, tagName, nativeId)
+    }
+
+    el._created()
+
     this._els.push(el)
 
     // apply default styles
     Object.assign(el.style, defaultStyles[tagName] || {})
-
-    // TODO: consider instantiating some subclass so
-    // that it's for example possible to open links in native browser, etc.
 
     return el
   }
@@ -153,5 +170,9 @@ const defaultStyles = {
 
   p: {
     marginBottom: 1 * EM,
+  },
+
+  input: {
+    padding: 5
   },
 }
