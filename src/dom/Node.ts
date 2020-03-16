@@ -188,4 +188,5 @@ const sibling = (parent, child, offset) =>
   parent && (parent.childNodes[parent.childNodes.indexOf(child) + offset] || null)
 
 // wouldn't work with import (circular dependency)
+// TODO: it would with esModuleInterop
 const { joinTexts, updateText, splitTexts, removeText } = require('./Text')

@@ -1,34 +1,35 @@
 /* @jsx m */
-import * as m from 'mithril'
-import axios from 'axios'
-import * as open from 'open'
+import m from 'mithril'
+import fetch from 'node-fetch'
+import open from 'open'
 
 const Listing = ({ attrs: { key: category } }) => {
   let items = null
   let page = 1
 
-  const fetch = async () => {
+  const fetchItems = async () => {
     items = null
-    const { data } = await axios.get(`https://api.hnpwa.com/v0/${category}/${page}.json`)
-    items = data
+    const res = await fetch(`https://api.hnpwa.com/v0/${category}/${page}.json`)
+    items = await res.json()
     m.redraw()
   }
 
-  const next = () => (page++, fetch())
-  const prev = () => (page--, fetch())
+  const next = () => (page++, fetchItems())
+  const prev = () => (page--, fetchItems())
 
   return {
-    oninit: fetch,
+    oninit: fetchItems,
 
     view: () => (
       <Layout>
-        <span>Showing page {page}</span>
         <div style={styles.row}>
           <button onclick={prev}>Previous page</button>
           <button onclick={next}>Next page</button>
+
+          <span style={{ marginLeft: 'auto' }}>Showing page {page}</span>
         </div>
 
-        <div>{items ? items.map(it => <Item {...it} />) : <span>Loading...</span>}</div>
+        <div>{items ? items.map(it => <Item {...it} />) : <span style={{ marginTop: 20 }}>Loading...</span>}</div>
       </Layout>
     )
   }
@@ -56,14 +57,14 @@ const Item: any = {
 const ItemDetail = ({ attrs: { key: id } }) => {
   let item = null
 
-  const fetch = async () => {
-    const { data } = await axios.get(`https://api.hnpwa.com/v0/item/${id}.json`)
-    item = stripHtml(data)
+  const fetchDetail = async () => {
+    const res = await fetch(`https://api.hnpwa.com/v0/item/${id}.json`)
+    item = stripHtml(await res.json())
     m.redraw()
   }
 
   return {
-    oninit: fetch,
+    oninit: fetchDetail,
 
     view: () => (
       <Layout>

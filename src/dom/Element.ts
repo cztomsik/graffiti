@@ -2,17 +2,18 @@ import { Node } from './Node'
 import { Text } from './Text'
 import { camelCase, EMPTY_OBJ } from '../core/utils'
 import { Document } from './Document'
-import { CSSStyleDeclaration } from '../styles/CSSStyleDeclaration'
 
 export class Element extends Node {
   id?
-  style = new CSSStyleDeclaration(this.ownerDocument._scene, this._nativeId)
   // preact needs this sometimes
   attributes = []
 
+  // TODO: no-arg constructor to be compatible with web components
   constructor(public ownerDocument: Document, public tagName, _nativeId) {
     super(ownerDocument, Node.ELEMENT_NODE, _nativeId)
   }
+
+  _created() {}
 
   // so the events can bubble
   // @see EventTarget

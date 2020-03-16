@@ -16,7 +16,7 @@ const step = () => {
   if (i < LIMIT) {
     requestAnimationFrame(step)
   } else {
-    el.textContent = `Updates per second: ${LIMIT * 1000 / (Date.now() - start)}`
+    console.log(el.textContent = `Updates per second: ${LIMIT * 1000 / (Date.now() - start)}`)
   }
 }
 
