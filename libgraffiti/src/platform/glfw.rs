@@ -15,8 +15,6 @@ pub unsafe fn init() {
     assert_eq!(glfwInit(), GLFW_TRUE, "init GLFW");
 
     #[cfg(target_os="macos")] {
-        glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, GLFW_FALSE);
-
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
@@ -61,7 +59,6 @@ pub unsafe fn create_window(title: &str, width: i32, height: i32) -> NativeWindo
     }
 
     glfwMakeContextCurrent(w);
-    gl::load_with(|addr| glfwGetProcAddress(c_str!(addr)));
 
     glfwSetCursorPosCallback(w, handle_glfw_cursor_pos);
     glfwSetScrollCallback(w, handle_glfw_scroll);
@@ -128,7 +125,8 @@ unsafe extern "C" fn handle_glfw_window_size(w: *mut GlfwWindow, width: c_int, h
 }
 
 unsafe extern "C" fn handle_glfw_framebuffer_size(_w: *mut GlfwWindow, width: c_int, height: c_int) {
-    gl::Viewport(0, 0, width, height);
+    // TODO unpub
+    crate::render::gl::set_curr_fb_size(width, height);
 }
 
 unsafe extern "C" fn handle_glfw_window_close(w: *mut GlfwWindow) {
@@ -174,7 +172,6 @@ pub enum GlfwMonitor {}
 
 pub const GLFW_TRUE: c_int = 1;
 pub const GLFW_FALSE: c_int = 0;
-pub const GLFW_COCOA_CHDIR_RESOURCES: c_int = 0x0005_1001;
 pub const GLFW_CONTEXT_VERSION_MAJOR: c_int = 0x0002_2002;
 pub const GLFW_CONTEXT_VERSION_MINOR: c_int = 0x0002_2003;
 pub const GLFW_OPENGL_FORWARD_COMPAT: c_int = 0x0002_2006;

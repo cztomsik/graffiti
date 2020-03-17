@@ -10,7 +10,6 @@ name = "graffiti"
 crate-type = ["cdylib"]
 
 [dependencies]
-gl = "*"
 miniserde = "0.1.12"
 graffiti-yoga = { path = "graffiti-yoga" }
 graffiti-stb = { path = "graffiti-stb" }
