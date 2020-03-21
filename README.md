@@ -3,6 +3,8 @@ title: Home
 permalink: /
 ---
 
+Note: I've noticed (from the increasing number of stars) some people are interested in this, could you please submit your use-case in this [tracking issue](https://github.com/cztomsik/graffiti/issues/143)? It would help me a lot, thanks.
+
 # graffiti
 Experimental GUI toolkit for node.js. The idea is to re-implement just enough subset of DOM & styling so that you can use react & other web frameworks, including the most of the related libraries but keep it as simple as possible so it can run fluently even on cheap devices like Raspberry Pi. The trick is to render everything using GPU and to keep the scope & abstractions at minimum.
 
