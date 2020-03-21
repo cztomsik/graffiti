@@ -1,6 +1,7 @@
 import { Node } from './Node'
 
-export class Text extends Node {
+export class Text extends Node implements globalThis.Text {
+  nodeType = Node.TEXT_NODE
   _data
 
   // we can't do inline layout (yet)
@@ -11,11 +12,6 @@ export class Text extends Node {
   // - only first one is used for rendering
   // - others are always empty/cleared
   _group: Text[] = [this]
-
-  constructor(doc, data, _nativeId) {
-    super(doc, Node.TEXT_NODE, _nativeId)
-    this.data = data
-  }
 
   get data() {
     return this._data
@@ -39,7 +35,7 @@ export class Text extends Node {
 }
 
 export const updateText = (text: Text) => {
-  const { fontSize, lineHeight } = text.parentElement.style._textStyle
+  const { fontSize, lineHeight } = (text.parentElement.style as any)._textStyle
 
   text.ownerDocument._scene.setText(text._group[0]._nativeId, fontSize, lineHeight, 0, text._group.map(t => t._data).join(''))
 }

@@ -1,16 +1,25 @@
 import { Node } from './Node'
-import { Element } from './Element'
 import { Text } from './Text'
 import { Comment } from './Comment'
-import { Window } from './Window'
 import { DocumentFragment } from './DocumentFragment'
 
-import { HTMLUnknownElement } from './HTMLUnknownElement'
+import { HTMLElement } from './HTMLElement'
+import { HTMLDivElement } from './HTMLDivElement'
+import { HTMLSpanElement } from './HTMLSpanElement'
 import { HTMLInputElement } from './HTMLInputElement'
+import { HTMLButtonElement } from './HTMLButtonElement'
+import { HTMLUnknownElement } from './HTMLUnknownElement'
 
-export class Document extends Node {
+type IDocument = globalThis.Document
+
+// too many type errs
+export class Document extends ((Node as unknown) as typeof globalThis.Document) implements IDocument {
+  nodeType = Node.DOCUMENT_NODE
+  parentNode = null
+
+  _nativeId = 0
   _scene = this.defaultView.sceneContext
-  _els: Element[] = [new Element(this, 'html', 0)]
+  _els: HTMLElement[] = [Object.assign(new HTMLElement(this), { tagName: 'html', _nativeId: 0 })]
 
   // title is only defined here, not on the window itself
   title = ''
@@ -25,33 +34,41 @@ export class Document extends Node {
   // mousedown origin
   _clickedElement
 
-  // react-dom does some feature-sniffing using `xxx in document`
-  // (isInputEventSupported)
-  oninput = null
-
-  constructor(public defaultView: Window) {
-    super(null, Node.DOCUMENT_NODE, 0)
+  constructor(public defaultView) {
+    super()
 
     this.documentElement.parentNode = this
     this.documentElement.appendChild(this.body)
-
-    this.parentNode = this.defaultView as unknown as Node
   }
 
-  createElement(tagName: string) {
-    let nativeId = this._scene.createElement()
+  createElement(tagName: string): HTMLElement {
     let el
 
     switch (tagName) {
+      case 'div':
+        el = new HTMLDivElement(this)
+        break
+
+      case 'span':
+        el = new HTMLSpanElement(this)
+        break
+
       case 'input':
-        el = new HTMLInputElement(this, tagName, nativeId)
+        el = new HTMLInputElement(this)
+        break
+
+      case 'button':
+        el = new HTMLButtonElement(this)
         break
 
       default:
-        el = new HTMLUnknownElement(this, tagName, nativeId)
+        el = new HTMLUnknownElement(this)
     }
 
-    el._created()
+    ;(el as any).ownerDocument = this
+    el.tagName = tagName
+    el._nativeId = this._scene.createElement()
+    el._init()
 
     this._els.push(el)
 
@@ -61,20 +78,34 @@ export class Document extends Node {
     return el
   }
 
-  createTextNode(text: string): Text {
-    return new Text(this, text, this._scene.createText())
+  createTextNode(data: string): Text {
+    const t = new Text(this)
+    ;(t as any).ownerDocument = this
+    t.data = data
+    t._nativeId = this._scene.createText()
+
+    return t
   }
 
   createComment(data: string): Comment {
+    const c = new Comment(this)
+    ;(c as any).ownerDocument = this
+    c.data = data
+
     // empty text node for now (should be fine)
-    return new Comment(this, data, this._scene.createText())
+    c._nativeId = this._scene.createText()
+
+    return c
   }
 
-  createDocumentFragment() {
-    return new DocumentFragment(this, Node.DOCUMENT_FRAGMENT_NODE, undefined)
+  createDocumentFragment(): DocumentFragment {
+    const f: any = new DocumentFragment(this)
+    f.ownerDocument = this
+
+    return f
   }
 
-  getElementById(id) {
+  getElementById(id): HTMLElement | null {
     // return this.querySelector(`#${id}`)
     return this._els.find(el => el.id === id)
   }
@@ -173,6 +204,8 @@ const defaultStyles = {
   },
 
   input: {
-    padding: 5
+    lineHeight: 1 * EM,
+    padding: 0.5 * EM,
+    minHeight: 2 * EM,
   },
 }

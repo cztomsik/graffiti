@@ -1,19 +1,18 @@
 import { Node } from './Node'
 import { Text } from './Text'
-import { camelCase, EMPTY_OBJ } from '../core/utils'
-import { Document } from './Document'
+import { camelCase } from '../core/utils'
 
-export class Element extends Node {
-  id?
+export class Element extends Node implements globalThis.Element {
+  nodeType = Node.ELEMENT_NODE
+  tagName: string
+  id: string
+
   // preact needs this sometimes
-  attributes = []
+  // TODO: getter with proxy?
+  attributes: any = []
 
-  // TODO: no-arg constructor to be compatible with web components
-  constructor(public ownerDocument: Document, public tagName, _nativeId) {
-    super(ownerDocument, Node.ELEMENT_NODE, _nativeId)
-  }
-
-  _created() {}
+  // to be overridden
+  _init() {}
 
   // so the events can bubble
   // @see EventTarget
@@ -21,11 +20,11 @@ export class Element extends Node {
     return this.parentElement
   }
 
-  setAttribute(name, value) {
+  setAttribute(name: string, value: string) {
     this[camelCase(name)] = value
   }
 
-  removeAttribute(name) {
+  removeAttribute(name: string) {
     delete this[camelCase(name)]
   }
 
@@ -56,46 +55,17 @@ export class Element extends Node {
   }
 
   // TODO: sizzle.js?
-  querySelectorAll(selectors: string): Element[] {
-    return []
-  }
-
-  // TODO: display: none
-  get offsetParent() {
-    return this.parentElement
-  }
-
-  get offsetLeft() {
-    const [[left]] = this._bounds
-
-    return left
-  }
-
-  get offsetTop() {
-    const [[, top]] = this._bounds
-
-    return top
-  }
-
-  get offsetWidth() {
-    const [[left], [right]] = this._bounds
-
-    return right - left
-  }
-
-  get offsetHeight() {
-    const [[, top], [, bottom]] = this._bounds
-
-    return bottom - top
+  querySelectorAll(selectors) {
+    return [] as any
   }
 
   // TODO
-  get scrollLeft() {
+  get scrollLeft(): number {
     return 0
   }
 
   // TODO
-  get scrollTop() {
+  get scrollTop(): number {
     return 0
   }
 
@@ -105,7 +75,7 @@ export class Element extends Node {
     const [[left, top], [bottom, right]] = this._bounds
 
     // TODO: spec allows negative width/height
-    return { x: left, y: top, left, top, bottom, right, width: right - left, height: bottom - top }
+    return { x: left, y: top, left, top, bottom, right, width: right - left, height: bottom - top } as any
   }
 
   get _bounds() {
@@ -122,4 +92,56 @@ export class Element extends Node {
 
     this.appendChild(this.ownerDocument.createTextNode(v))
   }
+
+  // maybe later
+  animate
+  assignedSlot
+  attachShadow
+  classList
+  className
+  clientHeight
+  clientLeft
+  clientTop
+  clientWidth
+  closest
+  getAnimations
+  getAttribute
+  getAttributeNames
+  getAttributeNode
+  getAttributeNodeNS
+  getAttributeNS
+  getClientRects
+  hasAttribute
+  hasAttributeNS
+  hasAttributes
+  hasPointerCapture
+  innerHTML
+  insertAdjacentElement
+  insertAdjacentHTML
+  insertAdjacentText
+  localName
+  matches
+  msGetRegionContent
+  namespaceURI
+  outerHTML
+  prefix
+  releasePointerCapture
+  removeAttributeNode
+  removeAttributeNS
+  requestFullscreen
+  requestPointerLock
+  scroll
+  scrollBy
+  scrollHeight
+  scrollIntoView
+  scrollTo
+  scrollWidth
+  setAttributeNode
+  setAttributeNodeNS
+  setAttributeNS
+  setPointerCapture
+  shadowRoot
+  slot
+  toggleAttribute
+  webkitMatchesSelector
 }

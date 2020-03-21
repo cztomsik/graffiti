@@ -1,5 +1,5 @@
 /* @jsx m */
-import * as m from 'mithril'
+import m from 'mithril'
 
 class Counter {
   count = 0
