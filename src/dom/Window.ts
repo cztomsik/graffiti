@@ -8,9 +8,11 @@ import { History } from './History';
 
 // TODO: @mixin(EventTarget) so that it's both
 // correct & types are ok too
-export class Window extends EventTarget {
-  window = this
-  self = this
+
+// too many type errs
+export class Window extends (EventTarget as unknown as typeof globalThis.Window) implements globalThis.Window {
+  window: any = this
+  self: any = this
 
   sceneContext = new SceneContext(this.id)
   document = new Document(this)
@@ -20,7 +22,7 @@ export class Window extends EventTarget {
   location = new Location(this.history)
 
   // react-dom needs both
-  navigator = {
+  navigator: any = {
     userAgent: 'graffiti'
   }
   HTMLIFrameElement = class {}

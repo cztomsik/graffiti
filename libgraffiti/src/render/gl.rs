@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 // straight-forward drawArrays-based primitive renderer
 // there was some perf-issue with indexed drawing
 // and this is much simpler too
@@ -6,7 +8,6 @@ use std::mem;
 use std::ptr;
 use std::ffi::CString;
 use std::convert::TryInto;
-use gl::types::*;
 
 use crate::commons::{Pos, Bounds, Color, TextId};
 use super::{RenderBackend};
@@ -58,33 +59,40 @@ impl <T: Copy> Quad<T> {
 #[derive(Debug, Clone, Copy)]
 struct Vertex<T>(Pos, T);
 
+static mut GL_LOADED: bool = false;
+
 impl GlRenderBackend {
     pub(crate) fn new() -> Self {
         unsafe {
+            if !GL_LOADED {
+                load_platform_gl();
+                GL_LOADED = true;
+            }
+
             let mut gpu = Gpu::new();
             let vbo = gpu.create_buffer();
 
             // TODO
             let mut tex = 0;
-            gl::GenTextures(1, &mut tex);
-            gl::BindTexture(gl::TEXTURE_2D, tex);
+            glGenTextures(1, &mut tex);
+            glBindTexture(GL_TEXTURE_2D, tex);
             // TODO: mipmap could improve small sizes but I'm not sure if it wouldn't need additional texture space
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR as GLint);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as GLint);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE as GLint);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE as GLint);
             // because of RGB
-            //gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
-            //gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as GLint, 64, 64, 0, gl::RGB, gl::UNSIGNED_BYTE, mem::transmute(SDF_TEXTURE));
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as GLint, 512, 512, 0, gl::RGBA, gl::UNSIGNED_BYTE, &SDF_TEXTURE[0] as *const u8 as *const std::ffi::c_void);
-            gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, tex);
+            //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB as GLint, 64, 64, 0, GL_RGB, GL_UNSIGNED_BYTE, mem::transmute(SDF_TEXTURE));
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as GLint, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, &SDF_TEXTURE[0] as *const u8 as *const std::ffi::c_void);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, tex);
             check("texture");
 
-            gl::Disable(gl::DEPTH_TEST);
-            gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-            gl::BlendEquation(gl::FUNC_ADD);
+            glDisable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glBlendEquation(GL_FUNC_ADD);
 
             let rect_program = gpu.create_program(
                 include_str!("shaders/rect.vert"),
@@ -140,7 +148,7 @@ impl RenderBackend for GlRenderBackend {
 
         let (vbo, glyphs_count, distance_factor) = &mut self.texts[text];
 
-        unsafe { self.gpu.buffer_data(vbo, gl::ARRAY_BUFFER, &glyphs) }
+        unsafe { self.gpu.buffer_data(vbo, GL_ARRAY_BUFFER, &glyphs) }
 
         *glyphs_count = glyphs.len() as GLint;
 
@@ -201,8 +209,8 @@ impl RenderBackend for GlRenderBackend {
 
     fn render(&mut self) {
         unsafe {
-            gl::ClearColor(1.0, 1.0, 1.0, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            glClearColor(1.0, 1.0, 1.0, 1.0);
+            glClear(GL_COLOR_BUFFER_BIT);
 
             // upload vbo
             // (have to be bound again during rendering)
@@ -210,7 +218,7 @@ impl RenderBackend for GlRenderBackend {
             // TODO: skip if up-to-date
             // (but keep that empty check because of &rects[0] ref)
             if !self.rects.is_empty() {
-                self.gpu.buffer_data(&mut self.vbo, gl::ARRAY_BUFFER, &self.rects);
+                self.gpu.buffer_data(&mut self.vbo, GL_ARRAY_BUFFER, &self.rects);
                 check("upload vbo");
             }
 
@@ -230,41 +238,41 @@ impl RenderBackend for GlRenderBackend {
                         // note we don't need index, we just need some (autoincreasing) id, which can be pushed to the stack with the matrix itself
                         // (maybe ops.len() could be used as identifier)
                         // but with index we could possibly premultiply it just once for many renders
-                        gl::UseProgram(self.rect_program.id);
-                        gl::UniformMatrix3fv(self.rect_program.uniforms[1].loc, 1, gl::FALSE, &transform.0 as *const f32);
+                        glUseProgram(self.rect_program.id);
+                        glUniformMatrix3fv(self.rect_program.uniforms[1].loc, 1, GL_FALSE, &transform.0 as *const f32);
                         check("set transform");
                     }
 
                     RenderOp::PopTransform => {
                         transform_stack.pop().unwrap();
 
-                        gl::UseProgram(self.rect_program.id);
-                        gl::UniformMatrix3fv(self.rect_program.uniforms[1].loc, 1, gl::FALSE, &transform_stack.last().unwrap().0 as *const f32);
+                        glUseProgram(self.rect_program.id);
+                        glUniformMatrix3fv(self.rect_program.uniforms[1].loc, 1, GL_FALSE, &transform_stack.last().unwrap().0 as *const f32);
                         check("restore transform");
                     }
 
                     RenderOp::DrawRects { count } => {
-                        gl::UseProgram(self.rect_program.id);
-                        self.gpu.bind_buffer(&self.vbo, gl::ARRAY_BUFFER);
-                        gl::VertexAttribPointer(
+                        glUseProgram(self.rect_program.id);
+                        self.gpu.bind_buffer(&self.vbo, GL_ARRAY_BUFFER);
+                        glVertexAttribPointer(
                             self.rect_program.attributes[0].loc,
                             2,
-                            gl::FLOAT,
-                            gl::FALSE,
+                            GL_FLOAT,
+                            GL_FALSE,
                             Rect::VERTEX_SIZE,
                             ptr::null(),
                         );
-                        gl::VertexAttribPointer(
+                        glVertexAttribPointer(
                             self.rect_program.attributes[1].loc,
                             4,
-                            gl::UNSIGNED_BYTE,
-                            gl::FALSE,
+                            GL_UNSIGNED_BYTE,
+                            GL_FALSE,
                             Rect::VERTEX_SIZE,
                             mem::size_of::<Pos>() as *const std::ffi::c_void,
                         );
 
                         // draw
-                        gl::DrawArrays(gl::TRIANGLES, vbo_offset, count * 6);
+                        glDrawArrays(GL_TRIANGLES, vbo_offset, count * 6);
                         check("draw els");
 
                         vbo_offset += count * 6;
@@ -273,35 +281,35 @@ impl RenderBackend for GlRenderBackend {
                     RenderOp::DrawText { id, pos, color } => {
                         let (vbo, glyphs_count, distance_factor) = &self.texts[*id];
 
-                        gl::UseProgram(self.text_program.id);
-                        self.gpu.bind_buffer(vbo, gl::ARRAY_BUFFER);
-                        gl::VertexAttribPointer(
+                        glUseProgram(self.text_program.id);
+                        self.gpu.bind_buffer(vbo, GL_ARRAY_BUFFER);
+                        glVertexAttribPointer(
                             self.text_program.attributes[0].loc,
                             2,
-                            gl::FLOAT,
-                            gl::FALSE,
+                            GL_FLOAT,
+                            GL_FALSE,
                             Glyph::VERTEX_SIZE,
                             ptr::null(),
                         );
-                        gl::VertexAttribPointer(
+                        glVertexAttribPointer(
                             self.text_program.attributes[1].loc,
                             2,
-                            gl::FLOAT,
-                            gl::FALSE,
+                            GL_FLOAT,
+                            GL_FALSE,
                             Glyph::VERTEX_SIZE,
                             mem::size_of::<Pos>() as *const std::ffi::c_void,
                         );
 
-                        gl::Uniform2f(self.text_program.uniforms[1].loc, pos.x, pos.y);
+                        glUniform2f(self.text_program.uniforms[1].loc, pos.x, pos.y);
 
                         // unpack it here, maybe even in builder
                         let color: [f32; 4] = [color.r as f32 / 256., color.g as f32 / 256., color.b as f32 / 256., color.a as f32 / 256.];
-                        gl::Uniform4fv(self.text_program.uniforms[2].loc, 1, &color as *const GLfloat);
+                        glUniform4fv(self.text_program.uniforms[2].loc, 1, &color as *const GLfloat);
 
-                        gl::Uniform1f(self.text_program.uniforms[3].loc, *distance_factor);
+                        glUniform1f(self.text_program.uniforms[3].loc, *distance_factor);
 
                         // draw
-                        gl::DrawArrays(gl::TRIANGLES, 0, *glyphs_count * 6);
+                        glDrawArrays(GL_TRIANGLES, 0, *glyphs_count * 6);
                         check("draw text");
                     }
                 }
@@ -317,11 +325,11 @@ impl RenderBackend for GlRenderBackend {
         ]);
 
         unsafe {
-            gl::UseProgram(self.rect_program.id);
-            gl::UniformMatrix3fv(self.rect_program.uniforms[0].loc, 1, gl::FALSE, &mat.0 as *const f32);
+            glUseProgram(self.rect_program.id);
+            glUniformMatrix3fv(self.rect_program.uniforms[0].loc, 1, GL_FALSE, &mat.0 as *const f32);
 
-            gl::UseProgram(self.text_program.id);
-            gl::UniformMatrix3fv(self.text_program.uniforms[0].loc, 1, gl::FALSE, &mat.0 as *const f32);
+            glUseProgram(self.text_program.id);
+            glUniformMatrix3fv(self.text_program.uniforms[0].loc, 1, GL_FALSE, &mat.0 as *const f32);
             check("resize");
         }
     }
@@ -338,50 +346,50 @@ impl Gpu {
     unsafe fn new() -> Self {
         // not used but webgl & opengl core profile require it
         let mut vao = 0;
-        gl::GenVertexArrays(1, &mut vao);
-        gl::BindVertexArray(vao);
+        glGenVertexArrays(1, &mut vao);
+        glBindVertexArray(vao);
         check("vao");
 
         Self
     }
 
     unsafe fn create_program(&mut self, vs: &str, fs: &str, extra_uniforms: &[&str], attributes: &[&str]) -> ShaderProgram {
-        let vs = shader(gl::VERTEX_SHADER, vs);
+        let vs = shader(GL_VERTEX_SHADER, vs);
         check("vertex shader");
 
-        let fs = shader(gl::FRAGMENT_SHADER, fs);
+        let fs = shader(GL_FRAGMENT_SHADER, fs);
         check("fragment shader");
 
-        let program = gl::CreateProgram();
-        gl::AttachShader(program, vs);
-        gl::AttachShader(program, fs);
-        gl::LinkProgram(program);
+        let program = glCreateProgram();
+        glAttachShader(program, vs);
+        glAttachShader(program, fs);
+        glLinkProgram(program);
 
-        let mut success = gl::FALSE as GLint;
+        let mut success = GL_FALSE as GLint;
 
-        gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
+        glGetProgramiv(program, GL_LINK_STATUS, &mut success);
 
-        if success != gl::TRUE as GLint {
+        if success != GL_TRUE as GLint {
             panic!(get_program_info_log(program));
         }
 
-        gl::DeleteShader(vs);
-        gl::DeleteShader(fs);
+        glDeleteShader(vs);
+        glDeleteShader(fs);
 
-        gl::UseProgram(program);
+        glUseProgram(program);
 
         let uniforms = ["u_projection"].iter().chain(extra_uniforms.iter()).map(|name| {
-            let loc = gl::GetUniformLocation(program, c_str!(name.clone()));
+            let loc = glGetUniformLocation(program, c_str!(name.clone()));
             check("uniform location");
 
             ProgramUniform { loc }
         }).collect();
 
         let attributes = attributes.iter().map(|name| {
-            let loc = gl::GetAttribLocation(program, c_str!(name.clone())).try_into().expect("invalid attr loc");
+            let loc = glGetAttribLocation(program, c_str!(name.clone())).try_into().expect("invalid attr loc");
             check("uniform location");
 
-            gl::EnableVertexAttribArray(loc);
+            glEnableVertexAttribArray(loc);
             check("enable attrib arr");
 
             ProgramAttribute { loc }
@@ -398,7 +406,7 @@ impl Gpu {
     unsafe fn create_buffer(&mut self) -> GlBuffer {
         let mut id = 0;
 
-        gl::GenBuffers(1, &mut id);
+        glGenBuffers(1, &mut id);
         check("gen buffer");
 
         GlBuffer { id }
@@ -406,7 +414,7 @@ impl Gpu {
 
     #[inline(always)]
     unsafe fn bind_buffer(&mut self, buffer: &GlBuffer, target: GLuint) {
-        gl::BindBuffer(target, buffer.id);
+        glBindBuffer(target, buffer.id);
         check("bind buffer");
     }
 
@@ -418,10 +426,10 @@ impl Gpu {
 
         // orphaning
         // https://www.seas.upenn.edu/~pcozzi/OpenGLInsights/OpenGLInsights-AsynchronousBufferTransfers.pdf
-        gl::BufferData(target, size, std::ptr::null_mut(), gl::STREAM_DRAW);
+        glBufferData(target, size, std::ptr::null_mut(), GL_STREAM_DRAW);
 
         if !data.is_empty() {
-            gl::BufferData(target, size, &data[0] as *const T as *const std::ffi::c_void, gl::STREAM_DRAW);
+            glBufferData(target, size, &data[0] as *const T as *const std::ffi::c_void, GL_STREAM_DRAW);
         }
 
         check("buffer data");
@@ -442,28 +450,28 @@ struct GlBuffer { id: GLuint }
 impl Drop for GlBuffer {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteBuffers(1, &self.id);
+            glDeleteBuffers(1, &mut self.id);
             check("drop buf");
         }
     }
 }
 
 unsafe fn shader(shader_type: GLuint, source: &str) -> GLuint {
-    let shader = gl::CreateShader(shader_type);
+    let shader = glCreateShader(shader_type);
 
-    gl::ShaderSource(
+    glShaderSource(
         shader,
         1,
         &(CString::new(source.as_bytes()).expect("get CString")).as_ptr(),
         ptr::null(),
     );
-    gl::CompileShader(shader);
+    glCompileShader(shader);
 
-    let mut success = gl::FALSE as GLint;
+    let mut success = GL_FALSE as GLint;
 
-    gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &mut success);
 
-    if success != gl::TRUE as GLint {
+    if success != GL_TRUE as GLint {
         panic!(get_shader_info_log(shader));
     }
 
@@ -471,27 +479,144 @@ unsafe fn shader(shader_type: GLuint, source: &str) -> GLuint {
 }
 
 unsafe fn check(hint: &str) {
-    let err = gl::GetError();
-    if err != gl::NO_ERROR {
+    let err = glGetError();
+    if err != GL_NO_ERROR {
         panic!("gl err {} near {}", err, hint);
     }
 }
 
 unsafe fn get_shader_info_log(shader: GLuint) -> String {
     let mut len = 0;
-    gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
+    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &mut len);
 
     let mut buf = vec![0i8; len as usize];
-    gl::GetShaderInfoLog(shader, len, ptr::null_mut(), buf.as_mut_ptr() as *mut GLchar);
+    glGetShaderInfoLog(shader, len, ptr::null_mut(), buf.as_mut_ptr() as *mut GLchar);
     buf.set_len(len as usize);
     String::from_utf8_unchecked(mem::transmute(buf))
 }
 
 unsafe fn get_program_info_log(program: GLuint) -> String {
     let mut len = 0;
-    gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
+    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &mut len);
 
     let mut buf = vec![0i8; len as usize];
-    gl::GetProgramInfoLog(program, len, ptr::null_mut(), buf.as_mut_ptr() as *mut GLchar);
+    glGetProgramInfoLog(program, len, ptr::null_mut(), buf.as_mut_ptr() as *mut GLchar);
     String::from_utf8_unchecked(mem::transmute(buf))
+}
+
+// TODO
+pub unsafe fn set_curr_fb_size(width: i32, height: i32) {
+    glViewport(0, 0, width, height);
+}
+
+use std::os::raw::{c_char, c_uchar, c_void, c_int, c_uint, c_float};
+
+// gl types
+type GLenum = c_uint;
+type GLboolean = c_uchar;
+type GLbitfield = c_uint;
+type GLint = c_int;
+type GLuint = c_uint;
+type GLsizei = c_int;
+type GLfloat = c_float;
+type GLchar = c_char;
+type GLsizeiptr = isize;
+
+// consts
+const GL_COLOR_BUFFER_BIT: GLenum = 0x00004000;
+const GL_FALSE: GLboolean = 0;
+const GL_TRUE: GLboolean = 1;
+const GL_TRIANGLES: GLenum = 0x0004;
+const GL_SRC_ALPHA: GLenum = 0x0302;
+const GL_ONE_MINUS_SRC_ALPHA: GLenum = 0x0303;
+const GL_FUNC_ADD: GLenum = 0x8006;
+const GL_ARRAY_BUFFER: GLenum = 0x8892;
+const GL_STREAM_DRAW: GLenum = 0x88E0;
+const GL_TEXTURE_2D: GLenum = 0x0DE1;
+const GL_BLEND: GLenum = 0x0BE2;
+const GL_DEPTH_TEST: GLenum = 0x0B71;
+const GL_NO_ERROR: GLenum = 0;
+const GL_UNSIGNED_BYTE: GLenum = 0x1401;
+const GL_FLOAT: GLenum = 0x1406;
+const GL_RGBA: GLenum = 0x1908;
+const GL_FRAGMENT_SHADER: GLenum = 0x8B30;
+const GL_VERTEX_SHADER: GLenum = 0x8B31;
+const GL_LINK_STATUS: GLenum = 0x8B82;
+const GL_LINEAR: GLenum = 0x2601;
+const GL_TEXTURE_MAG_FILTER: GLenum = 0x2800;
+const GL_TEXTURE_MIN_FILTER: GLenum = 0x2801;
+const GL_TEXTURE_WRAP_S: GLenum = 0x2802;
+const GL_TEXTURE_WRAP_T: GLenum = 0x2803;
+const GL_TEXTURE0: GLenum = 0x84C0;
+const GL_CLAMP_TO_EDGE: GLenum = 0x812F;
+const GL_COMPILE_STATUS: GLenum = 0x8B81;
+const GL_INFO_LOG_LENGTH: GLenum = 0x8B84;
+
+dylib! {
+    #[load_gl]
+    extern "C" {
+        // err
+        fn glGetError() -> GLenum;
+        fn glGetProgramiv(program: GLuint, pname: GLenum, params: *const GLint);
+        fn glGetProgramInfoLog(program: GLuint, buf_size: GLsizei, len: *mut GLsizei, log: *mut GLchar);
+        fn glGetShaderiv(shader: GLuint, pname: GLenum, params: *const GLint);
+        fn glGetShaderInfoLog(shader: GLuint, buf_size: GLsizei, len: *mut GLsizei, log: *mut GLchar);
+
+        // vao
+        fn glGenVertexArrays(n: GLsizei, arrays: *mut GLuint);
+        fn glBindVertexArray(vao: GLuint);
+
+        // program, shaders
+        fn glCreateProgram() -> GLuint;
+        fn glUseProgram(program: GLuint);
+        fn glCreateShader(kind: GLenum) -> GLuint;
+        fn glShaderSource(shader: GLuint, count: GLsizei, source: *const *const GLchar, len: *const GLint);
+        fn glCompileShader(shader: GLuint);
+        fn glAttachShader(program: GLuint, shader: GLuint);
+        fn glGetUniformLocation(program: GLuint, name: *const GLchar) -> GLint;
+        fn glGetAttribLocation(program: GLuint, name: *const GLchar) -> GLint;
+        fn glLinkProgram(program: GLuint);
+        fn glDeleteShader(shader: GLuint);
+
+        // tex
+        fn glGenTextures(n: GLsizei, textures: *mut GLuint);
+        fn glBindTexture(target: GLenum, tex: GLuint);
+        fn glTexParameteri(target: GLenum, pname: GLenum, params: GLint);
+        fn glTexImage2D(target: GLenum, level: GLint, format: GLint, width: GLsizei, height: GLsizei, border: GLint, internal_format: GLenum, kind: GLenum, pixels: *const c_void);
+        fn glActiveTexture(tex: GLenum);
+
+        // rendering
+        fn glViewport(x: GLint, y: GLint, w: GLsizei, h: GLsizei);
+        fn glEnable(cap: GLenum);
+        fn glDisable(cap: GLenum);
+        fn glClear(mask: GLbitfield);
+        fn glClearColor(red: GLfloat, green: GLfloat, blue: GLfloat, alpha: GLfloat);
+        fn glBlendFunc(sfactor: GLenum, dfactor: GLenum);
+        fn glBlendEquation(mode: GLenum);
+        fn glUniform1f(loc: GLint, v: GLfloat);
+        fn glUniform2f(loc: GLint, v0: GLfloat, v1: GLfloat);
+        fn glUniform4fv(loc: GLint, count: GLsizei, value: *const GLfloat);
+        fn glUniformMatrix3fv(loc: GLint, count: GLsizei, transpose: GLboolean, value: *const GLfloat);
+        fn glGenBuffers(n: GLsizei, bufs: *mut GLuint);
+        fn glBindBuffer(target: GLenum, buf: GLuint);
+        fn glBufferData(target: GLenum, size: GLsizeiptr, data: *const c_void, usage: GLenum);
+        fn glEnableVertexAttribArray(index: GLuint);
+        fn glVertexAttribPointer(index: GLuint, size: GLint, kind: GLenum, normalized: GLboolean, stride: GLsizei, ptr: *const c_void);
+        fn glDrawArrays(mode: GLenum, first: GLint, count: GLsizei);
+        fn glDeleteBuffers(n: GLsizei, bufs: *mut GLuint);
+    }
+}
+
+unsafe fn load_platform_gl() {
+    let file = {
+        if cfg!(target_os = "windows") {
+            "opengl32.dll"
+        } else if cfg!(target_os = "macos") {
+            "/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL"
+        } else {
+            "libGL.so.1"
+        }
+    };
+
+    load_gl(c_str!(file));
 }

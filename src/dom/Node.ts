@@ -1,7 +1,10 @@
 import * as assert from 'assert'
 import { EventTarget } from '../events/EventTarget'
 import { Document } from './Document'
-import { Element } from './Element'
+import { NodeList } from './NodeList'
+import { last } from '../core/utils'
+
+type INode = globalThis.Node
 
 // perf(const)
 const ELEMENT_NODE = 1
@@ -10,19 +13,26 @@ const COMMENT_NODE = 8
 const DOCUMENT_NODE = 9
 const DOCUMENT_FRAGMENT_NODE = 11
 
-export class Node extends EventTarget {
-  readonly childNodes: Node[] = []
-  parentNode: Node = null
+// intentionally implements/declares some props/meths of Element, Document, ...
+// so that we can share them easily
+export class Node extends EventTarget implements INode {
+  readonly ownerDocument: Document
+  readonly nodeType: number
+  _nativeId
 
-  constructor(public readonly ownerDocument: Document, public readonly nodeType, public _nativeId) {
+  readonly childNodes = new NodeList<ChildNode>()
+  parentNode: INode & ParentNode | null = null
+
+  constructor(ownerDocument) {
     super()
+    this.ownerDocument = ownerDocument
   }
 
-  appendChild(child: Node) {
+  appendChild<T extends INode>(child: T): T {
     return this.insertBefore(child, null)
   }
 
-  insertBefore(child: Node, refNode: Node | null) {
+  insertBefore<T extends INode>(child: T, refNode: INode | null): T {
     // should be !== null but some libs pass undefined too
     if (refNode) {
       assert.equal(refNode.parentNode, this)
@@ -35,12 +45,12 @@ export class Node extends EventTarget {
     }
 
     // remove first (in case it was in the same element already)
-    child.remove()
+    ;(child as any).remove()
 
     // final position
     let index = refNode ? this.childNodes.indexOf(refNode) : this.childNodes.length
 
-    child.parentNode = this
+    ;(child as any).parentNode = this
     this.childNodes.splice(index, 0, child)
 
     // fragment does not have an id
@@ -90,14 +100,14 @@ export class Node extends EventTarget {
     }
   }
 
-  removeChild(child: Node) {
+  removeChild<T extends INode>(child: T): T {
     assert.equal(child.parentNode, this)
 
     const index = this.childNodes.indexOf(child)
 
     // so that events dont sink in unattached subtree
     if (child.nodeType === ELEMENT_NODE) {
-      ;(child as Element).blur()
+      ;(child as any).blur()
     }
 
     // fragment does not have an id
@@ -130,51 +140,105 @@ export class Node extends EventTarget {
     return child
   }
 
-  replaceChild(child: Node, prev: Node) {
-    this.insertBefore(child, prev)
-    this.removeChild(prev)
+  //replaceChild<T extends INode>(child: T, oldChild: T): T {
+  replaceChild(child, oldChild) {
+      this.insertBefore(child, oldChild)
+
+    return this.removeChild(oldChild)
   }
 
-  get firstChild() {
+  get firstChild(): ChildNode | null {
     return this.childNodes[0] || null
   }
 
-  get lastChild() {
-    return this.childNodes[this.childNodes.length - 1] || null
+  get lastChild(): ChildNode | null {
+    return last(this.childNodes)
   }
 
-  get parentElement() {
-    return this.parentNode as Element
+  get parentElement(): HTMLElement | null {
+    return this.parentNode as any
   }
 
-  get nextSibling() {
+  get nextSibling(): ChildNode | null {
     return sibling(this.parentNode, this, 1)
   }
 
-  get previousSibling() {
+  get previousSibling(): ChildNode | null {
     return sibling(this.parentNode, this, -1)
   }
 
-  get nodeName() {
+  get nodeName(): string {
     switch (this.nodeType) {
       case ELEMENT_NODE:
-        return (this as any).tagName.toUpperCase()
-      case DOCUMENT_FRAGMENT_NODE:
-        return '#document-fragment'
-      case DOCUMENT_NODE:
-        return '#document'
+        return this['tagName'].toUpperCase()
       case TEXT_NODE:
         return '#text'
       case COMMENT_NODE:
         return '#comment'
+      case DOCUMENT_NODE:
+        return '#document'
+      case DOCUMENT_FRAGMENT_NODE:
+        return '#document-fragment'
     }
   }
 
   // TODO: get/set
   // https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeValue
   // (Text.nodeValue exists already)
-  get nodeValue() {
+  get nodeValue(): string | null {
     return null
+  }
+
+  get children(): HTMLCollection {
+    // TODO: HTMLCollection
+    return this.childNodes.filter(c => c.nodeType === ELEMENT_NODE) as any
+  }
+
+  get childElementCount(): number {
+    return this.children.length
+  }
+
+  get firstElementChild(): Element | null {
+    return this.children[0]
+  }
+
+  get lastElementChild(): Element | null {
+    return last(this.children) || null
+  }
+
+  isSameNode(node): boolean {
+    return node === this
+  }
+
+  hasChildNodes(): boolean {
+    return this.childNodes.length !== 0
+  }
+
+  append(...nodes: (Node | string)[]) {
+    nodes.forEach(n => this.appendChild(this._strToNode(n)))
+  }
+
+  prepend(...nodes: (Node | string)[]) {
+    nodes.forEach(n => this.insertBefore(this._strToNode(n), this.firstChild))
+  }
+
+  after(...nodes: (Node | string)[]) {
+    const refNode = this.nextSibling
+
+    nodes.forEach(n => this.parentNode.insertBefore(this._strToNode(n), refNode))
+  }
+
+  before(...nodes: (Node | string)[]) {
+    nodes.forEach(n => this.parentNode.insertBefore(this._strToNode(n), this))
+  }
+
+  replaceWith(...nodes: (Node | string)[]) {
+    this.before(...nodes)
+    this.remove()
+  }
+
+  _strToNode(n) {
+    return (typeof n === 'string') ? this.ownerDocument.createTextNode('' + n) : n
   }
 
   static ELEMENT_NODE = ELEMENT_NODE
@@ -182,6 +246,66 @@ export class Node extends EventTarget {
   static COMMENT_NODE = COMMENT_NODE
   static DOCUMENT_NODE = DOCUMENT_NODE
   static DOCUMENT_FRAGMENT_NODE = DOCUMENT_FRAGMENT_NODE
+
+  // later
+  contains
+  getElementsByClassName
+  getElementsByTagName
+  isEqualNode
+  nextElementSibling
+  previousElementSibling
+  textContent
+
+  // maybe later
+  appendData
+  assignedSlot
+  baseURI
+  cloneNode
+  compareDocumentPosition
+  deleteData
+  getElementsByTagNameNS
+  getRootNode
+  insertData
+  isConnected
+  isDefaultNamespace
+  length
+  lookupNamespaceURI
+  lookupPrefix
+  namespaceURI
+  normalize
+  replaceData
+  splitText
+  substringData
+  wholeText
+
+  // (later) it's both static & instance
+  ELEMENT_NODE
+  ATTRIBUTE_NODE
+  TEXT_NODE
+  CDATA_SECTION_NODE
+  ENTITY_REFERENCE_NODE
+  ENTITY_NODE
+  PROCESSING_INSTRUCTION_NODE
+  COMMENT_NODE
+  DOCUMENT_NODE
+  DOCUMENT_TYPE_NODE
+  DOCUMENT_FRAGMENT_NODE
+  NOTATION_NODE
+
+  // ?
+  DOCUMENT_POSITION_CONTAINED_BY
+  DOCUMENT_POSITION_CONTAINS
+  DOCUMENT_POSITION_DISCONNECTED
+  DOCUMENT_POSITION_FOLLOWING
+  DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
+  DOCUMENT_POSITION_PRECEDING
+}
+
+// so common it's easier to just tell TS about it
+declare global {
+  interface Node {
+    _nativeId
+  }
 }
 
 const sibling = (parent, child, offset) =>

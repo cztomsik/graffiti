@@ -278,5 +278,6 @@ pub trait RenderBackend {
     fn resize(&mut self, size: (f32, f32));
 }
 
-mod gl;
+// TODO: temporarily pub
+pub mod gl;
 use self::gl::{GlRenderBackend, Mat3};

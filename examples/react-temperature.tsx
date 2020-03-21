@@ -1,26 +1,25 @@
-// react doesn't work yet
-//import * as React from 'react'
-//import { useState } from 'react'
-//import { render } from 'react-dom'
+import * as React from 'react'
+import { useState } from 'react'
+import { render } from 'react-dom'
 
-/* @jsx h */
-import { h, render } from 'preact'
-import { useState } from 'preact/hooks'
+// preact works too
+// /* @jsx h */
+// import { h, render } from 'preact'
+// import { useState } from 'preact/hooks'
+// import 'preact/compat'
 
 const TemperatureConverter = () => {
   const [celsius, setCelsius] = useState(NaN)
   const [fahrenheit, setFahrenheit] = useState(NaN)
 
-  const inputCelsius = e => {
-    const value = +e.target.value
-    setCelsius(value)
-    setFahrenheit(+((9 / 5) * value + 32).toFixed(1))
+  const inputCelsius = v => {
+    setCelsius(v)
+    setFahrenheit(+((9 / 5) * v + 32).toFixed(1))
   }
 
-  const inputFahrenheit = e => {
-    const value = +e.target.value
-    setFahrenheit(value)
-    setCelsius(+((value - 32) * (5 / 9)).toFixed(1))
+  const inputFahrenheit = v => {
+    setFahrenheit(v)
+    setCelsius(+((v - 32) * (5 / 9)).toFixed(1))
   }
 
   return (
@@ -38,7 +37,20 @@ const TemperatureConverter = () => {
   )
 }
 
-const NumInput = ({ value, ...props }) => <input style={{ width: 60, margin: 10 }} value={numToStr(value)} {...props} />
+const NumInput = ({ value, onChange, ...rest }) => {
+  const [focused, setFocused] = useState(false)
+
+  return (
+    <input
+      style={{ backgroundColor: focused ? '#eef' : '#eee', width: 60, margin: 10 }}
+      value={numToStr(value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      onChange={e => onChange(+e.target['value'])}
+      {...rest}
+    />
+  )
+}
 
 const numToStr = v => (Number.isNaN(v) ? '' : '' + v)
 
