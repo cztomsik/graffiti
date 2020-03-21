@@ -614,7 +614,7 @@ unsafe fn load_platform_gl() {
         } else if cfg!(target_os = "macos") {
             "/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL"
         } else {
-            "libGL.so"
+            "libGL.so.1"
         }
     };
 
