@@ -65,7 +65,8 @@ const styles = {
 
   buttons: {
     padding: 10,
-    paddingHorizontal: 5,
+    paddingLeft: 5,
+    paddingRight: 5,
     flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap'

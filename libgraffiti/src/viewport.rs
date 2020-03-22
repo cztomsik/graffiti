@@ -86,7 +86,7 @@ pub enum SceneChange {
     JustifyContent { element: ElementId, value: Align },
 
     Color { element: ElementId, value: Color },
-    BackgroundColor { element: ElementId, value: Option<Color> },
+    BackgroundColor { element: ElementId, value: Color },
 
     // TODO: border
     /*
@@ -102,10 +102,10 @@ pub enum SceneChange {
     */
 
     // TODO: intermediate; clip in renderer
-    BorderTopLeftRadius { element: ElementId, value: Option<f32> },
-    BorderTopRightRadius { element: ElementId, value: Option<f32> },
-    BorderBottomLeftRadius { element: ElementId, value: Option<f32> },
-    BorderBottomRightRadius { element: ElementId, value: Option<f32> },
+    BorderTopLeftRadius { element: ElementId, value: f32 },
+    BorderTopRightRadius { element: ElementId, value: f32 },
+    BorderBottomLeftRadius { element: ElementId, value: f32 },
+    BorderBottomRightRadius { element: ElementId, value: f32 },
 
     // BackgroundImageUrl { element: ElementId, value: String },
 
@@ -155,7 +155,7 @@ impl Viewport {
                 // start with layout-independent things
                 Transform { element, value } => self.renderer.set_transform(*element, *value),
                 Color { element, value } => self.renderer.set_color(*element, *value),
-                BackgroundColor { element, value } => self.renderer.set_background_color(*element, (*value).unwrap_or(crate::commons::Color::TRANSPARENT)),
+                BackgroundColor { element, value } => self.renderer.set_background_color(*element, *value),
                 //BoxShadow { element, value } => self.renderer.set_box_shadow(*element, *value),
 
                 // TODO: intermediate (top-left, top-right, ...) & set Option<BorderRadius>

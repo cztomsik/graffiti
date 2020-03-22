@@ -186,7 +186,8 @@ const defaultStyles = {
 
   button: {
     backgroundColor: '#2196F3',
-    paddingHorizontal: 10,
+    paddingLeft: 10,
+    paddingRight: 10,
     borderRadius: 2,
     fontSize: 14,
     lineHeight: 32,

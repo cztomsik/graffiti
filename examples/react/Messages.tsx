@@ -67,8 +67,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#ccc',
     padding: 5,
-    paddingHorizontal: 12,
-    marginVertical: 4
+    paddingLeft: 12,
+    paddingRight: 12,
+    marginTop: 4,
+    marginBottom: 4,
   },
 
   msgMe: {
