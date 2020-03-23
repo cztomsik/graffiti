@@ -1,16 +1,14 @@
-import { Document } from './Document';
-import { Event } from '../events/Event';
-import { EventTarget } from '../events/EventTarget';
-import { SceneContext } from '../core/SceneContext';
-import { handleWindowEvent } from '../events/handleWindowEvent';
-import { Location } from './Location';
-import { History } from './History';
+import { Document } from './Document'
+import { Event } from '../events/Event'
+import { EventTarget } from '../events/EventTarget'
+import { SceneContext } from '../core/SceneContext'
+import { handleWindowEvent } from '../events/handleWindowEvent'
+import { Location } from './Location'
+import { History } from './History'
 
-// TODO: @mixin(EventTarget) so that it's both
-// correct & types are ok too
+// BTW: in chrome, it's Window extends WindowProperties extends EventTarget
 
-// too many type errs
-export class Window extends (EventTarget as unknown as typeof globalThis.Window) implements globalThis.Window {
+export class Window extends EventTarget implements globalThis.Window {
   window: any = this
   self: any = this
 
@@ -34,7 +32,105 @@ export class Window extends (EventTarget as unknown as typeof globalThis.Window)
     super()
   }
 
-  handleEvent(event) {
+  _handleEvent(event) {
     handleWindowEvent(this.document, event)
   }
+
+  // forward globals
+  atob = atob
+  btoa = btoa
+  setInterval = setInterval
+  setTimeout = setTimeout
+  clearInterval = clearInterval
+  clearTimeout = clearTimeout
+  console = console
+
+  // maybe later
+  alert
+  applicationCache
+  blur
+  caches
+  cancelAnimationFrame
+  captureEvents
+  clientInformation
+  close
+  closed
+  confirm
+  createImageBitmap
+  crypto
+  customElements
+  defaultStatus
+  departFocus
+  devicePixelRatio
+  doNotTrack
+  event
+  external
+  fetch
+  focus
+  frameElement
+  frames
+  getComputedStyle
+  getMatchedCSSRules
+  getSelection
+  indexedDB
+  innerHeight
+  innerWidth
+  isSecureContext
+  length
+  localStorage
+  locationbar
+  matchMedia
+  menubar
+  moveBy
+  moveTo
+  name
+  offscreenBuffering
+  onorientationchange
+  onreadystatechange
+  open
+  opener
+  orientation
+  origin
+  outerHeight
+  outerWidth
+  pageXOffset
+  pageYOffset
+  parent
+  performance
+  personalbar
+  postMessage
+  print
+  prompt
+  queueMicrotask
+  releaseEvents
+  requestAnimationFrame
+  resizeBy
+  resizeTo
+  screen
+  screenLeft
+  screenTop
+  screenX
+  screenY
+  scroll
+  scrollbars
+  scrollBy
+  scrollTo
+  scrollX
+  scrollY
+  sessionStorage
+  speechSynthesis
+  status
+  statusbar
+  stop
+  styleMedia
+  toolbar
+  top
+
+  // ignore vendor
+  msContentScript
+  msWriteProfilerMark
+  webkitCancelAnimationFrame
+  webkitConvertPointFromNodeToPage
+  webkitConvertPointFromPageToNode
+  webkitRequestAnimationFrame
 }

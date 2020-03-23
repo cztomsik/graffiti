@@ -4,15 +4,15 @@ export class EventTarget implements globalThis.EventTarget {
   // preact uses node._listeners
   _etListeners: { [type in string]?: readonly EventListenerOrEventListenerObject[] } = {}
 
-  addEventListener(type, listener) {
+  addEventListener(type: string, listener) {
     this._etListeners[type] = [...this._getListeners(type), listener]
   }
 
-  removeEventListener(type, listener) {
+  removeEventListener(type: string, listener) {
     this._etListeners[type] = this._getListeners(type).filter(l => l !== listener)
   }
 
-  dispatchEvent(event) {
+  dispatchEvent(event: Event) {
     event.target = this
 
     this._dispatch(event)
@@ -20,11 +20,11 @@ export class EventTarget implements globalThis.EventTarget {
     return !event.defaultPrevented
   }
 
-  _fire(type, data = {}) {
+  _fire(type: string, data = {}) {
     this.dispatchEvent(Object.assign(new Event(type), { target: this, ...data }))
   }
 
-  _dispatch(event) {
+  _dispatch(event: Event) {
     event.currentTarget = this
 
     for (const l of this._getListeners(event.type)) {
@@ -64,7 +64,7 @@ export class EventTarget implements globalThis.EventTarget {
   // on* event handler props
   // - makes TS happy
   // - everything is here so we don't need to repeat it again for document & window
-  // - we only define getter -> setter is not supported and will throw
+  // - we only define getter, setter is not supported and will throw
   // - preact needs this for some golfing: name = (nameLower in dom ? nameLower : name).slice(2);
   //   https://github.com/preactjs/preact/blob/013dc382cf7239422e834e74a6ab0b592c5a9c43/src/diff/props.js#L80
 
@@ -119,6 +119,7 @@ export class EventTarget implements globalThis.EventTarget {
   get onmouseout() { return null }
   get onmouseover() { return null }
   get onmouseup() { return null }
+  get onmousewheel() { return null }
   get onpaste() { return null }
   get onpause() { return null }
   get onplay() { return null }
@@ -162,4 +163,57 @@ export class EventTarget implements globalThis.EventTarget {
   // special case for react-dom
   // which tries to set noop to onclick to avoid some safari bug
   set onclick(cb) {}
+
+  // window events
+  get onafterprint() { return null }
+  get onbeforeprint() { return null }
+  get onbeforeunload() { return null }
+  get oncompassneedscalibration() { return null }
+  get ondevicelight() { return null }
+  get ondevicemotion() { return null }
+  get ondeviceorientation() { return null }
+  get ondeviceorientationabsolute() { return null }
+  get onhashchange() { return null }
+  get onlanguagechange() { return null }
+  get onmessage() { return null }
+  get onmessageerror() { return null }
+  get onoffline() { return null }
+  get ononline() { return null }
+  get onpagehide() { return null }
+  get onpageshow() { return null }
+  get onpopstate() { return null }
+  get onrejectionhandled() { return null }
+  get onstorage() { return null }
+  get onunhandledrejection() { return null }
+  get onunload() { return null }
+  get onvrdisplayactivate() { return null }
+  get onvrdisplayblur() { return null }
+  get onvrdisplayconnect() { return null }
+  get onvrdisplaydeactivate() { return null }
+  get onvrdisplaydisconnect() { return null }
+  get onvrdisplayfocus() { return null }
+  get onvrdisplaypointerrestricted() { return null }
+  get onvrdisplaypointerunrestricted() { return null }
+  get onvrdisplaypresentchange() { return null }
+
+  // ignore vendor
+  onmsgesturechange
+  onmsgesturedoubletap
+  onmsgestureend
+  onmsgesturehold
+  onmsgesturestart
+  onmsgesturetap
+  onmsinertiastart
+  onmspointercancel
+  onmspointerdown
+  onmspointerenter
+  onmspointerleave
+  onmspointermove
+  onmspointerout
+  onmspointerover
+  onmspointerup
+
+  // WTF
+  [index: number]: Window
+
 }

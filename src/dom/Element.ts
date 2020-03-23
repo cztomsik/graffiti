@@ -21,7 +21,7 @@ export class Element extends Node implements globalThis.Element {
   }
 
   setAttribute(name: string, value: string) {
-    this[camelCase(name)] = value
+    this[camelCase(name)] = value as any
   }
 
   removeAttribute(name: string) {

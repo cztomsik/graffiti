@@ -33,7 +33,7 @@ const runLoop = () => {
 
   if (events !== undefined) {
     for (const [id, event] of events) {
-      windows[id].handleEvent(event)
+      windows[id]._handleEvent(event)
     }
   }
 
