@@ -131,7 +131,7 @@ function generateInterop(mods) {
         ([name, variants]) => `export module ${name} {
         \n${variants.map(([v, fields], i) => `    export const ${v} = (${fields}) => [${i}, ${fields}]`).join('\n')}
 
-        \n    export const TAGS = {\n${variants.map(([v, fields], i) => `      ${v}: ${i},`).join('\n')}\n}\n      }
+        \n    export const TAGS = {\n${variants.map(([v, fields], i) => `      ${v}: ${i},`).join('\n')}\n    }\n}
     `
       )
       .join('\n')}

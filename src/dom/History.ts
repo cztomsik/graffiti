@@ -61,7 +61,11 @@ export class History implements globalThis.History {
     // save because it could be replaced
     const from = this._current
 
-    this[replace? 'replaceState' :'pushState'](undefined, null, href)
+    if (replace) {
+      this.replaceState(undefined, null, href)
+    } else {
+      this.pushState(undefined, null, href)
+    }
 
     this._notifyAfterTransition({ from, to: this._current })
   }

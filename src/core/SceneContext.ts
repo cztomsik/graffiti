@@ -16,8 +16,9 @@ export class SceneContext {
   //
   // (some GC hook will be needed in `Node`)
 
-  // because root is 0
-  elementsCount = 1
+  // note it's 1 in native part, but we will create root element first so
+  // the upcoming realloc(1) will be no-op
+  elementsCount = 0
   textsCount = 0
   changes = []
 
@@ -66,41 +67,6 @@ export class SceneContext {
 
   removeText(parent, childText) {
     this.changes.push(SceneChange.RemoveChild(parent, ElementChild.Text(childText)))
-  }
-
-  // TODO(perf): replace this with own methods
-  // or at least accept functions and call them monomorphically
-  setStyle(element, prop, value) {
-    if (SceneChange[prop]) {
-      this.changes.push(SceneChange[prop](element, value))
-      //this.flush(false)
-    } else {
-      console.log('TODO: set', element, prop, value)
-    }
-  }
-
-  setDimension(element, prop, dim) {
-    this.setStyle(element, prop, dim)
-  }
-
-  setAlign(element, prop, v) {
-    this.setStyle(element, prop, Align[v])
-  }
-
-  setFlexWrap(element, v) {
-    this.changes.push(SceneChange.FlexWrap(element, FlexWrap[v]))
-  }
-
-  setFlexDirection(element, v) {
-    this.changes.push(SceneChange.FlexDirection(element, FlexDirection[v]))
-  }
-
-  setBackgroundColor(element, v) {
-    this.changes.push(SceneChange.BackgroundColor(element, v))
-  }
-
-  setColor(element, v) {
-    this.changes.push(SceneChange.Color(element, v))
   }
 
   setText(textId, size, lineHeight, align, text) {

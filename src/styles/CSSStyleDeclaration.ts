@@ -1,9 +1,11 @@
 import { SceneContext } from '../core/SceneContext'
 import { Node } from '../dom/Node'
+import { Element } from '../dom/Element'
 import { updateText } from '../dom/Text'
 import { UNSUPPORTED } from '../core/utils'
 import { SceneChange as S } from '../core/interop'
 import { INVALID, parseAlign, parseColor, parseDimension, parseDisplay, parseFlexDirection, parseFlexWrap, parseTransform, parseOverflow } from './parsers'
+import { defaultStyles } from './defaultStyles'
 
 // TODO: const defaults with defaults for all properties?
 // and these should be set if prop is deleted
@@ -23,10 +25,19 @@ import { INVALID, parseAlign, parseColor, parseDimension, parseDisplay, parseFle
 // async in native - it's simply not worth and it's definitely much easier to
 // do it in js
 export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
+  private _scene: SceneContext
+  private _elementId
+
   // TODO: move to native, each variant for each prop
   _textStyle: any = { fontSize: 16, lineHeight: 20 }
 
-  constructor(private _scene: SceneContext, private _elementId) {}
+  constructor(el: Element) {
+    this._scene = el.ownerDocument._scene
+    this._elementId = el._nativeId
+
+    // apply default styles
+    Object.assign(this, defaultStyles[el.tagName] || {})
+  }
 
   getPropertyPriority(prop: string): string {
     return UNSUPPORTED()
@@ -622,148 +633,77 @@ function parseChange(prop: string, v: string, _id) {
     // TODO: parse shorthands -> ShorthandVariant
 
     switch (prop) {
-      case 'align-content':
-        return S.AlignContent(_id, parseAlign(v))
-      case 'align-items':
-        return S.AlignItems(_id, parseAlign(v))
-      case 'align-self':
-        return S.AlignSelf(_id, parseAlign(v))
-      //case 'background':
-      //  return S.Background(_id, parse(v))
-      case 'background-color':
-        return S.BackgroundColor(_id, parseColor(v))
-      //case 'border':
-      //  return S.Border(_id, parse(v))
-      //case 'border-bottom':
-      //  return S.BorderBottom(_id, parse(v))
-      //case 'border-bottom-color':
-      //  return S.BorderBottomColor(_id, parseColor(v))
-      //case 'border-bottom-left-radius':
-      //  return S.BorderBottomLeftRadius(_id, parse(v))
-      //case 'border-bottom-right-radius':
-      //  return S.BorderBottomRightRadius(_id, parse(v))
-      //case 'border-bottom-style':
-      //  return S.BorderBottomStyle(_id, parse(v))
-      //case 'border-bottom-width':
-      //  return S.BorderBottomWidth(_id, parse(v))
-      //case 'border-color':
-      //  return S.BorderColor(_id, parseColor(v))
-      //case 'border-left':
-      //  return S.BorderLeft(_id, parse(v))
-      //case 'border-left-color':
-      //  return S.BorderLeftColor(_id, parseColor(v))
-      //case 'border-left-style':
-      //  return S.BorderLeftStyle(_id, parse(v))
-      //case 'border-left-width':
-      //  return S.BorderLeftWidth(_id, parse(v))
-      //case 'border-radius':
-      //  return S.BorderRadius(_id, parse(v))
-      //case 'border-right':
-      //  return S.BorderRight(_id, parse(v))
-      //case 'border-right-color':
-      //  return S.BorderRightColor(_id, parseColor(v))
-      //case 'border-right-style':
-      //  return S.BorderRightStyle(_id, parse(v))
-      //case 'border-right-width':
-      //  return S.BorderRightWidth(_id, parse(v))
-      //case 'border-style':
-      //  return S.BorderStyle(_id, parse(v))
-      //case 'border-top':
-      //  return S.BorderTop(_id, parse(v))
-      //case 'border-top-color':
-      //  return S.BorderTopColor(_id, parseColor(v))
-      //case 'border-top-left-radius':
-      //  return S.BorderTopLeftRadius(_id, parse(v))
-      //case 'border-top-right-radius':
-      //  return S.BorderTopRightRadius(_id, parse(v))
-      //case 'border-top-style':
-      //  return S.BorderTopStyle(_id, parse(v))
-      //case 'border-top-width':
-      //  return S.BorderTopWidth(_id, parse(v))
-      //case 'border-width':
-      //  return S.BorderWidth(_id, parse(v))
-      case 'bottom':
-        return S.Bottom(_id, parseDimension(v))
-      //case 'box-shadow':
-      //  return S.BoxShadow(_id, parse(v))
-      case 'color':
-        return S.Color(_id, parseColor(v))
-      case 'display':
-        return S.Display(_id, parseDisplay(v))
-      //case 'flex':
-      //  return S.Flex(_id, parseFlex(v))
-      case 'flex-basis':
-        return S.FlexBasis(_id, parseDimension(v))
-      case 'flex-direction':
-        return S.FlexDirection(_id, parseFlexDirection(v))
-      //case 'flex-flow':
-      //  return S.FlexFlow(_id, parse(v))
-      case 'flex-grow':
-        return S.FlexGrow(_id, +v)
-      case 'flex-shrink':
-        return S.FlexShrink(_id, +v)
-      case 'flex-wrap':
-        return S.FlexWrap(_id, parseFlexWrap(v))
-      //case 'font':
-      //  return S.Font(_id, parse(v))
-      //case 'font-family':
-      //  return S.FontFamily(_id, parse(v))
-      //case 'font-size':
-      //  return S.FontSize(_id, parse(v))
-      //case 'font-style':
-      //  return S.FontStyle(_id, parse(v))
-      //case 'font-variant':
-      //  return S.FontVariant(_id, parse(v))
-      //case 'font-weight':
-      //  return S.FontWeight(_id, parse(v))
-      case 'height':
-        return S.Height(_id, parseDimension(v))
-      case 'justify-content':
-        return S.JustifyContent(_id, parseAlign(v))
-      case 'left':
-        return S.Left(_id, parseDimension(v))
-      //case 'line-height':
-      //  return S.LineHeight(_id, parse(v))
-      //case 'margin':
-      //  return S.Margin(_id, parse(v))
-      case 'margin-bottom':
-        return S.MarginBottom(_id, parseDimension(v))
-      case 'margin-left':
-        return S.MarginLeft(_id, parseDimension(v))
-      case 'margin-right':
-        return S.MarginRight(_id, parseDimension(v))
-      case 'margin-top':
-        return S.MarginTop(_id, parseDimension(v))
-      case 'max-height':
-        return S.MaxHeight(_id, parseDimension(v))
-      case 'max-width':
-        return S.MaxWidth(_id, parseDimension(v))
-      case 'min-height':
-        return S.MinHeight(_id, parseDimension(v))
-      case 'min-width':
-        return S.MinWidth(_id, parseDimension(v))
-      case 'overflow':
-        return S.Overflow(_id, parseOverflow(v))
-      //case 'padding':
-      //  return S.Padding(_id, parse(v))
-      case 'padding-bottom':
-        return S.PaddingBottom(_id, parseDimension(v))
-      case 'padding-left':
-        return S.PaddingLeft(_id, parseDimension(v))
-      case 'padding-right':
-        return S.PaddingRight(_id, parseDimension(v))
-      case 'padding-top':
-        return S.PaddingTop(_id, parseDimension(v))
-      case 'right':
-        return S.Right(_id, parseDimension(v))
-      //case 'text-align':
-      //  return S.TextAlign(_id, parseAlign(v))
-      case 'top':
-        return S.Top(_id, parseDimension(v))
-      case 'transform':
-        return S.Transform(_id, parseTransform(v))
-      case 'width':
-        return S.Width(_id, parseDimension(v))
+      case 'align-content': return S.AlignContent(_id, parseAlign(v))
+      case 'align-items': return S.AlignItems(_id, parseAlign(v))
+      case 'align-self': return S.AlignSelf(_id, parseAlign(v))
+      //case 'background': return S.Background(_id, parse(v))
+      case 'background-color': return S.BackgroundColor(_id, parseColor(v))
+      //case 'border': return S.Border(_id, parse(v))
+      //case 'border-bottom': return S.BorderBottom(_id, parse(v))
+      //case 'border-bottom-color': return S.BorderBottomColor(_id, parseColor(v))
+      case 'border-bottom-left-radius': return S.BorderBottomLeftRadius(_id, +v)
+      case 'border-bottom-right-radius': return S.BorderBottomRightRadius(_id, +v)
+      //case 'border-bottom-style': return S.BorderBottomStyle(_id, parse(v))
+      case 'border-bottom-width': return S.BorderBottomWidth(_id, parseDimension(v))
+      //case 'border-color': return S.BorderColor(_id, parseColor(v))
+      //case 'border-left': return S.BorderLeft(_id, parse(v))
+      //case 'border-left-color': return S.BorderLeftColor(_id, parseColor(v))
+      //case 'border-left-style': return S.BorderLeftStyle(_id, parse(v))
+      case 'border-left-width': return S.BorderLeftWidth(_id, parseDimension(v))
+      //case 'border-radius': return S.BorderRadius(_id, parse(v))
+      //case 'border-right': return S.BorderRight(_id, parse(v))
+      //case 'border-right-color': return S.BorderRightColor(_id, parseColor(v))
+      //case 'border-right-style': return S.BorderRightStyle(_id, parse(v))
+      case 'border-right-width': return S.BorderRightWidth(_id, parseDimension(v))
+      //case 'border-style': return S.BorderStyle(_id, parse(v))
+      //case 'border-top': return S.BorderTop(_id, parse(v))
+      //case 'border-top-color': return S.BorderTopColor(_id, parseColor(v))
+      case 'border-top-left-radius': return S.BorderTopLeftRadius(_id, +v)
+      case 'border-top-right-radius': return S.BorderTopRightRadius(_id, +v)
+      //case 'border-top-style': return S.BorderTopStyle(_id, parse(v))
+      case 'border-top-width': return S.BorderTopWidth(_id, parseDimension(v))
+      //case 'border-width': return S.BorderWidth(_id, parse(v))
+      case 'bottom': return S.Bottom(_id, parseDimension(v))
+      //case 'box-shadow': return S.BoxShadow(_id, parse(v))
+      case 'color': return S.Color(_id, parseColor(v))
+      case 'display': return S.Display(_id, parseDisplay(v))
+      //case 'flex': return S.Flex(_id, parseFlex(v))
+      case 'flex-basis': return S.FlexBasis(_id, parseDimension(v))
+      case 'flex-direction': return S.FlexDirection(_id, parseFlexDirection(v))
+      //case 'flex-flow': return S.FlexFlow(_id, parse(v))
+      case 'flex-grow': return S.FlexGrow(_id, +v)
+      case 'flex-shrink': return S.FlexShrink(_id, +v)
+      case 'flex-wrap': return S.FlexWrap(_id, parseFlexWrap(v))
+      //case 'font': return S.Font(_id, parse(v))
+      //case 'font-family': return S.FontFamily(_id, parse(v))
+      //case 'font-size': return S.FontSize(_id, parse(v))
+      //case 'font-style': return S.FontStyle(_id, parse(v))
+      //case 'font-variant': return S.FontVariant(_id, parse(v))
+      //case 'font-weight': return S.FontWeight(_id, parse(v))
+      case 'height': return S.Height(_id, parseDimension(v))
+      case 'justify-content': return S.JustifyContent(_id, parseAlign(v))
+      case 'left': return S.Left(_id, parseDimension(v))
+      //case 'line-height': return S.LineHeight(_id, parse(v))
+      //case 'margin': return S.Margin(_id, parse(v))
+      case 'margin-bottom': return S.MarginBottom(_id, parseDimension(v))
+      case 'margin-left': return S.MarginLeft(_id, parseDimension(v))
+      case 'margin-right': return S.MarginRight(_id, parseDimension(v))
+      case 'margin-top': return S.MarginTop(_id, parseDimension(v))
+      case 'max-height': return S.MaxHeight(_id, parseDimension(v))
+      case 'max-width': return S.MaxWidth(_id, parseDimension(v))
+      case 'min-height': return S.MinHeight(_id, parseDimension(v))
+      case 'min-width': return S.MinWidth(_id, parseDimension(v))
+      case 'overflow': return S.Overflow(_id, parseOverflow(v))
+      //case 'padding': return S.Padding(_id, parse(v))
+      case 'padding-bottom': return S.PaddingBottom(_id, parseDimension(v))
+      case 'padding-left': return S.PaddingLeft(_id, parseDimension(v))
+      case 'padding-right': return S.PaddingRight(_id, parseDimension(v))
+      case 'padding-top': return S.PaddingTop(_id, parseDimension(v))
+      case 'right': return S.Right(_id, parseDimension(v))
+      //case 'text-align': return S.TextAlign(_id, parseAlign(v))
+      case 'top': return S.Top(_id, parseDimension(v))
+      case 'transform': return S.Transform(_id, parseTransform(v))
+      case 'width': return S.Width(_id, parseDimension(v))
     }
 
     return [,,INVALID]

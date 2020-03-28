@@ -6,26 +6,23 @@ import { last } from '../core/utils'
 
 type INode = globalThis.Node
 
-// perf(const)
+// perf(const vs. property lookup)
 const ELEMENT_NODE = 1
 const TEXT_NODE = 3
 const COMMENT_NODE = 8
 const DOCUMENT_NODE = 9
 const DOCUMENT_FRAGMENT_NODE = 11
 
-// intentionally implements/declares some props/meths of Element, Document, ...
-// so that we can share them easily
-export class Node extends EventTarget implements INode {
-  readonly ownerDocument: Document
-  readonly nodeType: number
+// note it intentionally implements/declares some extra props/meths
+// to reduce code-duplication
+export abstract class Node extends EventTarget implements INode {
   _nativeId
 
   readonly childNodes = new NodeList<ChildNode>()
   parentNode: INode & ParentNode | null = null
 
-  constructor(ownerDocument) {
+  constructor(public readonly ownerDocument: Document, public readonly nodeType: number) {
     super()
-    this.ownerDocument = ownerDocument
   }
 
   appendChild<T extends INode>(child: T): T {
@@ -170,7 +167,7 @@ export class Node extends EventTarget implements INode {
   get nodeName(): string {
     switch (this.nodeType) {
       case ELEMENT_NODE:
-        return this['tagName'].toUpperCase()
+        return this['tagName']
       case TEXT_NODE:
         return '#text'
       case COMMENT_NODE:
@@ -304,7 +301,7 @@ export class Node extends EventTarget implements INode {
 // so common it's easier to just tell TS about it
 declare global {
   interface Node {
-    _nativeId
+    _nativeId: number
   }
 }
 

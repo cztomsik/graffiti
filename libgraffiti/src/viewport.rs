@@ -89,12 +89,11 @@ pub enum SceneChange {
     BackgroundColor { element: ElementId, value: Color },
 
     // TODO: border
-    /*
     BorderTopWidth { element: ElementId, value: f32 },
     BorderRightWidth { element: ElementId, value: f32 },
     BorderBottomWidth { element: ElementId, value: f32 },
     BorderLeftWidth { element: ElementId, value: f32 },
-
+    /*
     BorderTopStyle { element: ElementId, value: BorderStyle },
     BorderRightStyle { element: ElementId, value: BorderStyle },
     BorderBottomStyle { element: ElementId, value: BorderStyle },
@@ -205,6 +204,11 @@ impl Viewport {
                         AlignContent { element, value } => self.box_layout.set_align_content(*element, *value),
                         AlignItems { element, value } => self.box_layout.set_align_items(*element, *value),
                         JustifyContent { element, value } => self.box_layout.set_justify_content(*element, *value),
+
+                        BorderBottomWidth { element, value } => self.box_layout.set_border_bottom(*element, *value),
+                        BorderLeftWidth { element, value } => self.box_layout.set_border_left(*element, *value),
+                        BorderRightWidth { element, value } => self.box_layout.set_border_right(*element, *value),
+                        BorderTopWidth { element, value } => self.box_layout.set_border_top(*element, *value),
 
                         InsertAt { parent, child, index } => {
                             self.children[*parent].insert(*index, *child);

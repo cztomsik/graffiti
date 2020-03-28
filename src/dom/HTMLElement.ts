@@ -3,11 +3,7 @@ import { CSSStyleDeclaration } from '../styles/CSSStyleDeclaration'
 import { TODO } from '../core/utils'
 
 export class HTMLElement extends Element implements globalThis.HTMLElement {
-  style
-
-  _init() {
-    this.style = new CSSStyleDeclaration(this.ownerDocument._scene, this._nativeId)
-  }
+  style = new CSSStyleDeclaration(this)
 
   // TODO: display: none
   get offsetParent(): globalThis.Element | null {

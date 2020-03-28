@@ -1,6 +1,8 @@
 use cc::Build;
 use std::process::Command;
 
+// TODO: check it's compiled with `-mfpu=neon` or `-mfpu=neon-vfpv4` on raspi
+
 // based on:
 // - https://github.com/facebook/yoga/blob/master/BUCK
 // - https://github.com/facebook/yoga/blob/master/tools/build_defs/oss/yoga_defs.bzl

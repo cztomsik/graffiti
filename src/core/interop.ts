@@ -58,8 +58,8 @@ export module ElementChild {
     export const TAGS = {
       Element: 0,
       Text: 1,
+    }
 }
-      }
     
 export module SceneChange {
         
@@ -98,12 +98,16 @@ export module SceneChange {
     export const JustifyContent = (element,value) => [32, element,value]
     export const Color = (element,value) => [33, element,value]
     export const BackgroundColor = (element,value) => [34, element,value]
-    export const BorderTopLeftRadius = (element,value) => [35, element,value]
-    export const BorderTopRightRadius = (element,value) => [36, element,value]
-    export const BorderBottomLeftRadius = (element,value) => [37, element,value]
-    export const BorderBottomRightRadius = (element,value) => [38, element,value]
-    export const BoxShadow = (element,value) => [39, element,value]
-    export const Transform = (element,value) => [40, element,value]
+    export const BorderTopWidth = (element,value) => [35, element,value]
+    export const BorderRightWidth = (element,value) => [36, element,value]
+    export const BorderBottomWidth = (element,value) => [37, element,value]
+    export const BorderLeftWidth = (element,value) => [38, element,value]
+    export const BorderTopLeftRadius = (element,value) => [39, element,value]
+    export const BorderTopRightRadius = (element,value) => [40, element,value]
+    export const BorderBottomLeftRadius = (element,value) => [41, element,value]
+    export const BorderBottomRightRadius = (element,value) => [42, element,value]
+    export const BoxShadow = (element,value) => [43, element,value]
+    export const Transform = (element,value) => [44, element,value]
 
         
     export const TAGS = {
@@ -142,14 +146,18 @@ export module SceneChange {
       JustifyContent: 32,
       Color: 33,
       BackgroundColor: 34,
-      BorderTopLeftRadius: 35,
-      BorderTopRightRadius: 36,
-      BorderBottomLeftRadius: 37,
-      BorderBottomRightRadius: 38,
-      BoxShadow: 39,
-      Transform: 40,
+      BorderTopWidth: 35,
+      BorderRightWidth: 36,
+      BorderBottomWidth: 37,
+      BorderLeftWidth: 38,
+      BorderTopLeftRadius: 39,
+      BorderTopRightRadius: 40,
+      BorderBottomLeftRadius: 41,
+      BorderBottomRightRadius: 42,
+      BoxShadow: 43,
+      Transform: 44,
+    }
 }
-      }
     
 export module Event {
         
@@ -174,8 +182,8 @@ export module Event {
       KeyUp: 6,
       Resize: 7,
       Close: 8,
+    }
 }
-      }
     
 export module Dimension {
         
@@ -190,8 +198,8 @@ export module Dimension {
       Auto: 1,
       Px: 2,
       Percent: 3,
+    }
 }
-      }
     
 export module Transform {
         
@@ -200,8 +208,8 @@ export module Transform {
         
     export const TAGS = {
       Scale: 0,
+    }
 }
-      }
     
 export module AppMsg {
         
@@ -220,8 +228,8 @@ export module AppMsg {
       UpdateScene: 3,
       GetOffsetBounds: 4,
       DestroyWindow: 5,
+    }
 }
-      }
     
 export module AppResponse {
         
@@ -236,7 +244,7 @@ export module AppResponse {
       Ack: 1,
       Events: 2,
       Bounds: 3,
+    }
 }
-      }
     
   

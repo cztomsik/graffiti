@@ -3,16 +3,22 @@ import { Text } from './Text'
 import { camelCase } from '../core/utils'
 
 export class Element extends Node implements globalThis.Element {
-  nodeType = Node.ELEMENT_NODE
-  tagName: string
   id: string
 
   // preact needs this sometimes
   // TODO: getter with proxy?
   attributes: any = []
 
-  // to be overridden
-  _init() {}
+  constructor(doc, public readonly tagName: string) {
+    super(doc, Node.ELEMENT_NODE)
+
+    this._nativeId = doc._scene.createElement()
+    doc._els.push(this)
+  }
+
+  get localName() {
+    return this.tagName.toLowerCase()
+  }
 
   // so the events can bubble
   // @see EventTarget
@@ -119,7 +125,6 @@ export class Element extends Node implements globalThis.Element {
   insertAdjacentElement
   insertAdjacentHTML
   insertAdjacentText
-  localName
   matches
   msGetRegionContent
   namespaceURI

@@ -36,9 +36,10 @@ export class Window extends EventTarget implements globalThis.Window {
     handleWindowEvent(this.document, event)
   }
 
+  atob = str => new Buffer(str, 'base64').toString('binary')
+  btoa = str => Buffer.from(str).toString('base64')
+
   // forward globals
-  atob = atob
-  btoa = btoa
   setInterval = setInterval
   setTimeout = setTimeout
   clearInterval = clearInterval
@@ -85,8 +86,6 @@ export class Window extends EventTarget implements globalThis.Window {
   moveTo
   name
   offscreenBuffering
-  onorientationchange
-  onreadystatechange
   open
   opener
   orientation

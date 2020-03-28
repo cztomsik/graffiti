@@ -1,8 +1,14 @@
 import { Node } from './Node'
 
 export class Text extends Node implements globalThis.Text {
-  nodeType = Node.TEXT_NODE
-  _data
+  _data: string
+
+  constructor(doc, data) {
+    super(doc, Node.TEXT_NODE)
+
+    this._nativeId = doc._scene.createText()
+    this.data = data
+  }
 
   // we can't do inline layout (yet)
   // so we want to at least join adjacent text nodes

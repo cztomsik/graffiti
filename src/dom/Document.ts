@@ -3,28 +3,33 @@ import { Text } from './Text'
 import { Comment } from './Comment'
 import { DocumentFragment } from './DocumentFragment'
 
+import { Element } from './Element'
 import { HTMLElement } from './HTMLElement'
+import { HTMLHtmlElement } from './HTMLHtmlElement'
+import { HTMLHeadElement } from './HTMLHeadElement'
+import { HTMLBodyElement } from './HTMLBodyElement'
 import { HTMLDivElement } from './HTMLDivElement'
 import { HTMLSpanElement } from './HTMLSpanElement'
 import { HTMLInputElement } from './HTMLInputElement'
 import { HTMLButtonElement } from './HTMLButtonElement'
 import { HTMLUnknownElement } from './HTMLUnknownElement'
+import { HTMLAnchorElement } from './HTMLAnchorElement'
+import { SVGElement } from './SVGElement'
+import { SVGSVGElement } from './SVGSvgElement'
+import { SVGGElement } from './SVGGElement'
 
 type IDocument = globalThis.Document
 
 // too many type errs
-export class Document extends ((Node as unknown) as typeof globalThis.Document) implements IDocument {
-  nodeType = Node.DOCUMENT_NODE
-  parentNode = null
-
+export class Document extends Node implements IDocument {
   _nativeId = 0
   _scene = this.defaultView.sceneContext
-  _els: HTMLElement[] = [Object.assign(new HTMLElement(this), { tagName: 'html', _nativeId: 0 })]
+  _els: HTMLElement[] = []
 
   // title is only defined here, not on the window itself
   title = ''
 
-  documentElement = this._els[0]
+  documentElement = this.createElement('html')
   head = this.createElement('head')
   body = this.createElement('body')
 
@@ -35,74 +40,78 @@ export class Document extends ((Node as unknown) as typeof globalThis.Document) 
   _clickedElement
 
   constructor(public defaultView) {
-    super()
+    super(null, Node.DOCUMENT_NODE)
 
-    this.documentElement.parentNode = this
+    // special setup
+    this.childNodes.push(this.documentElement)
+    ;(this.documentElement as any).parentNode = this
+    this.documentElement.appendChild(this.head)
     this.documentElement.appendChild(this.body)
   }
 
+  get location() {
+    return this.defaultView.location
+  }
+
   createElement(tagName: string): HTMLElement {
-    let el
-
+    // happy-case
+    // - simple comparison of interned strings
+    // - ordered by likelihood
+    //
+    // note we are setting correct (interned) tagName here
+    // it could be in each impl but it would be one extra contructor call
     switch (tagName) {
-      case 'div':
-        el = new HTMLDivElement(this)
-        break
-
-      case 'span':
-        el = new HTMLSpanElement(this)
-        break
-
-      case 'input':
-        el = new HTMLInputElement(this)
-        break
-
-      case 'button':
-        el = new HTMLButtonElement(this)
-        break
+      case 'div': return new HTMLDivElement(this, 'DIV')
+      case 'span': return new HTMLSpanElement(this, 'SPAN')
+      case 'a': return new HTMLAnchorElement(this, 'A')
+      case 'button': return new HTMLButtonElement(this, 'BUTTON')
+      case 'input': return new HTMLInputElement(this, 'INPUT')
+      case 'head': return new HTMLHeadElement(this, 'HEAD')
+      case 'body': return new HTMLBodyElement(this, 'BODY')
+      // special-case
+      case 'html': return new HTMLHtmlElement(this, 'HTML')
 
       default:
-        el = new HTMLUnknownElement(this)
+        const lower = tagName.toLowerCase()
+
+        if (tagName === lower) {
+          return new HTMLUnknownElement(this, tagName)
+        }
+
+        return this.createElement(lower as any)
     }
+  }
 
-    ;(el as any).ownerDocument = this
-    el.tagName = tagName
-    el._nativeId = this._scene.createElement()
-    el._init()
+  createElementNS(ns: string | null, tagName: string, options?): any {
+    switch (ns) {
+      case 'http://www.w3.org/2000/svg':
+        switch (tagName) {
+          case 'svg': return new SVGSVGElement(this, 'svg')
+          case 'g': return new SVGGElement(this, 'g')
+          default: return new SVGElement(this, tagName)
+        }
 
-    this._els.push(el)
-
-    // apply default styles
-    Object.assign(el.style, defaultStyles[tagName] || {})
-
-    return el
+      default:
+        return new Element(this, tagName )
+    }
   }
 
   createTextNode(data: string): Text {
-    const t = new Text(this)
-    ;(t as any).ownerDocument = this
-    t.data = data
-    t._nativeId = this._scene.createText()
-
-    return t
+    return new Text(this, data)
   }
 
   createComment(data: string): Comment {
-    const c = new Comment(this)
-    ;(c as any).ownerDocument = this
-    c.data = data
+    const c = new Comment(this, data)
 
-    // empty text node for now (should be fine)
+    // empty text node for now
+    // (temporary hack)
     c._nativeId = this._scene.createText()
 
     return c
   }
 
   createDocumentFragment(): DocumentFragment {
-    const f: any = new DocumentFragment(this)
-    f.ownerDocument = this
-
-    return f
+    return new DocumentFragment(this)
   }
 
   getElementById(id): HTMLElement | null {
@@ -125,88 +134,84 @@ export class Document extends ((Node as unknown) as typeof globalThis.Document) 
   _getTheParent() {
     return this.defaultView
   }
-}
 
-// TODO: share with CSSStyleDeclaration
-const EM = 16
+  get forms() { return this.getElementsByTagName('form') }
+  get images() { return this.getElementsByTagName('img') }
+  get links() { return this.getElementsByTagName('link') }
+  get scripts() { return this.getElementsByTagName('script') }
 
-// mostly inspired by css reboot
-const defaultStyles = {
-  body: {
-    display: 'block',
-    width: '100%',
-    minHeight: '100%',
-  },
-
-  div: {
-    display: 'block',
-  },
-
-  h1: {
-    display: 'block',
-    fontSize: 2.5 * EM,
-    lineHeight: 1.2 * 2.5 * EM,
-    marginBottom: 0.5 * EM,
-  },
-
-  h2: {
-    display: 'block',
-    fontSize: 2 * EM,
-    lineHeight: 1.2 * 2 * EM,
-    marginBottom: 0.5 * EM,
-  },
-
-  h3: {
-    display: 'block',
-    fontSize: 1.75 * EM,
-    lineHeight: 1.2 * 1.75 * EM,
-    marginBottom: 0.5 * EM,
-  },
-
-  h4: {
-    display: 'block',
-    fontSize: 1.5 * EM,
-    lineHeight: 1.2 * 1.5 * EM,
-    marginBottom: 0.5 * EM,
-  },
-
-  h5: {
-    display: 'block',
-    fontSize: 1.25 * EM,
-    lineHeight: 1.2 * 1.25 * EM,
-    marginBottom: 0.5 * EM,
-  },
-
-  h6: {
-    display: 'block',
-    fontSize: 1 * EM,
-    lineHeight: 1.2 * EM,
-    marginBottom: 0.5 * EM,
-  },
-
-  button: {
-    backgroundColor: '#2196F3',
-    paddingLeft: 10,
-    paddingRight: 10,
-    borderRadius: 2,
-    fontSize: 14,
-    lineHeight: 32,
-    color: '#ffffff',
-    textAlign: 'center',
-    justifyContent: 'space-around',
-  },
-
-  a: {
-    color: '#4338ad',
-  },
-
-  p: {
-    marginBottom: 1 * EM,
-  },
-
-  input: {
-    lineHeight: 1 * EM,
-    padding: 0.5 * EM,
-    minHeight: 2 * EM,
-  },
+  // later
+  adoptNode
+  alinkColor
+  all
+  anchors
+  applets
+  bgColor
+  captureEvents
+  caretPositionFromPoint
+  caretRangeFromPoint
+  characterSet
+  charset
+  clear
+  close
+  compatMode
+  contentType
+  cookie
+  createAttribute
+  createAttributeNS
+  createCDATASection
+  createEvent
+  createExpression
+  createNodeIterator
+  createNSResolver
+  createProcessingInstruction
+  createRange
+  createTreeWalker
+  currentScript
+  designMode
+  dir
+  doctype
+  documentURI
+  domain
+  elementFromPoint
+  elementsFromPoint
+  embeds
+  evaluate
+  execCommand
+  exitFullscreen
+  exitPointerLock
+  fgColor
+  fullscreen
+  fullscreenElement
+  fullscreenEnabled
+  getAnimations
+  getElementsByName
+  getSelection
+  hasFocus
+  hidden
+  implementation
+  importNode
+  inputEncoding
+  lastModified
+  linkColor
+  open
+  origin
+  plugins
+  pointerLockElement
+  queryCommandEnabled
+  queryCommandIndeterm
+  queryCommandState
+  queryCommandSupported
+  queryCommandValue
+  readyState
+  referrer
+  releaseEvents
+  scrollingElement
+  styleSheets
+  timeline
+  URL
+  visibilityState
+  vlinkColor
+  write
+  writeln
 }

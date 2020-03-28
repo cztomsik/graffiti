@@ -67,13 +67,20 @@ export class EventTarget implements globalThis.EventTarget {
   // - we only define getter, setter is not supported and will throw
   // - preact needs this for some golfing: name = (nameLower in dom ? nameLower : name).slice(2);
   //   https://github.com/preactjs/preact/blob/013dc382cf7239422e834e74a6ab0b592c5a9c43/src/diff/props.js#L80
+  //
+  // note we define everything here so it's at one place and not spread across various el impls
+  //
+  // TODO: unsupported events should only be declared
 
   get onabort() { return null }
+  get onafterprint() { return null }
   get onanimationcancel() { return null }
   get onanimationend() { return null }
   get onanimationiteration() { return null }
   get onanimationstart() { return null }
   get onauxclick() { return null }
+  get onbeforeprint() { return null }
+  get onbeforeunload() { return null }
   get onblur() { return null }
   get oncancel() { return null }
   get oncanplay() { return null }
@@ -81,11 +88,16 @@ export class EventTarget implements globalThis.EventTarget {
   get onchange() { return null }
   get onclick() { return null }
   get onclose() { return null }
+  get oncompassneedscalibration() { return null }
   get oncontextmenu() { return null }
   get oncopy() { return null }
   get oncuechange() { return null }
   get oncut() { return null }
   get ondblclick() { return null }
+  get ondevicelight() { return null }
+  get ondevicemotion() { return null }
+  get ondeviceorientation() { return null }
+  get ondeviceorientationabsolute() { return null }
   get ondrag() { return null }
   get ondragend() { return null }
   get ondragenter() { return null }
@@ -102,16 +114,20 @@ export class EventTarget implements globalThis.EventTarget {
   get onfullscreenchange() { return null }
   get onfullscreenerror() { return null }
   get ongotpointercapture() { return null }
+  get onhashchange() { return null }
   get oninput() { return null }
   get oninvalid() { return null }
   get onkeydown() { return null }
   get onkeypress() { return null }
   get onkeyup() { return null }
+  get onlanguagechange() { return null }
   get onload() { return null }
   get onloadeddata() { return null }
   get onloadedmetadata() { return null }
   get onloadstart() { return null }
   get onlostpointercapture() { return null }
+  get onmessage() { return null }
+  get onmessageerror() { return null }
   get onmousedown() { return null }
   get onmouseenter() { return null }
   get onmouseleave() { return null }
@@ -120,6 +136,11 @@ export class EventTarget implements globalThis.EventTarget {
   get onmouseover() { return null }
   get onmouseup() { return null }
   get onmousewheel() { return null }
+  get onoffline() { return null }
+  get ononline() { return null }
+  get onorientationchange() { return null }
+  get onpagehide() { return null }
+  get onpageshow() { return null }
   get onpaste() { return null }
   get onpause() { return null }
   get onplay() { return null }
@@ -128,12 +149,17 @@ export class EventTarget implements globalThis.EventTarget {
   get onpointerdown() { return null }
   get onpointerenter() { return null }
   get onpointerleave() { return null }
+  get onpointerlockchange() { return null }
+  get onpointerlockerror() { return null }
   get onpointermove() { return null }
   get onpointerout() { return null }
   get onpointerover() { return null }
   get onpointerup() { return null }
+  get onpopstate() { return null }
   get onprogress() { return null }
   get onratechange() { return null }
+  get onreadystatechange() { return null }
+  get onrejectionhandled() { return null }
   get onreset() { return null }
   get onresize() { return null }
   get onscroll() { return null }
@@ -144,6 +170,7 @@ export class EventTarget implements globalThis.EventTarget {
   get onselectionchange() { return null }
   get onselectstart() { return null }
   get onstalled() { return null }
+  get onstorage() { return null }
   get onsubmit() { return null }
   get onsuspend() { return null }
   get ontimeupdate() { return null }
@@ -156,36 +183,10 @@ export class EventTarget implements globalThis.EventTarget {
   get ontransitionend() { return null }
   get ontransitionrun() { return null }
   get ontransitionstart() { return null }
-  get onvolumechange() { return null }
-  get onwaiting() { return null }
-  get onwheel() { return null }
-
-  // special case for react-dom
-  // which tries to set noop to onclick to avoid some safari bug
-  set onclick(cb) {}
-
-  // window events
-  get onafterprint() { return null }
-  get onbeforeprint() { return null }
-  get onbeforeunload() { return null }
-  get oncompassneedscalibration() { return null }
-  get ondevicelight() { return null }
-  get ondevicemotion() { return null }
-  get ondeviceorientation() { return null }
-  get ondeviceorientationabsolute() { return null }
-  get onhashchange() { return null }
-  get onlanguagechange() { return null }
-  get onmessage() { return null }
-  get onmessageerror() { return null }
-  get onoffline() { return null }
-  get ononline() { return null }
-  get onpagehide() { return null }
-  get onpageshow() { return null }
-  get onpopstate() { return null }
-  get onrejectionhandled() { return null }
-  get onstorage() { return null }
   get onunhandledrejection() { return null }
   get onunload() { return null }
+  get onvisibilitychange() { return null }
+  get onvolumechange() { return null }
   get onvrdisplayactivate() { return null }
   get onvrdisplayblur() { return null }
   get onvrdisplayconnect() { return null }
@@ -195,6 +196,13 @@ export class EventTarget implements globalThis.EventTarget {
   get onvrdisplaypointerrestricted() { return null }
   get onvrdisplaypointerunrestricted() { return null }
   get onvrdisplaypresentchange() { return null }
+  get onwaiting() { return null }
+  get onwheel() { return null }
+  get onzoom() { return null }
+
+  // special-case for react-dom
+  // which tries to set noop to onclick to avoid some safari bug
+  set onclick(cb) {}
 
   // ignore vendor
   onmsgesturechange
@@ -215,5 +223,4 @@ export class EventTarget implements globalThis.EventTarget {
 
   // WTF
   [index: number]: Window
-
 }

@@ -52,12 +52,16 @@ interop! {
     32 JustifyContent { element, value },
     33 Color { element, value },
     34 BackgroundColor { element, value },
-    35 BorderTopLeftRadius { element, value },
-    36 BorderTopRightRadius { element, value },
-    37 BorderBottomLeftRadius { element, value },
-    38 BorderBottomRightRadius { element, value },
-    39 BoxShadow { element, value },
-    40 Transform { element, value } 
+    35 BorderTopWidth { element, value },
+    36 BorderRightWidth { element, value },
+    37 BorderBottomWidth { element, value },
+    38 BorderLeftWidth { element, value },
+    39 BorderTopLeftRadius { element, value },
+    40 BorderTopRightRadius { element, value },
+    41 BorderBottomLeftRadius { element, value },
+    42 BorderBottomRightRadius { element, value },
+    43 BoxShadow { element, value },
+    44 Transform { element, value } 
   }
   Event { 
     0 MouseMove { target },
