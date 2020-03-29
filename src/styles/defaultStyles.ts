@@ -80,4 +80,33 @@ export const defaultStyles = {
     padding: 0.5 * EM,
     minHeight: 2 * EM,
   },
+
+  TABLE: {
+    display: 'flex',
+    flexDirection: 'column'
+  },
+
+  THEAD: {
+    display: 'flex',
+    flexDirection: 'column'
+  },
+
+  TBODY: {
+    display: 'flex',
+    flexDirection: 'column'
+  },
+
+  TR: {
+    display: 'flex',
+    width: '100%'
+  },
+
+  TH: {
+    flex: 1,
+    color: '#666'
+  },
+
+  TD: {
+    flex: 1
+  }
 }

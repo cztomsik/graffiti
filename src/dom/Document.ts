@@ -17,6 +17,11 @@ import { HTMLAnchorElement } from './HTMLAnchorElement'
 import { SVGElement } from './SVGElement'
 import { SVGSVGElement } from './SVGSvgElement'
 import { SVGGElement } from './SVGGElement'
+import { HTMLTableSectionElement } from './HTMLTableSectionElement'
+import { HTMLTableElement } from './HTMLTableElement'
+import { HTMLTableCellElement } from './HTMLTableCellElement'
+import { HTMLTableHeaderCellElement } from './HTMLTableHeaderCellElement'
+import { HTMLTableRowElement } from './HTMLTableRowElement'
 
 type IDocument = globalThis.Document
 
@@ -66,6 +71,12 @@ export class Document extends Node implements IDocument {
       case 'a': return new HTMLAnchorElement(this, 'A')
       case 'button': return new HTMLButtonElement(this, 'BUTTON')
       case 'input': return new HTMLInputElement(this, 'INPUT')
+      case 'table': return new HTMLTableElement(this, 'TABLE')
+      case 'thead': return new HTMLTableSectionElement(this, 'THEAD')
+      case 'tbody': return new HTMLTableSectionElement(this, 'TBODY')
+      case 'tr': return new HTMLTableRowElement(this, 'TR')
+      case 'td': return new HTMLTableCellElement(this, 'TD')
+      case 'th': return new HTMLTableHeaderCellElement(this, 'TH')
       case 'head': return new HTMLHeadElement(this, 'HEAD')
       case 'body': return new HTMLBodyElement(this, 'BODY')
       // special-case

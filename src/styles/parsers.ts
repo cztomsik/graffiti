@@ -5,8 +5,9 @@ import { Align, Display, Overflow, TextAlign, FlexDirection, FlexWrap, Dimension
 // should be very fast and without need for heap lookup
 // also, for bare enums this will be monomorphic
 export const INVALID = -1
+type Invalid = typeof INVALID
 
-export function parseDisplay(value: string): Display | typeof INVALID {
+export function parseDisplay(value: string): Display | Invalid {
   switch (value) {
     case 'none': return Display.None
     case 'block': return Display.Block
@@ -16,7 +17,7 @@ export function parseDisplay(value: string): Display | typeof INVALID {
   return INVALID
 }
 
-export function parseOverflow(value: string): Overflow | typeof INVALID {
+export function parseOverflow(value: string): Overflow | Invalid {
   switch (value) {
     case 'hidden': return Overflow.Hidden
     case 'scroll': return Overflow.Scroll
@@ -26,7 +27,7 @@ export function parseOverflow(value: string): Overflow | typeof INVALID {
   return INVALID
 }
 
-export function parseFlexWrap(value: string): FlexWrap | typeof INVALID {
+export function parseFlexWrap(value: string): FlexWrap | Invalid {
   switch (value) {
     case 'wrap': return FlexWrap.Wrap
     case 'wrap-reverse': return FlexWrap.WrapReverse
@@ -36,7 +37,7 @@ export function parseFlexWrap(value: string): FlexWrap | typeof INVALID {
   return INVALID
 }
 
-export function parseFlexDirection(value: string): FlexDirection | typeof INVALID {
+export function parseFlexDirection(value: string): FlexDirection | Invalid {
   switch (value) {
     case 'column': return FlexDirection.Column
     case 'row': return FlexDirection.Row
@@ -47,7 +48,7 @@ export function parseFlexDirection(value: string): FlexDirection | typeof INVALI
   return INVALID
 }
 
-export function parseAlign(value: string): Align | typeof INVALID {
+export function parseAlign(value: string): Align | Invalid {
   switch (value) {
     case 'center': return Align.Center
     case 'auto': return Align.Auto

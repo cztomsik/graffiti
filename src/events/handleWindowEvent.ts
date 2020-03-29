@@ -44,7 +44,8 @@ export function handleWindowEvent(document: Document, event) {
     case SceneEvent.TAGS.MouseUp: {
       target._fire('mouseup')
 
-      // TODO: only els with tabindex should be focusable
+      // TODO: only els with .tabIndex: number should be focusable
+      // https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/tabindex
 
       // clicked & released at the same element
       if (target === document._clickedElement) {
