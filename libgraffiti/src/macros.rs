@@ -28,7 +28,7 @@ macro_rules! error {
 macro_rules! c_str {
     ($str:expr) => {
         std::ffi::CString::new($str).expect("invalid CString").as_ptr()
-    }
+    };
 }
 
 // dylib loading

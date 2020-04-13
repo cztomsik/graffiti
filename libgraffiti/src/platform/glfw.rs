@@ -1,10 +1,10 @@
-#![allow(non_snake_case, unused)] 
+#![allow(non_snake_case, unused)]
 
+use crate::app::WindowEvent;
 use crate::commons::{Au, Pos};
-use crate::app::{WindowEvent};
-use crate::platform::{NativeWindow, dylib_file};
+use crate::platform::{dylib_file, NativeWindow};
+use std::os::raw::{c_char, c_double, c_int, c_uint, c_void};
 use std::ptr;
-use std::os::raw::{c_int, c_uint, c_double, c_void, c_char};
 
 pub unsafe fn init() {
     silly!("loading glfw");
@@ -17,7 +17,8 @@ pub unsafe fn init() {
     silly!("setting err callback");
     glfwSetErrorCallback(handle_glfw_error);
 
-    #[cfg(target_os="macos")] {
+    #[cfg(target_os = "macos")]
+    {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
@@ -98,22 +99,28 @@ unsafe extern "C" fn handle_glfw_scroll(_w: *mut GlfwWindow, _: c_double, _: c_d
 }
 
 unsafe extern "C" fn handle_glfw_mouse_button(w: *mut GlfwWindow, _button: c_int, action: c_int, _mods: c_int) {
-    window_event!(w, match action {
-        GLFW_PRESS => w.mouse_down(),
-        GLFW_RELEASE => w.mouse_up(),
-        _ => unreachable!("press/release expected"),
-    })
+    window_event!(
+        w,
+        match action {
+            GLFW_PRESS => w.mouse_down(),
+            GLFW_RELEASE => w.mouse_up(),
+            _ => unreachable!("press/release expected"),
+        }
+    )
 }
 
 unsafe extern "C" fn handle_glfw_key(w: *mut GlfwWindow, key: c_int, _scancode: c_int, action: c_int, _mods: c_int) {
     let key_code = get_key_code(key);
 
-    window_event!(w, match action {
-        // TODO: repeat works for some keys but for some it doesn't
-        // not sure if it's specific for mac (special chars overlay)
-        GLFW_RELEASE => w.key_up(key_code),
-        _ => w.key_down(key_code),
-    })
+    window_event!(
+        w,
+        match action {
+            // TODO: repeat works for some keys but for some it doesn't
+            // not sure if it's specific for mac (special chars overlay)
+            GLFW_RELEASE => w.key_up(key_code),
+            _ => w.key_down(key_code),
+        }
+    )
 }
 
 unsafe extern "C" fn handle_glfw_char(w: *mut GlfwWindow, char: c_uint) {
@@ -127,7 +134,7 @@ unsafe extern "C" fn handle_glfw_window_size(w: *mut GlfwWindow, width: c_int, h
 
 unsafe extern "C" fn handle_glfw_framebuffer_size(_w: *mut GlfwWindow, width: c_int, height: c_int) {
     // TODO unpub
-    crate::render::gl::set_curr_fb_size(width, height);
+    crate::render::backend::gl::set_curr_fb_size(width, height);
 }
 
 unsafe extern "C" fn handle_glfw_window_close(w: *mut GlfwWindow) {
@@ -139,8 +146,8 @@ unsafe extern "C" fn handle_glfw_window_close(w: *mut GlfwWindow) {
 fn get_key_code(key: c_int) -> u16 {
     (match key {
         // some codes are the same
-        32 | 48 ..= 57 | 65 ..= 90 => key,
-        91 ..= 93 => key + 128,
+        32 | 48..=57 | 65..=90 => key,
+        91..=93 => key + 128,
 
         44 => 188,
         45 => 187,
@@ -161,7 +168,7 @@ fn get_key_code(key: c_int) -> u16 {
         //   PAGE_UP, PAGE_DOWN, HOME, END, CAPS_LOCK, SCROLL_LOCK, NUM_LOCK
         //   PRINT_SCREEN, PAUSE, F1-F25, KP0-KP9, KP_*
         //   LEFT/RIGHT_SHIFT/CONTROL/ALT
-        _ => 0
+        _ => 0,
     }) as u16
 }
 

@@ -1,10 +1,13 @@
-use crate::commons::{ElementId, TextId, ElementChild, Pos, Bounds};
-use super::{BoxLayoutTree, Display, Dimension, Align, FlexDirection, FlexWrap, Overflow};
+// TODO: generic MeasureKey
+// (should be possible, at least we can save pointer in the context
+//  and the closure (dyn Fn) is generic so it should know the size of the key)
+
+use super::{Align, BoxLayoutTree, Dimension, Display, FlexDirection, FlexWrap, Overflow};
+use crate::commons::{Bounds, Pos};
 use graffiti_yoga::*;
 
 pub struct YogaLayoutTree {
-    element_yoga_nodes: Vec<YGNodeRef>,
-    text_yoga_nodes: Vec<YGNodeRef>,
+    yoga_nodes: Vec<YGNodeRef>,
 }
 
 // should be safe (no thread-locals, etc.)
@@ -12,113 +15,78 @@ unsafe impl std::marker::Send for YogaLayoutTree {}
 
 impl YogaLayoutTree {
     pub fn new() -> Self {
-        YogaLayoutTree {
-            element_yoga_nodes: Vec::new(),
-            text_yoga_nodes: Vec::new(),
-        }
+        YogaLayoutTree { yoga_nodes: Vec::new() }
     }
 }
 
-// generate setters
-// unfortunately, macros can't prefix idents
+// call various YG* functions depending on the dimension type
 // $set_auto is optional
-macro_rules! dim_setter {
-    ($meth:ident $set:ident $set_perc:ident $($set_auto:ident)*) => (
+macro_rules! set_dim {
+    ($node:ident $value:ident $set:ident $set_perc:ident $($set_auto:ident)*) => (
         #[allow(unreachable_patterns)]
-        fn $meth(&mut self, element: ElementId, v: Dimension) {
-            let node = self.element_yoga_nodes[element];
-
-            unsafe {
-                match v {
-                    Dimension::Px { value } => $set(node, value),
-                    Dimension::Percent { value } => $set_perc(node, value),
-                    $(Dimension::Auto => $set_auto(node),)*
-                    Dimension::Undefined => $set(node, YGUndefined),
-                    _ => {
-                        error!("unexpected {:?} {:?}", stringify!($meth), &v);
-                    }
-                }
+        match $value {
+            Dimension::Px(v) => $set($node, v),
+            Dimension::Percent(v) => $set_perc($node, v),
+            $(Dimension::Auto => $set_auto($node),)*
+            Dimension::Undefined => $set($node, YGUndefined),
+            _ => {
+                error!("unexpected {:?} {:?}", stringify!($meth), &$value);
             }
         }
     )
 }
 
-// DRY later
-// but edge is both a prefix & suffix which might be challenge
-macro_rules! dim_edge_setter {
-    ($meth:ident $edge:ident $set:ident $set_perc:ident $($set_auto:ident)*) => (
+// similar for edge props
+macro_rules! set_dim_edge {
+    ($node:ident $value:ident $edge:ident $set:ident $set_perc:ident $($set_auto:ident)*) => (
         #[allow(unreachable_patterns)]
-        fn $meth(&mut self, element: ElementId, v: Dimension) {
-            let node = self.element_yoga_nodes[element];
-
-            unsafe {
-                match v {
-                    Dimension::Px { value } => $set(node, YGEdge::$edge, value),
-                    Dimension::Percent { value } => $set_perc(node, YGEdge::$edge, value),
-                    $(Dimension::Auto => $set_auto(node, YGEdge::$edge),)*
-                    Dimension::Undefined => $set(node, YGEdge::$edge, YGUndefined),
-                    _ => {
-                        error!("unexpected {:?} {:?}", stringify!($meth), &v);
-                    }
-                }
+        match $value {
+            Dimension::Px(v) => $set($node, YGEdge::$edge, v),
+            Dimension::Percent(v) => $set_perc($node, YGEdge::$edge, v),
+            $(Dimension::Auto => $set_auto($node, YGEdge::$edge),)*
+            Dimension::Undefined => $set($node, YGEdge::$edge, YGUndefined),
+            _ => {
+                error!("unexpected {:?} {:?}", stringify!($meth), &$value);
             }
         }
     )
 }
 
 impl BoxLayoutTree for YogaLayoutTree {
-    fn realloc(&mut self, elements_count: ElementId, texts_count: TextId) {
-        let new_element_ids = self.element_yoga_nodes.len()..elements_count;
-        let new_text_ids = self.text_yoga_nodes.len()..texts_count;
+    type LayoutNodeId = YGNodeRef;
+    type MeasureKey = usize;
 
-        self.element_yoga_nodes.resize_with(elements_count, || unsafe { YGNodeNew() });
-        self.text_yoga_nodes.resize_with(texts_count, || unsafe { YGNodeNew() });
+    fn create_node(&mut self, measure_key: Option<Self::MeasureKey>) -> YGNodeRef {
+        let node = unsafe { YGNodeNew() };
 
-        for id in new_element_ids {
-            // TODO: in the browser, default display is "inline", we dont support that
-            // but this is wrong too (flex)
+        self.yoga_nodes.push(node);
 
-            // set web defaults
-            self.set_flex_direction(id, FlexDirection::Row);
-            self.set_flex_basis(id, Dimension::Auto);
-            self.set_flex_shrink(id, 1.);
-        }
+        // set web defaults
+        // TODO: default display should be "inline", we dont support that but flex is wrong too
+        self.set_flex_direction(node, FlexDirection::Row);
+        self.set_flex_basis(node, Dimension::Auto);
+        self.set_flex_shrink(node, 1.);
 
-        for id in new_text_ids {
+        if let Some(k) = measure_key {
             unsafe {
-                let node = self.text_yoga_nodes[id];
-
                 YGNodeSetMeasureFunc(node, Some(measure_text_node));
                 YGNodeMarkDirty(node);
-                YGNodeSetContext(node, std::boxed::Box::<TextId>::leak(Box::new(id)) as *mut usize as *mut std::ffi::c_void);
+                YGNodeSetContext(node, std::boxed::Box::<Self::MeasureKey>::leak(Box::new(k)) as *mut usize as *mut std::ffi::c_void);
             }
         }
+
+        node
     }
 
-    fn insert_at(&mut self, parent: ElementId, child: ElementChild, index: usize) {
-        let parent = self.element_yoga_nodes[parent];
-        let index = index as u32;
-
-        unsafe {
-            match child {
-                ElementChild::Element { id } => YGNodeInsertChild(parent, self.element_yoga_nodes[id], index),
-                ElementChild::Text { id } => YGNodeInsertChild(parent, self.text_yoga_nodes[id], index),
-            }
-        }
+    fn insert_child(&mut self, parent: YGNodeRef, index: usize, child: YGNodeRef) {
+        unsafe { YGNodeInsertChild(parent, child, index as u32) }
     }
 
-    fn remove_child(&mut self, parent: ElementId, child: ElementChild) {
-        let parent = self.element_yoga_nodes[parent];
-
-        unsafe {
-            match child {
-                ElementChild::Element { id } => YGNodeRemoveChild(parent, self.element_yoga_nodes[id]),
-                ElementChild::Text { id } => YGNodeRemoveChild(parent, self.text_yoga_nodes[id]),
-            }
-        }
+    fn remove_child(&mut self, parent: YGNodeRef, child: YGNodeRef) {
+        unsafe { YGNodeRemoveChild(parent, child) }
     }
 
-    fn calculate(&mut self, element: ElementId, (width, _height): (f32, f32), measure_fn: &mut dyn FnMut(TextId, f32) -> (f32, f32)) {
+    fn calculate(&mut self, node: YGNodeRef, size: (f32, f32), measure_fn: &mut dyn FnMut(Self::MeasureKey, f32) -> (f32, f32)) {
         unsafe {
             if MEASURE_REF.is_some() {
                 panic!("layout not thread-safe");
@@ -126,25 +94,28 @@ impl BoxLayoutTree for YogaLayoutTree {
 
             MEASURE_REF = Some(std::mem::transmute(measure_fn));
 
-            // height is ignored (yoga treats it as maxHeight which is not what we want)
+            // height is ignored (yoga would use it as maxHeight which is not what we want)
             // @see resize() in viewport.rs
-            YGNodeCalculateLayout(self.element_yoga_nodes[element], width, YGUndefined, YGDirection::LTR);
+            YGNodeCalculateLayout(node, size.0, YGUndefined, YGDirection::LTR);
 
             MEASURE_REF = None;
         }
     }
 
     #[inline(always)]
-    fn get_element_bounds(&self, element: ElementId) -> Bounds {
-        get_yoga_bounds(self.element_yoga_nodes[element])
+    fn get_bounds(&self, node: YGNodeRef) -> Bounds {
+        unsafe {
+            let left = YGNodeLayoutGetLeft(node);
+            let top = YGNodeLayoutGetTop(node);
+
+            let a = Pos::new(left, top);
+            let b = Pos::new(left + YGNodeLayoutGetWidth(node), top + YGNodeLayoutGetHeight(node));
+
+            Bounds { a, b }
+        }
     }
 
-    #[inline(always)]
-    fn get_text_bounds(&self, text: TextId) -> Bounds {
-        get_yoga_bounds(self.text_yoga_nodes[text])
-    }
-
-    fn set_display(&mut self, element: ElementId, v: Display) {
+    fn set_display(&mut self, node: YGNodeRef, v: Display) {
         // TODO: this is in-complete
         //     display: block works like override but it should keep previously set value
         //     (if it's different from default one)
@@ -157,116 +128,149 @@ impl BoxLayoutTree for YogaLayoutTree {
                 // take whole row and push rest to the side
                 // (but that align-items: stretch should be enough in most cases)
                 //self.set_width(element, Dimension::Percent { value: 100. });
-                self.set_flex_direction(element, FlexDirection::Column);
-                self.set_align_items(element, Align::Stretch);
-            },
+                self.set_flex_direction(node, FlexDirection::Column);
+                self.set_align_items(node, Align::Stretch);
+            }
             Display::Flex => {
-                self.set_flex_direction(element, FlexDirection::Row);
-            },
+                self.set_flex_direction(node, FlexDirection::Row);
+            }
         }
     }
 
-    fn set_overflow(&mut self, element: ElementId, v: Overflow) {
-        unsafe {
-            YGNodeStyleSetOverflow(self.element_yoga_nodes[element], match v {
-                Overflow::Visible => YGOverflow::Visible,
-                Overflow::Hidden => YGOverflow::Hidden,
-                Overflow::Scroll => YGOverflow::Scroll,
-            })
-        }
+    fn set_overflow(&mut self, node: YGNodeRef, v: Overflow) {
+        unsafe { YGNodeStyleSetOverflow(node, v.into()) }
     }
 
-    dim_setter!(set_width YGNodeStyleSetWidth YGNodeStyleSetWidthPercent YGNodeStyleSetWidthAuto);
-    dim_setter!(set_height YGNodeStyleSetHeight YGNodeStyleSetHeightPercent YGNodeStyleSetHeightAuto);
-    dim_setter!(set_min_width YGNodeStyleSetMinWidth YGNodeStyleSetWidthPercent);
-    dim_setter!(set_min_height YGNodeStyleSetMinHeight YGNodeStyleSetHeightPercent);
-    dim_setter!(set_max_width YGNodeStyleSetMaxWidth YGNodeStyleSetMaxWidthPercent);
-    dim_setter!(set_max_height YGNodeStyleSetMaxHeight YGNodeStyleSetMaxHeightPercent);
-
-    dim_edge_setter!(set_top Top YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-    dim_edge_setter!(set_right Right YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-    dim_edge_setter!(set_bottom Bottom YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-    dim_edge_setter!(set_left Left YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-
-    dim_edge_setter!(set_margin_top Top YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-    dim_edge_setter!(set_margin_right Right YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-    dim_edge_setter!(set_margin_bottom Bottom YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-    dim_edge_setter!(set_margin_left Left YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-
-    dim_edge_setter!(set_padding_top Top YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-    dim_edge_setter!(set_padding_right Right YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-    dim_edge_setter!(set_padding_bottom Bottom YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-    dim_edge_setter!(set_padding_left Left YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-
-    fn set_border_top(&mut self, element: ElementId, v: f32) {
-        unsafe { YGNodeStyleSetBorder(self.element_yoga_nodes[element], YGEdge::Top, v) }
+    fn set_width(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim!(node v YGNodeStyleSetWidth YGNodeStyleSetWidthPercent YGNodeStyleSetWidthAuto) }
     }
 
-    fn set_border_right(&mut self, element: ElementId, v: f32) {
-        unsafe { YGNodeStyleSetBorder(self.element_yoga_nodes[element], YGEdge::Right, v) }
+    fn set_height(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim!(node v YGNodeStyleSetHeight YGNodeStyleSetHeightPercent YGNodeStyleSetHeightAuto) }
     }
 
-    fn set_border_bottom(&mut self, element: ElementId, v: f32) {
-        unsafe { YGNodeStyleSetBorder(self.element_yoga_nodes[element], YGEdge::Bottom, v) }
+    fn set_min_width(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim!(node v YGNodeStyleSetMinWidth YGNodeStyleSetWidthPercent) }
     }
 
-    fn set_border_left(&mut self, element: ElementId, v: f32) {
-        unsafe { YGNodeStyleSetBorder(self.element_yoga_nodes[element], YGEdge::Left, v) }
+    fn set_min_height(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim!(node v YGNodeStyleSetMinHeight YGNodeStyleSetHeightPercent) }
     }
 
-    fn set_flex_grow(&mut self, element: ElementId, v: f32) {
-        unsafe { YGNodeStyleSetFlexGrow(self.element_yoga_nodes[element], v) }
+    fn set_max_width(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim!(node v YGNodeStyleSetMaxWidth YGNodeStyleSetMaxWidthPercent) }
     }
 
-    fn set_flex_shrink(&mut self, element: ElementId, v: f32) {
-        unsafe { YGNodeStyleSetFlexShrink(self.element_yoga_nodes[element], v) }
+    fn set_max_height(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim!(node v YGNodeStyleSetMaxHeight YGNodeStyleSetMaxHeightPercent) }
     }
 
-    dim_setter!(set_flex_basis YGNodeStyleSetFlexBasis YGNodeStyleSetFlexBasisPercent YGNodeStyleSetFlexBasisAuto);
-
-    fn set_flex_direction(&mut self, element: ElementId, v: FlexDirection) {
-        unsafe { YGNodeStyleSetFlexDirection(self.element_yoga_nodes[element], v.into()) }
+    fn set_top(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Top YGNodeStyleSetPosition YGNodeStyleSetPositionPercent) }
     }
 
-    fn set_flex_wrap(&mut self, element: ElementId, v: FlexWrap) {
-        unsafe { YGNodeStyleSetFlexWrap(self.element_yoga_nodes[element], v.into()) }
+    fn set_right(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Right YGNodeStyleSetPosition YGNodeStyleSetPositionPercent) }
     }
 
-    fn set_align_self(&mut self, element: ElementId, v: Align) {
-        unsafe { YGNodeStyleSetAlignSelf(self.element_yoga_nodes[element], v.into()) }
+    fn set_bottom(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Bottom YGNodeStyleSetPosition YGNodeStyleSetPositionPercent) }
     }
 
-    fn set_align_content(&mut self, element: ElementId, v: Align) {
-        unsafe { YGNodeStyleSetAlignContent(self.element_yoga_nodes[element], v.into()) }
+    fn set_left(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Left YGNodeStyleSetPosition YGNodeStyleSetPositionPercent) }
     }
 
-    fn set_align_items(&mut self, element: ElementId, v: Align) {
-        unsafe { YGNodeStyleSetAlignItems(self.element_yoga_nodes[element], v.into()) }
+    fn set_margin_top(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Top YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto) }
     }
 
-    fn set_justify_content(&mut self, element: ElementId, v: Align) {
-        unsafe { YGNodeStyleSetJustifyContent(self.element_yoga_nodes[element], v.into()) }
+    fn set_margin_right(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Right YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto) }
     }
 
-    fn mark_text_dirty(&mut self, text: TextId) {
-        unsafe { YGNodeMarkDirty(self.text_yoga_nodes[text]) }
+    fn set_margin_bottom(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Bottom YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto) }
+    }
+
+    fn set_margin_left(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Left YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto) }
+    }
+
+    fn set_padding_top(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Top YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent) }
+    }
+
+    fn set_padding_right(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Right YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent) }
+    }
+
+    fn set_padding_bottom(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Bottom YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent) }
+    }
+
+    fn set_padding_left(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim_edge!(node v Left YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent) }
+    }
+
+    fn set_border_top(&mut self, node: YGNodeRef, v: f32) {
+        unsafe { YGNodeStyleSetBorder(node, YGEdge::Top, v) }
+    }
+
+    fn set_border_right(&mut self, node: YGNodeRef, v: f32) {
+        unsafe { YGNodeStyleSetBorder(node, YGEdge::Right, v) }
+    }
+
+    fn set_border_bottom(&mut self, node: YGNodeRef, v: f32) {
+        unsafe { YGNodeStyleSetBorder(node, YGEdge::Bottom, v) }
+    }
+
+    fn set_border_left(&mut self, node: YGNodeRef, v: f32) {
+        unsafe { YGNodeStyleSetBorder(node, YGEdge::Left, v) }
+    }
+
+    fn set_flex_grow(&mut self, node: YGNodeRef, v: f32) {
+        unsafe { YGNodeStyleSetFlexGrow(node, v) }
+    }
+
+    fn set_flex_shrink(&mut self, node: YGNodeRef, v: f32) {
+        unsafe { YGNodeStyleSetFlexShrink(node, v) }
+    }
+
+    fn set_flex_basis(&mut self, node: YGNodeRef, v: Dimension) {
+        unsafe { set_dim!(node v YGNodeStyleSetFlexBasis YGNodeStyleSetFlexBasisPercent YGNodeStyleSetFlexBasisAuto) }
+    }
+
+    fn set_flex_direction(&mut self, node: YGNodeRef, v: FlexDirection) {
+        unsafe { YGNodeStyleSetFlexDirection(node, v.into()) }
+    }
+
+    fn set_flex_wrap(&mut self, node: YGNodeRef, v: FlexWrap) {
+        unsafe { YGNodeStyleSetFlexWrap(node, v.into()) }
+    }
+
+    fn set_align_self(&mut self, node: YGNodeRef, v: Align) {
+        unsafe { YGNodeStyleSetAlignSelf(node, v.into()) }
+    }
+
+    fn set_align_content(&mut self, node: YGNodeRef, v: Align) {
+        unsafe { YGNodeStyleSetAlignContent(node, v.into()) }
+    }
+
+    fn set_align_items(&mut self, node: YGNodeRef, v: Align) {
+        unsafe { YGNodeStyleSetAlignItems(node, v.into()) }
+    }
+
+    fn set_justify_content(&mut self, node: YGNodeRef, v: Align) {
+        unsafe { YGNodeStyleSetJustifyContent(node, v.into()) }
+    }
+
+    fn mark_dirty(&mut self, node: YGNodeRef) {
+        unsafe { YGNodeMarkDirty(node) }
     }
 }
 
-static mut MEASURE_REF: Option<&'static mut dyn FnMut(TextId, f32) -> (f32, f32)> = None;
-
-#[inline(always)]
-fn get_yoga_bounds(node: YGNodeRef) -> Bounds {
-    unsafe {
-        let left = YGNodeLayoutGetLeft(node);
-        let top = YGNodeLayoutGetTop(node);
-
-        let a = Pos::new(left, top);
-        let b = Pos::new(left + YGNodeLayoutGetWidth(node), top + YGNodeLayoutGetHeight(node));
-
-        Bounds { a, b }
-    }
-}
+static mut MEASURE_REF: Option<&'static mut dyn FnMut(usize, f32) -> (f32, f32)> = None;
 
 impl Into<YGAlign> for Align {
     fn into(self) -> YGAlign {
@@ -279,7 +283,7 @@ impl Into<YGAlign> for Align {
             Align::SpaceAround => YGAlign::SpaceAround,
             Align::SpaceBetween => YGAlign::SpaceBetween,
             Align::Stretch => YGAlign::Stretch,
-            _ => panic!("invalid align")
+            _ => panic!("invalid align"),
         }
     }
 }
@@ -293,7 +297,7 @@ impl Into<YGJustify> for Align {
             Align::SpaceAround => YGJustify::SpaceAround,
             Align::SpaceBetween => YGJustify::SpaceBetween,
             Align::SpaceEvenly => YGJustify::SpaceEvenly,
-            _ => panic!("invalid justify")
+            _ => panic!("invalid justify"),
         }
     }
 }
@@ -319,15 +323,19 @@ impl Into<YGWrap> for FlexWrap {
     }
 }
 
-unsafe extern "C" fn measure_text_node(
-    node: YGNodeRef,
-    w: f32,
-    wm: YGMeasureMode,
-    _h: f32,
-    _hm: YGMeasureMode,
-) -> YGSize {
+impl Into<YGOverflow> for Overflow {
+    fn into(self) -> YGOverflow {
+        match self {
+            Overflow::Visible => YGOverflow::Visible,
+            Overflow::Hidden => YGOverflow::Hidden,
+            Overflow::Scroll => YGOverflow::Scroll,
+        }
+    }
+}
+
+unsafe extern "C" fn measure_text_node(node: YGNodeRef, w: f32, wm: YGMeasureMode, _h: f32, _hm: YGMeasureMode) -> YGSize {
     let measure = MEASURE_REF.as_mut().expect("measure not set");
-    let key = *(YGNodeGetContext(node) as *mut TextId);
+    let key = *(YGNodeGetContext(node) as *mut usize);
 
     let max_width = match wm {
         YGMeasureMode::Exactly => w,

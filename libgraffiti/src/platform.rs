@@ -1,15 +1,17 @@
+// TODO: split to separate things, keeping everything in platform/* was bad idea
+
 // (not just) platform-dependent stuff:
 // - dylib loading
 // - windowing
 // - image loading using available system-wide libraries (TODO)
 // - font loading ... (TODO)
 
-use crate::app::{WindowEvent};
-use crate::viewport::{Viewport};
-use std::ptr;
+use crate::app::WindowEvent;
+use crate::viewport::GlViewport;
 use std::os::raw::{c_char, c_int, c_void};
+use std::ptr;
 
-pub unsafe fn load_dylib(file: *const c_char, symbols: &mut[(&str, &mut *mut c_void)]) {
+pub unsafe fn load_dylib(file: *const c_char, symbols: &mut [(&str, &mut *mut c_void)]) {
     #[cfg(target_family = "unix")]
     let handle = dlopen(file, RTLD_NOW);
 
@@ -50,17 +52,16 @@ pub fn dylib_file(name: &str, ver: &str) -> String {
 const RTLD_NOW: c_int = 2;
 
 #[cfg(target_family = "unix")]
-extern {
+extern "C" {
     fn dlopen(filename: *const c_char, flags: c_int) -> *mut c_void;
     fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
 }
 
 #[cfg(target_os = "windows")]
-extern {
+extern "C" {
     fn LoadLibraryA(filename: *const c_char) -> *mut c_void;
     fn GetProcAddress(module: *mut c_void, name: *const c_char) -> *mut c_void;
 }
-
 
 // pointer to the opaque, platform-specific data type
 pub type NativeWindow = *mut std::os::raw::c_void;
@@ -68,12 +69,12 @@ pub type NativeWindow = *mut std::os::raw::c_void;
 // plumbing needed for event handling
 // set by `App.get_events()`
 pub static mut WINDOWS_PTR: *mut Vec<NativeWindow> = ptr::null_mut();
-pub static mut VIEWPORTS_PTR: *mut Vec<Viewport> = ptr::null_mut();
+pub static mut VIEWPORTS_PTR: *mut Vec<GlViewport> = ptr::null_mut();
 pub static mut PENDING_EVENTS_PTR: *mut Vec<WindowEvent> = ptr::null_mut();
 
 // we provide this to respective implementations so that they don't need to
-// mess with own event abstractions (they'll just call respective `Viewport` method directly)
-// 
+// mess with own event abstractions (they'll just call respective `GlViewport` method directly)
+//
 // function is not enough because the closure captures the args
 macro_rules! window_event {
     ($w:ident, $body:expr) => {{
@@ -85,7 +86,7 @@ macro_rules! window_event {
                 (*crate::platform::PENDING_EVENTS_PTR).push(WindowEvent { window: id, event });
             }
         }
-    }}
+    }};
 }
 
 // shared utils

@@ -6,11 +6,9 @@ use std::os::raw::{c_float, c_void};
 
 pub const YGUndefined: c_float = std::f32::NAN;
 
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct YGNode {
-    _unused: [u8; 0],
-}
+#[derive(Copy, Clone)]
+pub enum YGNode {}
+
 pub type YGNodeRef = *mut YGNode;
 
 pub type YGMeasureFunc = Option<
@@ -24,7 +22,7 @@ pub type YGMeasureFunc = Option<
 >;
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum YGMeasureMode {
     Undefined = 0,
     Exactly = 1,
@@ -32,14 +30,14 @@ pub enum YGMeasureMode {
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum YGDimension {
     Width = 0,
     Height = 1,
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum YGDirection {
     Inherit = 0,
     LTR = 1,
@@ -47,7 +45,7 @@ pub enum YGDirection {
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum YGEdge {
     Left = 0,
     Top = 1,
@@ -61,7 +59,7 @@ pub enum YGEdge {
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum YGAlign {
     Auto = 0,
     FlexStart = 1,
@@ -74,7 +72,7 @@ pub enum YGAlign {
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum YGFlexDirection {
     Column = 0,
     ColumnReverse = 1,
@@ -83,7 +81,7 @@ pub enum YGFlexDirection {
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum YGJustify {
     FlexStart = 0,
     Center = 1,
@@ -94,7 +92,7 @@ pub enum YGJustify {
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum YGOverflow {
     Visible = 0,
     Hidden = 1,
@@ -102,23 +100,21 @@ pub enum YGOverflow {
 }
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum YGDisplay {
     Flex = 0,
     None = 1,
 }
 
-/*
 #[repr(u32)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum YGPositionType {
     Relative = 0,
     Absolute = 1,
 }
-*/
 
 #[repr(u32)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub enum YGWrap {
     NoWrap = 0,
     Wrap = 1,
@@ -126,7 +122,7 @@ pub enum YGWrap {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct YGSize {
     pub width: c_float,
     pub height: c_float,
@@ -187,9 +183,7 @@ extern "C" {
     pub fn YGNodeStyleSetOverflow(node: YGNodeRef, overflow: YGOverflow);
     pub fn YGNodeStyleSetDisplay(node: YGNodeRef, display: YGDisplay);
 
-    /*
     pub fn YGNodeStyleSetPositionType(node: YGNodeRef, positionType: YGPositionType);
-    */
     pub fn YGNodeStyleSetPosition(node: YGNodeRef, edge: YGEdge, position: c_float);
     pub fn YGNodeStyleSetPositionPercent(node: YGNodeRef, edge: YGEdge, position: c_float);
 

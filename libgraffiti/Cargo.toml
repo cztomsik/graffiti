@@ -17,6 +17,7 @@ graffiti-stb = { path = "graffiti-stb" }
 # npm run build -- --features stretch
 stretch = { version = "0.3.2", optional = true }
 # stretch = { path = "../../stretch", optional = true }
+raqote = { version = "0.7.10", default-features = false, optional = true }
 
 [features]
 default = []

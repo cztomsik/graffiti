@@ -1,8 +1,18 @@
+// TODO: redo from scratch
+// - we can hold Rc<dyn IntoIterator<char>> and implement this for JsValue
+//   so we can reshape at any time using the original (persistent) V8 string
+// - don't mutate during `measure()`, it can be called many times
+// - flexbox is not required to call `measure()` if it knows dimensions
+// - which means `get_glyphs()` needs to do both the layout & word-wrap
+//   - but re-shaping & single-line layout is only needed for font/text changes
+
 #![allow(non_snake_case)]
 
-use crate::commons::{Pos, Bounds, TextId};
-use std::collections::BTreeMap;
+use crate::commons::{Bounds, Pos};
 use miniserde::{json, Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+pub type TextId = usize;
 
 // TODO: currently it does more than intended so either rename it or
 // split it...
@@ -21,7 +31,7 @@ use miniserde::{json, Deserialize, Serialize};
 pub struct TextLayout {
     layouts: Vec<TextLayoutState>,
     // TODO: more fonts, ttf
-    // TODO: lookup in map is costy, 
+    // TODO: lookup in map is costy,
     font_glyphs: BTreeMap<char, FontGlyph>,
     _x_height: f32,
 }
@@ -50,17 +60,20 @@ impl TextLayout {
         let mut font_glyphs = BTreeMap::new();
 
         for c in font.chars {
-          font_glyphs.insert(std::char::from_u32(c.id).expect("not a char"), FontGlyph {
-              offset_y: c.yoffset / font.info.size,
-              size: Pos::new(c.width / font.info.size, c.height / font.info.size),
+            font_glyphs.insert(
+                std::char::from_u32(c.id).expect("not a char"),
+                FontGlyph {
+                    offset_y: c.yoffset / font.info.size,
+                    size: Pos::new(c.width / font.info.size, c.height / font.info.size),
 
-              // TODO: move close to atlasing once it is ready
-              coords: Bounds {
-                a: Pos::new(c.x / font.common.scaleW, c.y / font.common.scaleH),
-                b: Pos::new((c.x + c.width) / font.common.scaleW, (c.y + c.height) / font.common.scaleH),
-              },
-              advance: c.xadvance / font.info.size,
-          });
+                    // TODO: move close to atlasing once it is ready
+                    coords: Bounds {
+                        a: Pos::new(c.x / font.common.scaleW, c.y / font.common.scaleH),
+                        b: Pos::new((c.x + c.width) / font.common.scaleW, (c.y + c.height) / font.common.scaleH),
+                    },
+                    advance: c.xadvance / font.info.size,
+                },
+            );
         }
 
         let x_height = font_glyphs.get(&'x').expect("x_height").size.y;
@@ -74,20 +87,20 @@ impl TextLayout {
         }
     }
 
-    pub fn realloc(&mut self, texts_count: TextId) {
-        self.layouts.resize_with(texts_count, || {
-            TextLayoutState {
-                font_size: 16.,
-                line_height: 20.,
+    pub fn create_text(&mut self) -> TextId {
+        self.layouts.push(TextLayoutState {
+            font_size: 16.,
+            line_height: 20.,
 
-                single_line_width: 0.,
+            single_line_width: 0.,
 
-                glyph_ids: Vec::new(),
-                xs: Vec::new(),
-                break_hints: Vec::new(),
-                breaks: Vec::new(),
-            }            
+            glyph_ids: Vec::new(),
+            xs: Vec::new(),
+            break_hints: Vec::new(),
+            breaks: Vec::new(),
         });
+
+        self.layouts.len() - 1
     }
 
     pub fn set_text(&mut self, text_id: TextId, text: &Text) {
@@ -100,7 +113,7 @@ impl TextLayout {
     // not sure if it will work out but the idea is that basic
     // layout can be done even before max_width is known
     //
-    // it could be noticable with more complex text shaping 
+    // it could be noticable with more complex text shaping
     // and maybe some of this can be done in parallel also
     //
     // when measure is called, we can compute breaks quickly and
@@ -128,8 +141,8 @@ impl TextLayout {
             // TODO: atlasing
             let glyph_id = ch;
             let font_glyph = self.font_glyphs.entry(glyph_id).or_insert_with(|| {
-              error!("no glyph {:?}", glyph_id);
-              MISSING_GLYPH
+                error!("no glyph {:?}", glyph_id);
+                MISSING_GLYPH
             });
 
             glyph_ids.push(glyph_id);
@@ -192,11 +205,11 @@ impl TextLayout {
         let layout = &mut self.layouts[text_id];
 
         if layout.single_line_width == 0. {
-            return (0., 0.)
+            return (0., 0.);
         }
 
         if layout.break_hints.is_empty() {
-            return (layout.single_line_width, layout.line_height)
+            return (layout.single_line_width, layout.line_height);
         }
 
         // TODO: skip if no work is needed
@@ -222,8 +235,8 @@ impl TextLayout {
             }
         }
 
-        if layout.breaks.len() == 0 {
-            return (layout.single_line_width, layout.line_height)
+        if layout.breaks.is_empty() {
+            return (layout.single_line_width, layout.line_height);
         }
 
         (width, (layout.breaks.len() + 1) as f32 * layout.line_height)
@@ -254,8 +267,11 @@ impl TextLayout {
             let a = Pos::new(x - offset, y + font_glyph.offset_y * layout.font_size);
 
             GlyphInstance {
-                bounds: Bounds { a, b: font_glyph.size.mul(layout.font_size).relative_to(a) },
-                coords: font_glyph.coords
+                bounds: Bounds {
+                    a,
+                    b: font_glyph.size.mul_uniform(layout.font_size).translate(a),
+                },
+                coords: font_glyph.coords,
             }
         })
     }
@@ -266,15 +282,14 @@ impl TextLayout {
     // - set cursor closest to (x, y)
     // - move cursor with keyboard arrows, respecting wrapping
     // - select next word
-
 }
 
 #[derive(Debug)]
 pub struct FontGlyph {
-  pub size: Pos,
-  pub coords: Bounds,
-  pub advance: f32,
-  pub offset_y: f32,
+    pub size: Pos,
+    pub coords: Bounds,
+    pub advance: f32,
+    pub offset_y: f32,
 }
 
 #[derive(Debug)]
@@ -309,7 +324,7 @@ pub struct TextLayoutState {
 pub struct MsdfFont {
     info: MsdfInfo,
     common: MsdfCommonInfo,
-    chars: Vec<MsdfChar>
+    chars: Vec<MsdfChar>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -337,4 +352,9 @@ pub struct MsdfChar {
     xadvance: f32,
 }
 
-const MISSING_GLYPH: FontGlyph = FontGlyph { offset_y: 0., size: Pos::ZERO, coords: Bounds::ZERO, advance: 0. };
+const MISSING_GLYPH: FontGlyph = FontGlyph {
+    offset_y: 0.,
+    size: Pos::ZERO,
+    coords: Bounds::ZERO,
+    advance: 0.,
+};

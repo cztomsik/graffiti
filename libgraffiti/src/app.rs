@@ -1,9 +1,8 @@
-use crate::commons::{ElementId, Bounds};
-use crate::viewport::{Viewport, Event, SceneChange};
+use crate::commons::Bounds;
 use crate::platform;
-use crate::platform::{NativeWindow, WINDOWS_PTR, VIEWPORTS_PTR, PENDING_EVENTS_PTR};
-
-
+use crate::platform::{NativeWindow, PENDING_EVENTS_PTR, VIEWPORTS_PTR, WINDOWS_PTR};
+use crate::render::backend::gl::GlRenderBackend;
+use crate::viewport::{Event, GlViewport, NodeId};
 
 /// Root for the whole native part
 /// Only one instance is allowed
@@ -14,13 +13,8 @@ use crate::platform::{NativeWindow, WINDOWS_PTR, VIEWPORTS_PTR, PENDING_EVENTS_P
 pub struct App {
     // there's not many windows so it should be fine
     windows: Vec<NativeWindow>,
-    viewports: Vec<Viewport>,
-
-    //async_updates: Sender<AsyncUpdate>,
+    viewports: Vec<GlViewport>,
 }
-
-//struct AsyncUpdate(WindowId, NativeWindow, Vec<SceneChange>);
-//unsafe impl std::marker::Send for AsyncUpdate {}
 
 pub type WindowId = usize;
 
@@ -33,30 +27,6 @@ pub struct WindowEvent {
 impl App {
     pub unsafe fn init() -> Self {
         platform::init();
-
-        /* worker poc
-        let viewports: Vec<Viewport> = Vec::new();
-        let viewports = Arc::new(Mutex::new(viewports));
-
-        // worker
-        let (async_updates, rx) = channel();
-        let worker_viewports = viewports.clone();
-        std::thread::spawn(move || {
-            loop {
-                let AsyncUpdate(id, native_window, updates) = rx.recv().unwrap();
-
-                unsafe { platform::make_current(native_window) }
-
-                println!("update");
-                worker_viewports.lock().unwrap().deref_mut()[id].update_styles(&updates);
-
-                unsafe {
-                    println!("swap");
-                    platform::swap_buffers(native_window)
-                }
-           }
-        });
-        */
 
         App {
             windows: Vec::new(),
@@ -88,7 +58,7 @@ impl App {
         let id = self.windows.len();
 
         let native_window = unsafe { platform::create_window(title, width, height) };
-        let viewport = Viewport::new((width as f32, height as f32));
+        let viewport = GlViewport::new(GlRenderBackend::new(), (width as f32, height as f32));
 
         // detach so it can be attached by another thread
         unsafe { platform::detach_current() }
@@ -99,19 +69,19 @@ impl App {
         id
     }
 
-    pub fn update_window_scene(&mut self, id: WindowId, changes: &[SceneChange]) {
+    pub fn update_window_scene(&mut self, id: WindowId, f: &mut impl FnMut(&mut GlViewport)) {
         let native_window = &mut self.windows[id];
         let viewport = &mut self.viewports[id];
 
         unsafe { platform::make_current(*native_window) }
 
-        viewport.update_scene(changes);
-        unsafe {
-            platform::swap_buffers(*native_window)
-        }
+        f(viewport);
+        viewport.update();
+
+        unsafe { platform::swap_buffers(*native_window) }
     }
 
-    pub fn get_offset_bounds(&self, window: WindowId, element: ElementId) -> Bounds {
+    pub fn get_offset_bounds(&self, window: WindowId, element: NodeId) -> Bounds {
         self.viewports[window].get_offset_bounds(element)
     }
 
@@ -123,5 +93,3 @@ impl App {
         //   platform::destroy_window(native_windows[id])
     }
 }
-
-

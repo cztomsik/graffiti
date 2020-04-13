@@ -1,140 +1,137 @@
-use crate::box_layout::{Display, Dimension, Align, FlexDirection, FlexWrap, Overflow};
-use crate::commons::{ElementId, TextId, ElementChild, Pos, Bounds, Color};
-use crate::picker::SurfacePicker;
-use crate::box_layout::{BoxLayoutTree, BoxLayoutImpl};
-use crate::text_layout::{TextLayout, Text};
-use crate::render::{Renderer, RendererImpl, BoxShadow, Transform};
+// x owns the systems
+// x connect/orchestrate them together
 
-/// Holds the state & systems needed for one UI "viewport"
-/// basically, this is the window's "content" area but
-/// nothing here is actually coupled to the window
-/// 
-/// It also:
-/// - translates events (target needs to be looked up)
-/// - accepts batch of updates to be applied to the scene
-pub struct Viewport {
+use crate::box_layout::{Align, BoxLayoutImpl, BoxLayoutTree, Dimension, Display, FlexDirection, FlexWrap, Overflow};
+use crate::commons::{Bounds, Pos};
+use crate::render::backend::gl::GlRenderBackend;
+use crate::render::backend::RenderBackend;
+use crate::render::value_types::{BorderStyle, Color};
+use crate::render::{Renderer, SurfaceId};
+use crate::text_layout::{Text, TextId, TextLayout};
+use std::collections::BTreeMap;
+
+pub type GlViewport = Viewport<GlRenderBackend>;
+
+pub struct Viewport<RB: RenderBackend> {
     size: (f32, f32),
 
-    children: Vec<Vec<ElementChild>>,
-
+    // systems
     box_layout: BoxLayoutImpl,
     text_layout: TextLayout,
-    renderer: RendererImpl,
+    renderer: Renderer<RB, <BoxLayoutImpl as BoxLayoutTree>::LayoutNodeId>,
+
+    // handles
+    layout_nodes: Vec<<BoxLayoutImpl as BoxLayoutTree>::LayoutNodeId>,
+    surfaces: Vec<SurfaceId>,
+    texts: BTreeMap<NodeId, (TextId, f32)>,
+
+    // flags
+    needs_layout: bool,
 
     // TODO: fullscreen + track the element id
     // (and use it in render/calculate)
-
     mouse_pos: Pos,
-    picker: SurfacePicker,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Event {
-    MouseMove { target: ElementId },
-    MouseDown { target: ElementId },
-    MouseUp { target: ElementId },
-    Scroll { target: ElementId },
-    KeyDown { target: ElementId, key: u16 },
-    KeyPress { target: ElementId, key: u16 },
-    KeyUp { target: ElementId, key: u16 },
-    Resize { target: ElementId },
-    Close { target: ElementId },
+    MouseMove { target: NodeId },
+    MouseDown { target: NodeId },
+    MouseUp { target: NodeId },
+    Scroll { target: NodeId },
+    KeyDown { target: NodeId, key: u16 },
+    KeyPress { target: NodeId, key: u16 },
+    KeyUp { target: NodeId, key: u16 },
+    Resize { target: NodeId },
+    Close { target: NodeId },
 }
 
-#[derive(Debug, Clone)]
-pub enum SceneChange {
-    Realloc { elements_count: ElementId, texts_count: TextId },
+// supported style props
+#[derive(Debug, Clone, Copy)]
+pub enum StyleProp {
+    Display(Display),
+    Overflow(Overflow),
 
-    InsertAt { parent: ElementId, child: ElementChild, index: usize },
-    RemoveChild { parent: ElementId, child: ElementChild },
-    SetText { id: TextId, text: Text },
+    Width(Dimension),
+    Height(Dimension),
+    MinWidth(Dimension),
+    MinHeight(Dimension),
+    MaxWidth(Dimension),
+    MaxHeight(Dimension),
 
-    Display { element: ElementId, value: Display },
-    Overflow { element: ElementId, value: Overflow },
+    Top(Dimension),
+    Right(Dimension),
+    Bottom(Dimension),
+    Left(Dimension),
 
-    Width { element: ElementId, value: Dimension },
-    Height { element: ElementId, value: Dimension },
-    MinWidth { element: ElementId, value: Dimension },
-    MinHeight { element: ElementId, value: Dimension },
-    MaxWidth { element: ElementId, value: Dimension },
-    MaxHeight { element: ElementId, value: Dimension },
+    MarginTop(Dimension),
+    MarginRight(Dimension),
+    MarginBottom(Dimension),
+    MarginLeft(Dimension),
 
-    Top { element: ElementId, value: Dimension },
-    Right { element: ElementId, value: Dimension },
-    Bottom { element: ElementId, value: Dimension },
-    Left { element: ElementId, value: Dimension },
+    PaddingTop(Dimension),
+    PaddingRight(Dimension),
+    PaddingBottom(Dimension),
+    PaddingLeft(Dimension),
 
-    MarginTop { element: ElementId, value: Dimension },
-    MarginRight { element: ElementId, value: Dimension },
-    MarginBottom { element: ElementId, value: Dimension },
-    MarginLeft { element: ElementId, value: Dimension },
+    FlexGrow(f32),
+    FlexShrink(f32),
+    FlexBasis(Dimension),
+    FlexDirection(FlexDirection),
+    FlexWrap(FlexWrap),
 
-    PaddingTop { element: ElementId, value: Dimension },
-    PaddingRight { element: ElementId, value: Dimension },
-    PaddingBottom { element: ElementId, value: Dimension },
-    PaddingLeft { element: ElementId, value: Dimension },
+    AlignSelf(Align),
+    AlignContent(Align),
+    AlignItems(Align),
+    JustifyContent(Align),
 
-    FlexGrow { element: ElementId, value: f32 },
-    FlexShrink { element: ElementId, value: f32 },
-    FlexBasis { element: ElementId, value: Dimension },
-    FlexDirection { element: ElementId, value: FlexDirection },
-    FlexWrap { element: ElementId, value: FlexWrap },
+    Color(Color),
+    BackgroundColor(Color),
 
-    AlignSelf { element: ElementId, value: Align },
-    AlignContent { element: ElementId, value: Align },
-    AlignItems { element: ElementId, value: Align },
-    JustifyContent { element: ElementId, value: Align },
+    // TODO: border color
+    BorderTopLeftRadius(f32),
+    BorderTopRightRadius(f32),
+    BorderBottomLeftRadius(f32),
+    BorderBottomRightRadius(f32),
+    BorderTopWidth(f32),
+    BorderRightWidth(f32),
+    BorderBottomWidth(f32),
+    BorderLeftWidth(f32),
+    BorderTopStyle(BorderStyle),
+    BorderRightStyle(BorderStyle),
+    BorderBottomStyle(BorderStyle),
+    BorderLeftStyle(BorderStyle),
+    // BackgroundImageUrl(String),
 
-    Color { element: ElementId, value: Color },
-    BackgroundColor { element: ElementId, value: Color },
-
-    // TODO: border
-    BorderTopWidth { element: ElementId, value: f32 },
-    BorderRightWidth { element: ElementId, value: f32 },
-    BorderBottomWidth { element: ElementId, value: f32 },
-    BorderLeftWidth { element: ElementId, value: f32 },
-    /*
-    BorderTopStyle { element: ElementId, value: BorderStyle },
-    BorderRightStyle { element: ElementId, value: BorderStyle },
-    BorderBottomStyle { element: ElementId, value: BorderStyle },
-    BorderLeftStyle { element: ElementId, value: BorderStyle },
-    */
-
-    // TODO: intermediate; clip in renderer
-    BorderTopLeftRadius { element: ElementId, value: f32 },
-    BorderTopRightRadius { element: ElementId, value: f32 },
-    BorderBottomLeftRadius { element: ElementId, value: f32 },
-    BorderBottomRightRadius { element: ElementId, value: f32 },
-
-    // BackgroundImageUrl { element: ElementId, value: String },
+    // TODO: split to outline_shadows & inset_shadows
+    //BoxShadow(Vec<BoxShadow>),
 
     // TODO: many
-    BoxShadow { element: ElementId, value: Option<BoxShadow> },
-
-    // TODO: many
-    Transform { element: ElementId, value: Option<Transform> },
+    //Transform(Vec<Transform>),
 }
 
-impl Viewport {
-    const ROOT: ElementId = 0;
+impl<RB: RenderBackend> Viewport<RB> {
+    pub const ROOT: NodeId = 0;
 
-    pub fn new(size: (f32, f32)) -> Viewport {
+    pub fn new(backend: RB, size: (f32, f32)) -> Viewport<RB> {
         let mut viewport = Viewport {
             size,
 
-            children: Vec::new(),
-
             box_layout: BoxLayoutImpl::new(),
             text_layout: TextLayout::new(),
+            renderer: Renderer::new(backend),
+
+            needs_layout: false,
+
+            layout_nodes: Vec::new(),
+            surfaces: Vec::new(),
+            texts: BTreeMap::new(),
 
             mouse_pos: Pos::ZERO,
-            picker: SurfacePicker::new(),
-
-            renderer: RendererImpl::new(size),
         };
 
         // create root
-        viewport.update_scene(&[SceneChange::Realloc { elements_count: 1, texts_count: 0 }]);
+        viewport.create_element();
 
         // set min-height
         viewport.resize(size);
@@ -142,121 +139,155 @@ impl Viewport {
         viewport
     }
 
-    pub fn update_scene(&mut self, changes: &[SceneChange]) {
-        let mut needs_layout = false;
+    pub fn create_element(&mut self) -> NodeId {
+        let id = self.layout_nodes.len();
+        let layout_node = self.box_layout.create_node(None);
 
-        use SceneChange::*;
+        self.layout_nodes.push(layout_node);
+        self.surfaces.push(self.renderer.create_surface(layout_node));
 
-        for c in changes {
-            // order by likelihood (perf)
+        id
+    }
 
-            match c {
-                // start with layout-independent things
-                Transform { element, value } => self.renderer.set_transform(*element, *value),
-                Color { element, value } => self.renderer.set_color(*element, *value),
-                BackgroundColor { element, value } => self.renderer.set_background_color(*element, *value),
-                //BoxShadow { element, value } => self.renderer.set_box_shadow(*element, *value),
+    pub fn create_text_node(&mut self) -> NodeId {
+        let id = self.layout_nodes.len();
+        let text = self.text_layout.create_text();
+        let layout_node = self.box_layout.create_node(Some(text));
 
-                // TODO: intermediate (top-left, top-right, ...) & set Option<BorderRadius>
-                // BorderRadius { element, value } => self.renderer.set_border_radius(*element, *value),
+        self.texts.insert(id, (text, 0.));
+        self.layout_nodes.push(layout_node);
+        self.surfaces.push(self.renderer.create_surface(layout_node));
 
-                // TODO: Image
+        id
+    }
 
-                // TODO: Border
-                // might need relayout!
+    pub fn insert_child(&mut self, parent: NodeId, index: usize, child: NodeId) {
+        self.box_layout.insert_child(self.layout_nodes[parent], index, self.layout_nodes[child]);
+        self.renderer.insert_child(self.surfaces[parent], index, self.surfaces[child]);
+    }
 
-                // layout will be needed
-                c => {
-                    needs_layout = true;
+    pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
+        self.box_layout.remove_child(self.layout_nodes[parent], self.layout_nodes[child]);
+        self.renderer.remove_child(self.surfaces[parent], self.surfaces[child]);
+    }
 
-                    match c {
-                        Display { element, value } => self.box_layout.set_display(*element, *value),
+    pub fn set_text(&mut self, id: NodeId, data: &Text) {
+        let (text, prev_width) = self.texts.get_mut(&id).expect("not a text node");
 
-                        Width { element, value } => self.box_layout.set_width(*element, *value),
-                        Height { element, value } => self.box_layout.set_height(*element, *value),
-                        MinWidth { element, value } => self.box_layout.set_min_width(*element, *value),
-                        MinHeight { element, value } => self.box_layout.set_min_height(*element, *value),
-                        MaxWidth { element, value } => self.box_layout.set_max_width(*element, *value),
-                        MaxHeight { element, value } => self.box_layout.set_max_height(*element, *value),
+        self.box_layout.mark_dirty(self.layout_nodes[id]);
+        self.text_layout.set_text(*text, &data);
 
-                        Top { element, value } => self.box_layout.set_top(*element, *value),
-                        Right { element, value } => self.box_layout.set_right(*element, *value),
-                        Bottom { element, value } => self.box_layout.set_bottom(*element, *value),
-                        Left { element, value } => self.box_layout.set_left(*element, *value),
+        // set to 0. so the glyphs are invalidated and uploaded during `update()`
+        *prev_width = 0.;
+    }
 
-                        MarginTop { element, value } => self.box_layout.set_margin_top(*element, *value),
-                        MarginRight { element, value } => self.box_layout.set_margin_right(*element, *value),
-                        MarginBottom { element, value } => self.box_layout.set_margin_bottom(*element, *value),
-                        MarginLeft { element, value } => self.box_layout.set_margin_left(*element, *value),
+    pub fn set_style(&mut self, element: NodeId, prop: &StyleProp) {
+        use StyleProp::*;
 
-                        PaddingTop { element, value } => self.box_layout.set_padding_top(*element, *value),
-                        PaddingRight { element, value } => self.box_layout.set_padding_right(*element, *value),
-                        PaddingBottom { element, value } => self.box_layout.set_padding_bottom(*element, *value),
-                        PaddingLeft { element, value } => self.box_layout.set_padding_left(*element, *value),
+        let surface = self.surfaces[element];
 
-                        FlexGrow { element, value } => self.box_layout.set_flex_grow(*element, *value),
-                        FlexShrink { element, value } => self.box_layout.set_flex_shrink(*element, *value),
-                        FlexBasis { element, value } => self.box_layout.set_flex_basis(*element, *value),
-                        FlexDirection { element, value } => self.box_layout.set_flex_direction(*element, *value),
-                        FlexWrap { element, value } => self.box_layout.set_flex_wrap(*element, *value),
+        // order by likelihood (perf)
+        match prop {
+            // start with layout-independent things
 
-                        AlignSelf { element, value } => self.box_layout.set_align_self(*element, *value),
-                        AlignContent { element, value } => self.box_layout.set_align_content(*element, *value),
-                        AlignItems { element, value } => self.box_layout.set_align_items(*element, *value),
-                        JustifyContent { element, value } => self.box_layout.set_justify_content(*element, *value),
+            //Transform(v) => self.renderer.set_transform(surface, *v),
+            Color(v) => self.renderer.set_color(surface, *v),
+            BackgroundColor(v) => self.renderer.set_background_color(surface, *v),
 
-                        BorderBottomWidth { element, value } => self.box_layout.set_border_bottom(*element, *value),
-                        BorderLeftWidth { element, value } => self.box_layout.set_border_left(*element, *value),
-                        BorderRightWidth { element, value } => self.box_layout.set_border_right(*element, *value),
-                        BorderTopWidth { element, value } => self.box_layout.set_border_top(*element, *value),
+            //BoxShadow(v) => self.renderer.set_box_shadow(surface, *v),
 
-                        InsertAt { parent, child, index } => {
-                            self.children[*parent].insert(*index, *child);
-                            self.box_layout.insert_at(*parent, *child, *index);
-                        }
+            // TODO: BorderRadius(v) => self.renderer.set_border_radius(surface, *v),
 
-                        RemoveChild { parent, child } => {
-                            self.children[*parent].retain(|ch| *ch != *child);
-                            self.box_layout.remove_child(*parent, *child);
-                        }
+            // TODO: Image
 
-                        Realloc { elements_count, texts_count } => {
-                            self.realloc(*elements_count, *texts_count);
-                        }
+            // TODO: Border
+            // might need relayout!
 
-                        SetText { id, text } => {
-                            self.box_layout.mark_text_dirty(*id);
-                            self.text_layout.set_text(*id, text);
-                        },
+            // layout will be needed
+            c => {
+                self.needs_layout = true;
 
-                        _ => { error!("TODO: set {:?}", &c); }
-                    }
+                let layout_node = self.layout_nodes[element];
+
+                match c {
+                    Display(v) => self.box_layout.set_display(layout_node, *v),
+
+                    Width(v) => self.box_layout.set_width(layout_node, *v),
+                    Height(v) => self.box_layout.set_height(layout_node, *v),
+                    MinWidth(v) => self.box_layout.set_min_width(layout_node, *v),
+                    MinHeight(v) => self.box_layout.set_min_height(layout_node, *v),
+                    MaxWidth(v) => self.box_layout.set_max_width(layout_node, *v),
+                    MaxHeight(v) => self.box_layout.set_max_height(layout_node, *v),
+
+                    Top(v) => self.box_layout.set_top(layout_node, *v),
+                    Right(v) => self.box_layout.set_right(layout_node, *v),
+                    Bottom(v) => self.box_layout.set_bottom(layout_node, *v),
+                    Left(v) => self.box_layout.set_left(layout_node, *v),
+
+                    MarginTop(v) => self.box_layout.set_margin_top(layout_node, *v),
+                    MarginRight(v) => self.box_layout.set_margin_right(layout_node, *v),
+                    MarginBottom(v) => self.box_layout.set_margin_bottom(layout_node, *v),
+                    MarginLeft(v) => self.box_layout.set_margin_left(layout_node, *v),
+
+                    PaddingTop(v) => self.box_layout.set_padding_top(layout_node, *v),
+                    PaddingRight(v) => self.box_layout.set_padding_right(layout_node, *v),
+                    PaddingBottom(v) => self.box_layout.set_padding_bottom(layout_node, *v),
+                    PaddingLeft(v) => self.box_layout.set_padding_left(layout_node, *v),
+
+                    FlexGrow(v) => self.box_layout.set_flex_grow(layout_node, *v),
+                    FlexShrink(v) => self.box_layout.set_flex_shrink(layout_node, *v),
+                    FlexBasis(v) => self.box_layout.set_flex_basis(layout_node, *v),
+                    FlexDirection(v) => self.box_layout.set_flex_direction(layout_node, *v),
+                    FlexWrap(v) => self.box_layout.set_flex_wrap(layout_node, *v),
+
+                    AlignSelf(v) => self.box_layout.set_align_self(layout_node, *v),
+                    AlignContent(v) => self.box_layout.set_align_content(layout_node, *v),
+                    AlignItems(v) => self.box_layout.set_align_items(layout_node, *v),
+                    JustifyContent(v) => self.box_layout.set_justify_content(layout_node, *v),
+
+                    BorderBottomWidth(v) => self.box_layout.set_border_bottom(layout_node, *v),
+                    BorderLeftWidth(v) => self.box_layout.set_border_left(layout_node, *v),
+                    BorderRightWidth(v) => self.box_layout.set_border_right(layout_node, *v),
+                    BorderTopWidth(v) => self.box_layout.set_border_top(layout_node, *v),
+
+                    _ => unreachable!(),
                 }
             }
         }
+    }
 
-        if needs_layout {
-            self.calculate();
+    pub fn update(&mut self) {
+        silly!("update/render");
+
+        let Self { box_layout, text_layout, .. } = self;
+
+        if self.needs_layout {
+            // TODO: replace with Lookup<(id, w), (f32, f32)> (blocked by immutable measure())
+            box_layout.calculate(self.layout_nodes[Self::ROOT], self.size, &mut |text_id, max_width| {
+                text_layout.wrap(text_id, max_width)
+            });
+
+            self.needs_layout = false;
         }
 
-        self.render();
+        // TODO: go through texts and find if it's needed to upload new glyphs
+        // this sounds naive but it's simple, it should be at least same efficient as pull-from-cache-during-render
+        // approach because it's more cache-friendlier
+        //
+        // and what's most important, it should be possible to run it in parallel
+        // (work-stealing and/or concurent with the rest of render preparation)
+
+        // TODO: split preparation and rendering so it's more thread-friendly
+        self.renderer.render_surface(self.surfaces[Self::ROOT], &|k| box_layout.get_bounds(k));
     }
 
-    // making systems "resizable" simplifies a lot of things
-    // notably there's no need to return anything, ids are shared
-    // across the whole viewport and freelists are also needed just here
-    fn realloc(&mut self, elements_count: ElementId, texts_count: TextId) {
-        assert!(elements_count > 0);
-
-        self.children.resize_with(elements_count, || Vec::new());
-
-        self.text_layout.realloc(texts_count);
-        self.box_layout.realloc(elements_count, texts_count);
-        self.renderer.realloc(elements_count, texts_count);
+    pub fn get_offset_bounds(&self, element: NodeId) -> Bounds {
+        self.box_layout.get_bounds(self.layout_nodes[element])
     }
 
-    pub fn get_offset_bounds(&self, element: ElementId) -> Bounds {
-        self.box_layout.get_element_bounds(element)
+    fn get_mouse_target(&self) -> NodeId {
+        Self::ROOT
+        //self.picker.pick_at(self.mouse_pos, &self.children, &self.box_layout)
     }
 
     // translate events (break coupling)
@@ -304,14 +335,12 @@ impl Viewport {
     pub fn resize(&mut self, size: (f32, f32)) -> Event {
         self.size = size;
 
-        self.renderer.resize(size);
+        self.renderer.resize(size.0, size.1);
 
-        // let make screen overflow (for now)
+        // make screen overflow (for now)
         // TODO: overflow: scroll could fix it
         // @see calculate() in `yoga.rs`
-        self.update_scene(&[SceneChange::MinHeight { element: Self::ROOT, value: Dimension::Px { value: size.1 } }]);
-        //self.calculate();
-        //self.render();
+        self.set_style(Self::ROOT, &StyleProp::MinHeight(Dimension::Px(size.1)));
 
         Event::Resize { target: Self::ROOT }
     }
@@ -319,34 +348,6 @@ impl Viewport {
     pub fn close(&mut self) -> Event {
         Event::Close { target: Self::ROOT }
     }
-
-    fn calculate(&mut self) {
-        let text_layout = &mut self.text_layout;
-        let mut wraps = Vec::new();
-
-        self.box_layout.calculate(Self::ROOT, self.size, &mut |text_id, max_width| {
-            // TODO: it seems it's called even when not needed in bounds example
-            //println!("wrap called");
-            wraps.push(text_id);
-            text_layout.wrap(text_id, max_width)
-        });
-
-        for id in wraps {
-            self.renderer.set_text_glyphs(id, 16., self.text_layout.get_glyphs(id))
-        }
-    }
-
-    fn render(&mut self) {
-        silly!("render");
-
-        self.renderer.render(
-            Self::ROOT,
-            &self.children,
-            &self.box_layout
-        );
-    }
-
-    fn get_mouse_target(&self) -> ElementId {
-        self.picker.pick_at(self.mouse_pos, &self.children, &self.box_layout)
-    }
 }
+
+pub type NodeId = usize;
