@@ -21,7 +21,7 @@ use self::value_types::*;
 
 // and backend
 pub mod backend;
-use self::backend::{FillStyle, LayerBuilder, RenderBackend};
+use self::backend::{BackendOp, FillStyle, RenderBackend};
 
 // where:
 // - `RB` is `RenderBackend` implementation
@@ -32,16 +32,12 @@ pub struct Renderer<RB: RenderBackend, BK> {
 }
 
 impl<RB: RenderBackend, BK: Copy> Renderer<RB, BK> {
-    pub fn new(mut backend: RB) -> Self {
-        let root_layer = backend.create_layer();
+    pub fn new(backend: RB) -> Self {
+        //const SDF_TEXTURE: &[u8; 512 * 512 * 4] = include_bytes!("../resources/sheet0.raw");
+        //let tex = backend.create_texture(512, 512);
+        //backend.update_texture(tex, SDF_TEXTURE);
 
-        const SDF_TEXTURE: &[u8; 512 * 512 * 4] = include_bytes!("../resources/sheet0.raw");
-        backend.create_texture(512, 512, Box::new(*SDF_TEXTURE));
-
-        Self {
-            backend,
-            ui_state: UiState::new(root_layer),
-        }
+        Self { backend, ui_state: UiState::new() }
     }
 
     pub fn resize(&mut self, width: f32, height: f32) {
@@ -54,10 +50,11 @@ impl<RB: RenderBackend, BK: Copy> Renderer<RB, BK> {
         // (accept some ContainerState?)
         // but maybe it's inevitable, yoga has some defaults, this has some too, etc.
         self.ui_state.bounds_keys.push(bounds_key);
-        self.ui_state.children.push(Vec::new());
-        self.ui_state.overflows.push(Overflow::Visible);
+        self.ui_state.transforms.push(None);
         self.ui_state.opacities.push(1.);
         self.ui_state.border_radii.push(None);
+        self.ui_state.children.push(Vec::new());
+        self.ui_state.overflows.push(Overflow::Visible);
         self.ui_state.outline_shadows.push(Vec::new());
         self.ui_state.outlines.push(None);
         self.ui_state.background_colors.push(Color::TRANSPARENT);
@@ -65,6 +62,7 @@ impl<RB: RenderBackend, BK: Copy> Renderer<RB, BK> {
         self.ui_state.inset_shadows.push(Vec::new());
         self.ui_state.colors.push(Color::BLACK);
         self.ui_state.borders.push(None);
+        self.ui_state.content_layers.push(None);
 
         SurfaceId(self.ui_state.background_colors.len() - 1)
     }
@@ -79,7 +77,9 @@ impl<RB: RenderBackend, BK: Copy> Renderer<RB, BK> {
 
     // setters (in order in which they are needed during rendering)
 
-    pub fn set_transform(&mut self, surface: SurfaceId, value: Mat3) {}
+    pub fn set_transform(&mut self, surface: SurfaceId, value: Option<Mat3>) {
+        self.ui_state.transforms[surface.0] = value;
+    }
 
     pub fn set_overflow(&mut self, surface: SurfaceId, value: Overflow) {
         self.ui_state.overflows[surface.0] = value;
@@ -113,6 +113,25 @@ impl<RB: RenderBackend, BK: Copy> Renderer<RB, BK> {
         self.ui_state.inset_shadows[surface.0] = value;
     }
 
+    pub fn set_content(&mut self, surface: SurfaceId, value: Option<impl IntoIterator<Item = BackendOp<RB>>>) {
+        let layer = &mut self.ui_state.content_layers[surface.0];
+
+        match value {
+            None => {
+                if layer.is_some() {
+                    // TODO: free
+                }
+            }
+
+            Some(ops) => {
+                let backend = &mut self.backend;
+                let layer = *layer.get_or_insert_with(|| backend.create_layer());
+
+                backend.update_layer(layer, ops.into_iter());
+            }
+        }
+    }
+
     // TODO: set_text_shadow
 
     pub fn set_color(&mut self, surface: SurfaceId, value: Color) {
@@ -123,115 +142,95 @@ impl<RB: RenderBackend, BK: Copy> Renderer<RB, BK> {
         self.ui_state.borders[surface.0] = value;
     }
 
-    // image
-    pub fn create_image(&mut self, width: i32, height: i32, data: Box<[u8]>) -> ImageId {
+    // high-level image, rect-packed into some existing or newly created texture
+    // note that sharing texture can improve/decrease performance
+    // depending on how much the images are changing
+    pub fn create_image(&mut self, width: i32, height: i32) -> ImageId {
         // TODO: put it to some existing/new texture (rect-packing)
-        self.ui_state.textures.push(self.backend.create_texture(width, height, data));
+        self.ui_state.textures.push(self.backend.create_texture(width, height));
 
         ImageId(self.ui_state.textures.len() - 1)
     }
 
     pub fn set_image_data(&mut self /* data: rgb &[u8] */) {}
 
-    /*
-    // text
-    pub fn create_text(&mut self, bounds_key: BK) -> TextId {
-        self.ui_state.text_bounds_keys.push(bounds_key);
-        self.ui_state.text_layers.push(self.backend.create_layer());
-
-        TextId(self.ui_state.text_layers.len() - 1)
+    // low-level image resource
+    // suitable for videos and other dynamic image data
+    pub fn create_texture(&mut self, width: i32, height: i32) -> RB::TextureId {
+        self.backend.create_texture(width, height)
     }
 
-    pub fn set_text_data(&mut self, text: TextId, str: String /* TODO: texture + glyphs */) {
-        self.backend.rebuild_layer_with(self.ui_state.text_layers[text.0], |b| {
-            let mut x = 0.;
-
-            for _c in str.chars() {
-                b.push_rect(
-                    Bounds {
-                        a: Pos { x, y: 0. },
-                        b: Pos { x: x + 12., y: 20. },
-                    },
-                    // TODO: color should be mixed/overridden during render_surface
-                    FillStyle::SolidColor(Color::WHITE),
-                );
-                x += 15.;
-            }
-        });
+    pub fn update_texture(&mut self, texture: RB::TextureId, data: &[u8]) {
+        self.backend.update_texture(texture, data);
     }
-    */
 
     pub fn render_surface(&mut self, surface: SurfaceId, bounds: &impl Lookup<BK, Bounds>) {
-        let layer = self.ui_state.root_layer;
         let current_bounds = bounds.lookup(self.ui_state.bounds_keys[surface.0]);
         let ui_state = &self.ui_state;
 
-        self.backend.rebuild_layer_with(layer, |builder| {
-            let mut ctx = RenderContext {
-                builder,
-                ui_state,
-                bounds,
-                current_bounds,
-            };
+        // TODO: reuse
+        let mut builder = Vec::new();
 
-            ctx.render_surface(surface);
-        });
+        let mut ctx = RenderContext {
+            builder: &mut builder,
+            ui_state,
+            bounds,
+            current_bounds,
+        };
 
-        self.backend.render_layer(layer);
+        ctx.render_surface(surface);
+
+        self.backend.render(builder.into_iter());
     }
 }
 
 // internal impl starts here
 
 // data-oriented storage
-// TODO: BTreeMap, flags, freelists
-// TODO: #[derive(Default)] so the `new()` can be removed?
 struct UiState<RB: RenderBackend, BK> {
     bounds_keys: Vec<BK>,
-    children: Vec<Vec<SurfaceId>>,
     opacities: Vec<f32>,
-    border_radii: Vec<Option<BorderRadius>>,
     overflows: Vec<Overflow>,
+    transforms: Vec<Option<Mat3>>,
+    border_radii: Vec<Option<BorderRadius>>,
     outline_shadows: Vec<Vec<OutlineShadow>>,
     outlines: Vec<Option<Outline>>,
     background_colors: Vec<Color>,
     background_images: Vec<Vec<BackgroundImage>>,
     inset_shadows: Vec<Vec<InsetShadow>>,
+    children: Vec<Vec<SurfaceId>>,
+    content_layers: Vec<Option<RB::LayerId>>,
     colors: Vec<Color>,
     borders: Vec<Option<Border>>,
 
-    text_layers: Vec<RB::LayerId>,
-
-    root_layer: RB::LayerId,
     textures: Vec<RB::TextureId>,
 }
 
 impl<RB: RenderBackend, BK: Copy> UiState<RB, BK> {
-    fn new(root_layer: RB::LayerId) -> Self {
+    fn new() -> Self {
         Self {
             bounds_keys: Vec::new(),
-            children: Vec::new(),
-            overflows: Vec::new(),
             opacities: Vec::new(),
+            overflows: Vec::new(),
+            transforms: Vec::new(),
             border_radii: Vec::new(),
             outline_shadows: Vec::new(),
             outlines: Vec::new(),
             background_colors: Vec::new(),
             background_images: Vec::new(),
             inset_shadows: Vec::new(),
+            children: Vec::new(),
+            content_layers: Vec::new(),
             colors: Vec::new(),
             borders: Vec::new(),
 
-            text_layers: Vec::new(),
-
-            root_layer,
             textures: Vec::new(),
         }
     }
 }
 
 struct RenderContext<'a, RB: RenderBackend, BK: Copy, BS: Lookup<BK, Bounds>> {
-    builder: &'a mut RB::LayerBuilder,
+    builder: &'a mut Vec<BackendOp<RB>>,
     ui_state: &'a UiState<RB, BK>,
     bounds: &'a BS,
     current_bounds: Bounds,
@@ -239,7 +238,10 @@ struct RenderContext<'a, RB: RenderBackend, BK: Copy, BS: Lookup<BK, Bounds>> {
 
 impl<RB: RenderBackend, BK: Copy, BS: Lookup<BK, Bounds>> RenderContext<'_, RB, BK, BS> {
     fn render_surface(&mut self, surface: SurfaceId) {
-        // TODO: transform
+        if let Some(t) = &self.ui_state.transforms[surface.0] {
+            self.builder.push(BackendOp::PushTransform(*t));
+        }
+
         // TODO: overflow (scroll)
         // TODO: opacity
         // TODO: border_radius (clip downwards, (border/shadow only on this level))
@@ -274,10 +276,16 @@ impl<RB: RenderBackend, BK: Copy, BS: Lookup<BK, Bounds>> RenderContext<'_, RB, 
             self.current_bounds = prev_bounds;
         }
 
-        // TODO: render_text
+        if let Some(l) = self.ui_state.content_layers[surface.0] {
+            self.builder.push(BackendOp::PushLayer(l));
+        }
 
         if let Some(b) = &self.ui_state.borders[surface.0] {
             self.render_border(b);
+        }
+
+        if self.ui_state.transforms[surface.0].is_some() {
+            self.builder.push(BackendOp::PopTransform);
         }
     }
 
@@ -287,7 +295,7 @@ impl<RB: RenderBackend, BK: Copy, BS: Lookup<BK, Bounds>> RenderContext<'_, RB, 
         }
 
         self.builder
-            .push_rect(self.current_bounds.inflate_uniform(shadow.spread), FillStyle::SolidColor(shadow.color));
+            .push(BackendOp::PushRect(self.current_bounds.inflate_uniform(shadow.spread), FillStyle::SolidColor(shadow.color)));
     }
 
     fn render_outline(&mut self, outline: &Outline) {
@@ -295,54 +303,54 @@ impl<RB: RenderBackend, BK: Copy, BS: Lookup<BK, Bounds>> RenderContext<'_, RB, 
         let Bounds { a, b } = self.current_bounds;
 
         // top
-        self.builder.push_rect(
+        self.builder.push(BackendOp::PushRect(
             Bounds {
                 a,
                 b: Pos { x: b.x + width, y: a.y - width },
             },
             FillStyle::SolidColor(color),
-        );
+        ));
 
         // right
-        self.builder.push_rect(
+        self.builder.push(BackendOp::PushRect(
             Bounds {
                 a: Pos { x: b.x + width, y: a.y },
                 b: Pos { x: b.x, y: b.y + width },
             },
             FillStyle::SolidColor(color),
-        );
+        ));
 
         // bottom
-        self.builder.push_rect(
+        self.builder.push(BackendOp::PushRect(
             Bounds {
                 a: Pos { x: a.x - width, y: b.y + width },
                 b,
             },
             FillStyle::SolidColor(color),
-        );
+        ));
 
         // left
-        self.builder.push_rect(
+        self.builder.push(BackendOp::PushRect(
             Bounds {
                 a: Pos { x: a.x - width, y: a.y - width },
                 b: Pos { x: a.x, y: b.y },
             },
             FillStyle::SolidColor(color),
-        );
+        ));
     }
 
     fn render_background_color(&mut self, color: Color) {
         if color.a != 0 {
-            self.builder.push_rect(self.current_bounds, FillStyle::SolidColor(color));
+            self.builder.push(BackendOp::PushRect(self.current_bounds, FillStyle::SolidColor(color)));
         }
     }
 
     fn render_background_image(&mut self, background_image: &BackgroundImage) {
         match background_image {
-            BackgroundImage::Image { image } => self.builder.push_rect(
+            BackgroundImage::Image { image } => self.builder.push(BackendOp::PushRect(
                 self.current_bounds,
                 FillStyle::Texture(self.ui_state.textures[image.0], Bounds { a: Pos::ZERO, b: Pos::ONE }),
-            ),
+            )),
             BackgroundImage::LinearGradient {} => println!("TODO: render linear gradient"),
             BackgroundImage::RadialGradient {} => println!("TODO: render radial gradient"),
         }
@@ -376,49 +384,25 @@ impl<RB: RenderBackend, BK: Copy, BS: Lookup<BK, Bounds>> RenderContext<'_, RB, 
 
         if let Some(BorderSide { width, style, color }) = border.top {
             if style == BorderStyle::Solid {
-                self.builder.push_rect(
-                    Bounds {
-                        a,
-                        b: Pos { x: b.x, y: a.y + width },
-                    },
-                    FillStyle::SolidColor(color),
-                )
+                self.builder.push(BackendOp::PushRect(Bounds { a, b: Pos { x: b.x, y: a.y + width } }, FillStyle::SolidColor(color)))
             }
         }
 
         if let Some(BorderSide { width, style, color }) = border.right {
             if style == BorderStyle::Solid {
-                self.builder.push_rect(
-                    Bounds {
-                        a: Pos { x: b.x - width, y: a.y },
-                        b,
-                    },
-                    FillStyle::SolidColor(color),
-                )
+                self.builder.push(BackendOp::PushRect(Bounds { a: Pos { x: b.x - width, y: a.y }, b }, FillStyle::SolidColor(color)))
             }
         }
 
         if let Some(BorderSide { width, style, color }) = border.bottom {
             if style == BorderStyle::Solid {
-                self.builder.push_rect(
-                    Bounds {
-                        a: Pos { x: a.x, y: b.y - width },
-                        b,
-                    },
-                    FillStyle::SolidColor(color),
-                )
+                self.builder.push(BackendOp::PushRect(Bounds { a: Pos { x: a.x, y: b.y - width }, b }, FillStyle::SolidColor(color)))
             }
         }
 
         if let Some(BorderSide { width, style, color }) = border.left {
             if style == BorderStyle::Solid {
-                self.builder.push_rect(
-                    Bounds {
-                        a,
-                        b: Pos { x: a.x + width, y: b.y },
-                    },
-                    FillStyle::SolidColor(color),
-                )
+                self.builder.push(BackendOp::PushRect(Bounds { a, b: Pos { x: a.x + width, y: b.y } }, FillStyle::SolidColor(color)))
             }
         }
     }
@@ -426,6 +410,7 @@ impl<RB: RenderBackend, BK: Copy, BS: Lookup<BK, Bounds>> RenderContext<'_, RB, 
 
 #[cfg(test)]
 mod tests {
+    use super::backend::BackendOp;
     use super::*;
 
     #[test]
@@ -435,7 +420,7 @@ mod tests {
 
         r.render_surface(c, &vec![Bounds::ZERO]);
 
-        assert_eq!(r.backend.log, vec!["create_layer", "rebuild_layer 1", "render_layer 1"]);
+        assert_eq!(r.backend.log, vec!["render"]);
     }
 
     #[test]
@@ -462,13 +447,11 @@ mod tests {
         assert_eq!(
             r.backend.log,
             vec![
-                "create_layer",
-                "rebuild_layer 1",
-                "push_rect Bounds((0.0, 0.0), (101.0, -1.0)) SolidColor(#0000ff)",
-                "push_rect Bounds((101.0, 0.0), (100.0, 101.0)) SolidColor(#0000ff)",
-                "push_rect Bounds((-1.0, 101.0), (100.0, 100.0)) SolidColor(#0000ff)",
-                "push_rect Bounds((-1.0, -1.0), (0.0, 100.0)) SolidColor(#0000ff)",
-                "render_layer 1"
+                "render",
+                "PushRect(Bounds((0.0, 0.0), (101.0, -1.0)), SolidColor(#0000ff))",
+                "PushRect(Bounds((101.0, 0.0), (100.0, 101.0)), SolidColor(#0000ff))",
+                "PushRect(Bounds((-1.0, 101.0), (100.0, 100.0)), SolidColor(#0000ff))",
+                "PushRect(Bounds((-1.0, -1.0), (0.0, 100.0)), SolidColor(#0000ff))"
             ]
         );
     }
@@ -487,15 +470,7 @@ mod tests {
             }],
         );
 
-        assert_eq!(
-            r.backend.log,
-            vec![
-                "create_layer",
-                "rebuild_layer 1",
-                "push_rect Bounds((0.0, 0.0), (100.0, 100.0)) SolidColor(#00ff00)",
-                "render_layer 1"
-            ]
-        );
+        assert_eq!(r.backend.log, vec!["render", "PushRect(Bounds((0.0, 0.0), (100.0, 100.0)), SolidColor(#00ff00))"]);
     }
 
     #[test]
@@ -522,15 +497,7 @@ mod tests {
             ],
         );
 
-        assert_eq!(
-            r.backend.log,
-            vec![
-                "create_layer",
-                "rebuild_layer 1",
-                "push_rect Bounds((50.0, 50.0), (150.0, 150.0)) SolidColor(#ff0000)",
-                "render_layer 1"
-            ]
-        );
+        assert_eq!(r.backend.log, vec!["render", "PushRect(Bounds((50.0, 50.0), (150.0, 150.0)), SolidColor(#ff0000))"]);
     }
 
     #[test]
@@ -608,75 +575,73 @@ mod tests {
         assert_eq!(
             r.backend.log,
             vec![
-                "create_layer",
-                "rebuild_layer 1",
-                "push_rect Bounds((-5.0, -5.0), (5.0, 5.0)) SolidColor(#000000)",
-                "push_rect Bounds((0.0, 0.0), (1.0, -1.0)) SolidColor(#000000)",
-                "push_rect Bounds((1.0, 0.0), (0.0, 1.0)) SolidColor(#000000)",
-                "push_rect Bounds((-1.0, 1.0), (0.0, 0.0)) SolidColor(#000000)",
-                "push_rect Bounds((-1.0, -1.0), (0.0, 0.0)) SolidColor(#000000)",
-                "push_rect Bounds((0.0, 0.0), (0.0, 0.0)) SolidColor(#000000)",
-                "push_rect Bounds((0.0, 0.0), (0.0, 1.0)) SolidColor(#ff0000)",
-                "push_rect Bounds((-1.0, 0.0), (0.0, 0.0)) SolidColor(#00ff00)",
-                "push_rect Bounds((0.0, -1.0), (0.0, 0.0)) SolidColor(#0000ff)",
-                "push_rect Bounds((0.0, 0.0), (1.0, 0.0)) SolidColor(#ffff00)",
-                "render_layer 1"
+                "render",
+                "PushRect(Bounds((-5.0, -5.0), (5.0, 5.0)), SolidColor(#000000))",
+                "PushRect(Bounds((0.0, 0.0), (1.0, -1.0)), SolidColor(#000000))",
+                "PushRect(Bounds((1.0, 0.0), (0.0, 1.0)), SolidColor(#000000))",
+                "PushRect(Bounds((-1.0, 1.0), (0.0, 0.0)), SolidColor(#000000))",
+                "PushRect(Bounds((-1.0, -1.0), (0.0, 0.0)), SolidColor(#000000))",
+                "PushRect(Bounds((0.0, 0.0), (0.0, 0.0)), SolidColor(#000000))",
+                "PushRect(Bounds((0.0, 0.0), (0.0, 1.0)), SolidColor(#ff0000))",
+                "PushRect(Bounds((-1.0, 0.0), (0.0, 0.0)), SolidColor(#00ff00))",
+                "PushRect(Bounds((0.0, -1.0), (0.0, 0.0)), SolidColor(#0000ff))",
+                "PushRect(Bounds((0.0, 0.0), (1.0, 0.0)), SolidColor(#ffff00))"
             ]
         );
     }
 
     fn create_test_renderer<BK: Copy>() -> Renderer<TestRenderBackend, BK> {
-        Renderer::new(TestRenderBackend { log: Vec::new() })
+        Renderer::new(TestRenderBackend { log: Vec::new(), layers: Vec::new() })
     }
 
     #[derive(Debug)]
     struct TestRenderBackend {
+        layers: Vec<Vec<BackendOp<Self>>>,
         log: Vec<String>,
     }
 
     impl RenderBackend for TestRenderBackend {
         type LayerId = usize;
         type TextureId = usize;
-        type LayerBuilder = Vec<String>;
 
         fn resize(&mut self, width: f32, height: f32) {
             self.log.push(format!("resize {:?} {:?}", width, height));
         }
 
+        fn render(&mut self, ops: impl Iterator<Item = BackendOp<Self>>) {
+            self.log.push("render".to_string());
+
+            for op in ops {
+                self.log.push(format!("{:?}", op));
+            }
+        }
+
         fn create_layer(&mut self) -> Self::LayerId {
-            self.log.push("create_layer".to_string());
+            let id = self.log.len();
 
-            self.log.len()
+            self.log.push(format!("create_layer -> {:?}:", &id));
+
+            id
         }
 
-        fn rebuild_layer_with(&mut self, layer: Self::LayerId, mut f: impl FnMut(&mut Self::LayerBuilder)) {
-            self.log.push(format!("rebuild_layer {:?}", layer));
+        fn update_layer(&mut self, layer: Self::LayerId, ops: impl Iterator<Item = BackendOp<Self>>) {
+            self.log.push(format!("update_layer {:?}", &layer));
 
-            f(&mut self.log);
+            for op in ops {
+                self.log.push(format!("{:?}", op));
+            }
         }
 
-        fn render_layer(&mut self, layer: Self::LayerId) {
-            self.log.push(format!("render_layer {:?}", layer));
+        fn create_texture(&mut self, width: i32, height: i32) -> Self::TextureId {
+            let id = self.log.len();
+
+            self.log.push(format!("create_texture {:?} {:?} -> {:?}", width, height, id));
+
+            id
         }
 
-        fn create_texture(&mut self, width: i32, height: i32, data: Box<[u8]>) -> Self::TextureId {
-            self.log.push(format!("create_texture {:?} {:?}", width, height));
-
-            self.log.len()
-        }
-
-        fn update_texture(&mut self, texture: Self::TextureId, f: impl FnMut(&mut [u8])) {
+        fn update_texture(&mut self, texture: Self::TextureId, _data: &[u8]) {
             self.log.push(format!("update_texture {:?}", texture));
-        }
-    }
-
-    impl LayerBuilder<TestRenderBackend> for Vec<String> {
-        fn push_rect(&mut self, bounds: Bounds, style: FillStyle<TestRenderBackend>) {
-            self.push(format!("push_rect {:?} {:?}", bounds, style));
-        }
-
-        fn push_layer(&mut self, layer: usize, origin: Pos) {
-            self.push(format!("push_layer {:?} {:?}", layer, origin));
         }
     }
 }

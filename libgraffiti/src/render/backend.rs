@@ -4,14 +4,14 @@
 // x provide way to render:
 //   - transform, clip, opacity
 //   x outline shadow (+ radius)
-//     x gen image elsewhere
+//     x gen texture elsewhere
 //   x outline
 //   x bg color
 //   x image
 //   x linear/radial gradient
-//     x gen image elsewhere
+//     x gen texture elsewhere
 //   x inset shadow (+ radius)
-//     x gen image elsewhere
+//     x gen texture elsewhere
 //   x text
 //     x cached-layer of msdf quads
 //
@@ -37,7 +37,7 @@
 //     (and opacity could be just special-case of that)
 
 use super::Color;
-use crate::commons::{Bounds, Pos};
+use crate::commons::{Bounds, Mat3};
 
 // ref impl.
 #[cfg(feature = "raqote")]
@@ -55,38 +55,37 @@ pub mod gl;
 // - layers can reference each other (and can be changed afterwards)
 pub trait RenderBackend: Sized {
     // impl-specific handles
-    type LayerId: Copy;
-    type TextureId: Copy;
-
-    // impl-specific layer-state builder
-    type LayerBuilder: LayerBuilder<Self>;
+    type LayerId: Copy + std::fmt::Debug;
+    type TextureId: Copy + std::fmt::Debug;
 
     // viewport resize
     fn resize(&mut self, width: f32, height: f32);
 
-    // layer is empty until initialized with builder
-    // so it's possible to create one even when there's nothing to draw yet
+    // draw immediately
+    fn render(&mut self, ops: impl Iterator<Item = BackendOp<Self>>);
+
+    // prepare drawing for later (something which is not changing too much like text)
+    // layer is empty so it's possible to create one even when there's nothing to draw yet (placeholder)
     fn create_layer(&mut self) -> Self::LayerId;
 
     // replace layer "contents" (may affect referencing layers)
-    fn rebuild_layer_with(&mut self, layer: Self::LayerId, f: impl FnMut(&mut Self::LayerBuilder));
+    fn update_layer(&mut self, layer: Self::LayerId, ops: impl Iterator<Item = BackendOp<Self>>);
 
-    // actually draw something
-    fn render_layer(&mut self, layer: Self::LayerId);
+    // transparent
+    fn create_texture(&mut self, width: i32, height: i32) -> Self::TextureId;
 
-    // so there's no copying
-    fn create_texture(&mut self, width: i32, height: i32, data: Box<[u8]>) -> Self::TextureId;
-
-    // needed for atlasing
-    fn update_texture(&mut self, texture: Self::TextureId, f: impl FnMut(&mut [u8]));
+    // upload new data
+    fn update_texture(&mut self, texture: Self::TextureId, data: &[u8]);
 }
 
-pub trait LayerBuilder<RB: RenderBackend> {
-    // TODO: push/pop transform/clip/opacity
+#[derive(Debug, Clone, Copy)]
+pub enum BackendOp<RB: RenderBackend> {
+    PushTransform(Mat3),
+    PopTransform,
 
-    fn push_rect(&mut self, bounds: Bounds, style: FillStyle<RB>);
-
-    fn push_layer(&mut self, layer: RB::LayerId, origin: Pos);
+    // TODO: push/pop clip/opacity
+    PushRect(Bounds, FillStyle<RB>),
+    PushLayer(RB::LayerId),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -100,10 +99,5 @@ pub enum FillStyle<RB: RenderBackend> {
     Texture(RB::TextureId, Bounds),
 
     // text, radii corners, maybe even paths & preprocessed SVG (later)
-    Msdf {
-        texture: RB::TextureId,
-        uv: Bounds,
-        factor: f32,
-        color: Color,
-    },
+    Msdf { texture: RB::TextureId, uv: Bounds, factor: f32, color: Color },
 }

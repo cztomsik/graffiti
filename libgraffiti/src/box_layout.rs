@@ -67,6 +67,7 @@ pub trait BoxLayoutTree {
     fn calculate(&mut self, node: Self::LayoutNodeId, size: (f32, f32), measure_fn: &mut dyn FnMut(Self::MeasureKey, f32) -> (f32, f32));
 
     fn get_bounds(&self, node: Self::LayoutNodeId) -> Bounds;
+    fn get_width(&self, ndoe: Self::LayoutNodeId) -> f32;
 }
 
 #[derive(Debug, Clone, Copy)]

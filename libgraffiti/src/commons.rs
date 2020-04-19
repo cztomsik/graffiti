@@ -25,10 +25,7 @@ impl Pos {
 
     #[inline]
     pub fn translate(self, pos: Self) -> Self {
-        Self {
-            x: self.x + pos.x,
-            y: self.y + pos.y,
-        }
+        Self { x: self.x + pos.x, y: self.y + pos.y }
     }
 
     #[inline]
@@ -66,14 +63,8 @@ impl Bounds {
     #[inline]
     pub fn inflate_uniform(&self, n: Au) -> Self {
         Self {
-            a: Pos {
-                x: self.a.x - n,
-                y: self.a.y - n,
-            },
-            b: Pos {
-                x: self.b.x + n,
-                y: self.b.y + n,
-            },
+            a: Pos { x: self.a.x - n, y: self.a.y - n },
+            b: Pos { x: self.b.x + n, y: self.b.y + n },
         }
     }
 
@@ -132,5 +123,54 @@ impl<K, V, F: Fn(K) -> V> Lookup<K, V> for F {
 impl<V: Copy> Lookup<usize, V> for Vec<V> {
     fn lookup(&self, key: usize) -> V {
         self[key]
+    }
+}
+
+// TODO: consider UnzeroU32 so the value can be both optimized
+//       with Option<T> but it also fits into 31bit V8 SMI
+//       (but this is big unknown, it should be profiled first)
+pub struct Id<T>(pub(crate) usize, std::marker::PhantomData<T>);
+
+impl<T> Id<T> {
+    pub(crate) const fn new(index: usize) -> Self {
+        Self(index, std::marker::PhantomData)
+    }
+}
+
+// can't derive https://github.com/rust-lang/rust/issues/26925
+impl<T> Clone for Id<T> {
+    fn clone(&self) -> Self {
+        Self(self.0, std::marker::PhantomData)
+    }
+}
+
+// again
+impl<T> Copy for Id<T> {}
+
+// and again
+impl<T> Debug for Id<T> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_tuple("").field(&self.0).finish()
+    }
+}
+
+// and again
+impl<T> PartialEq for Id<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<T> std::ops::Index<Id<T>> for Vec<T> {
+    type Output = T;
+
+    fn index(&self, id: Id<T>) -> &Self::Output {
+        &self[id.0]
+    }
+}
+
+impl<T> std::ops::IndexMut<Id<T>> for Vec<T> {
+    fn index_mut(&mut self, id: Id<T>) -> &mut Self::Output {
+        &mut self[id.0]
     }
 }

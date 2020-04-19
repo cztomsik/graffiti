@@ -1,3 +1,5 @@
+// -- image
+
 #define STB_IMAGE_IMPLEMENTATION
 
 // mem only
@@ -10,3 +12,10 @@
 #define STBI_NO_PNM
 
 #include "stb_image.h"
+
+
+// -- truetype
+
+#define STB_TRUETYPE_IMPLEMENTATION
+
+#include "stb_truetype.h"

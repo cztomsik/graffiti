@@ -115,6 +115,11 @@ impl BoxLayoutTree for YogaLayoutTree {
         }
     }
 
+    #[inline(always)]
+    fn get_width(&self, node: YGNodeRef) -> f32 {
+        unsafe { YGNodeLayoutGetWidth(node) }
+    }
+
     fn set_display(&mut self, node: YGNodeRef, v: Display) {
         // TODO: this is in-complete
         //     display: block works like override but it should keep previously set value

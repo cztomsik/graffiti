@@ -4,7 +4,7 @@
 
 #![allow(non_snake_case)]
 
-use super::{Color, FillStyle, LayerBuilder, RenderBackend};
+use super::{BackendOp, Color, FillStyle, RenderBackend};
 use crate::commons::{Bounds, Mat3, Pos};
 
 pub struct GlRenderBackend {
@@ -14,15 +14,17 @@ pub struct GlRenderBackend {
     layers: Vec<Layer>,
     // TODO: GlTexture struct
     textures: Vec<GLuint>,
+
+    main_layer: <GlRenderBackend as RenderBackend>::LayerId,
 }
 
 struct Layer {
     vbo: GlBuffer,
-    render_ops: Vec<RenderOp>,
+    gl_ops: Vec<GlRenderOp>,
 }
 
 #[derive(Debug)]
-pub enum RenderOp {
+pub enum GlRenderOp {
     PushTransform(Mat3),
     PopTransform,
     DrawSolidRects { count: GLint },
@@ -85,12 +87,7 @@ impl GlRenderBackend {
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glBlendEquation(GL_FUNC_ADD);
 
-            let rect_program = create_program(
-                include_str!("shaders/rect.vert"),
-                include_str!("shaders/rect.frag"),
-                &["u_transform"],
-                &["a_pos", "a_color"],
-            );
+            let rect_program = create_program(include_str!("shaders/rect.vert"), include_str!("shaders/rect.frag"), &["u_transform"], &["a_pos", "a_color"]);
 
             let text_program = create_program(
                 include_str!("shaders/text.vert"),
@@ -99,13 +96,19 @@ impl GlRenderBackend {
                 &["a_pos", "a_uv"],
             );
 
-            Self {
+            let mut backend = Self {
                 rect_program,
                 text_program,
 
                 layers: Vec::new(),
                 textures: Vec::new(),
-            }
+
+                main_layer: 0,
+            };
+
+            backend.create_layer();
+
+            backend
         }
     }
 
@@ -114,12 +117,12 @@ impl GlRenderBackend {
 
         glBindBuffer(GL_ARRAY_BUFFER, layer.vbo.id);
 
-        for op in &layer.render_ops {
+        for op in &layer.gl_ops {
             println!("op {:?}", &op);
             println!("vertex size {:?}", Rect::VERTEX_SIZE);
 
             match op {
-                RenderOp::PushTransform(transform) => {
+                GlRenderOp::PushTransform(transform) => {
                     // TODO: multiply by current
                     transform_stack.push(*transform);
 
@@ -132,7 +135,7 @@ impl GlRenderBackend {
                     check("set transform");
                 }
 
-                RenderOp::PopTransform => {
+                GlRenderOp::PopTransform => {
                     transform_stack.pop().unwrap();
 
                     glUseProgram(self.rect_program.id);
@@ -140,7 +143,7 @@ impl GlRenderBackend {
                     check("restore transform");
                 }
 
-                RenderOp::DrawSolidRects { count } => {
+                GlRenderOp::DrawSolidRects { count } => {
                     glUseProgram(self.rect_program.id);
                     glVertexAttribPointer(self.rect_program.attributes[0].loc, 2, GL_FLOAT, GL_FALSE, Rect::VERTEX_SIZE, ptr::null());
                     glVertexAttribPointer(
@@ -157,8 +160,11 @@ impl GlRenderBackend {
                     check("draw arrays");
                 }
 
-                RenderOp::DrawLayer(layer) => {
-                    self.draw_layer(*layer, transform_stack);
+                GlRenderOp::DrawLayer(l) => {
+                    self.draw_layer(*l, transform_stack);
+
+                    // restore
+                    glBindBuffer(GL_ARRAY_BUFFER, layer.vbo.id);
                 }
             }
         }
@@ -168,7 +174,6 @@ impl GlRenderBackend {
 impl RenderBackend for GlRenderBackend {
     type LayerId = usize;
     type TextureId = usize;
-    type LayerBuilder = (Vec<Rect>, Vec<RenderOp>);
 
     fn resize(&mut self, width: f32, height: f32) {
         let mat = Mat3([2. / width, 0., -1., 0., -2. / height, 1., 0., 0., 1.]);
@@ -188,38 +193,61 @@ impl RenderBackend for GlRenderBackend {
         self.layers.push(unsafe {
             Layer {
                 vbo: create_buffer(),
-                render_ops: Vec::new(),
+                gl_ops: Vec::new(),
             }
         });
 
         self.layers.len() - 1
     }
 
-    fn rebuild_layer_with(&mut self, layer: Self::LayerId, mut f: impl FnMut(&mut Self::LayerBuilder)) {
-        let Layer { vbo, render_ops } = &mut self.layers[layer];
+    // TODO: support "inlining" (don't upload the buffer but keep the vertices in layer
+    //       so it can be appended to a current buffer during `render()`)
+    fn update_layer(&mut self, layer: Self::LayerId, ops: impl Iterator<Item = BackendOp<Self>>) {
+        let Layer { vbo, gl_ops } = &mut self.layers[layer];
 
-        // TODO: reuse same vec (set_len + mem::replace)
-        let mut builder = (Vec::new(), Vec::new());
+        // TODO: reuse the same vec (set_len + mem::replace)
+        let mut rects = Vec::new();
+        gl_ops.clear();
 
         // initial transform is needed
-        builder.1.push(RenderOp::PushTransform(Mat3::identity()));
+        gl_ops.push(GlRenderOp::PushTransform(Mat3::identity()));
 
-        f(&mut builder);
+        for op in ops {
+            match op {
+                BackendOp::PushTransform(m) => gl_ops.push(GlRenderOp::PushTransform(m)),
+                BackendOp::PopTransform => gl_ops.push(GlRenderOp::PopTransform),
 
-        // &rects[0] could fault
-        if !builder.0.is_empty() {
-            // upload vbo
-            // (have to be bound again during rendering)
-            unsafe {
-                buffer_data(vbo, GL_ARRAY_BUFFER, &builder.0);
-                check("upload vbo");
+                BackendOp::PushRect(bounds, style) => match style {
+                    FillStyle::SolidColor(color) => {
+                        rects.push(Rect::new(bounds, [VertexData { color }; 4]));
+
+                        if let Some(GlRenderOp::DrawSolidRects { count }) = gl_ops.last_mut() {
+                            *count += 1
+                        } else {
+                            gl_ops.push(GlRenderOp::DrawSolidRects { count: 1 })
+                        }
+                    }
+
+                    FillStyle::Texture { .. } => panic!("TODO: texture"),
+                    FillStyle::Msdf { .. } => panic!("TODO: msdf"),
+                },
+
+                BackendOp::PushLayer(layer) => gl_ops.push(GlRenderOp::DrawLayer(layer)),
             }
         }
 
-        *render_ops = builder.1;
+        // &rects[0] could fault
+        if !rects.is_empty() {
+            // upload vbo
+            // (have to be bound again during rendering)
+            unsafe {
+                buffer_data(vbo, GL_ARRAY_BUFFER, &rects);
+                check("upload vbo");
+            }
+        }
     }
 
-    fn render_layer(&mut self, layer: Self::LayerId) {
+    fn render(&mut self, ops: impl Iterator<Item = BackendOp<Self>>) {
         unsafe {
             glClearColor(1.0, 1.0, 1.0, 1.0);
             glClear(GL_COLOR_BUFFER_BIT);
@@ -227,26 +255,32 @@ impl RenderBackend for GlRenderBackend {
             // TODO: avoid alloc
             let mut transform_stack = Vec::new();
 
-            self.draw_layer(layer, &mut transform_stack);
+            self.update_layer(self.main_layer, ops);
+            self.draw_layer(self.main_layer, &mut transform_stack);
         }
     }
 
-    fn create_texture(&mut self, width: i32, height: i32, data: Box<[u8]>) -> Self::TextureId {
-        assert!(
-            width == height && width % 2 == 0 && height % 2 == 0,
-            "width and height have to be the same and power of 2"
-        );
-        assert_eq!(data.is_empty(), false);
-
-        let data_ptr = &data[0] as *const u8 as *const std::ffi::c_void;
-
-        // TODO: move to GPU
+    fn create_texture(&mut self, width: i32, height: i32) -> Self::TextureId {
+        assert!(width == height && width % 2 == 0 && height % 2 == 0, "width and height have to be the same and power of 2");
 
         // TODO: struct
         let mut tex = 0;
 
         unsafe {
             glGenTextures(1, &mut tex);
+        }
+
+        self.textures.push(tex);
+
+        self.textures.len() - 1
+    }
+
+    fn update_texture(&mut self, texture: Self::TextureId, data: &[u8]) {
+        // TODO: check dimensions vs. len()
+
+        let tex = self.textures[texture];
+
+        unsafe {
             glBindTexture(GL_TEXTURE_2D, tex);
             // linear = bilinear, nearest wouldn't work
             // mipmap could improve small sizes but I'm not sure if it wouldn't need additional texture space
@@ -256,42 +290,21 @@ impl RenderBackend for GlRenderBackend {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE as GLint);
             // needed if RGB
             //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as GLint, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, data_ptr);
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RGBA as GLint,
+                512,
+                512,
+                0,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                &data[0] as *const u8 as *const std::ffi::c_void,
+            );
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, tex);
             check("texture");
         }
-
-        self.textures.push(tex);
-
-        self.textures.len() - 1
-    }
-
-    fn update_texture(&mut self, _texture: Self::TextureId, _f: impl FnMut(&mut [u8])) {
-        unimplemented!();
-    }
-}
-
-impl LayerBuilder<GlRenderBackend> for (Vec<Rect>, Vec<RenderOp>) {
-    fn push_rect(&mut self, bounds: Bounds, style: FillStyle<GlRenderBackend>) {
-        match style {
-            FillStyle::SolidColor(color) => {
-                self.0.push(Rect::new(bounds, [VertexData { color }; 4]));
-
-                if let Some(RenderOp::DrawSolidRects { count }) = self.1.last_mut() {
-                    *count += 1
-                } else {
-                    self.1.push(RenderOp::DrawSolidRects { count: 1 })
-                }
-            }
-
-            FillStyle::Texture { .. } => panic!("TODO: texture"),
-            FillStyle::Msdf { .. } => panic!("TODO: msdf"),
-        }
-    }
-
-    fn push_layer(&mut self, layer: <GlRenderBackend as RenderBackend>::LayerId, origin: Pos) {
-        self.1.push(RenderOp::DrawLayer(layer))
     }
 }
 
@@ -364,11 +377,7 @@ unsafe fn create_program(vs: &str, fs: &str, extra_uniforms: &[&str], attributes
         })
         .collect();
 
-    ShaderProgram {
-        id: program,
-        uniforms,
-        attributes,
-    }
+    ShaderProgram { id: program, uniforms, attributes }
 }
 
 unsafe fn shader(shader_type: GLuint, source: &str) -> GLuint {
@@ -424,6 +433,8 @@ unsafe fn buffer_data<T>(buffer: &mut GlBuffer, target: GLuint, data: &[T]) {
     }
 
     check("buffer data");
+
+    silly!("vbo upload {}", size);
 }
 
 unsafe fn check(hint: &str) {

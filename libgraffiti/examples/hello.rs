@@ -1,7 +1,7 @@
 use graffiti::{
     app::App,
     render::value_types::*,
-    text_layout::{Text, TextAlign},
+    text::TextAlign,
     viewport::{Event, GlViewport, StyleProp},
 };
 
@@ -9,26 +9,21 @@ fn main() {
     let mut app = unsafe { App::init() };
     let w = app.create_window("Hello", 800, 600);
 
-    let mut wrapper = 0;
-    let mut text = 0;
-
     app.update_window_scene(w, &mut |v| {
-        wrapper = v.create_element();
-        text = v.create_text_node();
+        let el = v.create_element();
+        let text = v.create_text_node();
 
-        v.set_style(wrapper, &StyleProp::BackgroundColor(Color::GREEN));
-        v.set_text(
-            text,
-            &Text {
-                font_size: 16.,
-                line_height: 30.,
-                align: TextAlign::Left,
-                text: "Hello world!".to_string(),
-            },
-        );
+        v.set_style(el, &StyleProp::BackgroundColor(Color::BLUE));
+        v.set_style(el, &StyleProp::Color(Color::WHITE));
+        v.set_style(el, &StyleProp::FontFamily("sans-serif".to_string()));
+        v.set_style(el, &StyleProp::FontSize(20.));
+        v.set_style(el, &StyleProp::TextAlign(TextAlign::Left));
+        v.set_style(el, &StyleProp::LineHeight(30.));
 
-        v.insert_child(GlViewport::ROOT, 0, wrapper);
-        v.insert_child(wrapper, 0, text);
+        v.set_text(text, "Hello world!".to_string());
+
+        v.insert_child(GlViewport::ROOT, 0, el);
+        v.insert_child(el, 0, text);
     });
 
     // loop

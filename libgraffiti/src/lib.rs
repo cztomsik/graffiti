@@ -11,5 +11,5 @@ pub mod commons;
 //mod picker;
 pub mod platform;
 pub mod render;
-pub mod text_layout;
+pub mod text;
 pub mod viewport;
