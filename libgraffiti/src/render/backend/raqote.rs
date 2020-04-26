@@ -74,7 +74,7 @@ impl RenderBackend for RaqoteBackend {
 }
 
 fn render_op(op: &BackendOp<RaqoteBackend>, layers: &[Vec<BackendOp<RaqoteBackend>>], textures: &[Texture], dt: &mut DrawTarget, transform_stack: &mut Vec<Transform>) {
-    println!("op {:?}", op);
+    silly!("BackendOp::{:?}", op);
 
     match op {
         BackendOp::PushTransform(m) => {
@@ -107,7 +107,11 @@ fn render_op(op: &BackendOp<RaqoteBackend>, layers: &[Vec<BackendOp<RaqoteBacken
                     Source::Image(Image { width, height, data }, ExtendMode::Pad, FilterMode::Nearest, transform)
                 }
 
-                FillStyle::Msdf { .. } => panic!("TODO: msdf"),
+                FillStyle::Msdf { color, .. } => {
+                    Source::Solid((*color).into())
+
+                    //panic!("TODO: msdf")
+                }
             };
 
             dt.fill(&path, &source, &DrawOptions::new());

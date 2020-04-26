@@ -11,6 +11,7 @@ import { HTMLBodyElement } from './HTMLBodyElement'
 import { HTMLDivElement } from './HTMLDivElement'
 import { HTMLSpanElement } from './HTMLSpanElement'
 import { HTMLInputElement } from './HTMLInputElement'
+import { HTMLTextAreaElement } from './HTMLTextAreaElement'
 import { HTMLButtonElement } from './HTMLButtonElement'
 import { HTMLUnknownElement } from './HTMLUnknownElement'
 import { HTMLAnchorElement } from './HTMLAnchorElement'
@@ -71,6 +72,7 @@ export class Document extends Node implements IDocument {
       case 'a': return new HTMLAnchorElement(this, 'A')
       case 'button': return new HTMLButtonElement(this, 'BUTTON')
       case 'input': return new HTMLInputElement(this, 'INPUT')
+      case 'textarea': return new HTMLTextAreaElement(this, 'TEXTAREA')
       case 'table': return new HTMLTableElement(this, 'TABLE')
       case 'thead': return new HTMLTableSectionElement(this, 'THEAD')
       case 'tbody': return new HTMLTableSectionElement(this, 'TBODY')
@@ -86,7 +88,7 @@ export class Document extends Node implements IDocument {
         const lower = tagName.toLowerCase()
 
         if (tagName === lower) {
-          return new HTMLUnknownElement(this, tagName)
+          return new HTMLUnknownElement(this, tagName.toUpperCase())
         }
 
         return this.createElement(lower as any)

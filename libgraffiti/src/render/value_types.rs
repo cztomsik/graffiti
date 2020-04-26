@@ -1,5 +1,5 @@
-use super::ImageId;
-use crate::commons::Pos;
+use super::{ImageId, SurfaceId};
+use crate::commons::{Bounds, Pos};
 use std::fmt::{self, Debug, Formatter};
 
 // value types

@@ -27,10 +27,9 @@ struct Layer {
 pub enum GlRenderOp {
     PushTransform(Mat3),
     PopTransform,
-    DrawSolidRects { count: GLint },
+    DrawSolidRects { count: usize },
     DrawLayer(<GlRenderBackend as RenderBackend>::LayerId),
-    //DrawText { id: TextId, pos: Pos, color: Color },
-    // TODO: sublayer
+    DrawMsdf { count: usize, color: Color },
 }
 
 // we can't use instanced drawing (UBOs) on raspi
@@ -117,9 +116,10 @@ impl GlRenderBackend {
 
         glBindBuffer(GL_ARRAY_BUFFER, layer.vbo.id);
 
+        let mut vbo_offset = 0;
+
         for op in &layer.gl_ops {
-            println!("op {:?}", &op);
-            println!("vertex size {:?}", Rect::VERTEX_SIZE);
+            silly!("GlRenderOp {:?}", &op);
 
             match op {
                 GlRenderOp::PushTransform(transform) => {
@@ -145,19 +145,40 @@ impl GlRenderBackend {
 
                 GlRenderOp::DrawSolidRects { count } => {
                     glUseProgram(self.rect_program.id);
-                    glVertexAttribPointer(self.rect_program.attributes[0].loc, 2, GL_FLOAT, GL_FALSE, Rect::VERTEX_SIZE, ptr::null());
+                    glVertexAttribPointer(self.rect_program.attributes[0].loc, 2, GL_FLOAT, GL_FALSE, Rect::VERTEX_SIZE, vbo_offset as *const std::ffi::c_void);
                     glVertexAttribPointer(
                         self.rect_program.attributes[1].loc,
                         4,
                         GL_UNSIGNED_BYTE,
                         GL_FALSE,
                         Rect::VERTEX_SIZE,
-                        mem::size_of::<Pos>() as *const std::ffi::c_void,
+                        (vbo_offset + mem::size_of::<Pos>()) as *const std::ffi::c_void,
                     );
 
                     // draw
-                    glDrawArrays(GL_TRIANGLES, 0, count * 6);
+                    glDrawArrays(GL_TRIANGLES, 0, (count * 6) as GLint);
                     check("draw arrays");
+
+                    vbo_offset += mem::size_of::<Rect>() * count;
+                }
+
+                GlRenderOp::DrawMsdf { count, color: _ } => {
+                    glUseProgram(self.text_program.id);
+                    glVertexAttribPointer(self.text_program.attributes[0].loc, 2, GL_FLOAT, GL_FALSE, Rect::VERTEX_SIZE, vbo_offset as *const std::ffi::c_void);
+                    glVertexAttribPointer(
+                        self.rect_program.attributes[1].loc,
+                        2,
+                        GL_FLOAT,
+                        GL_FALSE,
+                        Rect::VERTEX_SIZE,
+                        (vbo_offset + mem::size_of::<Pos>()) as *const std::ffi::c_void,
+                    );
+
+                    // draw
+                    glDrawArrays(GL_TRIANGLES, 0, (count * 6) as GLint);
+                    check("draw arrays");
+
+                    vbo_offset += mem::size_of::<Rect>() * count;
                 }
 
                 GlRenderOp::DrawLayer(l) => {
@@ -229,7 +250,26 @@ impl RenderBackend for GlRenderBackend {
                     }
 
                     FillStyle::Texture { .. } => panic!("TODO: texture"),
-                    FillStyle::Msdf { .. } => panic!("TODO: msdf"),
+
+                    // TODO: texture
+                    FillStyle::Msdf { texture: _, uv: _, factor: _, color } => {
+                        /*
+                        rects.push(Rect::new(bounds, [
+                            VertexData { uv: uv.a },
+                            VertexData { uv: Pos::new(uv.b.x, uv.a.y) },
+                            VertexData { uv: uv.b },
+                            VertexData { uv: Pos::new(uv.a.x, uv.b.y) },
+                        ]));
+
+                        // TODO: batch!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        gl_ops.push(GlRenderOp::DrawMsdf { count: 1, color })
+                        */
+
+                        silly!("{:?}", bounds);
+
+                        rects.push(Rect::new(bounds, [VertexData { color }; 4]));
+                        gl_ops.push(GlRenderOp::DrawSolidRects { count: 1 });
+                    }
                 },
 
                 BackendOp::PushLayer(layer) => gl_ops.push(GlRenderOp::DrawLayer(layer)),
@@ -248,6 +288,8 @@ impl RenderBackend for GlRenderBackend {
     }
 
     fn render(&mut self, ops: impl Iterator<Item = BackendOp<Self>>) {
+        let now = std::time::Instant::now();
+
         unsafe {
             glClearColor(1.0, 1.0, 1.0, 1.0);
             glClear(GL_COLOR_BUFFER_BIT);
@@ -258,6 +300,8 @@ impl RenderBackend for GlRenderBackend {
             self.update_layer(self.main_layer, ops);
             self.draw_layer(self.main_layer, &mut transform_stack);
         }
+
+        println!("render took {:?}", now.elapsed());
     }
 
     fn create_texture(&mut self, width: i32, height: i32) -> Self::TextureId {

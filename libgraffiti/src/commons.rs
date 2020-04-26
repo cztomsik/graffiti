@@ -49,6 +49,7 @@ pub struct Bounds {
 
 impl Bounds {
     pub const ZERO: Bounds = Self { a: Pos::ZERO, b: Pos::ZERO };
+    pub const ZERO_ONE: Bounds = Self { a: Pos::ZERO, b: Pos::ONE };
 
     #[inline]
     pub fn width(&self) -> Au {

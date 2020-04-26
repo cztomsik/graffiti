@@ -81,6 +81,10 @@ export const defaultStyles = {
     minHeight: 2 * EM,
   },
 
+  TEXTAREA: {
+    display: 'block'
+  },
+
   TABLE: {
     display: 'flex',
     flexDirection: 'column'

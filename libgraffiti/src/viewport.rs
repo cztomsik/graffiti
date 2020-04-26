@@ -6,12 +6,12 @@
 //     x when text node is inserted/removed
 //     x when el text style is changed
 
-use crate::box_layout::{Align, BoxLayoutImpl, BoxLayoutTree, Dimension, Display, FlexDirection, FlexWrap, Overflow};
+use crate::box_layout::{BoxLayoutImpl, BoxLayoutTree, Dimension};
 use crate::commons::{Bounds, Id, Pos};
 use crate::render::backend::gl::GlRenderBackend;
-use crate::render::backend::{BackendOp, FillStyle, RenderBackend};
-use crate::render::value_types::{BorderStyle, Color};
+use crate::render::backend::RenderBackend;
 use crate::render::{Renderer, SurfaceId};
+use crate::style::StyleProp;
 use crate::text::{TextAlign, TextEngine, TextId, TextStyle};
 
 pub type GlViewport = Viewport<GlRenderBackend>;
@@ -19,15 +19,15 @@ pub type GlViewport = Viewport<GlRenderBackend>;
 pub struct Viewport<RB: RenderBackend> {
     size: (f32, f32),
 
+    // nodes
+    node_data: Vec<NodeData>,
+    layouts: Vec<<BoxLayoutImpl as BoxLayoutTree>::LayoutNodeId>,
+    surfaces: Vec<SurfaceId>,
+
     // systems
     layout_engine: BoxLayoutImpl,
     text_engine: TextEngine,
     renderer: Renderer<RB, <BoxLayoutImpl as BoxLayoutTree>::LayoutNodeId>,
-
-    // nodes
-    nodes: Vec<Node>,
-    elements: Vec<Element>,
-    text_nodes: Vec<TextNode>,
 
     // flags
     needs_layout: bool,
@@ -52,61 +52,6 @@ pub enum Event {
     Close { target: NodeId },
 }
 
-// supported style props
-#[derive(Debug, Clone)]
-pub enum StyleProp {
-    // TODO: accept Dimension in non-layout props (this is big)
-    // TODO: border colors
-    // TODO: FontStyle, FontVariant
-    AlignContent(Align),
-    AlignItems(Align),
-    AlignSelf(Align),
-    BackgroundColor(Color),
-    BorderBottomLeftRadius(f32),
-    BorderBottomRightRadius(f32),
-    //BorderBottomStyle(BorderStyle),
-    BorderBottomWidth(f32),
-    //BorderLeftStyle(BorderStyle),
-    BorderLeftWidth(f32),
-    //BorderRightStyle(BorderStyle),
-    BorderRightWidth(f32),
-    BorderTopLeftRadius(f32),
-    BorderTopRightRadius(f32),
-    //BorderTopStyle(BorderStyle),
-    BorderTopWidth(f32),
-    Bottom(Dimension),
-    Color(Color),
-    Display(Display),
-    FlexBasis(Dimension),
-    FlexDirection(FlexDirection),
-    FlexGrow(f32),
-    FlexShrink(f32),
-    FlexWrap(FlexWrap),
-    FontFamily(String),
-    FontSize(f32),
-    Height(Dimension),
-    JustifyContent(Align),
-    Left(Dimension),
-    LineHeight(f32),
-    MarginBottom(Dimension),
-    MarginLeft(Dimension),
-    MarginRight(Dimension),
-    MarginTop(Dimension),
-    MaxHeight(Dimension),
-    MaxWidth(Dimension),
-    MinHeight(Dimension),
-    MinWidth(Dimension),
-    Overflow(Overflow),
-    PaddingBottom(Dimension),
-    PaddingLeft(Dimension),
-    PaddingRight(Dimension),
-    PaddingTop(Dimension),
-    Right(Dimension),
-    TextAlign(TextAlign),
-    Top(Dimension),
-    Width(Dimension),
-}
-
 impl<RB: RenderBackend> Viewport<RB> {
     pub const ROOT: NodeId = NodeId::new(0);
 
@@ -114,13 +59,13 @@ impl<RB: RenderBackend> Viewport<RB> {
         let mut viewport = Viewport {
             size,
 
+            node_data: Vec::new(),
+            layouts: Vec::new(),
+            surfaces: Vec::new(),
+
             layout_engine: BoxLayoutImpl::new(),
             text_engine: TextEngine::new(),
             renderer: Renderer::new(backend),
-
-            nodes: Vec::new(),
-            elements: Vec::new(),
-            text_nodes: Vec::new(),
 
             needs_layout: false,
 
@@ -137,137 +82,116 @@ impl<RB: RenderBackend> Viewport<RB> {
     }
 
     pub fn create_element(&mut self) -> NodeId {
-        let id = NodeId::new(self.nodes.len());
-        let element_id = ElementId::new(self.elements.len());
-
-        let layout = self.layout_engine.create_node(None);
-        let surface = self.renderer.create_surface(layout);
-        let text_nodes = Vec::new();
-        let text_style = TextStyle {
-            font: TextEngine::DEFAULT_FONT,
-            font_size: 16.,
-            line_height: 30.,
-            align: TextAlign::Left,
-        };
-
-        self.elements.push(Element {
-            layout,
-            surface,
-            text_nodes,
-            text_style,
-        });
-        self.nodes.push(Node::Element(element_id));
-
-        id
+        self.push_node(NodeData::Element(ElementData {
+            children: Vec::new(),
+            text_style: TextStyle {
+                font: TextEngine::DEFAULT_FONT,
+                font_size: 16.,
+                line_height: 30.,
+                align: TextAlign::Left,
+            },
+        }))
     }
 
     pub fn create_text_node(&mut self) -> NodeId {
-        let id = NodeId::new(self.nodes.len());
-        let text_node_id = TextNodeId::new(self.text_nodes.len());
-
         let text = self.text_engine.create_text();
-        let layout = self.layout_engine.create_node(Some(text.0));
+
+        self.push_node(NodeData::TextNode(TextNodeData { text, prev_width: 0. }))
+    }
+
+    fn push_node(&mut self, node_data: NodeData) -> NodeId {
+        let layout = self.layout_engine.create_node(match node_data {
+            NodeData::Element(_) => None,
+            NodeData::TextNode(TextNodeData { text, .. }) => Some(text.0),
+        });
         let surface = self.renderer.create_surface(layout);
-        let prev_width = 0.;
 
-        self.text_nodes.push(TextNode { text, layout, surface, prev_width });
-        self.nodes.push(Node::TextNode(text_node_id));
+        self.node_data.push(node_data);
+        self.layouts.push(layout);
+        self.surfaces.push(surface);
 
-        id
+        NodeId::new(self.node_data.len() - 1)
     }
 
     pub fn insert_child(&mut self, element: NodeId, index: usize, child: NodeId) {
+        self.node_data[element].el().children.insert(index, child);
+
+        // layout
         self.needs_layout = true;
+        self.layout_engine.insert_child(self.layouts[element.0], index, self.layouts[child.0]);
 
-        let el_id = self.element_id(element);
-        let child_layout = self.node_layout(child);
-        let child_surface = self.node_surface(child);
+        // renderer
+        self.update_el_surfaces(element);
 
-        let el = &mut self.elements[el_id];
-
-        self.layout_engine.insert_child(el.layout, index, child_layout);
-        self.renderer.insert_child(el.surface, index, child_surface);
-
-        if let Some(tn_id) = self.nodes[child].text_node_id() {
-            let tn = &mut self.text_nodes[tn_id];
-
-            // order doesn't matter
-            el.text_nodes.push(tn_id);
-
-            self.text_engine.set_text_style(tn.text, &el.text_style);
-            self.mark_dirty(tn_id);
+        // text
+        if let NodeData::TextNode(TextNodeData { text, .. }) = self.node_data[child] {
+            let ts = self.node_data[element].el().text_style;
+            self.text_engine.set_text_style(text, &ts);
+            self.mark_dirty(child);
         }
     }
 
     pub fn remove_child(&mut self, element: NodeId, child: NodeId) {
+        self.node_data[element].el().children.retain(|ch| *ch != child);
+
+        // layout
         self.needs_layout = true;
+        self.layout_engine.remove_child(self.layouts[element.0], self.layouts[child.0]);
 
-        let el_id = self.element_id(element);
-        let child_layout = self.node_layout(child);
-        let child_surface = self.node_surface(child);
-
-        let el = &mut self.elements[el_id];
-
-        if let Some(tn_id) = self.nodes[child].text_node_id() {
-            el.text_nodes.retain(|ch| *ch != tn_id);
-        }
-
-        self.layout_engine.remove_child(el.layout, child_layout);
-        self.renderer.remove_child(el.surface, child_surface);
+        // renderer
+        self.update_el_surfaces(element);
     }
 
-    // TODO: accept & store dyn IntoIterator<Item = char>
+    fn update_el_surfaces(&mut self, element: NodeId) {
+        let Self { node_data, surfaces, .. } = self;
+
+        let child_surfaces: Vec<SurfaceId> = node_data[element].el().children.iter().copied().map(|ch| surfaces[ch.0]).collect();
+        self.renderer.set_children(surfaces[element.0], &child_surfaces);
+    }
+
+    // TODO: accept & store dyn Iterator<Item = &char>
     //       so we can store actual (persistent) V8 strings (impl !Send)
     //       and save some memory
+    //       (iter.copied()...)
     pub fn set_text(&mut self, text_node: NodeId, text: String) {
         self.needs_layout = true;
 
-        let text_node = self.text_node_id(text_node);
-
-        self.text_engine.set_text_chars(self.text_nodes[text_node].text, text);
+        self.text_engine.set_text_chars(self.node_data[text_node].tn().text, text);
         self.mark_dirty(text_node);
     }
 
     pub fn set_style(&mut self, element: NodeId, prop: &StyleProp) {
         use StyleProp::*;
 
-        let el = self.element_id(element);
-
         match prop {
-            // TODO: Border
-            // might need relayout!
-            prop => {
-                match prop {
-                    // layout-independent
-                    BorderTopLeftRadius(_) | BorderTopRightRadius(_) | BorderBottomRightRadius(_) | BorderBottomLeftRadius(_) | Color(_) | BackgroundColor(_) => {
-                        self.set_surface_style(el, prop);
-                    }
+            // layout-independent
+            BorderTopLeftRadius(_) | BorderTopRightRadius(_) | BorderBottomRightRadius(_) | BorderBottomLeftRadius(_) | Color(_) | BackgroundColor(_) => {
+                self.set_surface_style(element, prop);
+            }
 
-                    // layout-only
-                    Width(_) | Height(_) | MinWidth(_) | MinHeight(_) | MaxWidth(_) | MaxHeight(_) | Top(_) | Right(_) | Bottom(_) | Left(_) | MarginTop(_) | MarginRight(_) | MarginBottom(_)
-                    | MarginLeft(_) | PaddingTop(_) | PaddingRight(_) | PaddingBottom(_) | PaddingLeft(_) | FlexGrow(_) | FlexShrink(_) | FlexBasis(_) | FlexDirection(_) | FlexWrap(_)
-                    | AlignSelf(_) | AlignContent(_) | AlignItems(_) | JustifyContent(_) => {
-                        self.set_layout_style(el, prop);
-                    }
+            // layout-only
+            Width(_) | Height(_) | MinWidth(_) | MinHeight(_) | MaxWidth(_) | MaxHeight(_) | Top(_) | Right(_) | Bottom(_) | Left(_) | MarginTop(_) | MarginRight(_) | MarginBottom(_)
+            | MarginLeft(_) | PaddingTop(_) | PaddingRight(_) | PaddingBottom(_) | PaddingLeft(_) | FlexGrow(_) | FlexShrink(_) | FlexBasis(_) | FlexDirection(_) | FlexWrap(_) | AlignSelf(_)
+            | AlignContent(_) | AlignItems(_) | JustifyContent(_) => {
+                self.set_layout_style(element, prop);
+            }
 
-                    // both
-                    Display(_) | Overflow(_) | BorderTopWidth(_) | BorderRightWidth(_) | BorderBottomWidth(_) | BorderLeftWidth(_) => {
-                        self.set_surface_style(el, prop);
-                        self.set_layout_style(el, prop);
-                    }
+            // both
+            Display(_) | Overflow(_) | BorderTopWidth(_) | BorderRightWidth(_) | BorderBottomWidth(_) | BorderLeftWidth(_) => {
+                self.set_surface_style(element, prop);
+                self.set_layout_style(element, prop);
+            }
 
-                    // text
-                    FontFamily(_) | FontSize(_) | LineHeight(_) | TextAlign(_) => {
-                        self.set_text_style(el, prop);
-                    }
-                }
+            // text
+            FontFamily(_) | FontSize(_) | LineHeight(_) | TextAlign(_) => {
+                self.set_text_style(element, prop);
             }
         }
     }
 
-    fn set_surface_style(&mut self, element: ElementId, prop: &StyleProp) {
+    fn set_surface_style(&mut self, element: NodeId, prop: &StyleProp) {
         let r = &mut self.renderer;
-        let s = self.elements[element].surface;
+        let s = self.surfaces[element.0];
 
         use StyleProp::*;
         match prop {
@@ -294,11 +218,11 @@ impl<RB: RenderBackend> Viewport<RB> {
         }
     }
 
-    fn set_layout_style(&mut self, element: ElementId, prop: &StyleProp) {
+    fn set_layout_style(&mut self, element: NodeId, prop: &StyleProp) {
         self.needs_layout = true;
 
         let le = &mut self.layout_engine;
-        let l = self.elements[element].layout;
+        let l = self.layouts[element.0];
 
         use StyleProp::*;
         match prop {
@@ -346,39 +270,38 @@ impl<RB: RenderBackend> Viewport<RB> {
         }
     }
 
-    fn set_text_style(&mut self, element: ElementId, prop: &StyleProp) {
+    fn set_text_style(&mut self, element: NodeId, prop: &StyleProp) {
+        /*
         self.needs_layout = true;
 
-        let el = &mut self.elements[element];
-        let ts = &mut el.text_style;
+        let ElementData { text_style, children } = self.node_data[element].el();
 
         use StyleProp::*;
         match prop {
-            FontFamily(v) => ts.font = self.text_engine.resolve_font(v),
-            FontSize(v) => ts.font_size = *v,
-            LineHeight(v) => ts.line_height = *v,
-            TextAlign(v) => ts.align = *v,
+            FontFamily(v) => text_style.font = self.text_engine.resolve_font(v),
+            FontSize(v) => text_style.font_size = *v,
+            LineHeight(v) => text_style.line_height = *v,
+            TextAlign(v) => text_style.align = *v,
 
             _ => unreachable!(),
         }
 
-        for tn_id in &el.text_nodes {
-            let tn = &mut self.text_nodes[*tn_id];
+        for ch in children {
+            if let NodeData::TextNode(TextNodeData { text, prev_width }) = self.node_data[ch.0] {
+                self.text_engine.set_text_style(text, text_style);
+                self.layout_engine.mark_dirty(self.layouts[ch.0]);
 
-            self.text_engine.set_text_style(tn.text, ts);
-            self.layout_engine.mark_dirty(tn.layout);
-
-            tn.prev_width = 0.;
+                prev_width = 0.;
+            }
         }
+        */
     }
 
-    fn mark_dirty(&mut self, text_node: TextNodeId) {
-        let tn = &mut self.text_nodes[text_node];
-
-        self.layout_engine.mark_dirty(tn.layout);
+    fn mark_dirty(&mut self, text_node: NodeId) {
+        self.layout_engine.mark_dirty(self.layouts[text_node.0]);
 
         // set to 0. so the glyphs are invalidated and uploaded during `update()`
-        tn.prev_width = 0.;
+        self.node_data[text_node].tn().prev_width = 0.;
     }
 
     // has to be called before querying!
@@ -395,14 +318,14 @@ impl<RB: RenderBackend> Viewport<RB> {
         // TODO: split preparation and rendering so it's thread-friendly
         let layout_engine = &self.layout_engine;
 
-        self.renderer.render_surface(self.elements[Self::ROOT_ELEMENT].surface, &|k| layout_engine.get_bounds(k));
+        self.renderer.render_surface(self.surfaces[Self::ROOT.0], &|k| layout_engine.get_bounds(k));
     }
 
     fn update_layout(&mut self) {
         let Self { text_engine, .. } = self;
 
         // TODO: replace with Lookup<(id, w), (f32, f32)>
-        self.layout_engine.calculate(self.elements[Self::ROOT_ELEMENT].layout, self.size, &mut |text_id, max_width| {
+        self.layout_engine.calculate(self.layouts[Self::ROOT.0], self.size, &mut |text_id, max_width| {
             text_engine.measure_text(TextId::new(text_id), max_width)
         });
     }
@@ -417,25 +340,30 @@ impl<RB: RenderBackend> Viewport<RB> {
         //
         // TODO: run in parallel and/or concurrently with
         //       the rest of the render preparation
+        //       (put prev_width in own vec to avoid cache invalidation in other threads)
+        //
+        // TODO: maybe it could be moved to TextEngine
+        //       (and so only text nodes could be visited)
 
-        for tn in &mut self.text_nodes {
-            let w = self.layout_engine.get_width(tn.layout);
+        for (i, data) in &mut self.node_data.iter_mut().enumerate() {
+            if let NodeData::TextNode(TextNodeData { text, prev_width }) = data {
+                let w = self.layout_engine.get_width(self.layouts[i]);
 
-            if w != tn.prev_width {
-                self.renderer.set_content(
-                    tn.surface,
-                    Some(self.text_engine.get_text_glyphs(tn.text, w).map(|g| {
-                        BackendOp::PushRect(g.bounds, FillStyle::SolidColor(Color::RED))
-                    })),
-                );
+                // TODO: wont work
+                let texture = self.renderer.create_texture(512, 512);
 
-                tn.prev_width = w;
+                if w != *prev_width {
+                    self.renderer
+                        .set_text(self.surfaces[i], texture, self.text_engine.get_text_glyphs(*text, w).map(|g| (g.bounds, Bounds::ZERO_ONE)));
+
+                    *prev_width = w;
+                }
             }
         }
     }
 
     pub fn get_offset_bounds(&self, element: NodeId) -> Bounds {
-        self.layout_engine.get_bounds(self.elements[self.element_id(element)].layout)
+        self.layout_engine.get_bounds(self.layouts[element.0])
     }
 
     fn get_mouse_target(&self) -> NodeId {
@@ -453,17 +381,6 @@ impl<RB: RenderBackend> Viewport<RB> {
 
         Event::MouseMove { target: self.get_mouse_target() }
     }
-
-    /*
-    pub fn scroll(&mut self, _delta: (f32, f32)) -> Event {
-        let _target = self.get_mouse_target();
-
-        // TODO: just like ScrollBy/ScrollAt update message (& render() after that)
-        //self.renderer.scroll(self.mouse_pos, delta);
-
-        Event::Scroll { target: self.get_mouse_target() }
-    }
-    */
 
     pub fn mouse_down(&mut self) -> Event {
         Event::MouseDown { target: self.get_mouse_target() }
@@ -508,79 +425,42 @@ impl<RB: RenderBackend> Viewport<RB> {
         Event::Close { target: Self::ROOT }
     }
 
-    // helpers
-
-    fn element_id(&self, node: NodeId) -> ElementId {
-        self.nodes[node].element_id().expect("not an element")
-    }
-
-    fn text_node_id(&self, node: NodeId) -> TextNodeId {
-        self.nodes[node].text_node_id().expect("not a text node")
-    }
-
-    fn node_layout(&self, node: NodeId) -> <BoxLayoutImpl as BoxLayoutTree>::LayoutNodeId {
-        match self.nodes[node] {
-            Node::Element(id) => self.elements[id].layout,
-            Node::TextNode(id) => self.text_nodes[id].layout,
-        }
-    }
-
-    fn node_surface(&self, node: NodeId) -> SurfaceId {
-        match self.nodes[node] {
-            Node::Element(id) => self.elements[id].surface,
-            Node::TextNode(id) => self.text_nodes[id].surface,
-        }
-    }
-
-    const ROOT_ELEMENT: ElementId = ElementId::new(0);
-
     // TODO: either send target or remove it from variants
     const NO_TARGET: NodeId = NodeId::new(0);
 }
 
-pub type NodeId = Id<Node>;
+pub type NodeId = Id<NodeData>;
 
 // private from here
-// (pub is needed because of Id<T>)
+// (pubs because of Id<T>)
 
-// keep separately so we can quickly rebuild texts
-// without having to skip elements
-pub enum Node {
-    Element(ElementId),
-    TextNode(TextNodeId),
+pub enum NodeData {
+    Element(ElementData),
+    TextNode(TextNodeData),
 }
 
-impl Node {
-    fn element_id(&self) -> Option<ElementId> {
+impl NodeData {
+    fn el(&mut self) -> &mut ElementData {
         match self {
-            Node::Element(id) => Some(*id),
-            _ => None,
+            NodeData::Element(data) => data,
+            _ => panic!("not an element"),
         }
     }
 
-    fn text_node_id(&self) -> Option<TextNodeId> {
+    fn tn(&mut self) -> &mut TextNodeData {
         match self {
-            Node::TextNode(id) => Some(*id),
-            _ => None,
+            NodeData::TextNode(data) => data,
+            _ => panic!("not a text node"),
         }
     }
 }
 
-type ElementId = Id<Element>;
-type TextNodeId = Id<TextNode>;
-
-pub struct Element {
-    layout: <BoxLayoutImpl as BoxLayoutTree>::LayoutNodeId,
-    surface: SurfaceId,
-
-    text_nodes: Vec<TextNodeId>,
+pub struct ElementData {
+    children: Vec<NodeId>,
     text_style: TextStyle,
 }
 
-pub struct TextNode {
-    layout: <BoxLayoutImpl as BoxLayoutTree>::LayoutNodeId,
-    surface: SurfaceId,
-
+pub struct TextNodeData {
     text: TextId,
     prev_width: f32,
 }

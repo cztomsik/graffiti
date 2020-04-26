@@ -8,8 +8,9 @@
 //   x prepare (shape + single-line layout) when text/font changes
 //   x measure/get_glyphs using "text style" with size, align, spacing, ... which can change between calls
 // x texts are owned resources
-//   - possible to find out what glyphs are used (instead of LRU guessing)
+//   - possible to find out what glyphs are used
 //   - rasterize differently depending on the font size
+//     (msdf for bigger sizes, downscaled alpha otherwise)
 
 #![allow(non_snake_case)]
 
@@ -102,7 +103,7 @@ impl TextEngine {
         self.rebuild_text(text);
     }
 
-    pub fn measure_text(&mut self, text: TextId, max_width: f32) -> (f32, f32) {
+    pub fn measure_text(&self, text: TextId, max_width: f32) -> (f32, f32) {
         self.texts[text].measure(max_width)
     }
 
@@ -149,7 +150,8 @@ impl TextEngine {
                 bounds: Bounds {
                     a: Pos::new(bounds.0 as f32 * scale, bounds.1 as f32 * scale),
                     b: Pos::new(bounds.2 as f32 * scale, bounds.3 as f32 * scale),
-                }.translate(Pos::new(x - offset, y)),
+                }
+                .translate(Pos::new(x - offset, y)),
             }
         })
     }
@@ -267,7 +269,7 @@ pub struct PosGlyph {
 }
 
 // private from here
-// (pub is needed because of Id<T>)
+// (pubs because of Id<T>)
 
 pub struct Font {
     name: String,

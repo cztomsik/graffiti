@@ -1,9 +1,4 @@
-use graffiti::{
-    box_layout::*,
-    render::backend::raqote::RaqoteBackend,
-    render::value_types::*,
-    viewport::{StyleProp, Viewport},
-};
+use graffiti::{box_layout::*, render::backend::raqote::RaqoteBackend, render::value_types::*, style::StyleProp, viewport::Viewport};
 
 fn main() {
     let mut v = Viewport::new(RaqoteBackend::new("out.png".to_string()), (400., 300.));

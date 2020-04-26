@@ -23,9 +23,7 @@ use self::value_types::*;
 pub mod backend;
 use self::backend::{BackendOp, FillStyle, RenderBackend};
 
-// where:
-// - `RB` is `RenderBackend` implementation
-// - `BK` is some key to get layout bounds
+// `BK` is some key to get layout bounds
 pub struct Renderer<RB: RenderBackend, BK> {
     backend: RB,
     ui_state: UiState<RB, BK>,
@@ -33,10 +31,6 @@ pub struct Renderer<RB: RenderBackend, BK> {
 
 impl<RB: RenderBackend, BK: Copy> Renderer<RB, BK> {
     pub fn new(backend: RB) -> Self {
-        //const SDF_TEXTURE: &[u8; 512 * 512 * 4] = include_bytes!("../resources/sheet0.raw");
-        //let tex = backend.create_texture(512, 512);
-        //backend.update_texture(tex, SDF_TEXTURE);
-
         Self { backend, ui_state: UiState::new() }
     }
 
@@ -46,14 +40,12 @@ impl<RB: RenderBackend, BK: Copy> Renderer<RB, BK> {
 
     // surface
     pub fn create_surface(&mut self, bounds_key: BK) -> SurfaceId {
-        // TODO: maybe defaults shouldn't be here
-        // (accept some ContainerState?)
-        // but maybe it's inevitable, yoga has some defaults, this has some too, etc.
+        // maybe defaults shouldn't be here but it's probably inevitable,
+        // yoga has some defaults, this has some too, etc.
         self.ui_state.bounds_keys.push(bounds_key);
         self.ui_state.transforms.push(None);
         self.ui_state.opacities.push(1.);
         self.ui_state.border_radii.push(None);
-        self.ui_state.children.push(Vec::new());
         self.ui_state.overflows.push(Overflow::Visible);
         self.ui_state.outline_shadows.push(Vec::new());
         self.ui_state.outlines.push(None);
@@ -61,18 +53,10 @@ impl<RB: RenderBackend, BK: Copy> Renderer<RB, BK> {
         self.ui_state.background_images.push(Vec::new());
         self.ui_state.inset_shadows.push(Vec::new());
         self.ui_state.colors.push(Color::BLACK);
+        self.ui_state.contents.push(None);
         self.ui_state.borders.push(None);
-        self.ui_state.content_layers.push(None);
 
         SurfaceId(self.ui_state.background_colors.len() - 1)
-    }
-
-    pub fn insert_child(&mut self, surface: SurfaceId, index: usize, child: SurfaceId) {
-        self.ui_state.children[surface.0].insert(index, child);
-    }
-
-    pub fn remove_child(&mut self, surface: SurfaceId, child: SurfaceId) {
-        self.ui_state.children[surface.0].retain(|ch| *ch != child);
     }
 
     // setters (in order in which they are needed during rendering)
@@ -113,23 +97,83 @@ impl<RB: RenderBackend, BK: Copy> Renderer<RB, BK> {
         self.ui_state.inset_shadows[surface.0] = value;
     }
 
-    pub fn set_content(&mut self, surface: SurfaceId, value: Option<impl IntoIterator<Item = BackendOp<RB>>>) {
-        let layer = &mut self.ui_state.content_layers[surface.0];
+    // content setters (mutually exlusive)
+    //   - children
+    //   - text
+    //
+    // could be struct but it'd need to be generic or accept &mut dyn Iterator
+    // and it'd more verbose too: `set_content(Some(Content::Children(...)))`
+    //
+    // TODO: video/canvas
+    //       - texture/image
+    //       - maybe accept uv too
+    //       - bounds are not known until render
+    //       - inset shadow should not cover the content (tried in browser)
+    //         - so it can't be done using BackgroundImage
+    //
+    // TODO: svg
+    //       much harder, and out-of-scope for now but it should be
+    //       scaled just like video/canvas using current surface bounds
+    //       and it has to be rendered after inset shadows too
+    //       note the text could be rendered using paths just like svg
+    //       but text is composed of predefined glyphs unlike svg where
+    //       each path can be unique and has to be rasterized
 
-        match value {
-            None => {
-                if layer.is_some() {
-                    // TODO: free
-                }
+    pub fn set_children(&mut self, surface: SurfaceId, children: &[SurfaceId]) {
+        // reuse prev vec
+        if let Some(RenderContent::Children(prev)) = &mut self.ui_state.contents[surface.0] {
+            prev.splice(0.., children.iter().copied());
+
+            // shrink if it was too big (pathological case)
+            if prev.capacity() > 100 {
+                prev.shrink_to_fit();
             }
 
-            Some(ops) => {
-                let backend = &mut self.backend;
-                let layer = *layer.get_or_insert_with(|| backend.create_layer());
+            return;
+        }
 
-                backend.update_layer(layer, ops.into_iter());
+        if children.is_empty() {
+            return self.set_new_content(surface, None);
+        }
+
+        self.set_new_content(surface, Some(RenderContent::Children(children.into())));
+    }
+
+    pub fn set_text(&mut self, surface: SurfaceId, texture: RB::TextureId, glyphs: impl Iterator<Item = (Bounds, Bounds)>) {
+        let glyphs = glyphs.map(|(bounds, uv)| {
+            BackendOp::PushRect(
+                bounds,
+                FillStyle::Msdf {
+                    texture,
+                    uv,
+                    factor: 0.5,
+                    color: Color::RED,
+                },
+            )
+        });
+
+        // reuse prev layer
+        if let Some(RenderContent::Text(prev)) = self.ui_state.contents[surface.0] {
+            return self.backend.update_layer(prev, glyphs);
+        }
+
+        let layer = self.backend.create_layer();
+        self.backend.update_layer(layer, glyphs);
+
+        self.set_new_content(surface, Some(RenderContent::Text(layer)));
+    }
+
+    // cleanup prev value & set a new one
+    fn set_new_content(&mut self, surface: SurfaceId, content: Option<RenderContent<RB>>) {
+        if let Some(prev) = &self.ui_state.contents[surface.0] {
+            match prev {
+                RenderContent::Text(_prev) => println!("TODO: free prev text layer"),
+
+                _ => {}
             }
         }
+
+        self.ui_state.contents[surface.0] = content;
     }
 
     // TODO: set_text_shadow
@@ -198,9 +242,8 @@ struct UiState<RB: RenderBackend, BK> {
     background_colors: Vec<Color>,
     background_images: Vec<Vec<BackgroundImage>>,
     inset_shadows: Vec<Vec<InsetShadow>>,
-    children: Vec<Vec<SurfaceId>>,
-    content_layers: Vec<Option<RB::LayerId>>,
     colors: Vec<Color>,
+    contents: Vec<Option<RenderContent<RB>>>,
     borders: Vec<Option<Border>>,
 
     textures: Vec<RB::TextureId>,
@@ -219,9 +262,8 @@ impl<RB: RenderBackend, BK: Copy> UiState<RB, BK> {
             background_colors: Vec::new(),
             background_images: Vec::new(),
             inset_shadows: Vec::new(),
-            children: Vec::new(),
-            content_layers: Vec::new(),
             colors: Vec::new(),
+            contents: Vec::new(),
             borders: Vec::new(),
 
             textures: Vec::new(),
@@ -267,17 +309,11 @@ impl<RB: RenderBackend, BK: Copy, BS: Lookup<BK, Bounds>> RenderContext<'_, RB, 
             self.render_inset_shadow(s);
         }
 
-        for ch in &self.ui_state.children[surface.0] {
-            let prev_bounds = self.current_bounds;
-
-            self.current_bounds = self.bounds.lookup(self.ui_state.bounds_keys[ch.0]).translate(prev_bounds.a);
-            self.render_surface(*ch);
-
-            self.current_bounds = prev_bounds;
-        }
-
-        if let Some(l) = self.ui_state.content_layers[surface.0] {
-            self.builder.push(BackendOp::PushLayer(l));
+        if let Some(content) = &self.ui_state.contents[surface.0] {
+            match content {
+                RenderContent::Children(children) => self.render_children(children),
+                RenderContent::Text(layer) => self.render_text(*layer),
+            }
         }
 
         if let Some(b) = &self.ui_state.borders[surface.0] {
@@ -360,15 +396,20 @@ impl<RB: RenderBackend, BK: Copy, BS: Lookup<BK, Bounds>> RenderContext<'_, RB, 
         println!("TODO: render_inset_shadow");
     }
 
-    /*
-    fn render_text(&mut self, text: TextId) {
-        // TODO: override/mix color
-        self.builder.push_layer(
-            self.ui_state.text_layers[text.0],
-            self.bounds[self.ui_state.bounds_keys[text.0]].a.translate(self.current_bounds.a),
-        );
+    fn render_children(&mut self, children: &[SurfaceId]) {
+        for ch in children {
+            let prev_bounds = self.current_bounds;
+
+            self.current_bounds = self.bounds.lookup(self.ui_state.bounds_keys[ch.0]).translate(prev_bounds.a);
+            self.render_surface(*ch);
+
+            self.current_bounds = prev_bounds;
+        }
     }
-    */
+
+    fn render_text(&mut self, text_layer: RB::LayerId) {
+        self.builder.push(BackendOp::PushLayer(text_layer));
+    }
 
     //fn render_text_shadow(&mut self) {}
 
@@ -406,6 +447,11 @@ impl<RB: RenderBackend, BK: Copy, BS: Lookup<BK, Bounds>> RenderContext<'_, RB, 
             }
         }
     }
+}
+
+enum RenderContent<RB: RenderBackend> {
+    Children(Vec<SurfaceId>),
+    Text(RB::LayerId),
 }
 
 #[cfg(test)]
@@ -479,9 +525,8 @@ mod tests {
         let parent = r.create_surface(0);
         let child = r.create_surface(1);
 
-        r.insert_child(parent, 0, child);
-
         r.set_background_color(child, Color { r: 255, g: 0, b: 0, a: 255 });
+        r.set_children(parent, &[child]);
 
         r.render_surface(
             parent,
