@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+Base=$(dirname $(dirname $(realpath $0)))
+node -r $Base/src/transpile.js -r $Base/src/register.ts $@

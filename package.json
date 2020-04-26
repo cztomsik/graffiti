@@ -21,11 +21,14 @@
     "libgraffiti/graffiti-yoga",
     "libgraffiti/graffiti-stb"
   ],
+  "bin": {
+    "graffiti": "./bin/graffiti"
+  },
   "scripts": {
     "build": "node build.js",
     "postinstall": "npm run build -- --release",
     "prepare": "tsc -d",
-    "example": "node -r ts-node/register/transpile-only -r ./src/register -e \"require('./examples/' + (process.argv[1] || 'example-browser'))\""
+    "example": "./bin/graffiti -e \"require('./examples/' + (process.argv[1] || 'example-browser'))\""
   },
   "devDependencies": {
     "@types/node": "^10.14.6",
