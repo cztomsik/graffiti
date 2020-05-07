@@ -121,9 +121,9 @@ impl<K, V, F: Fn(K) -> V> Lookup<K, V> for F {
 }
 
 // vecs
-impl<V: Copy> Lookup<usize, V> for Vec<V> {
+impl<V: Clone> Lookup<usize, V> for Vec<V> {
     fn lookup(&self, key: usize) -> V {
-        self[key]
+        self[key].clone()
     }
 }
 

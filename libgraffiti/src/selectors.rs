@@ -3,151 +3,156 @@
 // x no specificity
 //   - should be fine, generic rules are usually first
 // x no first/last/nth/siblings
-// x tagName
+// x universal
+// x tag name
 // x id
-// - className
-// x direct descendant
-// - descendant
-// - combination
-// - decoupled from other systems
+// x class name
+// x child
+// x descendant
+// x multiple (div, span)
+// x combination
+// x decoupled from other systems
+
+#![allow(unused)]
 
 use crate::commons::Lookup;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Selector {
+    // simple & fast
+    Universal,
     TagName(String),
     Id(String),
     ClassName(String),
 
-    // - not common in CSS-in-JS so Box is fine
-    Parent(Box<(Selector, Selector)>),
-    Ancestor(Box<(Selector, Selector)>),
+    // a, b, c, ...
+    // (slower but not very common in CSS-in-JS)
+    Multi(Vec<Selector>),
+
+    // div.container#app.bg-primary > div span
+    // (slowest)
+    Combined(Vec<Selector>),
+
+    // internal
+    Combinator(Combinator),
 }
 
-pub struct MatchingContext<'a, Item> {
+#[derive(Debug, Clone, PartialEq)]
+pub enum Combinator {
+    Parent,
+    Ancestor,
+}
+
+// what's needed for matching
+pub struct MatchingContext<'a, Item, Ancestors> {
     tag_names: &'a dyn Lookup<Item, &'a str>,
     ids: &'a dyn Lookup<Item, &'a str>,
     class_names: &'a dyn Lookup<Item, &'a str>,
-
-    // root has no parent
-    parents: &'a dyn Lookup<Item, Option<Item>>,
+    ancestors: &'a dyn Lookup<Item, Ancestors>,
 }
 
-impl<'a, Item: Copy> MatchingContext<'a, Item> {
-    pub fn match_selector(&self, selector: &Selector, item: Item) -> bool {
+impl<'a, Item: Copy, Ancestors: IntoIterator<Item = Item>> MatchingContext<'a, Item, Ancestors> {
+    pub fn match_selector<'b>(&self, selector: &'b Selector, item: Item) -> bool {
         match selector {
-            Selector::TagName(tn) => self.tag_names.lookup(item) == *tn,
-            Selector::Id(id) => self.ids.lookup(item) == *id,
-            Selector::ClassName(cn) => self.class_names.lookup(item) == *cn,
+            Selector::Universal => true,
+            Selector::TagName(tn) => self.tag_names.lookup(item) == tn,
+            Selector::Id(id) => self.ids.lookup(item) == id,
+            Selector::ClassName(cn) => self.class_name_contains(item, cn),
 
-            Selector::Parent(data) => {
-                let (parent_sel, child_sel) = (&data.0, &data.1);
+            Selector::Multi(sels) => sels.iter().any(|s| self.match_selector(s, item)),
+            Selector::Combined(parts) => self.match_rest(parts.iter(), item),
 
-                if let Some(parent) = self.parents.lookup(item) {
-                    self.match_selector(child_sel, item) && self.match_selector(parent_sel, parent)
-                } else {
-                    false
-                }
-            }
-
-            Selector::Ancestor(data) => {
-                let (ancestor_sel, descendant_sel) = (&data.0, &data.1);
-
-                self.match_selector(descendant_sel, item) && self.ancestors(item).any(|a| self.match_selector(ancestor_sel, a))
-            }
+            // internal part of Combined(...)
+            Selector::Combinator(_) => panic!("unexpected combinator"),
         }
     }
 
-    fn ancestors(&self, item: Item) -> Ancestors<Item> {
-        Ancestors(self.parents, Some(item))
-    }
-}
+    fn match_rest<'b>(&self, mut iter: impl Iterator<Item = &'b Selector> + Clone, item: Item) -> bool {
+        while let Some(s) = iter.next() {
+            match s {
+                // take the rest of components & evaluate them in different context(s)
+                Selector::Combinator(c) => {
+                    let mut ancestors = self.ancestors.lookup(item).into_iter();
 
-pub fn parse(input: &str) -> Selector {
-    let mut parser = Parser { iter: input.chars().peekable() };
-
-    parser.parse_selector().expect("invalid selector")
-}
-
-struct Parser<'a> {
-    iter: std::iter::Peekable<std::str::Chars<'a>>,
-}
-
-impl Parser<'_> {
-    fn parse_selector(&mut self) -> Option<Selector> {
-        let mut res = None;
-
-        // TODO: compound, parent, ancestor
-        while let Some(c) = self.iter.peek() {
-            match c {
-                c if word_char(c) => {
-                    res = Some(Selector::TagName(self.parse_tag_name()));
+                    match c {
+                        Combinator::Parent => return ancestors.next().map(|parent| self.match_rest(iter, parent)).unwrap_or(false),
+                        Combinator::Ancestor => return ancestors.any(|ancestor| self.match_rest(iter.clone(), ancestor)),
+                    }
                 }
 
-                '#' => {
-                    self.iter.next();
-                    return Some(Selector::Id(self.parse_id()));
+                _ => {
+                    if !self.match_selector(s, item) {
+                        return false;
+                    }
                 }
-
-                '.' => {
-                    self.iter.next();
-                    return Some(Selector::ClassName(self.parse_class_name()));
-                }
-
-                ' ' if res.is_some() => {
-                    self.iter.next();
-                    res = Some(Selector::Ancestor(Box::new((res.unwrap(), self.parse_selector().expect("invalid descendant selector")))));
-                }
-
-                _ => panic!("unexpected {:?}", c),
             }
         }
 
-        res
+        return true;
     }
 
-    fn parse_id(&mut self) -> String {
-        self.parse_word()
-    }
-
-    fn parse_tag_name(&mut self) -> String {
-        self.parse_word()
-    }
-
-    fn parse_class_name(&mut self) -> String {
-        self.parse_word()
-    }
-
-    fn parse_word(&mut self) -> String {
-        self.take_while(word_char)
-    }
-
-    // built-in take_while consumes the value
-    fn take_while(&mut self, f: impl FnMut(&char) -> bool) -> String {
-        let res: String = self.iter.clone().take_while(f).collect();
-
-        for _ in 0..res.chars().count() {
-            self.iter.next();
-        }
-
-        res
+    fn class_name_contains(&self, item: Item, cn: &str) -> bool {
+        self.class_names.lookup(item).split_ascii_whitespace().find(|part| part == &cn).is_some()
     }
 }
 
-fn word_char(c: &char) -> bool {
-    ('a'..='z').contains(c)
+impl std::str::FromStr for Selector {
+    type Err = pom::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse::selector().parse(s.as_bytes())
+    }
 }
 
-pub struct Ancestors<'a, Item>(&'a dyn Lookup<Item, Option<Item>>, Option<Item>);
+mod parse {
+    use super::*;
+    use pom::char_class::alpha;
+    use pom::parser::*;
 
-impl<'a, Item: Copy> Iterator for Ancestors<'a, Item> {
-    type Item = Item;
+    pub fn selector<'a>() -> Parser<'a, u8, Selector> {
+        let comma = sym(b' ').repeat(0..) * sym(b',') * sym(b' ').repeat(0..);
+        let selectors = list(call(single_selector), comma);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let next = self.1;
-        self.1 = next.and_then(|_| self.0.lookup(self.1.unwrap()));
+        selectors.convert(|mut parts| {
+            if parts.is_empty() {
+                return Err("expected at least one selector");
+            }
 
-        next
+            if parts.len() == 1 {
+                return Ok(parts.remove(0));
+            }
+
+            Ok(Selector::Multi(parts))
+        })
+    }
+
+    pub fn single_selector<'a>() -> Parser<'a, u8, Selector> {
+        let tag_name = ident().map(|s| Selector::TagName(s.to_string()));
+        let id = sym(b'#') * ident().map(|s| Selector::Id(s.to_string()));
+        let class_name = sym(b'.') * ident().map(|s| Selector::ClassName(s.to_string()));
+        let universal = sym(b'*').map(|_| Selector::Universal);
+
+        // note we parse Parent/Ancestor & flip the final order
+        let child = sym(b' ').repeat(0..) * sym(b'>') * sym(b' ').repeat(0..).map(|_| Selector::Combinator(Combinator::Parent));
+        let descendant = sym(b' ').repeat(1..).map(|_| Selector::Combinator(Combinator::Ancestor));
+
+        (tag_name | id | class_name | universal | child | descendant).repeat(1..).map(|mut components| {
+            if components.len() == 1 {
+                return components.remove(0);
+            }
+
+            components.reverse();
+
+            Selector::Combined(components)
+        })
+    }
+
+    fn ident<'a>() -> Parser<'a, u8, &'a str> {
+        is_a(alpha_dash).repeat(1..).collect().convert(std::str::from_utf8)
+    }
+
+    fn alpha_dash(b: u8) -> bool {
+        alpha(b) || b == b'-'
     }
 }
 
@@ -157,37 +162,82 @@ mod tests {
 
     #[test]
     fn parsing() {
-        assert_eq!(parse("body"), Selector::TagName("body".to_string()));
-        assert_eq!(parse("#app"), Selector::Id("app".to_string()));
-        assert_eq!(parse(".btn"), Selector::ClassName("btn".to_string()));
+        use super::Selector::*;
+
+        // simple
+        assert_eq!("*".parse(), Ok(Universal));
+        assert_eq!("body".parse(), Ok(TagName("body".to_string())));
+        assert_eq!("#app".parse(), Ok(Id("app".to_string())));
+        assert_eq!(".btn".parse(), Ok(ClassName("btn".to_string())));
+
+        // combined
+        assert_eq!(".btn.btn-primary".parse(), Ok(Combined(vec![ClassName("btn-primary".to_string()), ClassName("btn".to_string())])));
+        assert_eq!("*.test".parse(), Ok(Combined(vec![ClassName("test".to_string()), Universal])));
         assert_eq!(
-            parse("body div"),
-            Selector::Ancestor(Box::new((Selector::TagName("body".to_string()), Selector::TagName("div".to_string()))))
+            "div#app.test".parse(),
+            Ok(Combined(vec![ClassName("test".to_string()), Id("app".to_string()), TagName("div".to_string())]))
+        );
+
+        // combined with combinators
+        assert_eq!(
+            "body > div.test div#test".parse(),
+            Ok(Combined(vec![
+                Id("test".to_string()),
+                TagName("div".to_string()),
+                Combinator(super::Combinator::Ancestor),
+                ClassName("test".to_string()),
+                TagName("div".to_string()),
+                Combinator(super::Combinator::Parent),
+                TagName("body".to_string()),
+            ]))
+        );
+
+        // multi
+        assert_eq!("html, body".parse(), Ok(Multi(vec![TagName("html".to_string()), TagName("body".to_string())])));
+        assert_eq!(
+            "body > div, div div".parse(),
+            Ok(Multi(vec![
+                Combined(vec![TagName("div".to_string()), Combinator(super::Combinator::Parent), TagName("body".to_string()),]),
+                Combined(vec![TagName("div".to_string()), Combinator(super::Combinator::Ancestor), TagName("div".to_string()),])
+            ]))
         );
     }
 
     #[test]
     fn matching() {
         let tag_names = vec!["body", "div", "button"];
-        let ids = vec!["", "app", ""];
+        let ids = vec!["app", "panel", ""];
         let class_names = vec!["", "", "btn"];
-        let parents = vec![None, Some(0), Some(0)];
+        let ancestors = vec![vec![], vec![0], vec![1, 0]];
 
         let ctx = MatchingContext {
             tag_names: &tag_names,
             ids: &ids,
             class_names: &class_names,
-            parents: &parents,
+            ancestors: &ancestors,
         };
 
-        assert!(ctx.match_selector(&parse("body"), 0));
-        assert!(ctx.match_selector(&parse("div"), 1));
-        assert!(ctx.match_selector(&parse("button"), 2));
+        assert!(ctx.match_selector(&s("*"), 0));
+        assert!(ctx.match_selector(&s("body"), 0));
+        assert!(ctx.match_selector(&s("div"), 1));
+        assert!(ctx.match_selector(&s("button"), 2));
 
-        assert!(ctx.match_selector(&parse("#app"), 1));
+        assert!(ctx.match_selector(&s("#app"), 0));
+        assert!(ctx.match_selector(&s("div#panel"), 1));
+        assert!(ctx.match_selector(&s(".btn"), 2));
 
-        assert!(ctx.match_selector(&parse(".btn"), 2));
+        assert!(ctx.match_selector(&s("body > div"), 1));
+        assert!(ctx.match_selector(&s("body div"), 1));
 
-        assert!(ctx.match_selector(&Selector::Parent(Box::new((Selector::TagName("body".to_string()), Selector::TagName("div".to_string())))), 1));
+        assert!(ctx.match_selector(&s("div > button"), 2));
+        assert!(ctx.match_selector(&s("div button"), 2));
+        assert!(ctx.match_selector(&s("body > div > button"), 2));
+        assert!(ctx.match_selector(&s("body div button"), 2));
+
+        assert!([0, 1, 2].iter().all(|i| ctx.match_selector(&s("body, div, button"), *i)));
+    }
+
+    fn s(selector_str: &str) -> Selector {
+        selector_str.parse().unwrap()
     }
 }
