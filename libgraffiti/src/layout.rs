@@ -1,26 +1,25 @@
 // x easy to test
-//   x pass closure for measuring
 // x return (impl-specific) handles
 // x keep & organize layout nodes
-// x set props
+// x set all props at once
 // x calculate & provide box bounds for rendering
 // x bounds relative to their parents
+// x node/leaf type cannot be changed (but you can always create a new one and replace it)
 
 #![allow(unused)]
 
 pub trait LayoutEngine {
     type LayoutNodeId;
-    type MeasureKey;
 
     fn create_node(&mut self, style: &LayoutStyle) -> Self::LayoutNodeId;
     fn set_style(&mut self, node: Self::LayoutNodeId, style: &LayoutStyle);
     fn insert_child(&mut self, parent: Self::LayoutNodeId, index: usize, child: Self::LayoutNodeId);
     fn remove_child(&mut self, parent: Self::LayoutNodeId, child: Self::LayoutNodeId);
 
-    fn create_leaf(&mut self, measure_key: Self::MeasureKey) -> Self::LayoutNodeId;
+    fn create_leaf(&mut self, measure_fn: impl Fn(f32) -> (f32, f32)) -> Self::LayoutNodeId;
     fn mark_dirty(&mut self, leaf: Self::LayoutNodeId);
 
-    fn calculate(&mut self, node: Self::LayoutNodeId, size: (f32, f32), measure_fn: &mut dyn FnMut(Self::MeasureKey, f32) -> (f32, f32));
+    fn calculate(&mut self, node: Self::LayoutNodeId, size: (f32, f32));
 
     fn get_offset(&self, node: Self::LayoutNodeId) -> (f32, f32);
     fn get_size(&self, node: Self::LayoutNodeId) -> (f32, f32);
@@ -216,16 +215,23 @@ mod tests {
         let child = le.create_node(&LayoutStyle::DEFAULT);
 
         le.insert_child(parent, 0, child);
+        le.calculate(parent, (100., 100.));
+
         le.remove_child(parent, child);
+        le.calculate(parent, (100., 100.));
     }
 
     #[test]
     fn leaf() {
         let mut le = LayoutEngineImpl::new();
 
-        let leaf = le.create_leaf(0);
+        let leaf = le.create_leaf(|_| (10., 10.));
 
         le.mark_dirty(leaf);
+        le.calculate(leaf, (100., 100.));
+
+        // takes whole row (in this case)
+        assert_eq!(le.get_size(leaf), (100., 10.));
     }
 
     #[test]
@@ -240,13 +246,9 @@ mod tests {
             ..LayoutStyle::DEFAULT
         });
 
-        le.calculate(root, (100., 100.), &mut fake_measure);
+        le.calculate(root, (100., 100.));
 
         assert_eq!(le.get_offset(root), (10., 10.));
         assert_eq!(le.get_size(root), (50., 10.));
-    }
-
-    fn fake_measure(_: usize, _: f32) -> (f32, f32) {
-        (100., 100.)
     }
 }

@@ -1,7 +1,3 @@
-// TODO: generic MeasureKey
-// (should be possible, at least we can save pointer in the context
-//  and the closure (dyn Fn) is generic so it should know the size of the key)
-
 use super::{Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutEngine, LayoutStyle, Overflow};
 use graffiti_yoga::*;
 
@@ -53,7 +49,6 @@ macro_rules! set_dim_edge {
 
 impl LayoutEngine for YogaLayoutEngine {
     type LayoutNodeId = YGNodeRef;
-    type MeasureKey = usize;
 
     fn create_node(&mut self, style: &LayoutStyle) -> YGNodeRef {
         let node = unsafe { YGNodeNew() };
@@ -136,37 +131,28 @@ impl LayoutEngine for YogaLayoutEngine {
         unsafe { YGNodeRemoveChild(parent, child) }
     }
 
-    fn create_leaf(&mut self, measure_key: Self::MeasureKey) -> Self::LayoutNodeId {
-        let node = unsafe { YGNodeNew() };
+    fn create_leaf(&mut self, measure_fn: impl Fn(f32) -> (f32, f32)) -> Self::LayoutNodeId {
+        let leaf = unsafe { YGNodeNew() };
 
         unsafe {
-            YGNodeSetMeasureFunc(node, Some(measure_text_node));
-            YGNodeMarkDirty(node);
-            YGNodeSetContext(node, std::boxed::Box::<Self::MeasureKey>::leak(Box::new(measure_key)) as *mut usize as *mut std::ffi::c_void);
+            set_measure_fn(leaf, measure_fn);
+            YGNodeMarkDirty(leaf);
         }
 
-        self.yoga_nodes.push(node);
+        self.yoga_nodes.push(leaf);
 
-        node
+        leaf
     }
 
     fn mark_dirty(&mut self, node: YGNodeRef) {
         unsafe { YGNodeMarkDirty(node) }
     }
 
-    fn calculate(&mut self, node: YGNodeRef, size: (f32, f32), measure_fn: &mut dyn FnMut(Self::MeasureKey, f32) -> (f32, f32)) {
+    fn calculate(&mut self, node: YGNodeRef, size: (f32, f32)) {
         unsafe {
-            if MEASURE_REF.is_some() {
-                panic!("layout not thread-safe");
-            }
-
-            MEASURE_REF = Some(std::mem::transmute(measure_fn));
-
             // height is ignored (yoga would use it as maxHeight which is not what we want)
             // @see resize() in viewport.rs
             YGNodeCalculateLayout(node, size.0, YGUndefined, YGDirection::LTR);
-
-            MEASURE_REF = None;
         }
     }
 
@@ -180,8 +166,6 @@ impl LayoutEngine for YogaLayoutEngine {
         unsafe { (YGNodeLayoutGetWidth(node), YGNodeLayoutGetHeight(node)) }
     }
 }
-
-static mut MEASURE_REF: Option<&'static mut dyn FnMut(usize, f32) -> (f32, f32)> = None;
 
 impl Into<YGAlign> for Align {
     fn into(self) -> YGAlign {
@@ -242,9 +226,19 @@ impl Into<YGOverflow> for Overflow {
     }
 }
 
-unsafe extern "C" fn measure_text_node(node: YGNodeRef, w: f32, wm: YGMeasureMode, _h: f32, _hm: YGMeasureMode) -> YGSize {
-    let measure = MEASURE_REF.as_mut().expect("measure not set");
-    let key = *(YGNodeGetContext(node) as *mut usize);
+unsafe fn set_measure_fn<F>(leaf: YGNodeRef, measure_fn: F)
+where
+    F: Fn(f32) -> (f32, f32),
+{
+    YGNodeSetMeasureFunc(leaf, Some(measure_leaf::<F>));
+    YGNodeSetContext(leaf, Box::into_raw(Box::new(measure_fn)) as *mut _);
+}
+
+unsafe extern "C" fn measure_leaf<F>(leaf: YGNodeRef, w: f32, wm: YGMeasureMode, _h: f32, _hm: YGMeasureMode) -> YGSize
+where
+    F: Fn(f32) -> (f32, f32),
+{
+    let measure_fn = &*(YGNodeGetContext(leaf) as *mut F);
 
     let max_width = match wm {
         YGMeasureMode::Exactly => w,
@@ -252,7 +246,7 @@ unsafe extern "C" fn measure_text_node(node: YGNodeRef, w: f32, wm: YGMeasureMod
         YGMeasureMode::Undefined => std::f32::MAX,
     };
 
-    let size = measure(key, max_width);
+    let size = measure_fn(max_width);
 
     let width = match wm {
         YGMeasureMode::Exactly => w,
