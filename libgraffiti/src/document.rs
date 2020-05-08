@@ -18,7 +18,7 @@
 #![allow(unused)]
 
 use crate::commons::{Id, Lookup};
-use crate::html::{HtmlNode, parse_html};
+use crate::html::{parse_html, HtmlNode};
 use crate::selectors::MatchingContext;
 
 pub struct Document {
@@ -100,25 +100,29 @@ impl Document {
 
     fn push_html_nodes(&mut self, parent: NodeId, html_nodes: &[HtmlNode]) -> Vec<NodeId> {
         // TODO: append_child?
-        html_nodes.iter().rev().map(|n| {
-            let node = match n {
-                HtmlNode::TextNode(s) => self.create_text_node(&s),
-                HtmlNode::Element { tag_name, attributes, children } => {
-                    let el = self.create_element(&tag_name);
+        html_nodes
+            .iter()
+            .rev()
+            .map(|n| {
+                let node = match n {
+                    HtmlNode::TextNode(s) => self.create_text_node(&s),
+                    HtmlNode::Element { tag_name, attributes, children } => {
+                        let el = self.create_element(&tag_name);
 
-                    self.set_identifier(el, attributes.get("id").unwrap_or(&String::new()));
-                    self.set_class_name(el, attributes.get("class").unwrap_or(&String::new()));
+                        self.set_identifier(el, attributes.get("id").unwrap_or(&String::new()));
+                        self.set_class_name(el, attributes.get("class").unwrap_or(&String::new()));
 
-                    self.push_html_nodes(el, &children);
+                        self.push_html_nodes(el, &children);
 
-                    el
-                }
-            };
+                        el
+                    }
+                };
 
-            self.insert_child(parent, 0, node);
+                self.insert_child(parent, 0, node);
 
-            node
-        }).collect()
+                node
+            })
+            .collect()
     }
 
     pub fn create_text_node(&mut self, text: &str) -> NodeId {

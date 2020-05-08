@@ -32,17 +32,17 @@ impl FromStr for HtmlNode {
 }
 
 pub fn parse_html(html: &str) -> Result<Vec<HtmlNode>, pom::Error> {
-    parse::node().repeat(1..).parse(html.as_bytes())
+    parse::node().repeat(1..).name("nodes").parse(html.as_bytes())
 }
 
 mod parse {
     use super::*;
-    use pom::char_class::{alpha, space};
+    use pom::char_class::{alphanum, space};
     use pom::parser::*;
 
     pub fn node<'a>() -> Parser<'a, u8, HtmlNode> {
-        let el_open = sym(b'<') * is_a(alpha_dash).repeat(1..).convert(String::from_utf8) - is_a(space).repeat(0..);
-        let el_close = seq(b"</") * is_a(alpha_dash).repeat(1..) * sym(b'>');
+        let el_open = sym(b'<') * ident().convert(String::from_utf8) - is_a(space).repeat(0..);
+        let el_close = seq(b"</") * ident() * sym(b'>');
         let el = el_open + attributes() - sym(b'>') + children() - el_close;
 
         let element = el.map(|((tag_name, attributes), children)| HtmlNode::Element { tag_name, attributes, children });
@@ -56,16 +56,20 @@ mod parse {
     }
 
     fn attributes<'a>() -> Parser<'a, u8, HashMap<String, String>> {
-        let name = is_a(alpha).repeat(1..).convert(String::from_utf8);
+        let name = ident().convert(String::from_utf8);
         // TODO: entities/quoting
         let value = (sym(b'"') * none_of(b"\"").repeat(0..) - sym(b'"')).convert(String::from_utf8);
         let attr = name - sym(b'=') + value;
 
-        list(attr, sym(b' ').repeat(1..)).map(|entries| entries.into_iter().collect())
+        list(attr, sym(b' ').repeat(0..)).map(|entries| entries.into_iter().collect())
     }
 
-    fn alpha_dash(b: u8) -> bool {
-        alpha(b) || b == b'-'
+    fn ident<'a>() -> Parser<'a, u8, Vec<u8>> {
+        is_a(alphanum_dash).repeat(1..)
+    }
+
+    fn alphanum_dash(b: u8) -> bool {
+        alphanum(b) || b == b'-'
     }
 
     #[cfg(test)]
@@ -97,6 +101,32 @@ mod parse {
                     tag_name: "div".to_string(),
                     attributes: HashMap::new(),
                     children: Vec::new(),
+                })
+            );
+
+            // alphanum
+            assert_eq!(
+                "<h1></h1>".parse(),
+                Ok(Element {
+                    tag_name: "h1".to_string(),
+                    attributes: HashMap::new(),
+                    children: Vec::new(),
+                })
+            );
+        }
+
+        #[test]
+        fn parse_simple() {
+            assert_eq!(
+                "<div><h1>Hello</h1></div>".parse(),
+                Ok(Element {
+                    tag_name: "div".to_string(),
+                    attributes: HashMap::new(),
+                    children: vec![Element {
+                        tag_name: "h1".to_string(),
+                        attributes: HashMap::new(),
+                        children: vec![TextNode("Hello".to_string())]
+                    }]
                 })
             );
         }
