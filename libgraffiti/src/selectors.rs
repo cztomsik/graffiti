@@ -45,10 +45,10 @@ pub enum Combinator {
 
 // what's needed for matching
 pub struct MatchingContext<'a, Item, Ancestors> {
-    tag_names: &'a dyn Lookup<Item, &'a str>,
-    ids: &'a dyn Lookup<Item, &'a str>,
-    class_names: &'a dyn Lookup<Item, &'a str>,
-    ancestors: &'a dyn Lookup<Item, Ancestors>,
+    pub tag_names: &'a dyn Lookup<Item, &'a str>,
+    pub ids: &'a dyn Lookup<Item, &'a str>,
+    pub class_names: &'a dyn Lookup<Item, &'a str>,
+    pub ancestors: &'a dyn Lookup<Item, Ancestors>,
 }
 
 impl<'a, Item: Copy, Ancestors: IntoIterator<Item = Item>> MatchingContext<'a, Item, Ancestors> {

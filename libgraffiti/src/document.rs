@@ -1,15 +1,25 @@
-// - part of the public API
-//   - so it's high-level and can depend on css
-//     - but layout/text/rendering should be elsewhere
-//   - meant to be held inside of something which can do layout & rendering (viewport)
-//   - that something will make it available for changes
+// x part of the public API
+//   x so it's high-level and can depend on html, css, selectors
+//     x but layout/text/rendering should be elsewhere
+//   x meant to be held inside of something which can do layout & rendering (viewport)
+//   x that something will make it available for changes
 //   - and then it will just ask the document what needs to be updated
 
-// - just els & text nodes, no comments, fragments, ...
+// x just els & text nodes
+// x no comments, fragments, ...
+// x only id/class attributes
+// - no special treatment for <style>
+//   - use `insert_style_sheet(index, sheet_str)` instead
+//   - that way we don't need to observe for:
+//     - element insertion/removal
+//     - correct order
+//     - text node changes
 
 #![allow(unused)]
 
 use crate::commons::{Id, Lookup};
+use crate::html::{HtmlNode, parse_html};
+use crate::selectors::MatchingContext;
 
 pub struct Document {
     nodes: Vec<Node>,
@@ -18,7 +28,7 @@ pub struct Document {
 
 impl Document {
     // only nodes with ROOT ancestor are considered attached
-    // d.ancestors(node).last() == ROOT
+    // document.ancestors(node).last() == ROOT
     pub const ROOT: NodeId = Id::new(0);
 
     pub fn new() -> Self {
@@ -27,6 +37,9 @@ impl Document {
             parents: Vec::new(),
         };
 
+        // not 100% sure but all of this is html-like and it's not fun
+        // to write `Document::new("html")` everywhere
+        // so maybe later
         d.create_element("html");
 
         d
@@ -75,6 +88,39 @@ impl Document {
         self.parents[child.0] = None;
     }
 
+    // TODO: maybe it could just insert the html as text node if it cannot be parsed
+    // (this is what browsers do but it probably should be elsewhere)
+    pub fn set_inner_html(&mut self, parent: NodeId, html: &str) -> Result<(), pom::Error> {
+        self.nodes[parent].el_mut().children = Vec::new();
+
+        self.push_html_nodes(parent, &parse_html(html)?);
+
+        Ok(())
+    }
+
+    fn push_html_nodes(&mut self, parent: NodeId, html_nodes: &[HtmlNode]) -> Vec<NodeId> {
+        // TODO: append_child?
+        html_nodes.iter().rev().map(|n| {
+            let node = match n {
+                HtmlNode::TextNode(s) => self.create_text_node(&s),
+                HtmlNode::Element { tag_name, attributes, children } => {
+                    let el = self.create_element(&tag_name);
+
+                    self.set_identifier(el, attributes.get("id").unwrap_or(&String::new()));
+                    self.set_class_name(el, attributes.get("class").unwrap_or(&String::new()));
+
+                    self.push_html_nodes(el, &children);
+
+                    el
+                }
+            };
+
+            self.insert_child(parent, 0, node);
+
+            node
+        }).collect()
+    }
+
     pub fn create_text_node(&mut self, text: &str) -> NodeId {
         self.push_node(Node::TextNode(text.to_string()))
     }
@@ -93,6 +139,43 @@ impl Document {
 
     pub fn ancestors(&self, node: NodeId) -> Ancestors {
         Ancestors(&self.parents, self.parents[node.0])
+    }
+
+    pub fn query_selector(&self, selector: &str) -> Option<NodeId> {
+        self.query_selector_all(selector).first().map(|it| *it)
+    }
+
+    pub fn query_selector_all(&self, selector: &str) -> Vec<NodeId> {
+        match selector.parse() {
+            Err(_) => Vec::new(),
+            Ok(selector) => {
+                let ctx = MatchingContext {
+                    tag_names: &|el| self.tag_name(el),
+                    ids: &|el| self.identifier(el),
+                    class_names: &|el| self.class_name(el),
+                    ancestors: &|el| self.ancestors(el),
+                };
+
+                // TODO: attached only
+                self.nodes
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, n)| {
+                        if let Node::Element(_) = n {
+                            let id = Id::new(index);
+
+                            if ctx.match_selector(&selector, id) {
+                                Some(id)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            }
+        }
     }
 
     fn push_node(&mut self, node: Node) -> NodeId {
