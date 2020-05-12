@@ -6,14 +6,12 @@
 // x universal
 // x tag name
 // x id
-// x class name
+// x class
 // x child
 // x descendant
 // x multiple (div, span)
 // x combination
 // x decoupled from other systems
-
-#![allow(unused)]
 
 use crate::commons::Lookup;
 
@@ -46,8 +44,8 @@ pub enum Combinator {
 // what's needed for matching
 pub struct MatchingContext<'a, Item, Ancestors> {
     pub tag_names: &'a dyn Lookup<Item, &'a str>,
-    pub ids: &'a dyn Lookup<Item, &'a str>,
-    pub class_names: &'a dyn Lookup<Item, &'a str>,
+    pub ids: &'a dyn Lookup<Item, Option<&'a str>>,
+    pub class_names: &'a dyn Lookup<Item, Option<&'a str>>,
     pub ancestors: &'a dyn Lookup<Item, Ancestors>,
 }
 
@@ -56,7 +54,7 @@ impl<'a, Item: Copy, Ancestors: IntoIterator<Item = Item>> MatchingContext<'a, I
         match selector {
             Selector::Universal => true,
             Selector::TagName(tn) => self.tag_names.lookup(item) == tn,
-            Selector::Id(id) => self.ids.lookup(item) == id,
+            Selector::Id(id) => self.ids.lookup(item) == Some(id),
             Selector::ClassName(cn) => self.class_name_contains(item, cn),
 
             Selector::Multi(sels) => sels.iter().any(|s| self.match_selector(s, item)),
@@ -88,11 +86,11 @@ impl<'a, Item: Copy, Ancestors: IntoIterator<Item = Item>> MatchingContext<'a, I
             }
         }
 
-        return true;
+        true
     }
 
     fn class_name_contains(&self, item: Item, cn: &str) -> bool {
-        self.class_names.lookup(item).split_ascii_whitespace().find(|part| part == &cn).is_some()
+        self.class_names.lookup(item).map(|s| s.split_ascii_whitespace().find(|part| part == &cn)).is_some()
     }
 }
 
@@ -205,16 +203,16 @@ mod tests {
 
     #[test]
     fn matching() {
-        let tag_names = vec!["body", "div", "button"];
-        let ids = vec!["app", "panel", ""];
-        let class_names = vec!["", "", "btn"];
-        let ancestors = vec![vec![], vec![0], vec![1, 0]];
+        let tag_names = &vec!["body", "div", "button"];
+        let ids = &vec![Some("app"), Some("panel"), None];
+        let class_names = &vec![None, None, Some("btn")];
+        let ancestors = &vec![vec![], vec![0], vec![1, 0]];
 
         let ctx = MatchingContext {
-            tag_names: &tag_names,
-            ids: &ids,
-            class_names: &class_names,
-            ancestors: &ancestors,
+            tag_names,
+            ids,
+            class_names,
+            ancestors,
         };
 
         assert!(ctx.match_selector(&s("*"), 0));

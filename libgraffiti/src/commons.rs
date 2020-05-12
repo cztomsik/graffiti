@@ -127,6 +127,8 @@ impl<V: Clone> Lookup<usize, V> for Vec<V> {
     }
 }
 
+// generic Id<> so it's a bit harder to mix different indices
+//
 // TODO: consider UnzeroU32 so the value can be both optimized
 //       with Option<T> but it also fits into 31bit V8 SMI
 //       (but this is big unknown, it should be profiled first)
@@ -161,6 +163,8 @@ impl<T> PartialEq for Id<T> {
         self.0 == other.0
     }
 }
+
+impl<T> Eq for Id<T> {}
 
 impl<T> std::ops::Index<Id<T>> for Vec<T> {
     type Output = T;

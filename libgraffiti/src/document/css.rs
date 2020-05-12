@@ -17,6 +17,8 @@
 // - shorthands
 // - normalize (bold -> 700)
 
+#![allow(unused)]
+
 // could be <Selector: FromStr> but let's keep it simple for now
 /*
 pub struct CssEngine {

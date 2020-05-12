@@ -32,13 +32,17 @@ impl FromStr for HtmlNode {
 }
 
 pub fn parse_html(html: &str) -> Result<Vec<HtmlNode>, pom::Error> {
-    parse::node().repeat(1..).name("nodes").parse(html.as_bytes())
+    (parse::doctype().opt() * parse::node().repeat(1..).name("nodes")).parse(html.as_bytes())
 }
 
 mod parse {
     use super::*;
     use pom::char_class::{alphanum, space};
     use pom::parser::*;
+
+    pub fn doctype<'a>() -> Parser<'a, u8, ()> {
+        seq(b"<!DOCTYPE") * none_of(b">").repeat(0..).discard() - sym(b'>')
+    }
 
     pub fn node<'a>() -> Parser<'a, u8, HtmlNode> {
         let el_open = sym(b'<') * ident().convert(String::from_utf8) - is_a(space).repeat(0..);
@@ -51,13 +55,14 @@ mod parse {
         element | text_node
     }
 
-    pub fn children<'a>() -> Parser<'a, u8, Vec<HtmlNode>> {
+    fn children<'a>() -> Parser<'a, u8, Vec<HtmlNode>> {
         call(node).repeat(0..)
     }
 
     fn attributes<'a>() -> Parser<'a, u8, HashMap<String, String>> {
         let name = ident().convert(String::from_utf8);
         // TODO: entities/quoting
+        // (replace in result could be enough)
         let value = (sym(b'"') * none_of(b"\"").repeat(0..) - sym(b'"')).convert(String::from_utf8);
         let attr = name - sym(b'=') + value;
 
@@ -155,6 +160,11 @@ mod parse {
                     ],
                 })
             );
+        }
+
+        #[test]
+        fn parse_doctype() {
+            assert!(doctype().parse(b"<!DOCTYPE html>").is_ok())
         }
 
         #[test]
