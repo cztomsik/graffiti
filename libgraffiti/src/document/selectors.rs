@@ -13,7 +13,7 @@
 // x combination
 // x decoupled from other systems
 
-use crate::commons::Lookup;
+use crate::util::Lookup;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Selector {
@@ -29,6 +29,7 @@ pub enum Selector {
 
     // div.container#app.bg-primary > div span
     // (slowest)
+    // TODO: rename to Compound?
     Combined(Vec<Selector>),
 
     // internal
@@ -94,12 +95,8 @@ impl<'a, Item: Copy, Ancestors: IntoIterator<Item = Item>> MatchingContext<'a, I
     }
 }
 
-impl std::str::FromStr for Selector {
-    type Err = pom::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse::selector().parse(s.as_bytes())
-    }
+pub fn parse_selector(s: &str) -> Result<Selector, pom::Error> {
+    parse::selector().parse(s.trim().as_bytes())
 }
 
 mod parse {
@@ -158,28 +155,29 @@ mod parse {
 mod tests {
     use super::*;
 
+    fn s(selector: &str) -> Selector {
+        parse_selector(selector).unwrap()
+    }
+
     #[test]
     fn parsing() {
         use super::Selector::*;
 
         // simple
-        assert_eq!("*".parse(), Ok(Universal));
-        assert_eq!("body".parse(), Ok(TagName("body".to_string())));
-        assert_eq!("#app".parse(), Ok(Id("app".to_string())));
-        assert_eq!(".btn".parse(), Ok(ClassName("btn".to_string())));
+        assert_eq!(s("*"), Universal);
+        assert_eq!(s("body"), TagName("body".to_string()));
+        assert_eq!(s("#app"), Id("app".to_string()));
+        assert_eq!(s(".btn"), ClassName("btn".to_string()));
 
         // combined
-        assert_eq!(".btn.btn-primary".parse(), Ok(Combined(vec![ClassName("btn-primary".to_string()), ClassName("btn".to_string())])));
-        assert_eq!("*.test".parse(), Ok(Combined(vec![ClassName("test".to_string()), Universal])));
-        assert_eq!(
-            "div#app.test".parse(),
-            Ok(Combined(vec![ClassName("test".to_string()), Id("app".to_string()), TagName("div".to_string())]))
-        );
+        assert_eq!(s(".btn.btn-primary"), Combined(vec![ClassName("btn-primary".to_string()), ClassName("btn".to_string())]));
+        assert_eq!(s("*.test"), Combined(vec![ClassName("test".to_string()), Universal]));
+        assert_eq!(s("div#app.test"), Combined(vec![ClassName("test".to_string()), Id("app".to_string()), TagName("div".to_string())]));
 
         // combined with combinators
         assert_eq!(
-            "body > div.test div#test".parse(),
-            Ok(Combined(vec![
+            s("body > div.test div#test"),
+            Combined(vec![
                 Id("test".to_string()),
                 TagName("div".to_string()),
                 Combinator(super::Combinator::Ancestor),
@@ -187,17 +185,17 @@ mod tests {
                 TagName("div".to_string()),
                 Combinator(super::Combinator::Parent),
                 TagName("body".to_string()),
-            ]))
+            ])
         );
 
         // multi
-        assert_eq!("html, body".parse(), Ok(Multi(vec![TagName("html".to_string()), TagName("body".to_string())])));
+        assert_eq!(s("html, body"), Multi(vec![TagName("html".to_string()), TagName("body".to_string())]));
         assert_eq!(
-            "body > div, div div".parse(),
-            Ok(Multi(vec![
+            s("body > div, div div"),
+            Multi(vec![
                 Combined(vec![TagName("div".to_string()), Combinator(super::Combinator::Parent), TagName("body".to_string()),]),
                 Combined(vec![TagName("div".to_string()), Combinator(super::Combinator::Ancestor), TagName("div".to_string()),])
-            ]))
+            ])
         );
     }
 
@@ -233,9 +231,5 @@ mod tests {
         assert!(ctx.match_selector(&s("body div button"), 2));
 
         assert!([0, 1, 2].iter().all(|i| ctx.match_selector(&s("body, div, button"), *i)));
-    }
-
-    fn s(selector_str: &str) -> Selector {
-        selector_str.parse().unwrap()
     }
 }

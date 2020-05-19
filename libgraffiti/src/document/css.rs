@@ -19,23 +19,22 @@
 
 #![allow(unused)]
 
-// could be <Selector: FromStr> but let's keep it simple for now
-/*
-pub struct CssEngine {
-    sheets: Vec<CssStyleSheet>
-}
+use super::selectors::{parse_selector, Selector};
 
-impl CssEngine {
+// TODO: CssRule enum
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct CssStyleRule {
+    selector: Selector,
+    props: Vec<CssStyleProp>,
 }
-*/
 
 // supported props
 //
 // TODO: any prop can be also set to initial/inherit/unset
 //       inherit is out-of-scope but initial might be useful
 #[derive(Debug, Clone, PartialEq)]
-enum CssStyleProp {
+pub enum CssStyleProp {
     AlignContent(CssAlign),
     AlignItems(CssAlign),
     AlignSelf(CssAlign),
@@ -286,14 +285,36 @@ pub enum CssVisibility {
     Collapse,
 }
 
+pub fn parse_rules(s: &str) -> Vec<CssStyleRule> {
+    parse::rules().parse(s.as_bytes()).unwrap_or(Vec::new())
+}
+
+pub fn parse_props(s: &str) -> Vec<CssStyleProp> {
+    parse::style_props().parse(s.as_bytes()).unwrap_or(Vec::new())
+}
+
 mod parse {
     use super::*;
     use pom::char_class::{alpha, hex_digit};
     use pom::parser::*;
-    use pom::Parser;
 
-    fn style_prop() -> Parser<u8, CssStyleProp> {
-        prop_name() - sym(b':') - sym(b' ').repeat(0..)
+    pub fn rules<'a>() -> Parser<'a, u8, Vec<CssStyleRule>> {
+        rule().repeat(0..)
+    }
+
+    fn rule<'a>() -> Parser<'a, u8, CssStyleRule> {
+        let selector = none_of(b"{}").repeat(1..).collect().convert(std::str::from_utf8).convert(parse_selector);
+        let rule = selector - sym(b'{') - space() + style_props() - space() - sym(b'}');
+
+        rule.map(|(selector, props)| CssStyleRule { selector, props })
+    }
+
+    pub fn style_props<'a>() -> Parser<'a, u8, Vec<CssStyleProp>> {
+        list(style_prop(), one_of(b"; ").repeat(1..))
+    }
+
+    fn style_prop<'a>() -> Parser<'a, u8, CssStyleProp> {
+        prop_name() - sym(b':') - space()
             >> |p| match p {
                 b"align-content" => align().map(CssStyleProp::AlignContent),
                 b"align-items" => align().map(CssStyleProp::AlignItems),
@@ -360,7 +381,7 @@ mod parse {
             }
     }
 
-    fn align() -> Parser<u8, CssAlign> {
+    fn align<'a>() -> Parser<'a, u8, CssAlign> {
         keyword().convert(|kw| match kw {
             b"auto" => Ok(CssAlign::Auto),
             b"start" => Ok(CssAlign::Start),
@@ -378,7 +399,7 @@ mod parse {
         })
     }
 
-    fn color() -> Parser<u8, CssColor> {
+    fn color<'a>() -> Parser<'a, u8, CssColor> {
         // TODO: rgb/rgba()
 
         sym(b'#')
@@ -404,15 +425,16 @@ mod parse {
             })
     }
 
-    fn dimension() -> Parser<u8, CssDimension> {
+    fn dimension<'a>() -> Parser<'a, u8, CssDimension> {
         let px = (float() - seq(b"px")).map(CssDimension::Px);
         let percent = (float() - sym(b'%')).map(CssDimension::Percent);
         let auto = seq(b"auto").map(|_| CssDimension::Auto);
+        let zero = sym(b'0').map(|_| CssDimension::Px(0.));
 
-        px | percent | auto
+        px | percent | auto | zero
     }
 
-    fn border_style() -> Parser<u8, CssBorderStyle> {
+    fn border_style<'a>() -> Parser<'a, u8, CssBorderStyle> {
         keyword().convert(|kw| match kw {
             b"none" => Ok(CssBorderStyle::None),
             b"hidden" => Ok(CssBorderStyle::Hidden),
@@ -431,7 +453,7 @@ mod parse {
 
     // TODO: box_shadow
 
-    fn display() -> Parser<u8, CssDisplay> {
+    fn display<'a>() -> Parser<'a, u8, CssDisplay> {
         keyword().convert(|kw| match kw {
             b"none" => Ok(CssDisplay::None),
             b"block" => Ok(CssDisplay::Block),
@@ -442,7 +464,7 @@ mod parse {
         })
     }
 
-    fn flex_direction() -> Parser<u8, CssFlexDirection> {
+    fn flex_direction<'a>() -> Parser<'a, u8, CssFlexDirection> {
         keyword().convert(|kw| match kw {
             b"row" => Ok(CssFlexDirection::Row),
             b"column" => Ok(CssFlexDirection::Column),
@@ -453,7 +475,7 @@ mod parse {
         })
     }
 
-    fn flex_wrap() -> Parser<u8, CssFlexWrap> {
+    fn flex_wrap<'a>() -> Parser<'a, u8, CssFlexWrap> {
         keyword().convert(|kw| match kw {
             b"nowrap" => Ok(CssFlexWrap::NoWrap),
             b"wrap" => Ok(CssFlexWrap::Wrap),
@@ -463,7 +485,7 @@ mod parse {
         })
     }
 
-    fn overflow() -> Parser<u8, CssOverflow> {
+    fn overflow<'a>() -> Parser<'a, u8, CssOverflow> {
         keyword().convert(|kw| match kw {
             b"visible" => Ok(CssOverflow::Visible),
             b"hidden" => Ok(CssOverflow::Hidden),
@@ -474,7 +496,7 @@ mod parse {
         })
     }
 
-    fn position() -> Parser<u8, CssPosition> {
+    fn position<'a>() -> Parser<'a, u8, CssPosition> {
         keyword().convert(|kw| match kw {
             b"static" => Ok(CssPosition::Static),
             b"relative" => Ok(CssPosition::Relative),
@@ -485,7 +507,7 @@ mod parse {
         })
     }
 
-    fn text_align() -> Parser<u8, CssTextAlign> {
+    fn text_align<'a>() -> Parser<'a, u8, CssTextAlign> {
         keyword().convert(|kw| match kw {
             b"left" => Ok(CssTextAlign::Left),
             b"center" => Ok(CssTextAlign::Center),
@@ -498,7 +520,7 @@ mod parse {
 
     // TODO: transform
 
-    fn visibility() -> Parser<u8, CssVisibility> {
+    fn visibility<'a>() -> Parser<'a, u8, CssVisibility> {
         keyword().convert(|kw| match kw {
             b"visible" => Ok(CssVisibility::Visible),
             b"hidden" => Ok(CssVisibility::Hidden),
@@ -508,23 +530,27 @@ mod parse {
         })
     }
 
-    fn prop_name() -> Parser<u8, &'static [u8]> {
+    fn prop_name<'a>() -> Parser<'a, u8, &'a [u8]> {
         is_a(alpha_dash).repeat(1..).collect()
     }
 
-    fn keyword() -> Parser<u8, &'static [u8]> {
+    fn keyword<'a>() -> Parser<'a, u8, &'a [u8]> {
         is_a(alpha_dash).repeat(1..).collect()
     }
 
-    fn float() -> Parser<u8, f32> {
+    fn float<'a>() -> Parser<'a, u8, f32> {
         num().convert(std::str::from_utf8).convert(str::parse)
     }
 
-    fn num() -> Parser<u8, &'static [u8]> {
+    fn num<'a>() -> Parser<'a, u8, &'a [u8]> {
         one_of(b".0123456789").repeat(1..).collect()
     }
 
-    fn fail<T: 'static>(msg: &'static str) -> Parser<u8, T> {
+    fn space<'a>() -> Parser<'a, u8, ()> {
+        sym(b' ').repeat(0..).discard()
+    }
+
+    fn fail<'a, T: 'static>(msg: &'static str) -> Parser<'a, u8, T> {
         empty().convert(move |_| Err(msg))
     }
 
@@ -535,6 +561,25 @@ mod parse {
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        #[test]
+        fn parse_rule() {
+            assert_eq!(
+                rule().parse(b"* { left: 0; opacity: 1 }"),
+                Ok(CssStyleRule {
+                    selector: Selector::Universal,
+                    props: vec![CssStyleProp::Left(CssDimension::Px(0.)), CssStyleProp::Opacity(1.)]
+                })
+            );
+        }
+
+        #[test]
+        fn parse_props() {
+            assert_eq!(
+                style_props().parse(b"left: 0; opacity: 1"),
+                Ok(vec![CssStyleProp::Left(CssDimension::Px(0.)), CssStyleProp::Opacity(1.)])
+            );
+        }
 
         #[test]
         fn parse_prop() {
@@ -564,6 +609,7 @@ mod parse {
             assert_eq!(dimension().parse(b"auto"), Ok(CssDimension::Auto));
             assert_eq!(dimension().parse(b"10px"), Ok(CssDimension::Px(10.)));
             assert_eq!(dimension().parse(b"100%"), Ok(CssDimension::Percent(100.)));
+            assert_eq!(dimension().parse(b"0"), Ok(CssDimension::Px(0.)));
         }
 
         #[test]

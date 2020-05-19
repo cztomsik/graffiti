@@ -7,8 +7,6 @@
 // x no bool/num attrs (later)
 // x no entities/quoting (later)
 
-#![allow(unused)]
-
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -23,22 +21,21 @@ pub enum HtmlNode {
     TextNode(String),
 }
 
-impl FromStr for HtmlNode {
-    type Err = pom::Error;
+pub fn parse_html(html: &str) -> Vec<HtmlNode> {
+    let nodes = parse::html().parse(html.as_bytes());
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse::node().parse(s.as_bytes())
-    }
-}
-
-pub fn parse_html(html: &str) -> Result<Vec<HtmlNode>, pom::Error> {
-    (parse::doctype().opt() * parse::node().repeat(1..).name("nodes")).parse(html.as_bytes())
+    // text node if it can't be parsed as HTML
+    nodes.unwrap_or_else(|_| vec![HtmlNode::TextNode(html.to_owned())])
 }
 
 mod parse {
     use super::*;
     use pom::char_class::{alphanum, space};
     use pom::parser::*;
+
+    pub fn html<'a>() -> Parser<'a, u8, Vec<HtmlNode>> {
+        doctype().opt() * node().repeat(0..)
+    }
 
     pub fn doctype<'a>() -> Parser<'a, u8, ()> {
         seq(b"<!DOCTYPE") * none_of(b">").repeat(0..).discard() - sym(b'>')
@@ -98,10 +95,12 @@ mod parse {
 
         #[test]
         fn parse_node() {
-            assert_eq!("foo".parse(), Ok(TextNode("foo".to_string())));
+            let p = node();
+
+            assert_eq!(p.parse(b"foo"), Ok(TextNode("foo".to_string())));
 
             assert_eq!(
-                "<div></div>".parse(),
+                p.parse(b"<div></div>"),
                 Ok(Element {
                     tag_name: "div".to_string(),
                     attributes: HashMap::new(),
@@ -111,7 +110,7 @@ mod parse {
 
             // alphanum
             assert_eq!(
-                "<h1></h1>".parse(),
+                p.parse(b"<h1></h1>"),
                 Ok(Element {
                     tag_name: "h1".to_string(),
                     attributes: HashMap::new(),
@@ -123,7 +122,7 @@ mod parse {
         #[test]
         fn parse_simple() {
             assert_eq!(
-                "<div><h1>Hello</h1></div>".parse(),
+                node().parse(b"<div><h1>Hello</h1></div>"),
                 Ok(Element {
                     tag_name: "div".to_string(),
                     attributes: HashMap::new(),
@@ -145,7 +144,7 @@ mod parse {
             "#;
 
             assert_eq!(
-                html.trim().parse(),
+                node().parse(html.trim().as_bytes()),
                 Ok(Element {
                     tag_name: "div".to_string(),
                     attributes: vec![("id".to_string(), "app".to_string()), ("class".to_string(), "container".to_string())].into_iter().collect(),
@@ -169,8 +168,10 @@ mod parse {
 
         #[test]
         fn parse_html() {
+            assert_eq!(html().parse(b"<!DOCTYPE html>"), Ok(vec![]));
+
             assert_eq!(
-                super::parse_html(" <div></div>"),
+                html().parse(b" <div></div>"),
                 Ok(vec![
                     TextNode(" ".to_string()),
                     Element {

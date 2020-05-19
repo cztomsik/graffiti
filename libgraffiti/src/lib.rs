@@ -1,11 +1,9 @@
 #[macro_use]
-mod macros;
+mod util;
 
-// TODO: visibility
-
-// if you're interested in how it works, it's good to go in the mod-order
-//pub mod app;
-pub mod commons;
+mod layout;
 pub mod document;
-//pub mod layout;
-//pub mod viewport2;
+pub mod window;
+
+#[cfg(feature = "nodejs")]
+mod nodejs;

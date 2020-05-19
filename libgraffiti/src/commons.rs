@@ -2,14 +2,11 @@
 
 use std::fmt::{self, Debug, Formatter};
 
-/// Application unit (or something similar, unit of measure)
-pub type Au = f32;
-
 /// 2D Point
 #[derive(Clone, Copy)]
 pub struct Pos {
-    pub x: Au,
-    pub y: Au,
+    pub x: f32,
+    pub y: f32,
 }
 
 // BTW: clippy thinks it's better to pass this by value
@@ -19,7 +16,7 @@ impl Pos {
 
     // TODO: deprecate
     #[inline]
-    pub fn new(x: Au, y: Au) -> Self {
+    pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
 
@@ -29,7 +26,7 @@ impl Pos {
     }
 
     #[inline]
-    pub fn mul_uniform(self, n: Au) -> Self {
+    pub fn mul_uniform(self, n: f32) -> Self {
         Self { x: self.x * n, y: self.y * n }
     }
 }
@@ -52,17 +49,17 @@ impl Bounds {
     pub const ZERO_ONE: Bounds = Self { a: Pos::ZERO, b: Pos::ONE };
 
     #[inline]
-    pub fn width(&self) -> Au {
+    pub fn width(&self) -> f32 {
         self.b.x - self.a.x
     }
 
     #[inline]
-    pub fn height(&self) -> Au {
+    pub fn height(&self) -> f32 {
         self.b.y - self.a.y
     }
 
     #[inline]
-    pub fn inflate_uniform(&self, n: Au) -> Self {
+    pub fn inflate_uniform(&self, n: f32) -> Self {
         Self {
             a: Pos { x: self.a.x - n, y: self.a.y - n },
             b: Pos { x: self.b.x + n, y: self.b.y + n },
@@ -106,76 +103,3 @@ impl Mat3 {
     }
 }
 
-// couldn't use index because its result is always &V
-// so it's not possible to return temp structs
-pub trait Lookup<K, V> {
-    fn lookup(&self, key: K) -> V;
-}
-
-// closures, simple way to get that data from anywhere
-impl<K, V, F: Fn(K) -> V> Lookup<K, V> for F {
-    #[inline(always)]
-    fn lookup(&self, key: K) -> V {
-        self(key)
-    }
-}
-
-// vecs
-impl<V: Clone> Lookup<usize, V> for Vec<V> {
-    fn lookup(&self, key: usize) -> V {
-        self[key].clone()
-    }
-}
-
-// generic Id<> so it's a bit harder to mix different indices
-//
-// TODO: consider UnzeroU32 so the value can be both optimized
-//       with Option<T> but it also fits into 31bit V8 SMI
-//       (but this is big unknown, it should be profiled first)
-pub struct Id<T>(pub(crate) usize, std::marker::PhantomData<T>);
-
-impl<T> Id<T> {
-    pub(crate) const fn new(index: usize) -> Self {
-        Self(index, std::marker::PhantomData)
-    }
-}
-
-// can't derive https://github.com/rust-lang/rust/issues/26925
-impl<T> Clone for Id<T> {
-    fn clone(&self) -> Self {
-        Self(self.0, std::marker::PhantomData)
-    }
-}
-
-// again
-impl<T> Copy for Id<T> {}
-
-// and again
-impl<T> Debug for Id<T> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_tuple("").field(&self.0).finish()
-    }
-}
-
-// and again
-impl<T> PartialEq for Id<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<T> Eq for Id<T> {}
-
-impl<T> std::ops::Index<Id<T>> for Vec<T> {
-    type Output = T;
-
-    fn index(&self, id: Id<T>) -> &Self::Output {
-        &self[id.0]
-    }
-}
-
-impl<T> std::ops::IndexMut<Id<T>> for Vec<T> {
-    fn index_mut(&mut self, id: Id<T>) -> &mut Self::Output {
-        &mut self[id.0]
-    }
-}

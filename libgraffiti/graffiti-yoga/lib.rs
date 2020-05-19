@@ -4,11 +4,7 @@
 
 use std::os::raw::{c_float, c_void};
 
-pub const YGUndefined: c_float = std::f32::NAN;
-
-#[derive(Copy, Clone)]
 pub enum YGNode {}
-
 pub type YGNodeRef = *mut YGNode;
 
 pub type YGMeasureFunc = Option<
@@ -31,18 +27,13 @@ pub enum YGMeasureMode {
 
 #[repr(u32)]
 #[derive(Copy, Clone)]
-pub enum YGDimension {
-    Width = 0,
-    Height = 1,
-}
-
-#[repr(u32)]
-#[derive(Copy, Clone)]
 pub enum YGDirection {
     Inherit = 0,
     LTR = 1,
     RTL = 2,
 }
+
+pub const YGUndefined: c_float = std::f32::NAN;
 
 #[repr(u32)]
 #[derive(Copy, Clone)]
@@ -129,7 +120,6 @@ pub struct YGSize {
 }
 
 extern "C" {
-
     pub fn YGNodeNew() -> YGNodeRef;
     pub fn YGNodeFree(node: YGNodeRef);
     pub fn YGNodeFreeRecursive(node: YGNodeRef);

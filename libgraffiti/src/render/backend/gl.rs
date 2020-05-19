@@ -65,10 +65,10 @@ pub union VertexData {
     uv: Pos,
 }
 
-static mut GL_LOADED: bool = false;
-
 impl GlRenderBackend {
     pub(crate) fn new() -> Self {
+        static mut GL_LOADED: bool = false;
+
         unsafe {
             if !GL_LOADED {
                 load_platform_gl();

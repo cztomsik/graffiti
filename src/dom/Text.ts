@@ -10,6 +10,8 @@ export class Text extends Node implements globalThis.Text {
     this.data = data
   }
 
+  // TODO: there's textNode.wholeText which seems similar
+  //
   // we can't do inline layout (yet)
   // so we want to at least join adjacent text nodes
   //

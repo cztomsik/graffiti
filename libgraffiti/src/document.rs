@@ -27,10 +27,11 @@ use core::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::commons::{Id, Lookup};
+use crate::util::{Id, Lookup};
 
+use css::{parse_props, CssStyleProp};
 use html::{parse_html, HtmlNode};
-use selectors::MatchingContext;
+use selectors::{parse_selector, MatchingContext};
 
 pub struct Document {
     document_element: Option<NodeRef>,
@@ -41,21 +42,26 @@ pub struct Document {
 
 impl Document {
     pub fn empty_html() -> Self {
-        let free_list = Rc::new(RefCell::new(Vec::new()));
+        Document::from_html("<html><head></head><body></body></html>").unwrap()
+    }
+
+    pub fn from_html(html: &str) -> Result<Self, &str> {
+        let mut html_nodes = parse_html(html);
+
+        if html_nodes.len() != 1 {
+            return Err("expected exactly 1 root node");
+        }
 
         let mut d = Document {
             document_element: None,
             parents: Vec::new(),
             nodes: Vec::new(),
-            free_list,
+            free_list: Rc::new(RefCell::new(Vec::new())),
         };
 
-        let html = d.create_element("html");
+        d.document_element = Some(d.create_node_from_html_node(html_nodes.remove(0)));
 
-        d.document_element = Some(html);
-        //d.set_inner_html(html, "<head></head><body></body>")
-
-        d
+        Ok(d)
     }
 
     // only nodes with this ancestor are considered attached
@@ -65,9 +71,10 @@ impl Document {
     }
 
     pub fn create_element(&mut self, tag_name: &str) -> NodeRef {
-        self.push_node(Node::Element(ElementData {
+        self.create_new_node(Node::Element(ElementData {
             tag_name: tag_name.to_owned(),
             attributes: HashMap::new(),
+            inline_style: Vec::new(),
             child_nodes: Vec::new(),
         }))
     }
@@ -76,7 +83,7 @@ impl Document {
         &self.nodes[element.id].el().tag_name
     }
 
-    pub fn get_attribute(&self, element: &NodeRef, name: &str) -> Option<String> {
+    pub fn attribute(&self, element: &NodeRef, name: &str) -> Option<String> {
         let el = self.nodes[element.id].el();
 
         match name {
@@ -91,11 +98,20 @@ impl Document {
         }
     }
 
+    // TODO: it's now possible to set attribute with invalid name
+    // we should either ignore it or return Result<>
     pub fn set_attribute(&mut self, element: &NodeRef, name: &str, value: &str) {
-        // TODO: style="..." attr
-        // (also useful for el.style.cssText = '...')
+        let el = self.nodes[element.id].el_mut();
 
-        self.nodes[element.id].el_mut().attributes.insert(name.to_owned(), value.to_owned());
+        match name {
+            // style="..." attr
+            // (could be used for el.style.cssText = '...' too)
+            "style" => el.inline_style = parse_props(value),
+
+            _ => {
+                self.nodes[element.id].el_mut().attributes.insert(name.to_owned(), value.to_owned());
+            }
+        }
     }
 
     pub fn remove_attribute(&mut self, element: &NodeRef, name: &str) {
@@ -116,21 +132,21 @@ impl Document {
         self.parents[child.id.0] = None;
     }
 
-    /*
     pub fn query_selector(&self, selector: &str) -> Option<&NodeRef> {
-        self.query_selector_all(selector).first().map(|it| *it)
+        self.query_selector_all(selector).get(0).map(|n| *n)
     }
 
-    // TODO: context node for subtree queries
-    //       (should be just different )
+    // TODO: context node for subtree queries (later)
+    //       most tricky part will be API because context version
+    //       works only on descendants
     //
-    // TODO: we could support `:scope` here (replace with tag name)
+    //       we could also support `:scope` then (replace with tag name)
     //       https://www.w3.org/TR/selectors-4/#the-scope-pseudo
     pub fn query_selector_all(&self, selector: &str) -> Vec<&NodeRef> {
-        match selector.parse() {
+        match parse_selector(selector) {
             Err(_) => Vec::new(),
             Ok(selector) => {
-                let att = |el, att| self.nodes[el].el().attributes.get(att).map(String::as_str);
+                let att = |el: &NodeRef, att| self.nodes[el.id].el().attributes.get(att).map(String::as_str);
 
                 let ctx = MatchingContext {
                     tag_names: &|el| self.tag_name(el),
@@ -139,75 +155,30 @@ impl Document {
                     ancestors: &|el| self.ancestors(el),
                 };
 
-                // TODO: attached only
-                self.nodes
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(index, n)| {
-                        if let Node::Element(_) = n {
-                            let id = Id::new(index);
+                let root = self.document_element();
 
-                            if ctx.match_selector(&selector, id) {
-                                Some(id)
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
+                std::iter::once(root).chain(self.descendants(root)).filter(|n| ctx.match_selector(&selector, n)).collect()
             }
         }
     }
-    */
 
     /*
-    pub fn get_inner_html(&self, element: NodeRef) -> String {
-
-    }
+    pub fn get_inner_html(&self, element: NodeRef) -> String {}
     */
 
     pub fn set_inner_html(&mut self, element: &NodeRef, html: &str) {
+        // free some space first
         self.nodes[element.id].el_mut().child_nodes = Vec::new();
 
-        // insert as text node if it can't be parsed as HTML
-        // (chrome does this too)
-        let nodes = parse_html(html).unwrap_or_else(|_| vec![HtmlNode::TextNode(html.into())]);
+        // create nodes
+        let child_nodes: Vec<NodeRef> = parse_html(html).into_iter().map(|n| self.create_node_from_html_node(n)).collect();
 
-        self.push_html_nodes(element, &nodes);
-    }
-
-    fn push_html_nodes(&mut self, parent_element: &NodeRef, html_nodes: &[HtmlNode]) -> Vec<NodeRef> {
-        // TODO: append_child?
-        html_nodes
-            .iter()
-            .rev()
-            .map(|n| {
-                let node = match n {
-                    HtmlNode::TextNode(s) => self.create_text_node(&s),
-                    HtmlNode::Element { tag_name, attributes, children } => {
-                        let el = self.create_element(&tag_name);
-
-                        for (k, v) in attributes {
-                            self.set_attribute(&el, k, v);
-                        }
-
-                        self.push_html_nodes(&el, &children);
-
-                        el
-                    }
-                };
-
-                self.insert_child(parent_element, 0, &node);
-
-                node
-            })
-            .collect()
+        // insert
+        self.append_child_nodes(element, &child_nodes);
     }
 
     pub fn create_text_node(&mut self, data: &str) -> NodeRef {
-        self.push_node(Node::TextNode(data.to_owned()))
+        self.create_new_node(Node::TextNode(data.to_owned()))
     }
 
     pub fn data(&self, text_node: &NodeRef) -> &str {
@@ -217,6 +188,8 @@ impl Document {
     pub fn set_data(&mut self, text_node: &NodeRef, data: &str) {
         *self.nodes[text_node.id].tn_mut() = data.to_owned();
     }
+
+    // shared for both node types
 
     pub fn parent_node(&self, node: &NodeRef) -> Option<&NodeRef> {
         self.ancestors(node).next()
@@ -229,7 +202,18 @@ impl Document {
         }
     }
 
-    fn push_node(&mut self, node: Node) -> NodeRef {
+    // helpers
+
+    fn descendants(&self, element: &NodeRef) -> impl Iterator<Item = &NodeRef> + '_ {
+        // TODO: compute & cache whole tree and just subslice into it
+        //       that way we can avoid linked list
+
+        self.child_nodes(element)
+            .iter()
+            .flat_map(move |ch| std::iter::once(ch).chain(self.descendants(ch)).collect::<Vec<&NodeRef>>())
+    }
+
+    fn create_new_node(&mut self, node: Node) -> NodeRef {
         let id = match self.free_list.try_borrow_mut() {
             // try to reuse first
             Ok(mut ids) if !ids.is_empty() => {
@@ -256,6 +240,33 @@ impl Document {
             free_list: self.free_list.clone(),
         })
     }
+
+    fn create_node_from_html_node(&mut self, html_node: HtmlNode) -> NodeRef {
+        match html_node {
+            HtmlNode::TextNode(data) => self.create_text_node(&data),
+
+            HtmlNode::Element { tag_name, attributes, children } => {
+                let el = self.create_element(&tag_name);
+                let child_nodes: Vec<NodeRef> = children.into_iter().map(|ch| self.create_node_from_html_node(ch)).collect();
+
+                self.append_child_nodes(&el, &child_nodes);
+
+                // needed because of style attr
+                for (k, v) in attributes {
+                    self.set_attribute(&el, &k, &v);
+                }
+
+                el
+            }
+        }
+    }
+
+    fn append_child_nodes(&mut self, el: &NodeRef, child_nodes: &[NodeRef]) {
+        // TODO: append_child?
+        for (i, ch) in child_nodes.iter().enumerate() {
+            self.insert_child(&el, i, &ch);
+        }
+    }
 }
 
 pub type NodeRef = Rc<NodeHandle>;
@@ -279,6 +290,7 @@ impl<'a> Iterator for Ancestors<'a> {
 // private from here
 // (pubs because of Id<T>)
 
+mod css;
 mod html;
 mod selectors;
 
@@ -290,20 +302,25 @@ pub struct NodeHandle {
 
 impl std::ops::Drop for NodeHandle {
     fn drop(&mut self) {
+        silly!("drop node {:?}", &self.id);
+
         self.free_list.borrow_mut().push(self.id)
     }
 }
 
 type NodeId = Id<Node>;
 
+#[derive(Debug)]
 pub enum Node {
     Element(ElementData),
     TextNode(String),
 }
 
+#[derive(Debug)]
 pub struct ElementData {
     tag_name: String,
     attributes: HashMap<String, String>,
+    inline_style: Vec<CssStyleProp>,
     child_nodes: Vec<NodeRef>,
 }
 
@@ -342,6 +359,10 @@ impl Node {
     }
 }
 
+// TODO: test for resolve_style() - at least inline styles
+
+// TODO: test for d.attribute("style")
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -351,11 +372,16 @@ mod tests {
         let mut d = Document::empty_html();
 
         let root = d.document_element();
-        //let head = d.query_selector("head").expect("no head");
-        //let body = d.query_selector("body").expect("no body");
-
         assert_eq!(d.tag_name(root), "html");
-        //assert_eq!(d.query_selector_all(root, "html > *"), vec![head, body]);
+
+        match d.child_nodes(root) {
+            [head, body] => {
+                assert_eq!(d.tag_name(head), "head");
+                assert_eq!(d.tag_name(body), "body");
+            }
+
+            _ => panic!("expected 2 child nodes"),
+        }
     }
 
     #[test]
@@ -364,18 +390,18 @@ mod tests {
 
         let el = d.create_element("div");
         assert_eq!(d.tag_name(&el), "div");
-        assert_eq!(d.get_attribute(&el, "id"), None);
-        assert_eq!(d.get_attribute(&el, "class"), None);
+        assert_eq!(d.attribute(&el, "id"), None);
+        assert_eq!(d.attribute(&el, "class"), None);
         assert_eq!(d.child_nodes(&el), &[]);
 
         assert_eq!(d.parent_node(&el), None);
         assert_eq!(d.ancestors(&el).next(), None);
 
         d.set_attribute(&el, "id", "app");
-        assert_eq!(d.get_attribute(&el, "id"), Some("app".to_string()));
+        assert_eq!(d.attribute(&el, "id"), Some("app".to_string()));
 
         d.set_attribute(&el, "class", "container");
-        assert_eq!(d.get_attribute(&el, "class"), Some("container".to_string()));
+        assert_eq!(d.attribute(&el, "class"), Some("container".to_string()));
     }
 
     #[test]
@@ -393,34 +419,55 @@ mod tests {
     }
 
     #[test]
+    fn query_selector() {
+        let mut d = Document::empty_html();
+        let root = d.document_element();
+
+        let head = d.query_selector("head").expect("no head");
+        let body = d.query_selector("body").expect("no body");
+
+        assert_eq!(d.tag_name(head), "head");
+        assert_eq!(d.tag_name(body), "body");
+
+        //assert_eq!(d.query_selector_all(root, "html > *"), vec![head, body]);
+
+        //assert_eq!()
+    }
+
+    #[test]
     fn tree() {
         let mut d = Document::empty_html();
 
-        let root = d.document_element().clone();
+        let html = d.document_element().clone();
+        let body = d.query_selector("body").expect("no body").clone();
         let header = d.create_element("header");
         let div = d.create_element("div");
         let button = d.create_element("button");
 
         d.insert_child(&div, 0, &button);
         d.insert_child(&header, 0, &div);
-        d.insert_child(&root, 0, &header);
+        d.insert_child(&body, 0, &header);
 
-        assert_eq!(d.child_nodes(&root), &[header.clone()]);
+        println!("{:#?}", d.nodes);
+
+        assert_eq!(d.child_nodes(&body), &[header.clone()]);
         assert_eq!(d.child_nodes(&header), &[div.clone()]);
         assert_eq!(d.child_nodes(&div), [button.clone()]);
 
-        assert_eq!(d.ancestors(&button).collect::<Vec<_>>(), vec![&div, &header, &root]);
+        assert_eq!(d.ancestors(&button).collect::<Vec<_>>(), vec![&div, &header, &body, &html]);
     }
-}
+
+    #[test]
+    fn inline_style() {
+        let mut d = Document::empty_html();
+        let root = d.document_element().clone();
+
         d.insert_child(div, 0, button);
         d.insert_child(header, 0, div);
         d.insert_child(Document::ROOT, 0, header);
 
-        assert_eq!(d.children(Document::ROOT), &[header]);
-        assert_eq!(d.children(header), &[div]);
-        assert_eq!(d.children(div), &[button]);
+        d.set_attribute(&root, "style", "display: flex");
 
-        assert_eq!(d.ancestors(button).collect::<Vec<_>>(), &[div, header, Document::ROOT]);
+        //assert_eq!(d.child_nodes(&root), &[header.clone()]);
     }
 }
-

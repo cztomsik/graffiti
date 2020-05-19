@@ -1,16 +1,14 @@
 use super::{Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutEngine, LayoutStyle, Overflow};
 use graffiti_yoga::*;
 
-pub struct YogaLayoutEngine {
-    yoga_nodes: Vec<YGNodeRef>,
-}
+pub struct YogaLayoutEngine;
 
 // should be safe (no thread-locals, etc.)
 unsafe impl std::marker::Send for YogaLayoutEngine {}
 
 impl YogaLayoutEngine {
     pub fn new() -> Self {
-        YogaLayoutEngine { yoga_nodes: Vec::new() }
+        YogaLayoutEngine
     }
 }
 
@@ -25,7 +23,7 @@ macro_rules! set_dim {
             $(Dimension::Auto => $set_auto($node),)*
             Dimension::Undefined => $set($node, YGUndefined),
             _ => {
-                error!("unexpected {:?} {:?}", stringify!($meth), &$value);
+                eprintln!("unexpected {:?} {:?}", stringify!($meth), &$value);
             }
         }
     )
@@ -41,7 +39,7 @@ macro_rules! set_dim_edge {
             $(Dimension::Auto => $set_auto($node, YGEdge::$edge),)*
             Dimension::Undefined => $set($node, YGEdge::$edge, YGUndefined),
             _ => {
-                error!("unexpected {:?} {:?}", stringify!($meth), &$value);
+                eprintln!("unexpected {:?} {:?}", stringify!($meth), &$value);
             }
         }
     )
@@ -54,7 +52,6 @@ impl LayoutEngine for YogaLayoutEngine {
         let node = unsafe { YGNodeNew() };
 
         self.set_style(node, style);
-        self.yoga_nodes.push(node);
 
         node
     }
@@ -138,8 +135,6 @@ impl LayoutEngine for YogaLayoutEngine {
             set_measure_fn(leaf, measure_fn);
             YGNodeMarkDirty(leaf);
         }
-
-        self.yoga_nodes.push(leaf);
 
         leaf
     }

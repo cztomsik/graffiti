@@ -1,42 +1,39 @@
-import { Window } from "../dom/Window";
-import { send, AppMsg } from './nativeApi'
+//import { Window } from "../dom/Window";
+//import { send, AppMsg } from './nativeApi'
 import { performance } from 'perf_hooks'
 
-const windows: Window[] = []
+// TODO: main thread only
+// const { isMainThread } = require('worker_threads')
+// assert(isMainThread, '...')
+
 let animating = false
 let animationFrames: Function[] = []
 
+
 export const createWindow = ({ title = 'graffiti app', width = 1024, height = 768 } = {}) => {
-  const [, id] = send(AppMsg.CreateWindow(title, width, height))
-
-  return windows[id] = new Window(id)
+  ...
 }
 
-const getEvents = () => {
-  return send(AppMsg.GetEvents(animating))[1]
-}
-
-// TODO: not yet sure if it should be global or per-window
-export const _requestAnimationFrame = (cb) => {
+// tied to main thread so it has to be shared (& global)
+export const requestAnimationFrame = (cb) => {
   animationFrames.push(cb)
 }
 
 const runLoop = () => {
-  // should block if there are no events (with timeout)
-  // there might be some results pending in node.js loop so we need to return back (with nothing)
-  // would be great if it was possible to access this
-  // somehow and only wakeup when necessary (to save cpu/power)
-  // maybe we could use async_hooks to know if there was anything requested and if not,
-  // just wait indefinitely
+  // let native get/wait for events & call listeners
+  // (force polling if we are animating)
+  //
+  // - native should poll only if there's something
+  //   in libuv loop (nextTick, setImmediate, setTimeout(f, 0)) and
+  //   wait for minimum "safe" timeout otherwise (uv_backend_timeout)
+  //
+  // - I/O should wake us
+  //
+  // TODO: it might be good idea to be able to set some minimal
+  // wait time just in case there is some native extension with own uv_loop
+  native.handleEvents(animating)
 
-  const events = getEvents()
-
-  if (events !== undefined) {
-    for (const [id, event] of events) {
-      windows[id]._handleEvent(event)
-    }
-  }
-
+  // animate
   if (animating = animationFrames.length > 0) {
     const timestamp = performance.now()
     const frames = animationFrames
@@ -47,15 +44,14 @@ const runLoop = () => {
     }
   }
 
-  // TODO: inactive windows could be throttled, maybe even stopped
-  // but we should keep HMR working (update in inactive window)
-  for (const windowId in windows) {
-    windows[windowId].sceneContext.flush(animating)
-  }
+  // TODO: later
+  //for (const windowId in windows) {
+  //  windows[windowId].sceneContext.flush(animating)
+  //}
 
   // setTimeout is too slow but we want to let other handlers fire too
   setImmediate(runLoop)
-  //setTimeout(runLoop, 1000)
 }
 
-setTimeout(() => runLoop())
+// defer a bit (let others do some async init too)
+setTimeout(() => runLoop, 1)
