@@ -20,9 +20,10 @@ pub trait LayoutEngine {
     fn mark_dirty(&mut self, leaf: Self::LayoutNodeId);
 
     fn calculate(&mut self, node: Self::LayoutNodeId, size: (f32, f32));
-
     fn get_offset(&self, node: Self::LayoutNodeId) -> (f32, f32);
     fn get_size(&self, node: Self::LayoutNodeId) -> (f32, f32);
+
+    fn free_node(&mut self, node: Self::LayoutNodeId);
 }
 
 // supported features

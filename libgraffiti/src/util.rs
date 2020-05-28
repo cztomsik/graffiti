@@ -1,5 +1,6 @@
 #![allow(unused_macros)]
 
+use std::num::NonZeroUsize;
 use core::fmt::{Debug, Formatter};
 
 // debug logging
@@ -138,21 +139,36 @@ impl<V: Clone> Lookup<usize, V> for Vec<V> {
 
 // generic Id<> so it's a bit harder to mix different indices
 //
-// TODO: consider UnzeroU32 so the value can be both optimized
-//       with Option<T> but it also fits into 31bit V8 SMI
+// TODO: consider NonZeroU32 and make it fit into 31bit V8 SMI
 //       (but this is big unknown, it should be profiled first)
-pub struct Id<T>(pub(crate) usize, std::marker::PhantomData<T>);
+pub struct Id<T> {
+    id: NonZeroUsize,
+    phantom: std::marker::PhantomData<T>
+}
 
 impl<T> Id<T> {
-    pub(crate) const fn new(index: usize) -> Self {
-        Self(index, std::marker::PhantomData)
+    pub(crate) const fn new(id: usize) -> Self {
+        Self {
+            // new().expect() is not const
+            id: unsafe { NonZeroUsize::new_unchecked(id + 1) },
+            phantom: std::marker::PhantomData
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) fn index(&self) -> usize {
+        self.id.get() - 1
     }
 }
 
 // can't derive https://github.com/rust-lang/rust/issues/26925
 impl<T> Clone for Id<T> {
+    #[inline(always)]
     fn clone(&self) -> Self {
-        Self(self.0, std::marker::PhantomData)
+        Self {
+            id: self.id,
+            phantom: std::marker::PhantomData
+        }
     }
 }
 
@@ -162,14 +178,15 @@ impl<T> Copy for Id<T> {}
 // and again
 impl<T> Debug for Id<T> {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.debug_tuple("").field(&self.0).finish()
+        f.debug_tuple("").field(&self.id).finish()
     }
 }
 
 // and again
 impl<T> PartialEq for Id<T> {
+    #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        self.id == other.id
     }
 }
 
@@ -178,13 +195,15 @@ impl<T> Eq for Id<T> {}
 impl<T> std::ops::Index<Id<T>> for Vec<T> {
     type Output = T;
 
+    #[inline(always)]
     fn index(&self, id: Id<T>) -> &Self::Output {
-        &self[id.0]
+        &self[id.index()]
     }
 }
 
 impl<T> std::ops::IndexMut<Id<T>> for Vec<T> {
+    #[inline(always)]
     fn index_mut(&mut self, id: Id<T>) -> &mut Self::Output {
-        &mut self[id.0]
+        &mut self[id.index()]
     }
 }

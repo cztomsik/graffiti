@@ -101,7 +101,7 @@ pub fn parse_selector(s: &str) -> Result<Selector, pom::Error> {
 
 mod parse {
     use super::*;
-    use pom::char_class::alpha;
+    use pom::char_class::alphanum;
     use pom::parser::*;
 
     pub fn selector<'a>() -> Parser<'a, u8, Selector> {
@@ -143,11 +143,11 @@ mod parse {
     }
 
     fn ident<'a>() -> Parser<'a, u8, &'a str> {
-        is_a(alpha_dash).repeat(1..).collect().convert(std::str::from_utf8)
+        is_a(alphanum_dash).repeat(1..).collect().convert(std::str::from_utf8)
     }
 
-    fn alpha_dash(b: u8) -> bool {
-        alpha(b) || b == b'-'
+    fn alphanum_dash(b: u8) -> bool {
+        alphanum(b) || b == b'-'
     }
 }
 
@@ -166,6 +166,7 @@ mod tests {
         // simple
         assert_eq!(s("*"), Universal);
         assert_eq!(s("body"), TagName("body".to_string()));
+        assert_eq!(s("h2"), TagName("h2".to_string()));
         assert_eq!(s("#app"), Id("app".to_string()));
         assert_eq!(s(".btn"), ClassName("btn".to_string()));
 

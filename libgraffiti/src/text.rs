@@ -9,7 +9,7 @@
 //   x measure/get_glyphs using "text style" with size, align, spacing, ... which can change between calls
 // x texts are owned resources
 //   - possible to find out what glyphs are used
-//   - rasterize differently depending on the font size
+//   - support different rendering depending on the font size
 //     (msdf for bigger sizes, downscaled alpha otherwise)
 
 #![allow(non_snake_case)]

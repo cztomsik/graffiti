@@ -1,10 +1,11 @@
+import assert from 'assert'
+
+import { NodeList } from './NodeList'
 import { Node } from './Node'
 import { Text } from './Text'
 import { Comment } from './Comment'
 import { DocumentFragment } from './DocumentFragment'
 
-import { Element } from './Element'
-import { HTMLElement } from './HTMLElement'
 import { HTMLHtmlElement } from './HTMLHtmlElement'
 import { HTMLHeadElement } from './HTMLHeadElement'
 import { HTMLBodyElement } from './HTMLBodyElement'
@@ -24,20 +25,11 @@ import { HTMLTableCellElement } from './HTMLTableCellElement'
 import { HTMLTableHeaderCellElement } from './HTMLTableHeaderCellElement'
 import { HTMLTableRowElement } from './HTMLTableRowElement'
 
-type IDocument = globalThis.Document
-
-// too many type errs
-export class Document extends Node implements IDocument {
-  _nativeId = 0
-  _scene = this.defaultView.sceneContext
-  _els: HTMLElement[] = []
+export class Document extends Node implements globalThis.Document {
+  childNodes = new NodeList<ChildNode>()
 
   // title is only defined here, not on the window itself
   title = ''
-
-  documentElement = this.createElement('html')
-  head = this.createElement('head')
-  body = this.createElement('body')
 
   activeElement
   // last time over for enter/leave
@@ -45,50 +37,70 @@ export class Document extends Node implements IDocument {
   // mousedown origin
   _clickedElement
 
-  constructor(public defaultView) {
-    super(null, Node.DOCUMENT_NODE)
+  constructor(public defaultView, private _native) {
+    super(null)
 
-    // special setup
-    this.childNodes.push(this.documentElement)
-    ;(this.documentElement as any).parentNode = this
-    this.documentElement.appendChild(this.head)
-    this.documentElement.appendChild(this.body)
+    this._native.initDocument(this)
+
+    const html = this.createElement('html')
+    html.appendChild(this.createElement('head'))
+    html.appendChild(this.createElement('body'))
+
+    this.appendChild(html)
+  }
+
+  get nodeType() {
+    return Node.DOCUMENT_NODE
+  }
+
+  get nodeName() {
+    return '#document'
+  }
+
+  get documentElement() {
+    // chrome allows removing root & appending a new one
+    return this.childNodes[0] || null
+  }
+
+  get head() {
+    return this.documentElement?.childNodes.find(n => n.localName === 'head') || null
+  }
+
+  get body() {
+    return this.documentElement?.childNodes.find(n => n.localName === 'body') || null
   }
 
   get location() {
     return this.defaultView.location
   }
 
-  createElement(tagName: string): HTMLElement {
+  createElement(tagName: string, options?) {
     // happy-case
     // - simple comparison of interned strings
     // - ordered by likelihood
-    //
-    // note we are setting correct (interned) tagName here
-    // it could be in each impl but it would be one extra contructor call
     switch (tagName) {
-      case 'div': return new HTMLDivElement(this, 'DIV')
-      case 'span': return new HTMLSpanElement(this, 'SPAN')
-      case 'a': return new HTMLAnchorElement(this, 'A')
-      case 'button': return new HTMLButtonElement(this, 'BUTTON')
-      case 'input': return new HTMLInputElement(this, 'INPUT')
-      case 'textarea': return new HTMLTextAreaElement(this, 'TEXTAREA')
-      case 'table': return new HTMLTableElement(this, 'TABLE')
-      case 'thead': return new HTMLTableSectionElement(this, 'THEAD')
-      case 'tbody': return new HTMLTableSectionElement(this, 'TBODY')
-      case 'tr': return new HTMLTableRowElement(this, 'TR')
-      case 'td': return new HTMLTableCellElement(this, 'TD')
-      case 'th': return new HTMLTableHeaderCellElement(this, 'TH')
-      case 'head': return new HTMLHeadElement(this, 'HEAD')
-      case 'body': return new HTMLBodyElement(this, 'BODY')
-      // special-case
-      case 'html': return new HTMLHtmlElement(this, 'HTML')
+      case 'div': return new HTMLDivElement(this, tagName)
+      case 'span': return new HTMLSpanElement(this, tagName)
+      case 'a': return new HTMLAnchorElement(this, tagName)
+      case 'button': return new HTMLButtonElement(this, tagName)
+      case 'input': return new HTMLInputElement(this, tagName)
+      case 'textarea': return new HTMLTextAreaElement(this, tagName)
+      case 'table': return new HTMLTableElement(this, tagName)
+      case 'thead': return new HTMLTableSectionElement(this, tagName)
+      case 'tbody': return new HTMLTableSectionElement(this, tagName)
+      case 'tr': return new HTMLTableRowElement(this, tagName)
+      case 'td': return new HTMLTableCellElement(this, tagName)
+      case 'th': return new HTMLTableHeaderCellElement(this, tagName)
+      case 'head': return new HTMLHeadElement(this, tagName)
+      case 'body': return new HTMLBodyElement(this, tagName)
+      case 'html': return new HTMLHtmlElement(this, tagName)
 
+      // otherwise try lowercase and eventually fall-back to HTMLUnknownElement
       default:
         const lower = tagName.toLowerCase()
 
         if (tagName === lower) {
-          return new HTMLUnknownElement(this, tagName.toUpperCase())
+          return new HTMLUnknownElement(this, tagName)
         }
 
         return this.createElement(lower as any)
@@ -99,49 +111,46 @@ export class Document extends Node implements IDocument {
     switch (ns) {
       case 'http://www.w3.org/2000/svg':
         switch (tagName) {
-          case 'svg': return new SVGSVGElement(this, 'svg')
-          case 'g': return new SVGGElement(this, 'g')
+          case 'svg': return new SVGSVGElement(this, tagName)
+          case 'g': return new SVGGElement(this, tagName)
           default: return new SVGElement(this, tagName)
         }
 
       default:
-        return new Element(this, tagName )
+        return new HTMLUnknownElement(this, tagName)
     }
   }
 
   createTextNode(data: string): Text {
-    return new Text(this, data)
+    return new Text(data, this)
   }
 
   createComment(data: string): Comment {
-    const c = new Comment(this, data)
-
     // empty text node for now
     // (temporary hack)
-    c._nativeId = this._scene.createText()
-
-    return c
+    return new Comment(data, this)
   }
 
   createDocumentFragment(): DocumentFragment {
     return new DocumentFragment(this)
   }
 
-  getElementById(id): HTMLElement | null {
-    // return this.querySelector(`#${id}`)
-    return this._els.find(el => el.id === id)
+  _insertChildAt(child, index) {
+    assert(index === 0, 'only one root is allowed')
+    assert(child.nodeType === Node.ELEMENT_NODE, 'only element can be root')
+
+    super._insertChildAt(child, index)
+
+    this._native.makeRoot(child)
   }
 
-  querySelector(selectors: string) {
-    return this.documentElement.querySelector(selectors)
+  // TODO: replace `:root` with this.documentElement.tagName
+  querySelector(selectors: string, element?) {
+    return this._native.querySelector(this, selectors, element)
   }
 
-  querySelectorAll(selectors: string) {
-    return this.documentElement.querySelectorAll(selectors)
-  }
-
-  _getEl(_nativeId) {
-    return this._els[_nativeId]
+  querySelectorAll(selectors: string, element?) {
+    return this._native.querySelectorAll(this, selectors, element)
   }
 
   _getTheParent() {
@@ -152,6 +161,27 @@ export class Document extends Node implements IDocument {
   get images() { return this.getElementsByTagName('img') }
   get links() { return this.getElementsByTagName('link') }
   get scripts() { return this.getElementsByTagName('script') }
+
+  // native
+  _initElement(el, localName) {
+    this._native.initElement(this, localName, el)
+  }
+
+  _elChildInserted(el, child, index) {
+    this._native.insertChildAt(el, child, index)
+  }
+
+  _elChildRemoved(el, child) {
+    this._native.removeChild(el, child)
+  }
+
+  _initTextNode(textNode, data) {
+    this._native.initTextNode(data, textNode)
+  }
+
+  _textUpdated(textNode, text) {
+    this._native.setText(textNode, text)
+  }
 
   // later
   adoptNode
@@ -198,7 +228,11 @@ export class Document extends Node implements IDocument {
   fullscreenElement
   fullscreenEnabled
   getAnimations
+  getElementById
   getElementsByName
+  getElementsByTagName
+  getElementsByTagNameNS
+  getElementsByClassName
   getSelection
   hasFocus
   hidden

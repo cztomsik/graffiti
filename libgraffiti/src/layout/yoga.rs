@@ -160,6 +160,10 @@ impl LayoutEngine for YogaLayoutEngine {
     fn get_size(&self, node: YGNodeRef) -> (f32, f32) {
         unsafe { (YGNodeLayoutGetWidth(node), YGNodeLayoutGetHeight(node)) }
     }
+
+    fn free_node(&mut self, node: YGNodeRef) {
+        unsafe { YGNodeFree(node) }
+    }
 }
 
 impl Into<YGAlign> for Align {

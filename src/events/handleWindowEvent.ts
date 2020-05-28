@@ -1,4 +1,4 @@
-import { Document } from '../dom/Document'
+import { Document } from '../nodes/Document'
 import { Event } from './Event'
 import { Event as SceneEvent } from '../core/nativeApi'
 

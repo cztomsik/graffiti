@@ -1,7 +1,8 @@
+import vm from 'vm'
+
 import { Document } from './Document'
 import { Event } from '../events/Event'
 import { EventTarget } from '../events/EventTarget'
-import { SceneContext } from '../core/SceneContext'
 import { handleWindowEvent } from '../events/handleWindowEvent'
 import { Location } from './Location'
 import { History } from './History'
@@ -12,12 +13,17 @@ export class Window extends EventTarget implements globalThis.Window {
   window: any = this
   self: any = this
 
-  sceneContext = new SceneContext(this.id)
   document = new Document(this)
 
   // minimal impl for mithril/wouter
   history = new History(this)
   location = new Location(this.history)
+
+  _context = vm.createContext(this)
+
+  eval(code) {
+    return vm.runInContext(code, this._context)
+  }
 
   // react-dom needs both
   navigator: any = {

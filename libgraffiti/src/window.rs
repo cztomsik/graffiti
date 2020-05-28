@@ -2,7 +2,9 @@
 
 use std::os::raw::{c_char, c_double, c_int, c_uint, c_void};
 
-// mozna window manager, nevim, ale zatim me nic lepsiho nenapadlo
+// not sure about naming yet, maybe WindowManager or something like
+// that, App could be misleading, maybe NativeApp but that is not
+// much better actually.
 
 pub unsafe fn init() {
     silly!("loading glfw");
@@ -17,7 +19,6 @@ pub unsafe fn init() {
 }
 
 pub unsafe fn create_window(title: &str, width: i32, height: i32) -> Window {
-    /*
     glfwDefaultWindowHints();
 
     #[cfg(target_os="macos")] {
@@ -26,7 +27,6 @@ pub unsafe fn create_window(title: &str, width: i32, height: i32) -> Window {
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     }
-    */
 
     let native_window = glfwCreateWindow(width, height, c_str!(title), std::ptr::null_mut(), std::ptr::null_mut());
 
@@ -68,7 +68,6 @@ impl Window {
 
         // note that if it gets called too fast it can
         // block until the next frame
-        //
         glfwSwapBuffers(self.native_window);
     }
 }
@@ -97,6 +96,7 @@ dylib! {
         fn glfwSetErrorCallback(cbfun: unsafe extern "C" fn(c_int, *const c_char)) -> *const c_void;
         fn glfwInit() -> c_int;
 
+        fn glfwDefaultWindowHints();
         fn glfwWindowHint(hint: c_int, value: c_int);
         fn glfwCreateWindow(width: c_int, height: c_int, title: *const c_char, monitor: *mut GlfwMonitor, share: *mut GlfwWindow) -> *mut GlfwWindow;
         fn glfwMakeContextCurrent(window: *mut GlfwWindow);

@@ -1,42 +1,17 @@
-import { SceneContext } from '../core/SceneContext'
-import { Node } from '../dom/Node'
-import { Element } from '../dom/Element'
-import { updateText } from '../dom/Text'
-import { UNSUPPORTED } from '../core/utils'
-import { SceneChange as S } from '../core/interop'
-import { INVALID, parseAlign, parseColor, parseDimension, parseDisplay, parseFlexDirection, parseFlexWrap, parseTransform, parseOverflow } from './parsers'
-import { defaultStyles } from './defaultStyles'
-
-// TODO: const defaults with defaults for all properties?
-// and these should be set if prop is deleted
-// and it probably can be used for "resetting" too
+import { Node } from '../nodes/Node'
+import { Element } from '../nodes/Element'
+import { updateText } from '../nodes/Text'
+import { UNSUPPORTED } from '../util'
 
 // minimal impl just to get something working
 //
 // for now, only setters are supported
 // (and many props are missing)
-//
-// BTW: in theory parsing CSS values might be faster in native and it's tempting
-// to think it could be done async, while the rest of js is still executing
-// but in practice, any communication with native involves quite expensive
-// context-switch/lock which is why we are batching everything until the end of
-// the frame (or when flush is needed) and we want to to do that,
-// but it also means it doesn't make sense to parse CSS props/values
-// async in native - it's simply not worth and it's definitely much easier to
-// do it in js
 export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
-  private _scene: SceneContext
   private _elementId
 
-  // TODO: move to native, each variant for each prop
-  _textStyle: any = { fontSize: 16, lineHeight: 20 }
-
   constructor(el: Element) {
-    this._scene = el.ownerDocument._scene
     this._elementId = el._nativeId
-
-    // apply default styles
-    Object.assign(this, defaultStyles[el.tagName] || {})
   }
 
   getPropertyPriority(prop: string): string {
@@ -59,13 +34,21 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   [index: number]: string
 
   removeProperty(prop: string): string {
-    this.setProperty(prop, defaults[prop])
-    return ''
+    return UNSUPPORTED()
+    //this.setProperty(prop, defaults[prop])
+    //return ''
   }
 
   // note we expect only valid names (there's no normalization, error reporting, etc.)
   // but that shouldn't be a problem if you're using modern IDE and/or tooling
   setProperty(prop: string, v?: string | null, priority?: string | null): void {
+    return UNSUPPORTED()
+
+    // TODO: put prop in this[length++]
+    //       and value in this.values
+    //       and push new style attr
+
+    /*
     if (priority === 'important') {
       console.warn('!important is not supported')
     }
@@ -81,73 +64,7 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
       this.removeProperty(prop)
       return
     }
-
-    // shorthands
-    //
-    // TODO: introduce native variant for each shorthand
-    // (full-form for now)
-    switch (prop) {
-      case 'flex':
-        this.setProperty('flex-grow', v)
-        this.setProperty('flex-shrink', v)
-        // should be just 0 but chrome does percents too
-        this.setProperty('flex-basis', v ? '0%' : 'auto')
-        return
-
-      case 'padding':
-        this.setProperty('padding-top', v)
-        this.setProperty('padding-right', v)
-        this.setProperty('padding-bottom', v)
-        this.setProperty('padding-left', v)
-        return
-
-      case 'margin':
-        this.setProperty('margin-top', v)
-        this.setProperty('margin-right', v)
-        this.setProperty('margin-bottom', v)
-        this.setProperty('margin-left', v)
-        return
-
-      case 'font-size':
-        this._textStyle = { ...this._textStyle, fontSize: parseFloat(v) }
-        this._updateTexts()
-        return
-      case 'line-height':
-        this._textStyle = { ...this._textStyle, lineHeight: parseFloat(v) }
-        this._updateTexts()
-        return
-    }
-
-    // not sure how often it happens
-    if (typeof v !== 'string') {
-      v = '' + v
-    }
-
-    const ch = parseChange(prop, v, this._elementId)
-
-    // ignore whole rule if the value cannot be parsed
-    if (ch[2] === INVALID) {
-      return
-    }
-
-    //console.log(prop, v, ch)
-    this._scene.changes.push(ch)
-  }
-
-  _updateTexts() {
-    // update first only (text joining)
-    let first = true
-
-    for (const c of (document as any)._getEl(this._elementId).childNodes) {
-      if (c.nodeType === Node.TEXT_NODE) {
-        if (first) {
-          updateText(c)
-          first = false
-        }
-      } else {
-        first = true
-      }
-    }
+    */
   }
 
   set cssText(v) {
@@ -619,92 +536,4 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   webkitUserModify
   webkitUserSelect
   webkitWritingMode
-}
-
-const defaults = {
-  // TODO
-  'background-color': '#0000'
-}
-
-// indirection so it's monomorphic
-function parseChange(prop: string, v: string, _id) {
-    // TODO: order by likelihood
-
-    // TODO: parse shorthands -> ShorthandVariant
-
-    switch (prop) {
-      case 'align-content': return S.AlignContent(_id, parseAlign(v))
-      case 'align-items': return S.AlignItems(_id, parseAlign(v))
-      case 'align-self': return S.AlignSelf(_id, parseAlign(v))
-      //case 'background': return S.Background(_id, parse(v))
-      case 'background-color': return S.BackgroundColor(_id, parseColor(v))
-      //case 'border': return S.Border(_id, parse(v))
-      //case 'border-bottom': return S.BorderBottom(_id, parse(v))
-      //case 'border-bottom-color': return S.BorderBottomColor(_id, parseColor(v))
-      case 'border-bottom-left-radius': return S.BorderBottomLeftRadius(_id, +v)
-      case 'border-bottom-right-radius': return S.BorderBottomRightRadius(_id, +v)
-      //case 'border-bottom-style': return S.BorderBottomStyle(_id, parse(v))
-      case 'border-bottom-width': return S.BorderBottomWidth(_id, parseDimension(v))
-      //case 'border-color': return S.BorderColor(_id, parseColor(v))
-      //case 'border-left': return S.BorderLeft(_id, parse(v))
-      //case 'border-left-color': return S.BorderLeftColor(_id, parseColor(v))
-      //case 'border-left-style': return S.BorderLeftStyle(_id, parse(v))
-      case 'border-left-width': return S.BorderLeftWidth(_id, parseDimension(v))
-      //case 'border-radius': return S.BorderRadius(_id, parse(v))
-      //case 'border-right': return S.BorderRight(_id, parse(v))
-      //case 'border-right-color': return S.BorderRightColor(_id, parseColor(v))
-      //case 'border-right-style': return S.BorderRightStyle(_id, parse(v))
-      case 'border-right-width': return S.BorderRightWidth(_id, parseDimension(v))
-      //case 'border-style': return S.BorderStyle(_id, parse(v))
-      //case 'border-top': return S.BorderTop(_id, parse(v))
-      //case 'border-top-color': return S.BorderTopColor(_id, parseColor(v))
-      case 'border-top-left-radius': return S.BorderTopLeftRadius(_id, +v)
-      case 'border-top-right-radius': return S.BorderTopRightRadius(_id, +v)
-      //case 'border-top-style': return S.BorderTopStyle(_id, parse(v))
-      case 'border-top-width': return S.BorderTopWidth(_id, parseDimension(v))
-      //case 'border-width': return S.BorderWidth(_id, parse(v))
-      case 'bottom': return S.Bottom(_id, parseDimension(v))
-      //case 'box-shadow': return S.BoxShadow(_id, parse(v))
-      case 'color': return S.Color(_id, parseColor(v))
-      case 'display': return S.Display(_id, parseDisplay(v))
-      //case 'flex': return S.Flex(_id, parseFlex(v))
-      case 'flex-basis': return S.FlexBasis(_id, parseDimension(v))
-      case 'flex-direction': return S.FlexDirection(_id, parseFlexDirection(v))
-      //case 'flex-flow': return S.FlexFlow(_id, parse(v))
-      case 'flex-grow': return S.FlexGrow(_id, +v)
-      case 'flex-shrink': return S.FlexShrink(_id, +v)
-      case 'flex-wrap': return S.FlexWrap(_id, parseFlexWrap(v))
-      //case 'font': return S.Font(_id, parse(v))
-      //case 'font-family': return S.FontFamily(_id, parse(v))
-      //case 'font-size': return S.FontSize(_id, parse(v))
-      //case 'font-style': return S.FontStyle(_id, parse(v))
-      //case 'font-variant': return S.FontVariant(_id, parse(v))
-      //case 'font-weight': return S.FontWeight(_id, parse(v))
-      case 'height': return S.Height(_id, parseDimension(v))
-      case 'justify-content': return S.JustifyContent(_id, parseAlign(v))
-      case 'left': return S.Left(_id, parseDimension(v))
-      //case 'line-height': return S.LineHeight(_id, parse(v))
-      //case 'margin': return S.Margin(_id, parse(v))
-      case 'margin-bottom': return S.MarginBottom(_id, parseDimension(v))
-      case 'margin-left': return S.MarginLeft(_id, parseDimension(v))
-      case 'margin-right': return S.MarginRight(_id, parseDimension(v))
-      case 'margin-top': return S.MarginTop(_id, parseDimension(v))
-      case 'max-height': return S.MaxHeight(_id, parseDimension(v))
-      case 'max-width': return S.MaxWidth(_id, parseDimension(v))
-      case 'min-height': return S.MinHeight(_id, parseDimension(v))
-      case 'min-width': return S.MinWidth(_id, parseDimension(v))
-      case 'overflow': return S.Overflow(_id, parseOverflow(v))
-      //case 'padding': return S.Padding(_id, parse(v))
-      case 'padding-bottom': return S.PaddingBottom(_id, parseDimension(v))
-      case 'padding-left': return S.PaddingLeft(_id, parseDimension(v))
-      case 'padding-right': return S.PaddingRight(_id, parseDimension(v))
-      case 'padding-top': return S.PaddingTop(_id, parseDimension(v))
-      case 'right': return S.Right(_id, parseDimension(v))
-      //case 'text-align': return S.TextAlign(_id, parseAlign(v))
-      case 'top': return S.Top(_id, parseDimension(v))
-      case 'transform': return S.Transform(_id, parseTransform(v))
-      case 'width': return S.Width(_id, parseDimension(v))
-    }
-
-    return [,,INVALID]
 }
