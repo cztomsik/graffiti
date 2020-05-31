@@ -138,9 +138,6 @@ impl<V: Clone> Lookup<usize, V> for Vec<V> {
 }
 
 // generic Id<> so it's a bit harder to mix different indices
-//
-// TODO: consider NonZeroU32 and make it fit into 31bit V8 SMI
-//       (but this is big unknown, it should be profiled first)
 pub struct Id<T> {
     id: NonZeroUsize,
     phantom: std::marker::PhantomData<T>

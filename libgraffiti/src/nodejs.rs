@@ -1,21 +1,13 @@
 // node.js bindings
 
-// note it should be possible to wrap just NodeId (it fits in usize/ptr) in js nodes,
-// and then we'd only need some own WeakRef (*const RcBox) as finalizer_hint
-// and finalize could check if the doc is still alive and free the node
-// but it would be arguably much more magic and the perf would be the same,
-// maybe even worse (because of one extra js_doc we'd need to pass/unwrap)
-// so I guess it's not worth, at least not until there's some other reason
-//
-// BTW: that Rc is basically free because it always points to the same place
-// so the only cost is incrementing/decrementing one counter for each
-// create/finalize
-
 #![allow(non_camel_case_types, unused)]
 
-use std::rc::Rc;
+use std::any::Any;
+use std::rc::{Rc, Weak};
 use std::cell::RefCell;
+
 use crate::document::{Document, NodeId};
+use crate::util::Id;
 
 
 extern fn js_init_module(env: napi_env, exports: napi_value) -> napi_value {
@@ -27,7 +19,7 @@ extern fn js_init_module(env: napi_env, exports: napi_value) -> napi_value {
     env.set_prop(exports, "initDocument", env.js_fn(js_init_document));
     env.set_prop(exports, "querySelector", env.js_fn(js_query_selector));
     //env.set_prop(exports, "querySelectorAll", env.js_fn(js_query_selector_all));
-    env.set_prop(exports, "makeRoot", env.js_fn(js_make_root));
+    env.set_prop(exports, "setRoot", env.js_fn(js_set_root));
 
     env.set_prop(exports, "initElement", env.js_fn(js_init_element));
     env.set_prop(exports, "setAttribute", env.js_fn(js_set_attribute));
@@ -44,17 +36,17 @@ extern fn js_init_document(env: napi_env, cb_info: napi_callback_info) -> napi_v
     let [js_doc, ..] = env.args(cb_info);
 
     let doc: RcDoc = Rc::new(RefCell::new(Document::new()));
-    env.wrap(js_doc, doc);
+    env.wrap_any(js_doc, doc);
 
     env.js_undefined()
 }
 
-unsafe extern fn js_query_selector(env: napi_env, cb_info: napi_callback_info) -> napi_value {
+extern fn js_query_selector(env: napi_env, cb_info: napi_callback_info) -> napi_value {
     let [js_doc, js_selector, opt_js_element, ..] = env.args(cb_info);
 
-    let doc = env.unwrap::<RcDoc>(js_doc);
+    let doc = env.unwrap_any::<RcDoc>(js_doc);
     let selector = env.string(js_selector);
-    let element = env.opt_unwrap::<NodeRef>(opt_js_element).map(|n| n.node);
+    let element = env.map_opt(opt_js_element, |js_el| env.unwrap_id(js_el));
 
     match doc.borrow().query_selector(&selector, element) {
         Some(node) => env.ref_value(doc.borrow().expando(node).expect("no js ref")),
@@ -62,107 +54,109 @@ unsafe extern fn js_query_selector(env: napi_env, cb_info: napi_callback_info) -
     }
 }
 
-unsafe extern fn js_make_root(env: napi_env, cb_info: napi_callback_info) -> napi_value {
-    let [js_el, ..] = env.args(cb_info);
+extern fn js_set_root(env: napi_env, cb_info: napi_callback_info) -> napi_value {
+    let [js_doc, js_el, ..] = env.args(cb_info);
 
-    let el = env.unwrap::<NodeRef>(js_el);
+    let doc = env.unwrap_any::<RcDoc>(js_doc);
+    let el = env.unwrap_id(js_el);
 
-    el.doc.borrow_mut().set_root(el.node);
+    doc.borrow_mut().set_root(el);
 
     env.js_undefined()
 }
 
-unsafe extern fn js_init_element(env: napi_env, cb_info: napi_callback_info) -> napi_value {
-    let [js_doc, js_tag_name, js_el, ..] = env.args(cb_info);
+extern fn js_init_element(env: napi_env, cb_info: napi_callback_info) -> napi_value {
+    let [js_doc, js_el, js_local_name, ..] = env.args(cb_info);
 
-    let tag_name = env.string(js_tag_name);
-    let doc = env.unwrap::<RcDoc>(js_doc);
-    let el = doc.borrow_mut().create_element(&tag_name);
+    let local_name = env.string(js_local_name);
+    let doc = env.unwrap_any::<RcDoc>(js_doc);
+    let el = doc.borrow_mut().create_element(&local_name);
 
-    let js_el_ref = env.wrap(js_el, NodeRef::new(doc.clone(), el));
+    let js_el_ref = env.wrap_id(js_el, el, Rc::downgrade(doc));
     doc.borrow_mut().set_expando(el, Some(js_el_ref));
 
     env.js_undefined()
 }
 
-unsafe extern fn js_set_attribute(env: napi_env, cb_info: napi_callback_info) -> napi_value {
-    let [js_el, js_att_name, js_att_value, ..] = env.args(cb_info);
+extern fn js_set_attribute(env: napi_env, cb_info: napi_callback_info) -> napi_value {
+    let [js_doc, js_el, js_att_name, js_att_value, ..] = env.args(cb_info);
 
-    let el = env.unwrap::<NodeRef>(js_el);
+    let doc = env.unwrap_any::<RcDoc>(js_doc);
+    let el = env.unwrap_id(js_el);
     let att_name = env.string(js_att_name);
     let att_value = env.string(js_att_value);
 
-    el.doc.borrow_mut().set_attribute(el.node, &att_name, &att_value);
+    doc.borrow_mut().set_attribute(el, &att_name, &att_value);
 
     env.js_undefined()
 }
 
-unsafe extern fn js_insert_child_at(env: napi_env, cb_info: napi_callback_info) -> napi_value {
-    let [js_parent, js_child, js_index, ..] = env.args(cb_info);
+extern fn js_insert_child_at(env: napi_env, cb_info: napi_callback_info) -> napi_value {
+    let [js_doc, js_parent, js_child, js_index, ..] = env.args(cb_info);
 
-    let parent = env.unwrap::<NodeRef>(js_parent);
-    let child = env.unwrap::<NodeRef>(js_child);
+    let doc = env.unwrap_any::<RcDoc>(js_doc);
+    let parent = env.unwrap_id(js_parent);
+    let child = env.unwrap_id(js_child);
     let index = env.i32(js_index) as usize;
 
-    parent.doc.borrow_mut().insert_child(parent.node, index, child.node);
+    doc.borrow_mut().insert_child(parent, index, child);
 
     env.js_undefined()
 }
 
-unsafe extern fn js_remove_child(env: napi_env, cb_info: napi_callback_info) -> napi_value {
-    let [js_parent, js_child, ..] = env.args(cb_info);
+extern fn js_remove_child(env: napi_env, cb_info: napi_callback_info) -> napi_value {
+    let [js_doc, js_parent, js_child, ..] = env.args(cb_info);
 
-    let parent = env.unwrap::<NodeRef>(js_parent);
-    let child = env.unwrap::<NodeRef>(js_child);
+    let doc = env.unwrap_any::<RcDoc>(js_doc);
+    let parent = env.unwrap_id(js_parent);
+    let child = env.unwrap_id(js_child);
 
-    parent.doc.borrow_mut().remove_child(parent.node, child.node);
+    doc.borrow_mut().remove_child(parent, child);
 
     env.js_undefined()
 }
 
-unsafe extern fn js_init_text_node(env: napi_env, cb_info: napi_callback_info) -> napi_value {
-    let [js_doc, js_text, js_text_node, ..] = env.args(cb_info);
+extern fn js_init_text_node(env: napi_env, cb_info: napi_callback_info) -> napi_value {
+    let [js_doc, js_text_node, js_text, ..] = env.args(cb_info);
 
-    let doc = env.unwrap::<RcDoc>(js_doc);
+    let doc = env.unwrap_any::<RcDoc>(js_doc);
     let text = env.string(js_text);
     let text_node = doc.borrow_mut().create_text_node(&text);
 
-    env.wrap(js_text_node, NodeRef::new(doc.clone(), text_node));
+    env.wrap_id(js_text_node, text_node, Rc::downgrade(doc));
 
     env.js_undefined()
 }
 
-unsafe extern fn js_set_text(env: napi_env, cb_info: napi_callback_info) -> napi_value {
-    let [js_text_node, js_text, ..] = env.args(cb_info);
+extern fn js_set_text(env: napi_env, cb_info: napi_callback_info) -> napi_value {
+    let [js_doc, js_text_node, js_text, ..] = env.args(cb_info);
 
-    let text_node = env.unwrap::<NodeRef>(js_text_node);
+    let doc = env.unwrap_any::<RcDoc>(js_doc);
+    let text_node = env.unwrap_id(js_text_node);
     let text = env.string(js_text);
 
-    text_node.doc.borrow_mut().set_text(text_node.node, &text);
+    doc.borrow_mut().set_text(text_node, &text);
 
     env.js_undefined()
 }
 
 
+// BTW: that Rc is basically free because it always points to the same place
+// so the only cost is incrementing/decrementing one counter for each
+// create/finalize + borrow_mut when doing changes
+
 type RcDoc = Rc<RefCell<Document<Option<napi_ref>>>>;
+type WeakDoc = Weak<RefCell<Document<Option<napi_ref>>>>;
 
-struct NodeRef {
-    doc: RcDoc,
-    node: NodeId
-}
 
-impl NodeRef {
-    fn new(doc: RcDoc, node: NodeId) -> Self {
-        Self { doc, node }
+impl Finalizer<NodeId> for WeakDoc {
+    fn finalize(&mut self, node: NodeId) {
+        // if it's still alive
+        if let Some(doc) = self.upgrade() {
+            doc.borrow_mut().free_node(node)
+        }
     }
 }
-
-impl Drop for NodeRef {
-    fn drop(&mut self) {
-        self.doc.borrow_mut().free_node(self.node)
-    }
-}
-
 
 
 
@@ -340,6 +334,14 @@ impl napi_env {
         }
     }
 
+    fn map_opt<T>(&self, opt_js_object: napi_value, map_fn: impl Fn(napi_value) -> T) -> Option<T> {
+        if opt_js_object == self.js_undefined() {
+            return None
+        }
+
+        Some(map_fn(opt_js_object))
+    }
+
     #[inline]
     fn js_undefined(&self) -> napi_value {
         unsafe { get_res!(*self, napi_get_undefined) }
@@ -359,45 +361,55 @@ impl napi_env {
         js_arr
     }
 
-    fn wrap<T>(&self, js_object: napi_value, native_object: T) -> napi_ref {
-        // generic, compiler will create impl for each type we pass to `wrap()`
-        unsafe extern fn drop_wrap<T>(env: napi_env, data: *mut c_void, hint: *mut c_void) {
-            Box::from_raw(data as *mut T);
+    fn wrap_any<T: 'static>(&self, js_object: napi_value, native_object: T) -> napi_ref {
+        let any: Box<dyn Any> = Box::new(native_object);
+
+        unsafe extern fn drop_any<T>(env: napi_env, data: *mut c_void, _hint: *mut c_void) {
+            Box::from_raw(data as *mut Box<dyn Any>);
         }
 
-        unsafe { get_res!(*self, napi_wrap, js_object, Box::into_raw(Box::new(native_object)) as *const c_void, drop_wrap::<T>, null()) }
+        unsafe { get_res!(*self, napi_wrap, js_object, Box::into_raw(Box::new(any)) as *const c_void, drop_any::<T>, null()) }
     }
 
-    // unwraps are unsafe - any native extension can wrap something and pass it then
-    // to our native part
-    //
-    // but maybe we can make calls to nativeApi private (symbols) and then we could
-    // guarantee the data was created by us and maybe even use Box<dyn Any> but that
-    // could also be over-engineering
+    // safe from the module point of view
+    // it's possible to wrap something in some other native addon and then
+    // call our native function which could do something unexpected but
+    // I think there are easier ways at that point
     #[inline]
-    unsafe fn unwrap<T>(&self, js_object: napi_value) -> &mut T {
+    fn unwrap_any<T: 'static>(&self, js_object: napi_value) -> &mut T {
+        let any = unsafe { (get_res!(*self, napi_unwrap, js_object) as *mut Box<dyn Any>).as_mut().expect("empty ptr wrap") };
+
+        any.downcast_mut().expect("invalid type")
+    }
+
+    fn wrap_id<T, F: Finalizer<Id<T>>>(&self, js_object: napi_value, id: Id<T>, finalizer: F) -> napi_ref {
+        unsafe extern fn finalize_id<T, F: Finalizer<Id<T>>>(env: napi_env, data: *mut c_void, hint: *mut c_void) {
+            let id = std::mem::transmute(data);
+            let mut finalizer = Box::from_raw(hint as *mut F);
+
+            finalizer.finalize(id);
+        }
+
+        unsafe { get_res!(*self, napi_wrap, js_object, std::mem::transmute(id), finalize_id::<T, F>, Box::into_raw(Box::new(finalizer)) as *const c_void) }
+    }
+
+    // safe because ids should be bound-checked anyway
+    #[inline]
+    fn unwrap_id<T>(&self, js_object: napi_value) -> Id<T> {
         let ptr = unsafe { get_res!(*self, napi_unwrap, js_object) as *mut T };
 
-        std::mem::transmute(ptr)
-    }
-
-    unsafe fn opt_unwrap<T>(&self, opt_js_object: napi_value) -> Option<&mut T> {
-        if opt_js_object == self.js_undefined() {
-            return None
-        }
-
-        Some(self.unwrap(opt_js_object))
+        unsafe { std::mem::transmute(ptr) }
     }
 
     fn ref_value(&self, js_ref: napi_ref) -> napi_value {
         unsafe { get_res!(*self, napi_get_reference_value, js_ref) }
     }
 
-    // for simplicity, we always expect 3 args
-    // (it's easy to leave any of them and hopefully 3 could be enough)
-    fn args(&self, cb_info: napi_callback_info) -> [napi_value; 3] {
+    // for simplicity, we always expect 4 args
+    // (it's easy to leave any of them and hopefully it could be enough)
+    fn args(&self, cb_info: napi_callback_info) -> [napi_value; 4] {
         unsafe {
-            let mut argv = [std::mem::zeroed(); 3];
+            let mut argv = [std::mem::zeroed(); 4];
             let mut argc = argv.len();
             let mut this_arg = std::mem::zeroed();
             napi_get_cb_info(*self, cb_info, &mut argc, &mut argv[0], &mut this_arg, null_mut());
@@ -409,6 +421,10 @@ impl napi_env {
     fn set_prop(&self, target: napi_value, key: &str, value: napi_value) {
         assert_eq!(unsafe { napi_set_named_property(*self, target, c_str!(key), value) }, napi_status::Ok)
     }
+}
+
+trait Finalizer<T> {
+    fn finalize(&mut self, value: T);
 }
 
 

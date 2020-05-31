@@ -4,7 +4,7 @@
 //   - should be fine, generic rules are usually first
 // x no first/last/nth/siblings
 // x universal
-// x tag name
+// x local name
 // x id
 // x class
 // x child
@@ -19,7 +19,7 @@ use crate::util::Lookup;
 pub enum Selector {
     // simple & fast
     Universal,
-    TagName(String),
+    LocalName(String),
     Id(String),
     ClassName(String),
 
@@ -36,6 +36,12 @@ pub enum Selector {
     Combinator(Combinator),
 }
 
+
+#[derive(Debug, PartialEq)]
+pub enum SelectorError {
+    InvalidSelector
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Combinator {
     Parent,
@@ -44,7 +50,7 @@ pub enum Combinator {
 
 // what's needed for matching
 pub struct MatchingContext<'a, Item, Ancestors> {
-    pub tag_names: &'a dyn Lookup<Item, &'a str>,
+    pub local_names: &'a dyn Lookup<Item, &'a str>,
     pub ids: &'a dyn Lookup<Item, Option<&'a str>>,
     pub class_names: &'a dyn Lookup<Item, Option<&'a str>>,
     pub ancestors: &'a dyn Lookup<Item, Ancestors>,
@@ -54,7 +60,7 @@ impl<'a, Item: Copy, Ancestors: IntoIterator<Item = Item>> MatchingContext<'a, I
     pub fn match_selector<'b>(&self, selector: &'b Selector, item: Item) -> bool {
         match selector {
             Selector::Universal => true,
-            Selector::TagName(tn) => self.tag_names.lookup(item) == tn,
+            Selector::LocalName(tn) => self.local_names.lookup(item) == tn,
             Selector::Id(id) => self.ids.lookup(item) == Some(id),
             Selector::ClassName(cn) => self.class_name_contains(item, cn),
 
@@ -95,8 +101,8 @@ impl<'a, Item: Copy, Ancestors: IntoIterator<Item = Item>> MatchingContext<'a, I
     }
 }
 
-pub fn parse_selector(s: &str) -> Result<Selector, pom::Error> {
-    parse::selector().parse(s.trim().as_bytes())
+pub fn parse_selector(s: &str) -> Result<Selector, SelectorError> {
+    parse::selector().parse(s.trim().as_bytes()).map_err(|_| SelectorError::InvalidSelector)
 }
 
 mod parse {
@@ -122,7 +128,7 @@ mod parse {
     }
 
     pub fn single_selector<'a>() -> Parser<'a, u8, Selector> {
-        let tag_name = ident().map(|s| Selector::TagName(s.to_string()));
+        let local_name = ident().map(|s| Selector::LocalName(s.to_string()));
         let id = sym(b'#') * ident().map(|s| Selector::Id(s.to_string()));
         let class_name = sym(b'.') * ident().map(|s| Selector::ClassName(s.to_string()));
         let universal = sym(b'*').map(|_| Selector::Universal);
@@ -131,7 +137,7 @@ mod parse {
         let child = sym(b' ').repeat(0..) * sym(b'>') * sym(b' ').repeat(0..).map(|_| Selector::Combinator(Combinator::Parent));
         let descendant = sym(b' ').repeat(1..).map(|_| Selector::Combinator(Combinator::Ancestor));
 
-        (tag_name | id | class_name | universal | child | descendant).repeat(1..).map(|mut components| {
+        (local_name | id | class_name | universal | child | descendant).repeat(1..).map(|mut components| {
             if components.len() == 1 {
                 return components.remove(0);
             }
@@ -165,50 +171,50 @@ mod tests {
 
         // simple
         assert_eq!(s("*"), Universal);
-        assert_eq!(s("body"), TagName("body".to_string()));
-        assert_eq!(s("h2"), TagName("h2".to_string()));
+        assert_eq!(s("body"), LocalName("body".to_string()));
+        assert_eq!(s("h2"), LocalName("h2".to_string()));
         assert_eq!(s("#app"), Id("app".to_string()));
         assert_eq!(s(".btn"), ClassName("btn".to_string()));
 
         // combined
         assert_eq!(s(".btn.btn-primary"), Combined(vec![ClassName("btn-primary".to_string()), ClassName("btn".to_string())]));
         assert_eq!(s("*.test"), Combined(vec![ClassName("test".to_string()), Universal]));
-        assert_eq!(s("div#app.test"), Combined(vec![ClassName("test".to_string()), Id("app".to_string()), TagName("div".to_string())]));
+        assert_eq!(s("div#app.test"), Combined(vec![ClassName("test".to_string()), Id("app".to_string()), LocalName("div".to_string())]));
 
         // combined with combinators
         assert_eq!(
             s("body > div.test div#test"),
             Combined(vec![
                 Id("test".to_string()),
-                TagName("div".to_string()),
+                LocalName("div".to_string()),
                 Combinator(super::Combinator::Ancestor),
                 ClassName("test".to_string()),
-                TagName("div".to_string()),
+                LocalName("div".to_string()),
                 Combinator(super::Combinator::Parent),
-                TagName("body".to_string()),
+                LocalName("body".to_string()),
             ])
         );
 
         // multi
-        assert_eq!(s("html, body"), Multi(vec![TagName("html".to_string()), TagName("body".to_string())]));
+        assert_eq!(s("html, body"), Multi(vec![LocalName("html".to_string()), LocalName("body".to_string())]));
         assert_eq!(
             s("body > div, div div"),
             Multi(vec![
-                Combined(vec![TagName("div".to_string()), Combinator(super::Combinator::Parent), TagName("body".to_string()),]),
-                Combined(vec![TagName("div".to_string()), Combinator(super::Combinator::Ancestor), TagName("div".to_string()),])
+                Combined(vec![LocalName("div".to_string()), Combinator(super::Combinator::Parent), LocalName("body".to_string()),]),
+                Combined(vec![LocalName("div".to_string()), Combinator(super::Combinator::Ancestor), LocalName("div".to_string()),])
             ])
         );
     }
 
     #[test]
     fn matching() {
-        let tag_names = &vec!["body", "div", "button"];
+        let local_names = &vec!["body", "div", "button"];
         let ids = &vec![Some("app"), Some("panel"), None];
         let class_names = &vec![None, None, Some("btn")];
         let ancestors = &vec![vec![], vec![0], vec![1, 0]];
 
         let ctx = MatchingContext {
-            tag_names,
+            local_names,
             ids,
             class_names,
             ancestors,

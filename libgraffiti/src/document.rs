@@ -1,7 +1,7 @@
 // x minimal, real DOM should be in JS
 //   x just els & text nodes
 //   x no comments, fragments, ...
-//   x no structural validation (<head> can be removed)
+//   x no validation (tag/attr names, mandatory elements)
 //   x get/set attrs (incl. inline style)
 //   - support <style> (<head> only)
 //     - insertion/removal (correct order)
@@ -22,7 +22,7 @@ use crate::util::{Id, Lookup};
 use crate::layout::{LayoutEngine, LayoutStyle, LayoutEngineImpl};
 
 use css::{parse_props, CssStyleProp};
-use selectors::{parse_selector, MatchingContext};
+use selectors::{parse_selector, SelectorError, MatchingContext};
 
 pub struct Document<Expando> {
     root: Option<NodeId>,
@@ -59,17 +59,17 @@ impl <Expando: Default> Document<Expando> {
         self.root = Some(node)
     }
 
-    pub fn create_element(&mut self, tag_name: &str) -> NodeId {
+    pub fn create_element(&mut self, local_name: &str) -> NodeId {
         self.create_new_node(Node::Element(ElementData {
-            tag_name: tag_name.to_owned(),
+            local_name: local_name.to_owned(),
             attributes: HashMap::new(),
             inline_style: Vec::new(),
             child_nodes: Vec::new(),
         }))
     }
 
-    pub fn tag_name(&self, element: NodeId) -> &str {
-        &self.nodes[element].el().tag_name
+    pub fn local_name(&self, element: NodeId) -> &str {
+        &self.nodes[element].el().local_name
     }
 
     pub fn attribute(&self, element: NodeId, name: &str) -> Option<String> {
@@ -80,15 +80,13 @@ impl <Expando: Default> Document<Expando> {
                 // TODO: inline styles
                 // - empty -> None
                 // - otherwise -> stringify
-                None
+                todo!()
             }
 
             _ => el.attributes.get(name).map(String::to_owned),
         }
     }
 
-    // TODO: it's now possible to set attribute with invalid name
-    // we should either ignore it or return Result<>
     pub fn set_attribute(&mut self, element: NodeId, name: &str, value: &str) {
         let el = self.nodes[element].el_mut();
 
@@ -143,7 +141,7 @@ impl <Expando: Default> Document<Expando> {
                 let att = |el: NodeId, att| self.nodes[el].el().attributes.get(att).map(String::as_str);
 
                 let ctx = MatchingContext {
-                    tag_names: &|el| self.tag_name(el),
+                    local_names: &|el| self.local_name(el),
                     ids: &|el| att(el, "id"),
                     class_names: &|el| att(el, "class"),
                     ancestors: &|el| self.ancestors(el),
@@ -174,6 +172,10 @@ impl <Expando: Default> Document<Expando> {
 
     // shared for both node types
 
+    pub fn parent_node(&self, node: NodeId) -> Option<NodeId> {
+        self.ancestors(node).next()
+    }
+
     pub fn expando(&self, node: NodeId) -> &Expando {
         &self.expandos[node.index()]
     }
@@ -182,14 +184,12 @@ impl <Expando: Default> Document<Expando> {
         self.expandos[node.index()] = v;
     }
 
-    pub fn parent_node(&self, node: NodeId) -> Option<NodeId> {
-        self.ancestors(node).next()
-    }
-
     pub fn free_node(&mut self, node: NodeId) {
         silly!("free node {:?}", node);
 
-        assert!(self.parents[node.index()] == None && self.root != Some(node), "cannot free attached node");
+        // TODO: needs to be a bit more complex (not sure if here or in nodejs bindings)
+        //       because there's no guaranteed time/order when js nodes will be finalized
+        //assert!(self.parents[node.index()] == None && self.root != Some(node), "cannot free attached node");
 
         self.free_list.push(node);
     }
@@ -245,6 +245,13 @@ impl <Expando: Default> Document<Expando> {
     }
 }
 
+
+impl<T> Drop for Document<T> {
+    fn drop(&mut self) {
+        silly!("drop document");
+    }
+}
+
 pub type NodeId = Id<Node>;
 
 // private from here
@@ -261,7 +268,7 @@ pub enum Node {
 
 #[derive(Debug)]
 pub struct ElementData {
-    tag_name: String,
+    local_name: String,
     attributes: HashMap<String, String>,
     inline_style: Vec<CssStyleProp>,
     child_nodes: Vec<NodeId>,
@@ -334,13 +341,13 @@ mod tests {
         let mut d = Document::<()>::new();
 
         let el = d.create_element("div");
-        assert_eq!(d.tag_name(el), "div");
+        assert_eq!(d.local_name(el), "div");
         assert_eq!(d.attribute(el, "id"), None);
         assert_eq!(d.attribute(el, "class"), None);
         assert_eq!(d.child_nodes(el), &[]);
 
-        assert_eq!(d.expando(el), &());
         assert_eq!(d.parent_node(el), None);
+        assert_eq!(d.expando(el), &());
 
         d.set_attribute(el, "id", "app");
         assert_eq!(d.attribute(el, "id"), Some("app".to_string()));
@@ -356,8 +363,8 @@ mod tests {
         let tn = d.create_text_node("foo");
         assert_eq!(d.text(tn), "foo");
 
-        assert_eq!(d.expando(tn), &());
         assert_eq!(d.parent_node(tn), None);
+        assert_eq!(d.expando(tn), &());
 
         d.set_text(tn, "bar");
         assert_eq!(d.text(tn), "bar");

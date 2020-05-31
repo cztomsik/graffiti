@@ -21,8 +21,6 @@
 
 use super::selectors::{parse_selector, Selector};
 
-// TODO: CssRule enum
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct CssStyleRule {
     selector: Selector,
