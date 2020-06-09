@@ -53,12 +53,12 @@ export class EventTarget implements globalThis.EventTarget {
   }
 
   // https://dom.spec.whatwg.org/#get-the-parent
-  _getTheParent() {
+  _getTheParent(): EventTarget | null {
     return null
   }
 
   _getListeners(type) {
-    return this._etListeners[type] || []
+    return this._etListeners[type] ?? []
   }
 
   // on* event handler props

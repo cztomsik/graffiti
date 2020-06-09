@@ -119,8 +119,8 @@ export class HTMLInputElement extends HTMLElement implements globalThis.HTMLInpu
   stepUp
   useMap
   validationMessage
-  validity: ValidityState
-  valueAsDate: Date | null
+  validity
+  valueAsDate
   valueAsNumber
   width
   willValidate

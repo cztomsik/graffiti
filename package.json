@@ -28,14 +28,16 @@
     "example": "node -r ts-node/register/transpile-only -r ./src/register -e \"require('./examples/' + (process.argv[1] || 'example-browser'))\""
   },
   "devDependencies": {
-    "@types/node": "^10.14.6",
+    "@types/node": "^10.17.24",
     "glfw-dylib": "github:cztomsik/node-glfw-dylib",
+    "htm": "^3.0.4",
     "mithril": "^2.0.4",
     "open": "^7.0.0",
     "preact": "^10.0.0",
+    "prettier": "^2.0.5",
     "react": "^16.13.0",
     "react-dom": "^16.13.0",
-    "ts-node": "^8.5.2",
+    "ts-node": "^8.10.2",
     "typescript": "^3.8.3",
     "ws": "^6.2.1"
   }

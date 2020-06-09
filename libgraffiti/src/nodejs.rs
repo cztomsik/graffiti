@@ -18,7 +18,7 @@ extern fn js_init_module(env: napi_env, exports: napi_value) -> napi_value {
 
     env.set_prop(exports, "initDocument", env.js_fn(js_init_document));
     env.set_prop(exports, "querySelector", env.js_fn(js_query_selector));
-    //env.set_prop(exports, "querySelectorAll", env.js_fn(js_query_selector_all));
+    env.set_prop(exports, "querySelectorAll", env.js_fn(js_query_selector_all));
     env.set_prop(exports, "setRoot", env.js_fn(js_set_root));
 
     env.set_prop(exports, "initElement", env.js_fn(js_init_element));
@@ -49,9 +49,21 @@ extern fn js_query_selector(env: napi_env, cb_info: napi_callback_info) -> napi_
     let element = env.map_opt(opt_js_element, |js_el| env.unwrap_id(js_el));
 
     match doc.borrow().query_selector(&selector, element) {
-        Some(node) => env.ref_value(doc.borrow().expando(node).expect("no js ref")),
+        Some(el) => env.ref_value(doc.borrow().expando(el).expect("no js ref")),
         None => env.js_undefined()
     }
+}
+
+extern fn js_query_selector_all(env: napi_env, cb_info: napi_callback_info) -> napi_value {
+    let [js_doc, js_selector, opt_js_element, ..] = env.args(cb_info);
+
+    let doc = env.unwrap_any::<RcDoc>(js_doc);
+    let selector = env.string(js_selector);
+    let element = env.map_opt(opt_js_element, |js_el| env.unwrap_id(js_el));
+
+    let matches = doc.borrow().query_selector_all(&selector, element);
+
+    env.js_array(matches.into_iter().map(|el| env.ref_value(doc.borrow().expando(el).expect("no js ref"))))
 }
 
 extern fn js_set_root(env: napi_env, cb_info: napi_callback_info) -> napi_value {
@@ -335,7 +347,13 @@ impl napi_env {
     }
 
     fn map_opt<T>(&self, opt_js_object: napi_value, map_fn: impl Fn(napi_value) -> T) -> Option<T> {
-        if opt_js_object == self.js_undefined() {
+        // it's weird but == is not enough
+        // - https://github.com/nodejs/node-addon-api/blob/9c9accfbbe8c27f969d569f78758a8c47837321b/napi-inl.h#L416
+        // - maybe it's special-case for cb args, not sure
+        //   but env.js_undefined() always returns the same value
+        //   and napi_get_cb_info() should fill missing args with undefined but apparently it's not the same thing
+        // - we could fill it ourselves but maybe it's better to keep it here this way
+        if unsafe { get_res!(*self, napi_strict_equals, opt_js_object, self.js_undefined()) } {
             return None
         }
 
@@ -456,6 +474,7 @@ dylib! {
         fn uv_backend_timeout(uv_loop: *const c_void) -> c_int;
 
 
+        fn napi_strict_equals(env: napi_env, left: napi_value, right: napi_value, result: *mut bool) -> napi_status;
         fn napi_get_value_uint32(env: napi_env, napi_value: napi_value, result: *mut c_uint) -> napi_status;
         fn napi_get_value_double(env: napi_env, napi_value: napi_value, result: *mut f64) -> napi_status;
         fn napi_get_value_bool(env: napi_env, napi_value: napi_value, result: *mut bool) -> napi_status;

@@ -1,21 +1,66 @@
 import { Node } from './Node'
-import { camelCase, ERR } from '../util'
+import { Document } from './Document'
 import { NodeList } from './NodeList'
+import { ERR } from '../util'
 
 export abstract class Element extends Node implements globalThis.Element {
-  childNodes = new NodeList<ChildNode>()
-  _localName: string
   abstract readonly tagName: string;
+  readonly childNodes = new NodeList<ChildNode>()
+  _localName: string
+  _attributes = new Map<string, string>()
 
-  // TODO
-  attributes: any = []
-
-  constructor(doc = document, localName: string = ERR('new Element() is not supported')) {
+  constructor(doc = document as Document, localName: string = ERR('new Element() is not supported')) {
     super(doc)
 
     this._localName = localName
 
     this.ownerDocument._initElement(this, localName)
+  }
+
+  get nodeType() {
+    return Node.ELEMENT_NODE
+  }
+
+  get nodeName() {
+    return this.tagName
+  }
+
+  get localName() {
+    return this._localName
+  }
+
+  /** @deprecated */
+  get attributes(): any {
+    // preact needs this
+    // otherwise we really don't want to support Attr & NamedNodeMap because
+    // it would only make everything much more complex with no real benefit
+    // if we'll ever need it, it should be lazy-created weak-stored proxy
+    // and it should still delegate to el.get/setAttribute()
+    return Array.from(this._attributes).map(([name, value]) => ({ name, value }))
+  }
+
+  getAttribute(name: string): string | null {
+    return this._attributes.get(name) ?? null
+  }
+
+  getAttributeNames(): string[] {
+    return [...this._attributes.keys()]
+  }
+
+  hasAttribute(name: string): boolean {
+    return this._attributes.has(name)
+  }
+
+  hasAttributes(): boolean {
+    return !!this.getAttributeNames().length
+  }
+
+  setAttribute(name: string, value: string) {
+    this._attributes.set(name, value)
+  }
+
+  removeAttribute(name: string) {
+    this._attributes.delete(name)
   }
 
   _insertChildAt(child, index) {
@@ -32,30 +77,6 @@ export abstract class Element extends Node implements globalThis.Element {
     return child
   }
 
-  get localName() {
-    return this._localName
-  }
-
-  get nodeType() {
-    return Node.ELEMENT_NODE
-  }
-
-  get nodeName() {
-    return this.tagName
-  }
-
-  getAttribute(name: string): string | null {
-
-  }
-
-  setAttribute(name: string, value: string) {
-    this[camelCase(name)] = value as any
-  }
-
-  removeAttribute(name: string) {
-    delete this[camelCase(name)]
-  }
-
   // TODO: replace `:scope` with this.tagName
   //       https://www.w3.org/TR/selectors-4/#the-scope-pseudo
   querySelector(selectors: string): Element | null {
@@ -67,7 +88,7 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   get id() {
-    return this.getAttribute('id')
+    return this.getAttribute('id') ?? ''
   }
 
   set id(id: string) {
@@ -75,7 +96,7 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   get className() {
-    return this.getAttribute('class')
+    return this.getAttribute('class') ?? ''
   }
 
   set className(className: string) {
@@ -85,7 +106,7 @@ export abstract class Element extends Node implements globalThis.Element {
   // so the events can bubble
   // @see EventTarget
   _getTheParent() {
-    return this.parentElement
+    return this.parentElement as any
   }
 
   // later
@@ -107,7 +128,6 @@ export abstract class Element extends Node implements globalThis.Element {
   clientWidth
   closest
   getAnimations
-  getAttributeNames
   getAttributeNode
   getAttributeNodeNS
   getAttributeNS
@@ -115,16 +135,13 @@ export abstract class Element extends Node implements globalThis.Element {
   getElementsByTagName
   getElementsByTagNameNS
   getElementsByClassName
-  hasAttribute
   hasAttributeNS
-  hasAttributes
   hasPointerCapture
   insertAdjacentElement
   insertAdjacentHTML
   insertAdjacentText
   matches
   msGetRegionContent
-  namespaceURI
   prefix
   releasePointerCapture
   removeAttributeNode

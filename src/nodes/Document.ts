@@ -9,6 +9,7 @@ import { DocumentFragment } from './DocumentFragment'
 import { HTMLHtmlElement } from './HTMLHtmlElement'
 import { HTMLHeadElement } from './HTMLHeadElement'
 import { HTMLBodyElement } from './HTMLBodyElement'
+import { HTMLStyleElement } from './HTMLStyleElement'
 import { HTMLDivElement } from './HTMLDivElement'
 import { HTMLSpanElement } from './HTMLSpanElement'
 import { HTMLInputElement } from './HTMLInputElement'
@@ -25,19 +26,24 @@ import { HTMLTableCellElement } from './HTMLTableCellElement'
 import { HTMLTableHeaderCellElement } from './HTMLTableHeaderCellElement'
 import { HTMLTableRowElement } from './HTMLTableRowElement'
 
+import { StyleSheetList } from '../css/StyleSheetList'
+
 export class Document extends Node implements globalThis.Document {
-  childNodes = new NodeList<ChildNode>()
+  readonly childNodes = new NodeList<ChildNode>()
+  // TODO: add default style sheet
+  readonly styleSheets = new StyleSheetList();
 
   // title is only defined here, not on the window itself
   title = ''
 
-  activeElement
+  // TODO: getter, should be last focused or body (which can be null sometimes)
+  readonly activeElement: Element | null = null
   // last time over for enter/leave
   _overElement
   // mousedown origin
   _clickedElement
 
-  constructor(public defaultView, private _native) {
+  constructor(public readonly defaultView, private _native) {
     super(null)
 
     this._native.initDocument(this)
@@ -59,21 +65,22 @@ export class Document extends Node implements globalThis.Document {
 
   get documentElement() {
     // chrome allows removing root & appending a new one
-    return this.childNodes[0] || null
+    return this.childNodes[0] ?? null
   }
 
   get head() {
-    return this.documentElement?.childNodes.find(n => n.localName === 'head') || null
+    return this.documentElement?.childNodes.find(n => n.localName === 'head') ?? null
   }
 
   get body() {
-    return this.documentElement?.childNodes.find(n => n.localName === 'body') || null
+    return this.documentElement?.childNodes.find(n => n.localName === 'body') ?? null
   }
 
   get location() {
     return this.defaultView.location
   }
 
+  // TODO: basic custom elements (no shadow DOM)
   createElement(tagName: string, options?) {
     // happy-case
     // - simple comparison of interned strings
@@ -91,6 +98,7 @@ export class Document extends Node implements globalThis.Document {
       case 'tr': return new HTMLTableRowElement(this, tagName)
       case 'td': return new HTMLTableCellElement(this, tagName)
       case 'th': return new HTMLTableHeaderCellElement(this, tagName)
+      case 'style': return new HTMLStyleElement(this, tagName)
       case 'head': return new HTMLHeadElement(this, tagName)
       case 'body': return new HTMLBodyElement(this, tagName)
       case 'html': return new HTMLHtmlElement(this, tagName)
@@ -135,22 +143,30 @@ export class Document extends Node implements globalThis.Document {
     return new DocumentFragment(this)
   }
 
+  hasFocus(): boolean {
+    // TODO: not sure if it shouldn't also be !== body
+    return !!this.activeElement
+  }
+
   _insertChildAt(child, index) {
     assert(index === 0, 'only one root is allowed')
     assert(child.nodeType === Node.ELEMENT_NODE, 'only element can be root')
 
     super._insertChildAt(child, index)
 
-    this._native.makeRoot(child)
+    this._native.setRoot(this, child)
   }
 
-  // TODO: replace `:root` with this.documentElement.tagName
   querySelector(selectors: string, element?) {
     return this._native.querySelector(this, selectors, element)
   }
 
   querySelectorAll(selectors: string, element?) {
     return this._native.querySelectorAll(this, selectors, element)
+  }
+
+  get isConnected(): boolean {
+    return true
   }
 
   _getTheParent() {
@@ -164,29 +180,37 @@ export class Document extends Node implements globalThis.Document {
 
   // native
   _initElement(el, localName) {
-    this._native.initElement(this, localName, el)
+    this._native.initElement(this, el, localName)
   }
 
   _elChildInserted(el, child, index) {
-    this._native.insertChildAt(el, child, index)
+    this._native.insertChildAt(this, el, child, index)
   }
 
   _elChildRemoved(el, child) {
-    this._native.removeChild(el, child)
+    this._native.removeChild(this, el, child)
   }
 
   _initTextNode(textNode, data) {
-    this._native.initTextNode(data, textNode)
+    this._native.initTextNode(this, textNode, data)
   }
 
   _textUpdated(textNode, text) {
-    this._native.setText(textNode, text)
+    this._native.setText(this, textNode, text)
   }
 
-  // later
+  // intentionally left out (TODO: UNSUPPORTED())
+  all
+  clear
+  close
+  currentScript
+  open
+  write
+  writeln
+
+  // maybe later
   adoptNode
   alinkColor
-  all
   anchors
   applets
   bgColor
@@ -195,8 +219,6 @@ export class Document extends Node implements globalThis.Document {
   caretRangeFromPoint
   characterSet
   charset
-  clear
-  close
   compatMode
   contentType
   cookie
@@ -210,7 +232,6 @@ export class Document extends Node implements globalThis.Document {
   createProcessingInstruction
   createRange
   createTreeWalker
-  currentScript
   designMode
   dir
   doctype
@@ -234,14 +255,12 @@ export class Document extends Node implements globalThis.Document {
   getElementsByTagNameNS
   getElementsByClassName
   getSelection
-  hasFocus
   hidden
   implementation
   importNode
   inputEncoding
   lastModified
   linkColor
-  open
   origin
   plugins
   pointerLockElement
@@ -254,11 +273,8 @@ export class Document extends Node implements globalThis.Document {
   referrer
   releaseEvents
   scrollingElement
-  styleSheets
   timeline
   URL
   visibilityState
   vlinkColor
-  write
-  writeln
 }

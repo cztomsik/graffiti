@@ -1,8 +1,9 @@
 import { Node } from './Node'
 import { CharacterData } from './CharacterData'
+import { Document } from './Document'
 
 export class Comment extends CharacterData implements globalThis.Comment {
-  constructor(public data = '', doc = document) {
+  constructor(public data = '', doc = document as Document) {
     super(doc)
   }
 
@@ -12,21 +13,5 @@ export class Comment extends CharacterData implements globalThis.Comment {
 
   get nodeName() {
     return '#comment'
-  }
-
-  get nodeValue() {
-    return this.data
-  }
-
-  set nodeValue(data: string) {
-    this.data
-  }
-
-  get textContent() {
-    return this.data
-  }
-
-  set textContent(data: string) {
-    this.data = data
   }
 }

@@ -7,26 +7,28 @@ license = "MIT"
 
 [lib]
 name = "graffiti"
-crate-type = ["cdylib"]
+crate-type = ["rlib", "cdylib"]
 
 [dependencies]
-miniserde = "0.1.12"
 graffiti-yoga = { path = "graffiti-yoga" }
 graffiti-stb = { path = "graffiti-stb" }
+pom = "3.x"
 
-# npm run build -- --features stretch
-stretch = { version = "0.3.2", optional = true }
-# stretch = { path = "../../stretch", optional = true }
-raqote = { version = "0.7.10", default-features = false, optional = true }
+# npm run build -- --features raqote
+raqote = { version = "0.7.14", default-features = false, optional = true }
 
 [features]
 default = []
-# include (desperate) debug msgs
+
+# nodejs bindings
+nodejs = []
+
+# include debug logs
 debug = []
 silly = []
 
 [profile.dev]
-panic = "abort"
+#panic = "abort"
 
 [profile.release]
 lto = true

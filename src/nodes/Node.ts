@@ -2,16 +2,17 @@
 // x follow spec as possible incl. mixins, avoid custom extensions
 
 import * as assert from 'assert'
+
 import { EventTarget } from '../events/EventTarget'
 import { Document } from './Document'
-import { last, UNSUPPORTED, applyMixin } from '../util'
 import { NodeList } from './NodeList'
+import { last, UNSUPPORTED, applyMixin } from '../util'
 
 abstract class Node extends EventTarget implements G.Node {
   abstract readonly nodeType: number
-  abstract readonly nodeName: string;
+  abstract readonly nodeName: string
   abstract readonly childNodes: NodeList<G.ChildNode>
-  readonly parentNode = null
+  readonly parentNode: Element | null = null
 
   // nodes should only be created by document
   protected constructor(public readonly ownerDocument: Document) {
@@ -69,11 +70,11 @@ abstract class Node extends EventTarget implements G.Node {
   }
 
   get firstChild(): G.ChildNode | null {
-    return this.childNodes[0] || null
+    return this.childNodes[0] ?? null
   }
 
   get lastChild(): G.ChildNode | null {
-    return last(this.childNodes) || null
+    return last(this.childNodes) ?? null
   }
 
   get parentElement(): HTMLElement | null {
@@ -89,26 +90,27 @@ abstract class Node extends EventTarget implements G.Node {
   }
 
   // https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeValue
-  // overridden by Text & Comment
+  // overridden by CharacterData
   get nodeValue(): string | null {
     return null
   }
 
-  // overridden by Text & Comment
+  // overridden by CharacterData
+  // comment.textContent should return a value but it
+  // shouldn't be part of element.textContent
   get textContent(): string | null {
-    return this.childNodes.map(c => c.textContent).join('')
+    return this.childNodes
+      .filter(c => c.nodeType == ELEMENT_NODE || c.nodeType == TEXT_NODE)
+      .map(c => c.textContent)
+      .join('')
   }
 
-  // overridden by Text & Comment
+  // overridden by CharacterData
   set textContent(v) {
-    if ((this.childNodes.length) === 1 && (this.childNodes[0].nodeType === Node.TEXT_NODE)) {
-      (this.childNodes[0] as Text).data = v
-      return
-    }
-
     this.childNodes.forEach(c => c.remove())
 
-    this.appendChild(this.ownerDocument.createTextNode(v))
+    // note we can't just update already present text node because it has to remain untouched
+    this.appendChild(this.ownerDocument.createTextNode('' + v))
   }
 
   getRootNode(options?: GetRootNodeOptions): G.Node {
@@ -144,7 +146,7 @@ abstract class Node extends EventTarget implements G.Node {
   }
 
   get isConnected(): boolean {
-    return UNSUPPORTED()
+    return this.parentNode?.isConnected ?? false
   }
 
   isEqualNode(otherNode: G.Node | null): boolean {
@@ -166,7 +168,7 @@ abstract class Node extends EventTarget implements G.Node {
   // node types
   static readonly ELEMENT_NODE = 1
   static readonly ATTRIBUTE_NODE = 2
-  static readonly TEXT_NODE	= 3
+  static readonly TEXT_NODE = 3
   static readonly CDATA_SECTION_NODE = 4
   static readonly ENTITY_REFERENCE_NODE = 5
   static readonly ENTITY_NODE = 6
@@ -177,26 +179,28 @@ abstract class Node extends EventTarget implements G.Node {
   static readonly DOCUMENT_FRAGMENT_NODE = 11
   static readonly NOTATION_NODE = 12
 
-  // define again on instances
-  get ELEMENT_NODE(): number { return ELEMENT_NODE }
-  get ATTRIBUTE_NODE(): number { return ATTRIBUTE_NODE }
-  get TEXT_NODE(): number { return TEXT_NODE }
-  get CDATA_SECTION_NODE(): number { return CDATA_SECTION_NODE }
-  get ENTITY_REFERENCE_NODE(): number { return ENTITY_REFERENCE_NODE }
-  get ENTITY_NODE(): number { return ENTITY_NODE }
-  get PROCESSING_INSTRUCTION_NODE(): number { return PROCESSING_INSTRUCTION_NODE }
-  get COMMENT_NODE(): number { return COMMENT_NODE }
-  get DOCUMENT_NODE(): number { return DOCUMENT_NODE }
-  get DOCUMENT_TYPE_NODE(): number { return DOCUMENT_TYPE_NODE }
-  get DOCUMENT_FRAGMENT_NODE(): number { return DOCUMENT_FRAGMENT_NODE }
-  get NOTATION_NODE(): number { return NOTATION_NODE }
+  // types again (instance)
+  // (getters are defined on prototype so they don't consume instance space)
+  get ELEMENT_NODE(): number { return Node.ELEMENT_NODE }
+  get ATTRIBUTE_NODE(): number { return Node.ATTRIBUTE_NODE }
+  get TEXT_NODE(): number { return Node.TEXT_NODE }
+  get CDATA_SECTION_NODE(): number { return Node.CDATA_SECTION_NODE }
+  get ENTITY_REFERENCE_NODE(): number { return Node.ENTITY_REFERENCE_NODE }
+  get ENTITY_NODE(): number { return Node.ENTITY_NODE }
+  get PROCESSING_INSTRUCTION_NODE(): number { return Node.PROCESSING_INSTRUCTION_NODE }
+  get COMMENT_NODE(): number { return Node.COMMENT_NODE }
+  get DOCUMENT_NODE(): number { return Node.DOCUMENT_NODE }
+  get DOCUMENT_TYPE_NODE(): number { return Node.DOCUMENT_TYPE_NODE }
+  get DOCUMENT_FRAGMENT_NODE(): number { return Node.DOCUMENT_FRAGMENT_NODE }
+  get NOTATION_NODE(): number { return Node.NOTATION_NODE }
 
-  readonly DOCUMENT_POSITION_CONTAINED_BY: number
-  readonly DOCUMENT_POSITION_CONTAINS: number
-  readonly DOCUMENT_POSITION_DISCONNECTED: number
-  readonly DOCUMENT_POSITION_FOLLOWING: number
-  readonly DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC: number
-  readonly DOCUMENT_POSITION_PRECEDING: number
+  // maybe later
+  DOCUMENT_POSITION_CONTAINED_BY
+  DOCUMENT_POSITION_CONTAINS
+  DOCUMENT_POSITION_DISCONNECTED
+  DOCUMENT_POSITION_FOLLOWING
+  DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
+  DOCUMENT_POSITION_PRECEDING
 }
 
 abstract class ParentNode extends Node implements G.ParentNode {
@@ -210,11 +214,11 @@ abstract class ParentNode extends Node implements G.ParentNode {
   }
 
   get firstElementChild(): Element | null {
-    return this.children[0] || null
+    return this.children[0] ?? null
   }
 
   get lastElementChild(): Element | null {
-    return last(this.children) || null
+    return last(this.children) ?? null
   }
 
   append(...nodes: (G.Node | string)[]) {
@@ -238,11 +242,15 @@ abstract class ChildNode extends Node implements G.ChildNode {
   after(...nodes: (G.Node | string)[]) {
     const refNode = this.nextSibling
 
-    nodes.forEach(n => this.parentNode.insertBefore(strToNode(this, n), refNode))
+    if (this.parentNode) {
+      nodes.forEach(n => this.parentNode!.insertBefore(strToNode(this, n), refNode))
+    }
   }
 
   before(...nodes: (G.Node | string)[]) {
-    nodes.forEach(n => this.parentNode.insertBefore(strToNode(this, n), this))
+    if (this.parentNode) {
+      nodes.forEach(n => this.parentNode!.insertBefore(strToNode(this, n), this))
+    }
   }
 
   replaceWith(...nodes: (G.Node | string)[]) {
@@ -281,20 +289,13 @@ export { NodeImpl as Node }
 
 // perf(const vs. property lookup)
 const ELEMENT_NODE = Node.ELEMENT_NODE
-const ATTRIBUTE_NODE = Node.ATTRIBUTE_NODE
-const TEXT_NODE = 3
-const CDATA_SECTION_NODE = Node.CDATA_SECTION_NODE
-const ENTITY_REFERENCE_NODE = Node.ENTITY_REFERENCE_NODE
-const ENTITY_NODE = Node.ENTITY_NODE
-const PROCESSING_INSTRUCTION_NODE = Node.PROCESSING_INSTRUCTION_NODE
+const TEXT_NODE = Node.TEXT_NODE
 const COMMENT_NODE = Node.COMMENT_NODE
 const DOCUMENT_NODE = Node.DOCUMENT_NODE
-const DOCUMENT_TYPE_NODE = Node.DOCUMENT_TYPE_NODE
 const DOCUMENT_FRAGMENT_NODE = Node.DOCUMENT_FRAGMENT_NODE
-const NOTATION_NODE = Node.NOTATION_NODE
 
 const sibling = (parent, child, offset) =>
-  parent && (parent.childNodes[parent.childNodes.indexOf(child) + offset] || null)
+  parent && (parent.childNodes[parent.childNodes.indexOf(child) + offset] ?? null)
 
 const strToNode = (parent, n) => (typeof n === 'string' ? parent.ownerDocument.createTextNode('' + n) : n)
 

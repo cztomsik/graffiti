@@ -1,3 +1,4 @@
+export const NOOP = () => {}
 export const UNSUPPORTED = () => ERR('UNSUPPORTED')
 export const ERR = (...msgs): any => {
   throw new Error(msgs.join(' '))
@@ -12,13 +13,13 @@ export const pascalCase = name => ((name = camelCase(name)), name[0].toUpperCase
 export const applyMixin = (targetClass, mixinClass) => {
   Object.getOwnPropertyNames(mixinClass).forEach(name => {
     if (name !== 'prototype') {
-      Object.defineProperty(targetClass, name, Object.getOwnPropertyDescriptor(mixinClass, name))
+      Object.defineProperty(targetClass, name, Object.getOwnPropertyDescriptor(mixinClass, name)!)
     }
   })
 
   Object.getOwnPropertyNames(mixinClass.prototype).forEach(name => {
     if (name !== 'constructor') {
-      Object.defineProperty(targetClass.prototype, name, Object.getOwnPropertyDescriptor(mixinClass.prototype, name))
+      Object.defineProperty(targetClass.prototype, name, Object.getOwnPropertyDescriptor(mixinClass.prototype, name)!)
     }
   })
 }

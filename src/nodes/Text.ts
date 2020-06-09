@@ -1,10 +1,11 @@
 import { Node } from './Node'
 import { CharacterData } from './CharacterData'
+import { Document } from './Document'
 
 export class Text extends CharacterData implements globalThis.Text {
   _data: string
 
-  constructor(data = '', doc: any = document) {
+  constructor(data = '', doc = document as Document) {
     super(doc)
 
     // preact passes data as is
@@ -35,22 +36,6 @@ export class Text extends CharacterData implements globalThis.Text {
 
   get nodeName() {
     return '#text'
-  }
-
-  get nodeValue() {
-    return this.data
-  }
-
-  set nodeValue(data: string) {
-    this.data = data
-  }
-
-  get textContent() {
-    return this.data
-  }
-
-  set textContent(data: string) {
-    this.data = data
   }
 
   // TODO

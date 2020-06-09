@@ -1,18 +1,15 @@
 {
   "compilerOptions": {
+    "strict": true,
     "noImplicitAny": false,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
-    "strictBindCallApply": true,
-    "strictNullChecks": false,
-    "strictFunctionTypes": true,
-    "strictPropertyInitialization": false,
     "lib": ["es2018", "dom"],
+    "skipLibCheck": true,
+    
     "target": "es2018",
-    "module": "commonjs",
+    "alwaysStrict": true,
     "esModuleInterop": true,
     "jsx": "react",
-    "skipLibCheck": true,
+    "module": "commonjs",
     "outDir": "lib"
   },
   "include": ["src"]

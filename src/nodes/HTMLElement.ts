@@ -1,11 +1,37 @@
 import { Element } from './Element'
-import { CSSStyleDeclaration } from '../styles/CSSStyleDeclaration'
+import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
 
 export abstract class HTMLElement extends Element implements globalThis.HTMLElement {
-  style = new CSSStyleDeclaration(this)
+  style = new CSSStyleDeclaration(null, (prop, value) => console.log('TODO: change inline style', prop, value))
 
   get tagName() {
     return this.localName.toUpperCase()
+  }
+
+  getAttribute(name: string): string | null {
+    if (name === 'style') {
+      return this.style.cssText
+    }
+
+    return super.getAttribute(name)
+  }
+
+  setAttribute(name: string, value: string) {
+    if (name === 'style') {
+      this.style.cssText = value
+      return
+    }
+
+    super.setAttribute(name, value)
+  }
+
+  removeAttribute(name: string) {
+    if (name === 'style') {
+      this.style.cssText = ''
+      return
+    }
+
+    super.removeAttribute(name)
   }
 
   click() {
@@ -27,7 +53,7 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
       return
     }
 
-    if (this.ownerDocument.activeElement) {
+    if (this.ownerDocument.activeElement instanceof HTMLElement) {
       this.ownerDocument.activeElement.blur()
     }
 
