@@ -13,7 +13,6 @@ export class SVGElement extends Element implements globalThis.SVGElement {
   focus = HTMLElement.prototype.focus
 
   autofocus
-  className
   dataset
   correspondingElement
   correspondingUseElement

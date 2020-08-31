@@ -1,6 +1,6 @@
 [package]
-name = "graffiti-yoga"
-version = "1.18.0"
+name = "graffiti-glfw"
+version = "3.3.2"
 edition = "2018"
 build = "build.rs"
 

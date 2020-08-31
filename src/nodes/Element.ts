@@ -1,7 +1,7 @@
+import htm from 'htm'
 import { Node } from './Node'
-import { Document } from './Document'
 import { NodeList } from './NodeList'
-import { ERR } from '../util'
+import { ERR, TODO } from '../util'
 
 export abstract class Element extends Node implements globalThis.Element {
   abstract readonly tagName: string;
@@ -9,12 +9,12 @@ export abstract class Element extends Node implements globalThis.Element {
   _localName: string
   _attributes = new Map<string, string>()
 
-  constructor(doc = document as Document, localName: string = ERR('new Element() is not supported')) {
+  constructor(doc = document, localName: string = ERR('new Element() is not supported')) {
     super(doc)
 
     this._localName = localName
 
-    this.ownerDocument._initElement(this, localName)
+    //this.ownerDocument._initElement(this, localName)
   }
 
   get nodeType() {
@@ -66,13 +66,13 @@ export abstract class Element extends Node implements globalThis.Element {
   _insertChildAt(child, index) {
     super._insertChildAt(child, index)
 
-    this.ownerDocument._elChildInserted(this, child, index)
+    //this.ownerDocument._elChildInserted(this, child, index)
   }
 
-  removeChild<T extends Node>(child: T): T {
+  removeChild<T extends globalThis.Node>(child: T): T {
     super.removeChild(child)
 
-    this.ownerDocument._elChildRemoved(this, child)
+    //this.ownerDocument._elChildRemoved(this, child)
 
     return child
   }
@@ -109,10 +109,25 @@ export abstract class Element extends Node implements globalThis.Element {
     return this.parentElement as any
   }
 
+  get innerHTML() {
+    return TODO()
+  }
+
+  set innerHTML(html) {
+    this.childNodes.forEach(c => this.removeChild(c))
+
+    this.append(frag(html))
+  }
+
+  get outerHTML() {
+    return TODO()
+  }
+
+  set outerHTML(html) {
+    this.replaceWith(frag(html))
+  }
+
   // later
-  // (outerHTML should fail on `doc.documentElement`)
-  innerHTML
-  outerHTML
   scrollLeft
   scrollTop
   getBoundingClientRect
@@ -162,4 +177,27 @@ export abstract class Element extends Node implements globalThis.Element {
   slot
   toggleAttribute
   webkitMatchesSelector
+}
+
+const frag = html => {
+  const d = document
+  const f = d.createDocumentFragment()
+
+  const createElement = (tag, atts, ...childNodes) => {
+    const el = d.createElement(tag)
+
+    el.append(...childNodes)
+    Object.entries(atts ?? {}).forEach(([att, v]) => el.setAttribute(att, v))
+
+    return el
+  }
+
+  // node or array of nodes
+  const nodes = htm.bind(createElement)([html])
+
+  f.append(...[].concat(nodes))
+
+  console.log(JSON.stringify(f, ['nodeName', 'nodeValue', 'childNodes'], 2))
+
+  return f
 }

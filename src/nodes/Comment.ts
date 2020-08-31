@@ -1,10 +1,14 @@
 import { Node } from './Node'
 import { CharacterData } from './CharacterData'
-import { Document } from './Document'
+import { NodeList } from './NodeList'
 
 export class Comment extends CharacterData implements globalThis.Comment {
-  constructor(public data = '', doc = document as Document) {
+  constructor(public data = '', doc = document) {
     super(doc)
+  }
+
+  get childNodes() {
+    return NodeList.empty()
   }
 
   get nodeType() {

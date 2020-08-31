@@ -48,8 +48,8 @@ export class Location implements globalThis.Location {
   }
 
   reload() {
-    // TODO: not sure, it doesn't make much sense for native apps
-    console.warn('location.reload() is not supported')
+    // TODO: restart worker
+    console.warn('TODO: location.reload()')
   }
 
   toString() {

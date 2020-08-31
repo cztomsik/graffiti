@@ -1,12 +1,7 @@
 import { HTMLElement } from './HTMLElement'
 
 export class HTMLTableElement extends HTMLElement implements globalThis.HTMLTableElement {
-  align
-  bgColor
-  border
   caption
-  cellPadding
-  cellSpacing
   createCaption
   createTBody
   createTFoot
@@ -15,13 +10,20 @@ export class HTMLTableElement extends HTMLElement implements globalThis.HTMLTabl
   deleteRow
   deleteTFoot
   deleteTHead
-  frame
   insertRow
   rows
-  rules
-  summary
   tBodies
   tFoot
   tHead
+
+  // deprecated
+  align
+  bgColor
+  border
+  cellPadding
+  cellSpacing
+  frame
+  rules
+  summary
   width
 }

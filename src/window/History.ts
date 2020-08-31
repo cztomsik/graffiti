@@ -1,4 +1,3 @@
-import { URL } from 'url'
 import { Event } from '../events/Event'
 
 export class History implements globalThis.History {

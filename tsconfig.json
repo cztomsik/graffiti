@@ -9,7 +9,7 @@
     "alwaysStrict": true,
     "esModuleInterop": true,
     "jsx": "react",
-    "module": "commonjs",
+    "module": "esnext",
     "outDir": "lib"
   },
   "include": ["src"]

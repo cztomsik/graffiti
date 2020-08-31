@@ -1,21 +1,19 @@
 // x nodes should not directly depend on native
-// x follow spec as possible incl. mixins, avoid custom extensions
-
-import * as assert from 'assert'
+// x follow spec as possible, avoid custom extensions
+//   x it's ok to include mixins (to avoid duplication)
 
 import { EventTarget } from '../events/EventTarget'
-import { Document } from './Document'
 import { NodeList } from './NodeList'
-import { last, UNSUPPORTED, applyMixin } from '../util'
+import { assert, last, TODO, UNSUPPORTED } from '../util'
 
-abstract class Node extends EventTarget implements G.Node {
+export abstract class Node extends EventTarget implements G.Node, G.ParentNode, G.ChildNode, G.NonDocumentTypeChildNode, G.Slottable {
   abstract readonly nodeType: number
   abstract readonly nodeName: string
   abstract readonly childNodes: NodeList<G.ChildNode>
   readonly parentNode: Element | null = null
 
   // nodes should only be created by document
-  protected constructor(public readonly ownerDocument: Document) {
+  protected constructor(public readonly ownerDocument: G.Document) {
     super()
   }
 
@@ -26,7 +24,7 @@ abstract class Node extends EventTarget implements G.Node {
   insertBefore<T extends G.Node>(child: T, refNode: G.Node | null): T {
     // should be !== null but some libs pass undefined too
     if (refNode) {
-      assert.equal(refNode.parentNode, this)
+      assert(refNode.parentNode === this, 'invalid refNode')
     }
 
     // fragment
@@ -51,7 +49,7 @@ abstract class Node extends EventTarget implements G.Node {
 
   // overridden by Element
   removeChild<T extends G.Node>(child: T): T {
-    assert.equal(child.parentNode, this)
+    assert(child.parentNode === this, 'not a child')
 
     ;(child as any).parentNode = null
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
@@ -66,7 +64,7 @@ abstract class Node extends EventTarget implements G.Node {
   }
 
   hasChildNodes(): boolean {
-    return this.childNodes.length !== 0
+    return this.childNodes.length > 0
   }
 
   get firstChild(): G.ChildNode | null {
@@ -141,12 +139,12 @@ abstract class Node extends EventTarget implements G.Node {
     return false
   }
 
-  normalize() {
-    UNSUPPORTED()
-  }
-
   get isConnected(): boolean {
     return this.parentNode?.isConnected ?? false
+  }
+
+  normalize() {
+    UNSUPPORTED()
   }
 
   isEqualNode(otherNode: G.Node | null): boolean {
@@ -201,9 +199,10 @@ abstract class Node extends EventTarget implements G.Node {
   DOCUMENT_POSITION_FOLLOWING
   DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
   DOCUMENT_POSITION_PRECEDING
-}
 
-abstract class ParentNode extends Node implements G.ParentNode {
+  // ---
+  // ParentNode:
+
   get children(): HTMLCollection {
     // TODO: HTMLCollection
     return this.childNodes.filter(c => c.nodeType === ELEMENT_NODE) as any
@@ -230,15 +229,16 @@ abstract class ParentNode extends Node implements G.ParentNode {
   }
 
   querySelector(selectors) {
-    return this.ownerDocument.querySelector(selectors, this)
+    return TODO()
   }
 
   querySelectorAll(selectors) {
-    return this.ownerDocument.querySelectorAll(selectors, this)
+    return TODO()
   }
-}
 
-abstract class ChildNode extends Node implements G.ChildNode {
+  // ---
+  // ChildNode:
+
   after(...nodes: (G.Node | string)[]) {
     const refNode = this.nextSibling
 
@@ -263,29 +263,18 @@ abstract class ChildNode extends Node implements G.ChildNode {
       this.parentNode.removeChild(this)
     }
   }
-}
 
-abstract class NonDocumentTypeChildNode extends Node implements G.NonDocumentTypeChildNode {
+  // ---
+  // NonDocumentTypeChildNode:
   // TODO
   nextElementSibling
   previousElementSibling
+
+  // ---
+  // Slottable:
+  // TODO
+  assignedSlot
 }
-
-
-// apply mixins & tell TS about it
-// we do this to reduce code-duplication in most of all subclasses
-// we could mix them manually in each subclass but it's hard to tell TS about it
-// then (without any intermediate anonymous classes)
-//
-// simple typeof Node & ... didnt work so we define union type first and then
-// define impl as constructor which returns that type but also impl. that type
-// because of statics
-;[ParentNode, ChildNode, NonDocumentTypeChildNode].forEach(Mixin => applyMixin(Node, Mixin))
-type NodeType = G.Node & G.ParentNode & G.ChildNode & G.NonDocumentTypeChildNode & G.Slotable
-const NodeImpl: (new (Document) => Node & NodeType) & NodeType = Node as any
-
-// export as `Node` (name)
-export { NodeImpl as Node }
 
 // perf(const vs. property lookup)
 const ELEMENT_NODE = Node.ELEMENT_NODE
@@ -301,9 +290,10 @@ const strToNode = (parent, n) => (typeof n === 'string' ? parent.ownerDocument.c
 
 // shorthands for globalThis.*
 namespace G {
+  export type Document = globalThis.Document
+  export type Slottable = globalThis.Slottable
   export type Node = globalThis.Node
   export type ChildNode = globalThis.ChildNode
   export type NonDocumentTypeChildNode = globalThis.NonDocumentTypeChildNode
   export type ParentNode = globalThis.ParentNode
-  export type Slotable = globalThis.Slotable
 }

@@ -4,6 +4,10 @@ export class NodeList<T extends Node> extends Array implements globalThis.NodeLi
   }
 
   forEach
+
+  static empty(): NodeList<any> {
+    return new NodeList()
+  }
 }
 
 declare global {

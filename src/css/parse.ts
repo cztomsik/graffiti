@@ -1,6 +1,8 @@
-import assert from 'assert'
+import { assert } from '../util'
 
 // TODO: not complete but it's a good start
+//
+// note we don't parse values, that is left to be done in native
 
 export const parseRules = (str: string): RuleData[] => {
   // we don't need many state flags because strings & comments can be
