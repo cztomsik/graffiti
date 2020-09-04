@@ -1,10 +1,11 @@
 import htm from 'htm'
 import { Node } from './Node'
 import { NodeList } from './NodeList'
-import { ERR, TODO } from '../util'
+import { ERR } from '../util'
+import { XMLSerializer } from '../dom/XMLSerializer'
 
 export abstract class Element extends Node implements globalThis.Element {
-  abstract readonly tagName: string;
+  abstract readonly tagName: string
   readonly childNodes = new NodeList<ChildNode>()
   _localName: string
   _attributes = new Map<string, string>()
@@ -13,8 +14,6 @@ export abstract class Element extends Node implements globalThis.Element {
     super(doc)
 
     this._localName = localName
-
-    //this.ownerDocument._initElement(this, localName)
   }
 
   get nodeType() {
@@ -63,28 +62,22 @@ export abstract class Element extends Node implements globalThis.Element {
     this._attributes.delete(name)
   }
 
-  _insertChildAt(child, index) {
-    super._insertChildAt(child, index)
+  toggleAttribute(name: string, force?: boolean): boolean {
+    if (this.hasAttribute(name)) {
+      if (force) {
+        return true
+      }
 
-    //this.ownerDocument._elChildInserted(this, child, index)
-  }
+      this.removeAttribute(name)
+      return false
+    }
 
-  removeChild<T extends globalThis.Node>(child: T): T {
-    super.removeChild(child)
+    if (!force && force !== undefined) {
+      return false
+    }
 
-    //this.ownerDocument._elChildRemoved(this, child)
-
-    return child
-  }
-
-  // TODO: replace `:scope` with this.tagName
-  //       https://www.w3.org/TR/selectors-4/#the-scope-pseudo
-  querySelector(selectors: string): Element | null {
-    return this.ownerDocument.querySelector(selectors, this)
-  }
-
-  querySelectorAll(selectors) {
-    return this.ownerDocument.querySelectorAll(selectors, this)
+    this.setAttribute(name, '')
+    return true
   }
 
   get id() {
@@ -110,21 +103,24 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   get innerHTML() {
-    return TODO()
+    const s = new XMLSerializer()
+
+    return this.childNodes.map(n => s.serializeToString(n)).join()
   }
 
   set innerHTML(html) {
-    this.childNodes.forEach(c => this.removeChild(c))
+    this.childNodes.forEach(n => this.removeChild(n))
 
-    this.append(frag(html))
+    const f = parseFragment(this.ownerDocument, html)
+    this.append(f)
   }
 
   get outerHTML() {
-    return TODO()
+    return new XMLSerializer().serializeToString(this)
   }
 
   set outerHTML(html) {
-    this.replaceWith(frag(html))
+    this.replaceWith(parseFragment(this.ownerDocument, html))
   }
 
   // later
@@ -147,8 +143,8 @@ export abstract class Element extends Node implements globalThis.Element {
   getAttributeNodeNS
   getAttributeNS
   getClientRects
-  getElementsByTagName
   getElementsByTagNameNS
+  getElementsByTagName
   getElementsByClassName
   hasAttributeNS
   hasPointerCapture
@@ -175,29 +171,37 @@ export abstract class Element extends Node implements globalThis.Element {
   setPointerCapture
   shadowRoot
   slot
-  toggleAttribute
+
+  // ignore vendor
   webkitMatchesSelector
 }
 
-const frag = html => {
-  const d = document
-  const f = d.createDocumentFragment()
+// TODO: move to document?
+// TODO: real parser
+export const parseFragment = (doc, html) => {
+  const fr = doc.createDocumentFragment()
+
+  // add `/` for void elements
+  // we don't need to wrap tr/td/... because we don't forbid what can be inserted
+  // (and we don't auto-insert anything which should be fine because most frameworks do that for us)
+  html = html.replace(
+    /<(area|base|br|col|command|embed|hr|img|input|keygen|link|meta|param|source|track|wbr)([^<>]*?)\/?>/gi,
+    '<$1$2/>'
+  )
 
   const createElement = (tag, atts, ...childNodes) => {
-    const el = d.createElement(tag)
+    const el = doc.createElement(tag)
 
-    el.append(...childNodes)
     Object.entries(atts ?? {}).forEach(([att, v]) => el.setAttribute(att, v))
+    el.append(...childNodes)
 
     return el
   }
 
-  // node or array of nodes
-  const nodes = htm.bind(createElement)([html])
+  // node, array of nodes or undefined (for empty string)
+  const nodes = htm.bind(createElement)([html]) ?? []
 
-  f.append(...[].concat(nodes))
+  fr.append(...[].concat(nodes))
 
-  console.log(JSON.stringify(f, ['nodeName', 'nodeValue', 'childNodes'], 2))
-
-  return f
+  return fr
 }

@@ -1,14 +1,20 @@
 import { Event } from '../events/Event'
 
 export class History implements globalThis.History {
-  _states = [{
-    data: undefined,
-    title: '',
-    url: new URL('noprotocol://nohost')
-  }]
+  _states: any[] = []
   _index = 0
 
-  constructor(private _window) {}
+  // TODO: accept callback (decouple from Window)
+  constructor(private _window, url: URL) {
+    // initial state
+    this._states.push({
+      data: undefined,
+      title: '',
+      url
+    })
+
+    // TODO: set title on load?
+  }
 
   back() {
     this.go(-1)

@@ -5,13 +5,14 @@ export class NodeList<T extends Node> extends Array implements globalThis.NodeLi
 
   forEach
 
-  static empty(): NodeList<any> {
-    return new NodeList()
-  }
+  static EMPTY_FROZEN: NodeList<any> = Object.freeze(new NodeList()) as any
 }
 
 declare global {
   interface NodeList {
+    slice
     splice
+    filter
+    find
   }
 }

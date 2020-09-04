@@ -2,7 +2,10 @@
 // x flat-api (rust api is flat too)
 // x async (deno plugin download)
 
-import { ERR } from './util'
+import { ERR, TODO } from './util'
+
+// TODO: get from package.json?
+const VERSION = '1.0.0-alpha.1'
 
 export const loadNativeApi = async () => {
   if ('Deno' in globalThis) {
@@ -13,11 +16,13 @@ export const loadNativeApi = async () => {
 }
 
 const loadDenoPlugin = async () => {
-  const { Plug } = await import('https://deno.land/x/plug@0.0.5/mod.ts')
+  const PLUG_URL = 'https://deno.land/x/plug@0.0.5/mod.ts'
+  const { Plug } = await import(PLUG_URL)
 
-  // TODO: env/autodetect deno.statSync("../libgraffiti/?").isFile/Directory()
-  const path = new URL(`../libgraffiti/target/debug`, import.meta.url).pathname
-  //const path = 'https://github.com/cztomsik/graffiti/releases/download/1.0.0'
+  const BUILD_DIR = new URL('../libgraffiti/target/debug', import.meta.url).pathname
+  const PREBUILT_URL = `https://github.com/cztomsik/graffiti/releases/download/${VERSION}`
+
+  let [path, cache] = globalThis.Deno.statSync(BUILD_DIR).isDirectory ? [BUILD_DIR, false] : [PREBUILT_URL, true]
 
   const rid = await Plug.prepare({
     name: 'graffiti',
@@ -25,12 +30,13 @@ const loadDenoPlugin = async () => {
       darwin: `${path}/libgraffiti.dylib`,
       windows: `${path}/graffiti.dll`,
       linux: `${path}/libgraffiti.so`,
-    }
+    },
+    policy: Plug.CachePolicy[cache ? 'STORE' : 'NONE'],
   })
 
   // TODO: assert
   // TODO: generate from shared definition? (GFT_${k.toUpperCase()})
-  const { GFT_CREATE_WINDOW, GFT_TICK } = Plug.core.ops();
+  const { GFT_CREATE_WINDOW, GFT_CREATE_NODE, GFT_FREE_NODE, GFT_UPDATE_DOCUMENT, GFT_TICK } = Plug.core.ops()
 
   const encoder = new TextEncoder()
   const decoder = new TextDecoder()
@@ -40,9 +46,21 @@ const loadDenoPlugin = async () => {
 
   return {
     tick: () => send(GFT_TICK, null),
-    createWindow: (title, width, height) => send(GFT_CREATE_WINDOW, [title, width, height])
+    createWindow: (title, width, height) => send(GFT_CREATE_WINDOW, [title, width, height]),
+    createNode: (windowId) => send(GFT_CREATE_NODE, [windowId]),
+    freeNode: (windowId) => send(GFT_FREE_NODE, [windowId]),
+    updateDocument: (windowId, changes) => send(GFT_UPDATE_DOCUMENT, [windowId, changes]),
   }
 }
 
-// TODO: (async) loadNodejsAddon()
-// could download too (but it's unusual for nodejs modules to download something at runtime)
+// TODO: could download too (but it's unusual for nodejs modules to download something at runtime)
+export const loadNodejsAddon = async () => {
+  TODO()
+
+  /*
+  // require() would make ncc bundle some unnecessary build artifacts
+  process['dlopen'](module, `${__dirname}/../libgraffiti/target/libgraffiti.node`)
+
+  return exports as any
+  */
+}

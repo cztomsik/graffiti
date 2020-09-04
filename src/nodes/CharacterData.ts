@@ -1,7 +1,22 @@
 import { Node } from './Node'
 
 export abstract class CharacterData extends Node implements globalThis.CharacterData {
-  abstract data: string
+  // don't call setter first-time
+  constructor(private _data = '', doc = document) {
+    super(doc)
+  }
+
+  get data() {
+    return this._data
+  }
+
+  set data(data) {
+    // preact passes data as is
+    this._data = typeof data === 'string' ?data :'' + data
+
+    // notify
+    this.ownerDocument._dataChanged(this, data)
+  }
 
   get nodeValue() {
     return this.data

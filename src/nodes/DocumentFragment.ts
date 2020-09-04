@@ -19,6 +19,4 @@ export class DocumentFragment extends Node implements globalThis.DocumentFragmen
 
   // maybe later
   getElementById
-  querySelector
-  querySelectorAll
 }

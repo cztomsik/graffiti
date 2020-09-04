@@ -1,15 +1,16 @@
-import assert from 'assert'
-
-import { NodeList } from './NodeList'
 import { Node } from './Node'
+import { NodeList } from './NodeList'
 import { Text } from './Text'
 import { Comment } from './Comment'
 import { DocumentFragment } from './DocumentFragment'
+import { StyleSheetList } from '../css/StyleSheetList'
+import { UNSUPPORTED } from '../util'
 
 import { HTMLHtmlElement } from './HTMLHtmlElement'
 import { HTMLHeadElement } from './HTMLHeadElement'
 import { HTMLBodyElement } from './HTMLBodyElement'
 import { HTMLStyleElement } from './HTMLStyleElement'
+import { HTMLScriptElement } from './HTMLScriptElement'
 import { HTMLDivElement } from './HTMLDivElement'
 import { HTMLSpanElement } from './HTMLSpanElement'
 import { HTMLInputElement } from './HTMLInputElement'
@@ -25,16 +26,16 @@ import { HTMLTableElement } from './HTMLTableElement'
 import { HTMLTableCellElement } from './HTMLTableCellElement'
 import { HTMLTableHeaderCellElement } from './HTMLTableHeaderCellElement'
 import { HTMLTableRowElement } from './HTMLTableRowElement'
-
-import { StyleSheetList } from '../css/StyleSheetList'
+import { DOMImplementation } from '../dom/DOMImplementation'
+//import { nwsapi } from '../nwsapi'
 
 export class Document extends Node implements globalThis.Document {
+  readonly ownerDocument
+  readonly defaultView: Window & typeof globalThis | null = null
+  readonly implementation = new DOMImplementation()
   readonly childNodes = new NodeList<ChildNode>()
-  // TODO: add default style sheet
-  readonly styleSheets = new StyleSheetList();
-
-  // title is only defined here, not on the window itself
-  title = ''
+  readonly compatMode = 'CSS1Compat'
+  //readonly nwsapi = nwsapi({ document: this })
 
   // TODO: getter, should be last focused or body (which can be null sometimes)
   readonly activeElement: Element | null = null
@@ -43,20 +44,17 @@ export class Document extends Node implements globalThis.Document {
   // mousedown origin
   _clickedElement
 
-  constructor(public readonly defaultView, private _native) {
-    super(null)
+  constructor(private readonly _adapter = NOOP_ADAPTER) {
+    super(null as any)
 
-    this._native.initDocument(this)
-
-    const html = this.createElement('html')
-    html.appendChild(this.createElement('head'))
-    html.appendChild(this.createElement('body'))
-
-    this.appendChild(html)
+    // non-standard, we are using parent.ownerDocument in Node.insertBefore()
+    // to dispatch changes (and we are using doc.appendChild() during parsing)
+    // if it's a problem we could use child.ownerDocument (should be same)
+    this.ownerDocument = this
   }
 
   get nodeType() {
-    return Node.DOCUMENT_NODE
+   return Node.DOCUMENT_NODE
   }
 
   get nodeName() {
@@ -76,13 +74,26 @@ export class Document extends Node implements globalThis.Document {
     return this.documentElement?.childNodes.find(n => n.localName === 'body') ?? null
   }
 
+  get title() {
+    return this.head?.childNodes.find(n => n.localName === 'title')?.data ?? ''
+  }
+
+  set title(title) {
+    const head = this.head || this.appendChild(this.createElement('head'))
+    const titleEl = head.childNodes.find(n => n.localName === 'title') ?? head.appendChild(this.createElement('title'))
+
+    titleEl.data = title
+  }
+
   get location() {
-    return this.defaultView.location
+    // DOMParser docs should have null (TS is wrong)
+    return (this.defaultView?.location ?? null) as any
   }
 
   // TODO: basic custom elements (no shadow DOM)
   createElement(tagName: string, options?) {
     // happy-case
+    // - tagName in lowercase means it's also localName
     // - simple comparison of interned strings
     // - ordered by likelihood
     switch (tagName) {
@@ -99,6 +110,7 @@ export class Document extends Node implements globalThis.Document {
       case 'td': return new HTMLTableCellElement(this, tagName)
       case 'th': return new HTMLTableHeaderCellElement(this, tagName)
       case 'style': return new HTMLStyleElement(this, tagName)
+      case 'script': return new HTMLScriptElement(this, tagName)
       case 'head': return new HTMLHeadElement(this, tagName)
       case 'body': return new HTMLBodyElement(this, tagName)
       case 'html': return new HTMLHtmlElement(this, tagName)
@@ -148,23 +160,6 @@ export class Document extends Node implements globalThis.Document {
     return !!this.activeElement
   }
 
-  _insertChildAt(child, index) {
-    assert(index === 0, 'only one root is allowed')
-    assert(child.nodeType === Node.ELEMENT_NODE, 'only element can be root')
-
-    super._insertChildAt(child, index)
-
-    this._native.setRoot(this, child)
-  }
-
-  querySelector(selectors: string, element?) {
-    return this._native.querySelector(this, selectors, element)
-  }
-
-  querySelectorAll(selectors: string, element?) {
-    return this._native.querySelectorAll(this, selectors, element)
-  }
-
   get isConnected(): boolean {
     return true
   }
@@ -173,57 +168,52 @@ export class Document extends Node implements globalThis.Document {
     return this.defaultView
   }
 
+  get styleSheets(): StyleSheetList {
+    // TODO: add default style sheet
+    // TODO: get [SHEET_SYMBOL] and create/remove that in adapter
+    return new StyleSheetList(this.querySelectorAll('style').map(s => undefined/*s.sheet*/))
+  }
+
   get forms() { return this.getElementsByTagName('form') }
   get images() { return this.getElementsByTagName('img') }
   get links() { return this.getElementsByTagName('link') }
   get scripts() { return this.getElementsByTagName('script') }
 
-  // native
-  _initElement(el, localName) {
-    this._native.initElement(this, el, localName)
+  // TODO: querySelector, nwsapi
+  getElementById(id) {
+    return document.body.childNodes.find(n => n.id === id)
   }
 
-  _elChildInserted(el, child, index) {
-    this._native.insertChildAt(this, el, child, index)
+  // change notifiers
+  _childInserted(parent, child, index) {
+    this._adapter.childInserted(parent, child, index)
   }
 
-  _elChildRemoved(el, child) {
-    this._native.removeChild(this, el, child)
+  _childRemoved(parent, child) {
+    this._adapter.childRemoved(parent, child)
   }
 
-  _initTextNode(textNode, data) {
-    this._native.initTextNode(this, textNode, data)
+  _dataChanged(cdata, data) {
+    this._adapter.dataChanged(cdata, data)
   }
 
-  _textUpdated(textNode, text) {
-    this._native.setText(this, textNode, text)
-  }
-
-  // intentionally left out (TODO: UNSUPPORTED())
-  all
-  clear
-  close
-  currentScript
-  open
-  write
-  writeln
+  // intentionally left out (out-of-scope)
+  clear = UNSUPPORTED
+  close = UNSUPPORTED
+  open = UNSUPPORTED
+  write = UNSUPPORTED
+  writeln = UNSUPPORTED
+  adoptNode = UNSUPPORTED
+  importNode = UNSUPPORTED
+  createAttribute = UNSUPPORTED
+  createAttributeNS = UNSUPPORTED
 
   // maybe later
-  adoptNode
-  alinkColor
-  anchors
-  applets
-  bgColor
-  captureEvents
   caretPositionFromPoint
-  caretRangeFromPoint
   characterSet
   charset
-  compatMode
   contentType
   cookie
-  createAttribute
-  createAttributeNS
   createCDATASection
   createEvent
   createExpression
@@ -232,6 +222,7 @@ export class Document extends Node implements globalThis.Document {
   createProcessingInstruction
   createRange
   createTreeWalker
+  currentScript
   designMode
   dir
   doctype
@@ -244,23 +235,17 @@ export class Document extends Node implements globalThis.Document {
   execCommand
   exitFullscreen
   exitPointerLock
-  fgColor
-  fullscreen
   fullscreenElement
   fullscreenEnabled
   getAnimations
-  getElementById
   getElementsByName
   getElementsByTagName
   getElementsByTagNameNS
   getElementsByClassName
   getSelection
   hidden
-  implementation
-  importNode
   inputEncoding
   lastModified
-  linkColor
   origin
   plugins
   pointerLockElement
@@ -271,10 +256,36 @@ export class Document extends Node implements globalThis.Document {
   queryCommandValue
   readyState
   referrer
-  releaseEvents
   scrollingElement
   timeline
   URL
   visibilityState
+
+  // deprecated
+  alinkColor
+  all
+  anchors
+  applets
+  bgColor
+  fgColor
+  fullscreen
+  linkColor
+  captureEvents
+  caretRangeFromPoint
+  releaseEvents
   vlinkColor
+}
+
+export type DocumentAdapter = typeof NOOP_ADAPTER
+
+const NOOP_ADAPTER = {
+  childInserted: (parent, child, index) => {},
+  childRemoved: (parent, child) => {},
+  dataChanged: (cdata, data) => {}
+}
+
+type Doc = Document
+
+declare global {
+  interface Document extends Doc {}
 }

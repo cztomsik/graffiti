@@ -4,26 +4,9 @@ export const NOOP = () => {}
 export const ERR = (...msgs): any => {
   throw new Error(msgs.join(' '))
 }
-
-export const TODO: any = new Proxy({}, {
-  apply(target, thisArg, args) {
-    ERR('TODO')
-  },
-
-  get(target, prop) {
-    ERR(`TODO`)
-  }
-})
-
-export const UNSUPPORTED: any = new Proxy({}, {
-  apply(target, thisArg, args) {
-    ERR('UNSUPPORTED')
-  },
-
-  get(target, prop) {
-    ERR(`UNSUPPORTED`)
-  }
-})
+export const TODO = () => ERR('TODO')
+export const UNSUPPORTED = () => ERR('UNSUPPORTED')
+export const UNREACHABLE = () => ERR('UNREACHABLE')
 
 export const last = arr => arr[arr.length - 1]
 

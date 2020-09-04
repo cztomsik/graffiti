@@ -51,10 +51,10 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
       this.removeProperty(prop)
     }
 
-    for (const r of parseRules(`dummy { ${cssText} }`)) {
-      for (const [prop, v] of Object.entries(r.props)) {
-        this.setProperty(prop, v)
-      }
+    const { props } = parseRules(`dummy { ${cssText} }`)[0]
+
+    for (const [prop, v] of Object.entries(props)) {
+      this.setProperty(prop, v)
     }
   }
 
@@ -215,6 +215,12 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   set width(v: string) { this.setProperty('width', v) }
 
   // maybe later (lot of them are SVG-only)
+  all
+  overscrollBehavior
+  overscrollBehaviorBlock
+  overscrollBehaviorInline
+  overscrollBehaviorX
+  overscrollBehaviorY
   backgroundAttachment
   backgroundClip
   backgroundPosition

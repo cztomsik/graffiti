@@ -1,3 +1,4 @@
+import { UNSUPPORTED } from '../util'
 import { History } from './History'
 
 export class Location implements globalThis.Location {
@@ -39,6 +40,30 @@ export class Location implements globalThis.Location {
     this.assign(`#${v}`)
   }
 
+  get hostname() {
+    return this._url.hostname
+  }
+
+  set hostname(hostname) {
+    UNSUPPORTED()
+  }
+
+  get port() {
+    return this._url.port
+  }
+
+  set port(port) {
+    UNSUPPORTED()
+  }
+
+  get protocol() {
+    return this._url.protocol
+  }
+
+  set protocol(protocol) {
+    UNSUPPORTED()
+  }
+
   assign(href) {
     this._history._navigate(href, false)
   }
@@ -58,9 +83,6 @@ export class Location implements globalThis.Location {
 
   // TODO: later
   host
-  hostname
-  port
-  protocol
   origin
   ancestorOrigins
 }

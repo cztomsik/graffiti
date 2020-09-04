@@ -2,6 +2,11 @@
 // x follow spec as possible, avoid custom extensions
 //   x it's ok to include mixins (to avoid duplication)
 
+// TODO: consider linked list (but measure first)
+// (JS arrays contain references so it could save one cache-miss)
+//
+// UNLIKELY: https://github.com/jsdom/js-symbol-tree might be interesting too
+// (it does some caching useful for NodeIterator - document order)
 import { EventTarget } from '../events/EventTarget'
 import { NodeList } from './NodeList'
 import { assert, last, TODO, UNSUPPORTED } from '../util'
@@ -9,8 +14,9 @@ import { assert, last, TODO, UNSUPPORTED } from '../util'
 export abstract class Node extends EventTarget implements G.Node, G.ParentNode, G.ChildNode, G.NonDocumentTypeChildNode, G.Slottable {
   abstract readonly nodeType: number
   abstract readonly nodeName: string
-  abstract readonly childNodes: NodeList<G.ChildNode>
   readonly parentNode: Element | null = null
+  // defined in prototype
+  readonly childNodes
 
   // nodes should only be created by document
   protected constructor(public readonly ownerDocument: G.Document) {
@@ -36,23 +42,24 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     // remove first (in case it was in the same element already)
     ;(child as any).remove()
 
-    this._insertChildAt(child as any, refNode ? this.childNodes.indexOf(refNode) : this.childNodes.length)
+    const index = refNode ? this.childNodes.indexOf(refNode) : this.childNodes.length
+    this.childNodes.splice(index, 0, child)
     ;(child as any).parentNode = this
+
+    // notify
+    this.ownerDocument._childInserted(this, child, index)
 
     return child
   }
 
-  // overridden by Document & Element
-  _insertChildAt(child: Node, index: number) {
-    this.childNodes.splice(index, 0, child)
-  }
-
-  // overridden by Element
   removeChild<T extends G.Node>(child: T): T {
     assert(child.parentNode === this, 'not a child')
 
     ;(child as any).parentNode = null
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
+
+    // notify
+    this.ownerDocument._childRemoved(this, child)
 
     return child
   }
@@ -275,6 +282,9 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
   // TODO
   assignedSlot
 }
+
+// define fallback .childNodes
+Object.defineProperty(Node.prototype, 'childNodes', { value: NodeList.EMPTY_FROZEN, writable: true })
 
 // perf(const vs. property lookup)
 const ELEMENT_NODE = Node.ELEMENT_NODE

@@ -1,24 +1,21 @@
-import { UNSUPPORTED } from '../util'
-
 export abstract class CSSRule implements globalThis.CSSRule {
   abstract readonly type: number
+  abstract readonly cssText: string
 
-  // TODO
-  get cssText() {
-    return UNSUPPORTED()
+  constructor(private readonly parent: CSSStyleSheet) {}
+
+  get parentStyleSheet(): CSSStyleSheet | null {
+    // null if it has been removed already
+    return Array.from(this.parent.cssRules).includes(this) ?this.parent :null
   }
 
-  // no-op https://developer.mozilla.org/en-US/docs/Web/API/CSSRule/cssText
-  set cssText(v: string) {}
+  get parentRule(): CSSRule | null {
+    console.warn('CSS @import is not supported')
 
-  get parentRule() {
-    return UNSUPPORTED()
+    return null
   }
 
-  get parentStyleSheet() {
-    return UNSUPPORTED()
-  }
-
+  // rule types
   static readonly UNKNOWN_RULE = 0
   static readonly STYLE_RULE = 1
   static readonly CHARSET_RULE = 2
@@ -32,16 +29,18 @@ export abstract class CSSRule implements globalThis.CSSRule {
   static readonly SUPPORTS_RULE = 12
   static readonly VIEWPORT_RULE = 15
 
-  readonly UNKNOWN_RULE = CSSRule.UNKNOWN_RULE
-  readonly STYLE_RULE = CSSRule.STYLE_RULE
-  readonly CHARSET_RULE = CSSRule.CHARSET_RULE
-  readonly IMPORT_RULE = CSSRule.IMPORT_RULE
-  readonly MEDIA_RULE = CSSRule.MEDIA_RULE
-  readonly FONT_FACE_RULE = CSSRule.FONT_FACE_RULE
-  readonly PAGE_RULE = CSSRule.PAGE_RULE
-  readonly KEYFRAMES_RULE = CSSRule.KEYFRAMES_RULE
-  readonly KEYFRAME_RULE = CSSRule.KEYFRAME_RULE
-  readonly NAMESPACE_RULE = CSSRule.NAMESPACE_RULE
-  readonly SUPPORTS_RULE = CSSRule.SUPPORTS_RULE
-  readonly VIEWPORT_RULE = CSSRule.VIEWPORT_RULE
+  // types again (instance)
+  // (getters are defined on prototype so they don't consume instance space)
+  get UNKNOWN_RULE() { return CSSRule.UNKNOWN_RULE }
+  get STYLE_RULE() { return CSSRule.STYLE_RULE }
+  get CHARSET_RULE() { return CSSRule.CHARSET_RULE }
+  get IMPORT_RULE() { return CSSRule.IMPORT_RULE }
+  get MEDIA_RULE() { return CSSRule.MEDIA_RULE }
+  get FONT_FACE_RULE() { return CSSRule.FONT_FACE_RULE }
+  get PAGE_RULE() { return CSSRule.PAGE_RULE }
+  get KEYFRAMES_RULE() { return CSSRule.KEYFRAMES_RULE }
+  get KEYFRAME_RULE() { return CSSRule.KEYFRAME_RULE }
+  get NAMESPACE_RULE() { return CSSRule.NAMESPACE_RULE }
+  get SUPPORTS_RULE() { return CSSRule.SUPPORTS_RULE }
+  get VIEWPORT_RULE() { return CSSRule.VIEWPORT_RULE }
 }
