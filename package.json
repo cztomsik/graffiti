@@ -2,6 +2,7 @@
   "name": "graffiti",
   "version": "0.2.0",
   "description": "Cross-platform GUI toolkit for node.js",
+  "type": "module",
   "main": "./lib/index.js",
   "author": "Kamil Tomšík <info@tomsik.cz>",
   "license": "MIT",
@@ -10,7 +11,11 @@
     "url": "git+https://github.com/cztomsik/graffiti.git"
   },
   "dependencies": {
-    "htm": "^3.0.4"
+    "htm": "^3.0.4",
+    "node-fetch": "^2.6.1"
+  },
+  "peerDependencies": {
+    "ws": "^7.3.1"
   },
   "files": [
     "build.js",
@@ -25,14 +30,15 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "cargo test --tests --manifest-path ./libgraffiti/Cargo.toml",
-    "build": "node build.js",
+    "build": "cargo build --features=nodejs --manifest-path ./libgraffiti/Cargo.toml",
     "postinstall": "npm run build -- --release",
-    "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:https://deno.land --outdir=./lib ./src/index.ts ./src/worker.ts"
+    "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:fetch --external:ws --external:https://jspm.dev --external:https://deno.land --outdir=./lib ./src/index.ts ./src/worker.ts"
   },
   "devDependencies": {
     "@types/node": "^14.6.2",
     "esbuild": "^0.6.28",
     "prettier": "^2.0.5",
-    "typescript": "^4.0.2"
+    "typescript": "^4.0.2",
+    "ws": "^7.3.1"
   }
 }

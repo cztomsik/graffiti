@@ -10,12 +10,11 @@ name = "graffiti"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
-graffiti-yoga = { path = "graffiti-yoga" }
+graffiti-glfw = { path = "graffiti-glfw" }
 graffiti-stb = { path = "graffiti-stb" }
-pom = "3.x"
-
-# npm run build -- --features raqote
-raqote = { version = "0.7.14", default-features = false, optional = true }
+stretch = { git = "https://github.com/cztomsik/stretch" }
+gl = "0.14.0"
+nanovg-sys = { version = "1.0.2", features = ["gl2"] }
 
 [features]
 default = []
@@ -23,17 +22,14 @@ default = []
 # nodejs bindings
 nodejs = []
 
+# deno bindings
+deno = []
+
 # include debug logs
 debug = []
 silly = []
 
-[profile.dev]
-#panic = "abort"
-
 [profile.release]
-lto = true
-panic = "abort"
-
 # fix raspi --release builds
 # https://github.com/rust-lang/rust/issues/62896
 codegen-units = 1

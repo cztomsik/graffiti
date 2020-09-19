@@ -166,8 +166,22 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     return UNSUPPORTED()
   }
 
+  // prefresh calls this
+  // TODO: check if it's really ok
   contains(other: G.Node | null): boolean {
-    return UNSUPPORTED()
+    let n, next = [...this.childNodes]
+
+    while (n = next.shift()) {
+      if (n === other) {
+        return true
+      }
+
+      if (n.nodeType === Node.ELEMENT_NODE) {
+        next.push(...n.childNodes)
+      }
+    }
+
+    return false
   }
 
   // node types
