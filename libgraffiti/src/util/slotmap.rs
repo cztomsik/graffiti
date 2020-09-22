@@ -48,8 +48,9 @@ impl<V> SlotMap<u32, V> {
         key
     }
 
+    // TODO: full, move to Cache anyway
     pub fn upsert(&mut self, key: u32, value: V) {
-        let min_len = key as usize;
+        let min_len = key as usize + 1;
 
         if (min_len > self.slots.len()) {
             self.slots.resize_with(min_len, || None);

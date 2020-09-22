@@ -41,7 +41,7 @@ impl App {
                 //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
             }
 
-            let w = glfwCreateWindow(width, height, b"TODO: c_str\0" as *const _ as *const c_char, null_mut(), null_mut());
+            let w = glfwCreateWindow(width, height, c_str!(title), null_mut(), null_mut());
             assert_ne!(w, std::ptr::null_mut(), "create GLFW window");
 
             // TODO: drop

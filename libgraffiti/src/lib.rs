@@ -7,11 +7,11 @@ mod css;
 mod document;
 mod gfx;
 mod layout;
+mod render;
 mod selector;
 mod style;
 mod viewport;
 mod window;
-mod render;
 
 // public but not yet semver stable
 pub use api::{Api, WindowId};

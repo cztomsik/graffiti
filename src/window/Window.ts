@@ -4,10 +4,10 @@ import { Location } from './Location'
 import { History } from './History'
 import { TODO } from '../util'
 
-// chrome/firefox has it this way too
-class WindowProperties extends EventTarget {}
+const G = globalThis
 
-export class Window extends WindowProperties implements globalThis.Window {
+// note all props will leak to global scope
+export class Window extends EventTarget implements globalThis.Window {
   window = this as any
   self = this.window
   history = new History(this, new URL(this.document.URL))
@@ -17,46 +17,81 @@ export class Window extends WindowProperties implements globalThis.Window {
     userAgent: 'graffiti'
   }
 
-  // forward globals
-  setInterval = setInterval
-  setTimeout = setTimeout
-  clearInterval = clearInterval
-  clearTimeout = clearTimeout
-  console = console
-  fetch = fetch
-  performance = performance || globalThis.require('performance').performance
-  // TODO: quickjs
-  // ? https://github.com/jsdom/abab
-  atob = atob || (str => new Buffer(str, 'base64').toString('binary'))
-  btoa = btoa || (str => Buffer.from(str).toString('base64'))
+  // provided by deno/nodejs and/or polyfilled in worker.ts
+  setInterval = G.setInterval
+  setTimeout = G.setTimeout
+  clearInterval = G.clearInterval
+  clearTimeout = G.clearTimeout
+  console = G.console
+  fetch = G.fetch
+  performance = G.performance
+  atob = G.atob
+  btoa = G.btoa
+  queueMicrotask = G.queueMicrotask
+  postMessage = G.postMessage
+  crypto = G.crypto
 
   constructor(public readonly document: globalThis.Document) {
     super()
   }
 
+  /*
+  requestAnimationFrame(callback: FrameRequestCallback): number {
+    if (this._animCbs.length === 0) {
+      const animate = () => {
+        const timestamp = performance.now()
+
+        for (const cb of this._animCbs) {
+          cb(timestamp)
+        }
+
+        this._animCbs = []
+      }
+
+      setImmediate(animate)
+    }
+
+    this._animCbs.push(callback)
+
+    return this._nextAnimHandle++
+  }
+
+  cancelAnimationFrame(handle: number) {
+    const index = this._nextAnimHandle - handle
+
+    if (index >= 0) {
+      // replace so that other indices remain valid too
+      this._animCbs[index] = NOOP
+    }
+  }
+  */
+
+  getComputedStyle(elt: Element, pseudoElt?: string | null): CSSStyleDeclaration {
+    // CSSStyleDeclaration
+    // - parentRule = null
+    // - onChange = NOOP
+    // - values = { resolvedProps + layoutProps }
+    throw new Error('Method not implemented.')
+  }
+
   // TODOs
   alert = TODO
   blur = TODO
-  cancelAnimationFrame = TODO
   captureEvents = TODO
   close = TODO
   confirm = TODO
   createImageBitmap = TODO
   departFocus = TODO
   focus = TODO
-  getComputedStyle = TODO
   getMatchedCSSRules = TODO
   getSelection = TODO
   matchMedia = TODO
   moveBy = TODO
   moveTo = TODO
   open = TODO
-  postMessage = TODO
   print = TODO
   prompt = TODO
-  queueMicrotask = TODO
   releaseEvents = TODO
-  requestAnimationFrame = TODO
   resizeBy = TODO
   resizeTo = TODO
   scroll = TODO
@@ -69,10 +104,6 @@ export class Window extends WindowProperties implements globalThis.Window {
   }
 
   get sessionStorage() {
-    return TODO()
-  }
-
-  get crypto() {
     return TODO()
   }
 
@@ -150,57 +181,6 @@ export class Window extends WindowProperties implements globalThis.Window {
   webkitConvertPointFromPageToNode
   webkitRequestAnimationFrame
 }
-
-
-
-/*
-
-import { performance } from 'perf_hooks'
-
-import { Event } from '../events/Event'
-import { handleWindowEvent } from '../events/handleWindowEvent'
-
-import { NOOP } from '../util'
-
-// beware, all props/meths (incl. privates) are in global scope
-export class Window extends EventTarget {
-  _nextAnimHandle = 1
-  _animCbs: FrameRequestCallback[] = []
-
-  constructor(private readonly _native) {
-    super()
-  }
-
-  requestAnimationFrame(callback: FrameRequestCallback): number {
-    if (this._animCbs.length === 0) {
-      const animate = () => {
-        const timestamp = performance.now()
-
-        for (const cb of this._animCbs) {
-          cb(timestamp)
-        }
-
-        this._animCbs = []
-      }
-
-      setImmediate(animate)
-    }
-
-    this._animCbs.push(callback)
-
-    return this._nextAnimHandle++
-  }
-
-  cancelAnimationFrame(handle: number) {
-    const index = this._nextAnimHandle - handle
-
-    if (index >= 0) {
-      // replace so that other indices remain valid too
-      this._animCbs[index] = NOOP
-    }
-  }
-}
-
 
 /*
 

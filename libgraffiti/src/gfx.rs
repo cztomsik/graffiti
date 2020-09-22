@@ -3,7 +3,7 @@ pub trait Painter {
     fn draw_text(&mut self, left: f32, top: f32, text: &str);
 }
 
-use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::{Receiver, Sender};
 
 // useful for testing
 impl Painter for Sender<String> {
