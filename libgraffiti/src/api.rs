@@ -76,6 +76,7 @@ impl Api {
         // TOOD: main_thread_queue?
         for (id, w) in &mut self.wnds.lock().unwrap().iter_mut() {
             silly!("render {:?}", id);
+            w.update();
             w.render();
         }
 

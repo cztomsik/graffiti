@@ -31,11 +31,17 @@ mod lazy;
 #[macro_use]
 pub(crate) mod dylib;
 
+mod versioned;
+
 mod slotmap;
 
 mod lookup;
 
+mod cache;
+
+pub use cache::Cache;
 pub use dylib::Dylib;
 pub use lazy::Lazy;
-pub use slotmap::SlotMap;
 pub use lookup::Lookup;
+pub use slotmap::SlotMap;
+pub use versioned::Versioned;

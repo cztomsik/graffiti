@@ -16,7 +16,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os:       [ubuntu-latest, windows-2019, macos]
+        os:       [ubuntu-latest, windows-2019, macOS-latest]
         # platform: [x32, x64]
     
     runs-on: ${{ matrix.os }}

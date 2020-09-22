@@ -45,6 +45,10 @@ impl Window {
         self.viewport.document_mut()
     }
 
+    pub fn update(&mut self) {
+        self.viewport.update();
+    }
+
     pub fn render(&mut self) {
         self.viewport.render();
     }
