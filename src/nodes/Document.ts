@@ -193,6 +193,10 @@ export class Document extends Node implements globalThis.Document {
     this._adapter.childRemoved(parent, child)
   }
 
+  _styleChanged(el, prop, value) {
+    this._adapter.styleChanged(el, prop, value)
+  }
+
   _dataChanged(cdata, data) {
     this._adapter.dataChanged(cdata, data)
   }
@@ -281,6 +285,7 @@ export type DocumentAdapter = typeof NOOP_ADAPTER
 const NOOP_ADAPTER = {
   childInserted: (parent, child, index) => {},
   childRemoved: (parent, child) => {},
+  styleChanged: (el, prop, value) => {},
   dataChanged: (cdata, data) => {}
 }
 

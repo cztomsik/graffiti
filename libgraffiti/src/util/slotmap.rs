@@ -41,11 +41,21 @@ impl<V> SlotMap<u32, V> {
     }
 
     pub fn insert_with_key(&mut self, f: impl FnOnce(u32) -> V) -> u32 {
-        let id = std::convert::TryFrom::try_from(self.slots.len()).expect("slotmap full");
+        let key = std::convert::TryFrom::try_from(self.slots.len()).expect("slotmap full");
 
-        self.slots.push(Some(f(id)));
+        self.slots.push(Some(f(key)));
 
-        id
+        key
+    }
+
+    pub fn upsert(&mut self, key: u32, value: V) {
+        let min_len = key as usize;
+
+        if (min_len > self.slots.len()) {
+            self.slots.resize_with(min_len, || None);
+        }
+
+        *self.slot_mut(key) = Some(value);
     }
 
     pub fn remove(&mut self, key: u32) {

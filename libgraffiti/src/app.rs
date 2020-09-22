@@ -7,7 +7,7 @@ use std::ptr::null_mut;
 
 pub struct App {
     // so it's !Send + !Sync
-    //_marker: *const (),
+//_marker: *const (),
 }
 
 impl App {
@@ -62,7 +62,7 @@ impl App {
             // context must be current here
             gl::load_with(|s| glfwGetProcAddress(c_str!(s)));
 
-            let surface = Surface::new(w);
+            let surface = Surface::new(w, (width as f32, height as f32));
 
             // VSYNC=0 to disable
             let vsync = std::env::var("VSYNC").map(|s| s.parse().expect("vsync number")).unwrap_or(1);

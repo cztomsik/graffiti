@@ -40,6 +40,7 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
     GFT_CREATE_TEXT_NODE,
     GFT_SET_TEXT,
     GFT_CREATE_ELEMENT,
+    GFT_SET_STYLE,
     GFT_ADD_TAG,
     GFT_REMOVE_TAG,
     GFT_INSERT_CHILD,
@@ -110,6 +111,12 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
       binMsg.setUint32(0, windowId, LE)
       binMsg.setUint32(4, tag, LE)
       return new DataView(dispatch(GFT_CREATE_ELEMENT, binMsg).buffer).getUint32(0, LE)
+    },
+
+    setStyle: (windowId, el, prop, value) => {
+      binMsg.setUint32(0, windowId, LE)
+      binMsg.setUint32(4, el, LE)
+      dispatch(GFT_SET_STYLE, binMsg, utf8.encode(prop), utf8.encode(value))
     },
 
     insertChild: (windowId, parent, child, index) => {

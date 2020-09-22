@@ -10,6 +10,7 @@ name = "graffiti"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
+pom = "3.2.0"
 graffiti-glfw = { path = "graffiti-glfw" }
 graffiti-stb = { path = "graffiti-stb" }
 stretch = { git = "https://github.com/cztomsik/stretch" }

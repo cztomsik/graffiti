@@ -46,6 +46,10 @@ impl Api {
         self.wnds.lock().unwrap()[window].document_mut().create_element(local_name_tag)
     }
 
+    pub fn set_style(&self, window: WindowId, el: NodeId, prop: &str, value: &str) {
+        self.wnds.lock().unwrap()[window].document_mut().set_style(el, prop, value);
+    }
+
     pub fn add_tag(&self, window: WindowId, element: NodeId, tag: Tag) {
         self.wnds.lock().unwrap()[window].document_mut().add_tag(element, tag);
     }
@@ -88,6 +92,7 @@ pub type WindowId = u32;
 // compile-time check
 #[allow(unused)]
 fn api_is_thread_safe() {
-    // we only need Sync for now
-    |api: &'static Api| api as &(dyn /*Send + */Sync);
+    // we need Sync (API can be called concurrently from different workers)
+    // but it also has to be Send (no thread_locals, etc.)
+    |api: &'static Api| api as &(dyn Send + Sync);
 }

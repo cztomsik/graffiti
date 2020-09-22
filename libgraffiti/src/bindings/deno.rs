@@ -21,6 +21,7 @@ pub fn deno_plugin_init(interface: &mut dyn Interface) {
     macro_rules! op {
         ($name: expr, $handler: expr) => {
             interface.register_op($name, |_, bufs| {
+                silly!("[deno] {}", $name);
                 let handler: fn(&mut ArgsReader) -> _ = $handler;
                 handler(&mut ArgsReader::new(bufs.iter().map(|b| &**b))).into()
             })
@@ -37,6 +38,7 @@ pub fn deno_plugin_init(interface: &mut dyn Interface) {
     op!("GFT_SET_TEXT", |arg| API.set_text(arg.u32(), arg.u32(), arg.str()));
 
     op!("GFT_CREATE_ELEMENT", |arg| API.create_element(arg.u32(), arg.u32()));
+    op!("GFT_SET_STYLE", |arg| API.set_style(arg.u32(), arg.u32(), arg.str(), arg.str()));
     op!("GFT_ADD_TAG", |arg| API.add_tag(arg.u32(), arg.u32(), arg.u32()));
     op!("GFT_REMOVE_TAG", |arg| API.remove_tag(arg.u32(), arg.u32(), arg.u32()));
     op!("GFT_INSERT_CHILD", |arg| API.insert_child(arg.u32(), arg.u32(), arg.u32(), arg.u32() as usize));

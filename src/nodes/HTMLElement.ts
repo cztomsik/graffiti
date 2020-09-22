@@ -2,7 +2,7 @@ import { Element } from './Element'
 import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
 
 export abstract class HTMLElement extends Element implements globalThis.HTMLElement {
-  readonly style = new CSSStyleDeclaration(null, (prop, value) => console.log('TODO: change inline style', prop, value))
+  readonly style = new CSSStyleDeclaration(null, (prop, value) => this.ownerDocument._styleChanged(this, prop, value))
 
   get tagName() {
     return this.localName.toUpperCase()

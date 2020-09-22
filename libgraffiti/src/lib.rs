@@ -3,14 +3,15 @@ mod util;
 
 mod api;
 mod app;
-mod window;
-mod viewport;
-mod document;
 mod css;
-mod style;
-mod selector;
-mod layout;
+mod document;
 mod gfx;
+mod layout;
+mod selector;
+mod style;
+mod viewport;
+mod window;
+mod render;
 
 // public but not yet semver stable
 pub use api::{Api, WindowId};
@@ -36,6 +37,6 @@ mod bindings {
 
 mod unstable {
     pub use crate::app::App;
-    pub use crate::window::Window;
     pub use crate::document::Document;
+    pub use crate::window::Window;
 }
