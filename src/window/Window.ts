@@ -2,6 +2,7 @@ import { EventTarget } from '../events/EventTarget'
 import { Document } from '../nodes/Document'
 import { Location } from './Location'
 import { History } from './History'
+import { requestAnimationFrame, cancelAnimationFrame } from './raf'
 import { TODO } from '../util'
 
 const G = globalThis
@@ -31,40 +32,13 @@ export class Window extends EventTarget implements globalThis.Window {
   postMessage = G.postMessage
   crypto = G.crypto
 
+  // raf
+  requestAnimationFrame = requestAnimationFrame
+  cancelAnimationFrame = cancelAnimationFrame
+
   constructor(public readonly document: globalThis.Document) {
     super()
   }
-
-  /*
-  requestAnimationFrame(callback: FrameRequestCallback): number {
-    if (this._animCbs.length === 0) {
-      const animate = () => {
-        const timestamp = performance.now()
-
-        for (const cb of this._animCbs) {
-          cb(timestamp)
-        }
-
-        this._animCbs = []
-      }
-
-      setImmediate(animate)
-    }
-
-    this._animCbs.push(callback)
-
-    return this._nextAnimHandle++
-  }
-
-  cancelAnimationFrame(handle: number) {
-    const index = this._nextAnimHandle - handle
-
-    if (index >= 0) {
-      // replace so that other indices remain valid too
-      this._animCbs[index] = NOOP
-    }
-  }
-  */
 
   getComputedStyle(elt: Element, pseudoElt?: string | null): CSSStyleDeclaration {
     // CSSStyleDeclaration
