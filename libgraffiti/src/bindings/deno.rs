@@ -1,3 +1,5 @@
+// s tim microserde to vypadalo asi lip (a nodejs by mozna bylo taky snazsi pak)
+
 // deno bindings
 
 use super::API;
@@ -37,10 +39,10 @@ pub fn deno_plugin_init(interface: &mut dyn Interface) {
     op!("GFT_CREATE_TEXT_NODE", |arg| API.create_text_node(arg.u32(), arg.str()));
     op!("GFT_SET_TEXT", |arg| API.set_text(arg.u32(), arg.u32(), arg.str()));
 
-    op!("GFT_CREATE_ELEMENT", |arg| API.create_element(arg.u32(), arg.u32()));
+    op!("GFT_CREATE_ELEMENT", |arg| API.create_element(arg.u32(), arg.str()));
     op!("GFT_SET_STYLE", |arg| API.set_style(arg.u32(), arg.u32(), arg.str(), arg.str()));
-    op!("GFT_ADD_TAG", |arg| API.add_tag(arg.u32(), arg.u32(), arg.u32()));
-    op!("GFT_REMOVE_TAG", |arg| API.remove_tag(arg.u32(), arg.u32(), arg.u32()));
+    op!("GFT_SET_ATTRIBUTE", |arg| API.set_attribute(arg.u32(), arg.u32(), arg.str(), arg.str()));
+    op!("GFT_REMOVE_ATTRIBUTE", |arg| API.remove_attribute(arg.u32(), arg.u32(), arg.str()));
     op!("GFT_INSERT_CHILD", |arg| API.insert_child(arg.u32(), arg.u32(), arg.u32(), arg.u32() as usize));
     op!("GFT_REMOVE_CHILD", |arg| API.remove_child(arg.u32(), arg.u32(), arg.u32()));
 

@@ -12,10 +12,14 @@ crate-type = ["rlib", "cdylib"]
 [dependencies]
 pom = "3.2.0"
 graffiti-glfw = { path = "graffiti-glfw" }
+# TODO: platform-specific font/text dylib(s)
 graffiti-stb = { path = "graffiti-stb" }
 stretch = { git = "https://github.com/cztomsik/stretch" }
 gl = "0.14.0"
 nanovg-sys = { version = "1.0.2", features = ["gl2"] }
+# TODO: fork it & make serde optional
+arc-interner = "0.5.0"
+fnv = "1.0.7"
 
 [features]
 default = []

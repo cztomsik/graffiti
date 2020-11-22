@@ -35,8 +35,10 @@ mod bindings {
     //mod quickjs;
 }
 
-mod unstable {
+pub mod unstable {
     pub use crate::app::App;
     pub use crate::document::Document;
     pub use crate::window::Window;
+    pub use crate::viewport::Viewport;
+    pub use crate::gfx::Surface;
 }

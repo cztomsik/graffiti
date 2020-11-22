@@ -19,7 +19,7 @@ import { HTMLButtonElement } from './HTMLButtonElement'
 import { HTMLUnknownElement } from './HTMLUnknownElement'
 import { HTMLAnchorElement } from './HTMLAnchorElement'
 import { SVGElement } from './SVGElement'
-import { SVGSVGElement } from './SVGSvgElement'
+import { SVGSVGElement } from './SVGSVGElement'
 import { SVGGElement } from './SVGGElement'
 import { HTMLTableSectionElement } from './HTMLTableSectionElement'
 import { HTMLTableElement } from './HTMLTableElement'
@@ -193,6 +193,10 @@ export class Document extends Node implements globalThis.Document {
     this._adapter.childRemoved(parent, child)
   }
 
+  _attributeChanged(el, att, value) {
+    this._adapter.attributeChanged(el, att, value)
+  }
+
   _styleChanged(el, prop, value) {
     this._adapter.styleChanged(el, prop, value)
   }
@@ -286,6 +290,7 @@ const NOOP_ADAPTER = {
   childInserted: (parent, child, index) => {},
   childRemoved: (parent, child) => {},
   styleChanged: (el, prop, value) => {},
+  attributeChanged: (el, attName, value) => {},
   dataChanged: (cdata, data) => {}
 }
 

@@ -1,142 +1,188 @@
-use crate::style::Style;
-use crate::util::{SlotMap, Versioned};
+// observable model
 
-pub struct Document {
-    nodes: SlotMap<NodeId, Versioned<Node>>,
-}
-
-impl Document {
-    pub const ROOT: NodeId = 0;
-
-    pub fn new() -> Self {
-        let mut doc = Self { nodes: SlotMap::new() };
-
-        assert_eq!(doc.create_element(0), Self::ROOT);
-        doc.remove_tag(Self::ROOT, 0);
-
-        doc
-    }
-
-    pub fn create_element(&mut self, local_name_tag: Tag) -> NodeId {
-        self.create_node(NodeData::Element(ElementData {
-            tags: vec![local_name_tag],
-            style: Style::new(),
-            child_nodes: Vec::new(),
-        }))
-    }
-
-    pub fn tags(&self, element: NodeId) -> &[Tag] {
-        &self.nodes[element].el().tags
-    }
-
-    pub fn add_tag(&mut self, element: NodeId, tag: Tag) {
-        self.nodes[element] = self.nodes[element].with(|el| el.el_mut().tags.push(tag));
-    }
-
-    pub fn remove_tag(&mut self, element: NodeId, tag: Tag) {
-        self.nodes[element] = self.nodes[element].with(|el| el.el_mut().tags.retain(|t| *t != tag));
-    }
-
-    pub fn child_nodes(&self, element: NodeId) -> &[NodeId] {
-        &self.nodes[element].el().child_nodes
-    }
-
-    pub fn insert_child(&mut self, element: NodeId, child: NodeId, index: usize) {
-        self.nodes[element] = self.nodes[element].with(|el| el.el_mut().child_nodes.insert(index, child));
-        self.nodes[child] = self.nodes[child].with(|ch| ch.parent = Some(element));
-    }
-
-    pub fn remove_child(&mut self, element: NodeId, child: NodeId) {
-        self.nodes[element] = self.nodes[element].with(|el| el.el_mut().child_nodes.retain(|ch| *ch != child));
-        self.nodes[child] = self.nodes[child].with(|ch| ch.parent = None);
-    }
-
-    pub fn set_style(&mut self, element: NodeId, prop: &str, value: &str) {
-        self.nodes[element] = self.nodes[element].with(|el| el.el_mut().style.set_prop_value(prop, value).unwrap_or(()));
-    }
-
-    pub fn style(&self, node: NodeId) -> &Style {
-        &self.nodes[node].el().style
-    }
-
-    pub fn create_text_node(&mut self, text: &str) -> NodeId {
-        self.create_node(NodeData::Text(text.to_owned()))
-    }
-
-    pub fn text(&self, text_node: NodeId) -> &str {
-        self.nodes[text_node].text()
-    }
-
-    pub fn set_text(&mut self, text_node: NodeId, text: &str) {
-        self.nodes[text_node] = self.nodes[text_node].with(|tn| tn.data = NodeData::Text(text.to_owned()))
-    }
-
-    // shared for both node types
-    pub fn version(&self, node: NodeId) -> u32 {
-        self.nodes[node].version()
-    }
-
-    pub fn parent(&self, node: NodeId) -> Option<NodeId> {
-        self.nodes[node].parent
-    }
-    // TODO: image, canvas, video/texture/dyn external/paintable?
-    pub fn visit_node(&self, node: NodeId, visitor: &mut impl NodeVisitor) {
-        let n = &self.nodes[node];
-
-        match &n.data {
-            NodeData::Element(ElementData { child_nodes, .. }) => visitor.visit_element(node, n.version(), child_nodes),
-            NodeData::Text(text) => visitor.visit_text(node, n.version(), text),
-        }
-    }
-
-    pub fn free_node(&mut self, node: NodeId) {
-        silly!("free node {:?}", node);
-
-        self.nodes.remove(node);
-    }
-
-    // helpers
-
-    fn create_node(&mut self, data: NodeData) -> NodeId {
-        self.nodes.insert(Versioned::new(Node { parent: None, data }))
-    }
-}
-
-pub type Tag = u32;
+//use crate::style::Style;
+use std::collections::HashMap;
+use crate::util::{IdTree};
 
 pub type NodeId = u32;
 
-// trait, so we can freely add new variants
-pub trait NodeVisitor {
-    fn visit_element(&mut self, element: NodeId, version: u32, child_nodes: &[NodeId]) {}
-    fn visit_text(&mut self, text_node: NodeId, version: u32, text: &str) {}
+#[derive(Debug)]
+pub enum DocumentEvent {
+    ParentChanged(NodeId),
+    ChildrenChanged(NodeId),
+    NodeDestroyed(NodeId),
+
+    TextNodeCreated(NodeId),
+    TextChanged(NodeId),
+
+    ElementCreated(NodeId),
+    AttributesChanged(NodeId),
+//    StyleChanged(NodeId),
 }
+
+pub struct Document {
+    tree: IdTree<NodeData>,
+    root: NodeId,
+
+    listener: Option<Box<dyn Fn(DocumentEvent)>>
+}
+
+// private shorthand
+type Event = DocumentEvent;
+
+impl Document {
+    pub fn new(listener: Option<Box<dyn Fn(DocumentEvent)>>) -> Self {
+        let mut tree = IdTree::new();
+
+        let root = tree.create_node(NodeData::Element(ElementData {
+            local_name: ":root".to_owned(),
+            attributes: HashMap::new(),
+            //style: Style::new()
+         }));
+
+        if let Some(l) = &listener {
+            l(Event::ElementCreated(root));
+        }
+
+        Self { tree, root, listener }
+    }
+
+    pub fn root(&self) -> NodeId {
+        self.root
+    }
+
+    // shared for all node types
+
+    pub fn is_element(&self, node: NodeId) -> bool {
+        matches!(self.tree.data(node), NodeData::Element(_))
+    }
+
+    pub fn is_text(&self, node: NodeId) -> bool {
+        matches!(self.tree.data(node), NodeData::Text(_))
+    }
+
+    pub fn parent(&self, node: NodeId) -> Option<NodeId> {
+        self.tree.parent(node)
+    }
+
+    pub fn children(&self, node: NodeId) -> impl Iterator<Item = NodeId> + '_ {
+        self.tree.children(node)
+    }
+
+    pub fn insert_child(&mut self, parent: NodeId, child: NodeId, index: usize) {
+        self.tree.insert_child(parent, child, index);
+
+        self.emit(Event::ChildrenChanged(parent));
+        self.emit(Event::ParentChanged(child));
+    }
+
+    pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
+        self.tree.remove_child(parent, child);
+
+        self.emit(Event::ChildrenChanged(parent));
+        self.emit(Event::ParentChanged(child));
+    }
+
+    pub fn free_node(&mut self, node: NodeId) {
+        self.tree.free_node(node);
+
+        self.emit(Event::NodeDestroyed(node));
+    }
+
+    // text node
+
+    pub fn create_text_node(&mut self, text: &str) -> NodeId {
+        let id = self.tree.create_node(NodeData::Text(text.to_owned()));
+
+        self.emit(Event::TextNodeCreated(id));
+
+        id
+    }
+
+    pub fn text(&self, text_node: NodeId) -> &str {
+        self.tree.data(text_node).text()
+    }
+
+    pub fn set_text(&mut self, text_node: NodeId, text: &str) {
+        *self.tree.data_mut(text_node) = NodeData::Text(text.to_owned());
+
+        self.emit(Event::TextChanged(text_node));
+    }
+
+    // element
+
+    pub fn create_element(&mut self, local_name: &str) -> NodeId {
+        let id = self.tree.create_node(NodeData::Element(ElementData {
+            local_name: local_name.to_owned(),
+            attributes: HashMap::new(),
+            //style: Style::new(),
+        }));
+
+        self.emit(Event::ElementCreated(id));
+
+        id
+    }
+
+    pub fn local_name(&self, element: NodeId) -> &str {
+        &self.tree.data(element).el().local_name
+    }
+
+    pub fn attribute(&self, element: NodeId, att_name: &str) -> Option<&str> {
+        self.tree.data(element).el().attributes.get(att_name).map(String::as_ref)
+    }
+
+    pub fn set_attribute(&mut self, element: NodeId, att_name: &str, value: &str) {
+        self.tree.data_mut(element).el_mut().attributes.insert(att_name.to_owned(), value.to_owned());
+
+        self.emit(Event::AttributesChanged(element));
+    }
+
+    pub fn remove_attribute(&mut self, element: NodeId, att_name: &str) {
+        self.tree.data_mut(element).el_mut().attributes.remove(att_name);
+
+        self.emit(Event::AttributesChanged(element));
+    }
+
+    /*
+    pub fn style(&self, node: NodeId) -> &Style {
+        &self.tree.data(node).el().style
+    }
+
+    pub fn set_style(&mut self, element: NodeId, prop: &str, value: &str) {
+        todo!();
+        //self.nodes[element] = self.nodes[element].with(|el| el.el_mut().style.set_prop_value(prop, value).unwrap_or(()));
+
+        //self.emit(Event::StyleChanged(element));
+    }
+    */
+
+    // helpers
+
+    fn emit(&self, event: Event) {
+        if let Some(listener) = &self.listener {
+            listener(event);
+        }
+    }
+}
+
 
 // private from here
 
-#[derive(Clone)]
-struct Node {
-    parent: Option<NodeId>,
-    data: NodeData,
-}
-
-#[derive(Clone)]
 enum NodeData {
     Element(ElementData),
     Text(String),
 }
 
-#[derive(Clone)]
 struct ElementData {
-    tags: Vec<Tag>,
-    style: Style,
-    child_nodes: Vec<NodeId>,
+    local_name: String,
+    attributes: HashMap<String, String>,
+    //style: Style,
 }
 
 // TODO: macro?
-impl Node {
+impl NodeData {
     fn el(&self) -> &ElementData {
-        if let NodeData::Element(data) = &self.data {
+        if let NodeData::Element(data) = &self {
             data
         } else {
             panic!("not an element")
@@ -144,7 +190,7 @@ impl Node {
     }
 
     fn el_mut(&mut self) -> &mut ElementData {
-        if let NodeData::Element(data) = &mut self.data {
+        if let NodeData::Element(data) = self {
             data
         } else {
             panic!("not an element")
@@ -152,10 +198,26 @@ impl Node {
     }
 
     fn text(&self) -> &str {
-        if let NodeData::Text(data) = &self.data {
+        if let NodeData::Text(data) = &self {
             data
         } else {
             panic!("not a text node")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut d = Document::new(None);
+
+        let div = d.create_element("div");
+        let hello = d.create_text_node("hello");
+
+        d.insert_child(d.root(), div, 0);
+        d.insert_child(div, hello, 0);
     }
 }

@@ -8,8 +8,7 @@ export const createAdapter = (nativeApi, windowId, url) => {
 
   const createNativeNodeFor = node => {
     if (node.nodeType === Node.ELEMENT_NODE) {
-      // TODO: tag
-      return nativeApi.createElement(windowId, 0)
+      return nativeApi.createElement(windowId, node.localName)
     }
 
     // TODO: we could set it when adapter is created
@@ -67,6 +66,14 @@ export const createAdapter = (nativeApi, windowId, url) => {
     },
 
     styleChanged: (el, prop, value) => nativeApi.setStyle(windowId, id(el), prop, value),
+
+    attributeChanged: (el, attName, value) => {
+      if (value === null) {
+        nativeApi.removeAttribute(windowId, id(el), attName)
+      } else {
+        nativeApi.setAttribute(windowId, id(el), attName, value)
+      }
+    },
 
     dataChanged: (textNode, data) => nativeApi.setText(windowId, id(textNode), data),
   }

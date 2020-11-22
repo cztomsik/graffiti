@@ -62,6 +62,7 @@ extern "C" {
 
     pub fn glfwGetProcAddress(procname: *const c_char) -> *const c_void;
 
+    pub fn glfwPollEvents();
     pub fn glfwWaitEventsTimeout(timeout: c_double);
     pub fn glfwPostEmptyEvent();
 }

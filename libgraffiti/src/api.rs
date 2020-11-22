@@ -4,7 +4,7 @@
 //       (and maybe this could be too)
 
 use crate::app::App;
-use crate::document::{NodeId, Tag};
+use crate::document::{NodeId};
 use crate::util::SlotMap;
 use crate::window::{Event, Window};
 use std::sync::Mutex;
@@ -42,20 +42,20 @@ impl Api {
         self.wnds.lock().unwrap()[window].document_mut().set_text(text_node, text);
     }
 
-    pub fn create_element(&self, window: WindowId, local_name_tag: Tag) -> NodeId {
-        self.wnds.lock().unwrap()[window].document_mut().create_element(local_name_tag)
+    pub fn create_element(&self, window: WindowId, local_name: &str) -> NodeId {
+        self.wnds.lock().unwrap()[window].document_mut().create_element(local_name)
     }
 
     pub fn set_style(&self, window: WindowId, el: NodeId, prop: &str, value: &str) {
         self.wnds.lock().unwrap()[window].document_mut().set_style(el, prop, value);
     }
 
-    pub fn add_tag(&self, window: WindowId, element: NodeId, tag: Tag) {
-        self.wnds.lock().unwrap()[window].document_mut().add_tag(element, tag);
+    pub fn set_attribute(&self, window: WindowId, el: NodeId, att_name: &str, value: &str) {
+        self.wnds.lock().unwrap()[window].document_mut().set_attribute(el, att_name, value);
     }
 
-    pub fn remove_tag(&self, window: WindowId, element: NodeId, tag: Tag) {
-        self.wnds.lock().unwrap()[window].document_mut().remove_tag(element, tag);
+    pub fn remove_attribute(&self, window: WindowId, el: NodeId, att_name: &str) {
+        self.wnds.lock().unwrap()[window].document_mut().remove_attribute(el, att_name);
     }
 
     pub fn insert_child(&self, window: WindowId, parent: NodeId, child: NodeId, index: usize) {

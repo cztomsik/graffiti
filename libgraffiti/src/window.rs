@@ -56,8 +56,8 @@ impl Window {
     // needs to be processed one by one because each event can cause new changes,
     // styles, dimensions and so the target might not be valid anymore
     pub fn take_event(&mut self) -> Option<Event> {
-        // TODO: find target
-        let target = Document::ROOT;
+        let (x, y) = self.mouse_pos;
+        let target = self.viewport.node_at_pos((x as _, y as _));
 
         match self.events_rx.try_recv() {
             Ok(ev) => Some(match ev {

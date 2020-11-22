@@ -41,8 +41,8 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
     GFT_SET_TEXT,
     GFT_CREATE_ELEMENT,
     GFT_SET_STYLE,
-    GFT_ADD_TAG,
-    GFT_REMOVE_TAG,
+    GFT_SET_ATTRIBUTE,
+    GFT_REMOVE_ATTRIBUTE,
     GFT_INSERT_CHILD,
     GFT_REMOVE_CHILD,
     GFT_FREE_NODE,
@@ -107,10 +107,21 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
       dispatch(GFT_SET_TEXT, binMsg, utf8.encode(text))
     },
 
-    createElement: (windowId, tag) => {
+    createElement: (windowId, localName) => {
       binMsg.setUint32(0, windowId, LE)
-      binMsg.setUint32(4, tag, LE)
-      return new DataView(dispatch(GFT_CREATE_ELEMENT, binMsg).buffer).getUint32(0, LE)
+      return new DataView(dispatch(GFT_CREATE_ELEMENT, binMsg, utf8.encode(localName)).buffer).getUint32(0, LE)
+    },
+
+    setAttribute: (windowId, el, attName, value) => {
+      binMsg.setUint32(0, windowId, LE)
+      binMsg.setUint32(4, el, LE)
+      dispatch(GFT_SET_ATTRIBUTE, binMsg, utf8.encode(attName), utf8.encode(value))
+    },
+
+    removeAttribute: (windowId, el, attName) => {
+      binMsg.setUint32(0, windowId, LE)
+      binMsg.setUint32(4, el, LE)
+      dispatch(GFT_REMOVE_ATTRIBUTE, binMsg, utf8.encode(attName))
     },
 
     setStyle: (windowId, el, prop, value) => {
