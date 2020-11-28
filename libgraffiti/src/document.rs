@@ -1,6 +1,5 @@
 // observable model
 
-//use crate::style::Style;
 use std::collections::HashMap;
 use crate::util::{IdTree};
 
@@ -17,7 +16,6 @@ pub enum DocumentEvent {
 
     ElementCreated(NodeId),
     AttributesChanged(NodeId),
-//    StyleChanged(NodeId),
 }
 
 pub struct Document {
@@ -37,7 +35,6 @@ impl Document {
         let root = tree.create_node(NodeData::Element(ElementData {
             local_name: ":root".to_owned(),
             attributes: HashMap::new(),
-            //style: Style::new()
          }));
 
         if let Some(l) = &listener {
@@ -115,7 +112,6 @@ impl Document {
         let id = self.tree.create_node(NodeData::Element(ElementData {
             local_name: local_name.to_owned(),
             attributes: HashMap::new(),
-            //style: Style::new(),
         }));
 
         self.emit(Event::ElementCreated(id));
@@ -143,19 +139,6 @@ impl Document {
         self.emit(Event::AttributesChanged(element));
     }
 
-    /*
-    pub fn style(&self, node: NodeId) -> &Style {
-        &self.tree.data(node).el().style
-    }
-
-    pub fn set_style(&mut self, element: NodeId, prop: &str, value: &str) {
-        todo!();
-        //self.nodes[element] = self.nodes[element].with(|el| el.el_mut().style.set_prop_value(prop, value).unwrap_or(()));
-
-        //self.emit(Event::StyleChanged(element));
-    }
-    */
-
     // helpers
 
     fn emit(&self, event: Event) {
@@ -176,7 +159,6 @@ enum NodeData {
 struct ElementData {
     local_name: String,
     attributes: HashMap<String, String>,
-    //style: Style,
 }
 
 // TODO: macro?

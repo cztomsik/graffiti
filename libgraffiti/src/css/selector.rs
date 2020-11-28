@@ -13,6 +13,7 @@
 // x decoupled from other systems
 
 use crate::util::Atom;
+use std::convert::TryFrom;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Tag {
@@ -125,11 +126,16 @@ impl Selector {
     }
 }
 
-impl From<&str> for Selector {
-    fn from(selector: &str) -> Self {
-        parse::selector()
-            .parse(selector.trim().as_bytes())
-            .expect("invalid selector")
+#[derive(Debug)]
+pub struct InvalidSelector;
+
+impl TryFrom<&str> for Selector {
+    type Error = InvalidSelector;
+
+    fn try_from(selector: &str) -> Result<Self, Self::Error> {
+        (parse::selector() - pom::parser::end())
+            .parse(selector.as_bytes())
+            .map_err(|_| InvalidSelector)
     }
 }
 
@@ -163,31 +169,50 @@ impl<'a, T: IntoIterator<Item = &'a Atom<Tag>>> From<T> for SelectorMask {
     }
 }
 
-mod parse {
+pub(crate) mod parse {
     use super::*;
     use pom::char_class::alphanum;
     use pom::parser::*;
 
-    pub fn selector<'a>() -> Parser<'a, u8, Selector> {
-        let local_name = ident().map(|s| Tag::LocalName(s.to_string()));
-        let id = sym(b'#') * ident().map(|s| Tag::Identifier(s.to_string()));
-        let class_name = sym(b'.') * ident().map(|s| Tag::ClassNamePart(s.to_string()));
+    pub(crate) fn selector<'a>() -> Parser<'a, u8, Selector> {
+        let tag = || {
+            let ident = || ident().map(str::to_owned);
+            let local_name = ident().map(Tag::LocalName);
+            let id = sym(b'#') * ident().map(Tag::Identifier);
+            let class_name = sym(b'.') * ident().map(Tag::ClassNamePart);
+            let universal = sym(b'*').map(|_| SelectorPart::Combinator(Combinator::Universal));
+
+            universal | (local_name | id | class_name).map(Atom::new).map(SelectorPart::Tag)
+        };
 
         // note we parse child/descendant but we flip the final order so it's parent/ancestor
-        let universal = sym(b'*').map(|_| Combinator::Universal);
-        let child = sym(b' ').repeat(0..) * sym(b'>') * sym(b' ').repeat(0..).map(|_| Combinator::Parent);
+        let child = space() * sym(b'>') * space().map(|_| Combinator::Parent);
         let descendant = sym(b' ').repeat(1..).map(|_| Combinator::Ancestor);
-        let or = sym(b' ').repeat(0..) * sym(b',') * sym(b' ').repeat(0..).map(|_| Combinator::Or);
+        let or = space() * sym(b',') * space().map(|_| Combinator::Or);
+        let comb = (child | descendant | or).map(SelectorPart::Combinator);
 
-        let tags = (local_name | id | class_name).map(Atom::new).map(SelectorPart::Tag);
-        let combinators = (universal | child | descendant | or).map(SelectorPart::Combinator);
+        let selector = tag() + (comb.opt() + tag()).repeat(0..);
 
-        (tags | combinators).repeat(1..).map(|mut parts| {
-            // child/descendant -> parent/ancestor
-            parts.reverse();
+        selector.map(|(head, tail)| {
+            let mut parts = Vec::with_capacity(tail.len() + 1);
+
+            // reversed (child/descendant -> parent/ancestor)
+            for (comb, tag) in tail.into_iter().rev() {
+                parts.push(tag);
+
+                if let Some(comb) = comb {
+                    parts.push(comb);
+                }
+            }
+
+            parts.push(head);
 
             Selector { parts }
         })
+    }
+
+    fn space<'a>() -> Parser<'a, u8, ()> {
+        sym(b' ').repeat(0..).discard()
     }
 
     fn ident<'a>() -> Parser<'a, u8, &'a str> {
@@ -218,7 +243,7 @@ mod tests {
         use SelectorPart as P;
         use Tag as T;
 
-        let s = |s| Selector::from(s).parts;
+        let s = |s| Selector::try_from(s).unwrap().parts;
         #[allow(non_snake_case)]
         let A = Atom::new;
 
@@ -290,13 +315,19 @@ mod tests {
                 P::Tag(A(T::LocalName("body".into()))),
             ]
         );
+
+        // invalid
+        assert!(Selector::try_from("").is_err());
+        assert!(Selector::try_from(" ").is_err());
+        assert!(Selector::try_from("a,,b").is_err());
+        assert!(Selector::try_from("a>>b").is_err());
     }
 
     #[test]
     fn matching() {
         use Tag as T;
 
-        let s = Selector::from;
+        let s = |s| Selector::try_from(s).unwrap();
 
         let stack = vec![
             vec![T::LocalName("html".into())],

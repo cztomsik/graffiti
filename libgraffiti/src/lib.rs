@@ -8,8 +8,6 @@ mod document;
 mod gfx;
 mod layout;
 mod render;
-mod selector;
-mod style;
 mod viewport;
 mod window;
 
@@ -38,7 +36,9 @@ mod bindings {
 pub mod unstable {
     pub use crate::app::App;
     pub use crate::document::Document;
-    pub use crate::window::Window;
-    pub use crate::viewport::Viewport;
     pub use crate::gfx::Surface;
+    pub use crate::viewport::Viewport;
+    pub use crate::window::Window;
+}
+
 }

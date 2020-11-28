@@ -1,4 +1,6 @@
 // debug logging
+// TODO: use combination of #[cfg(debug_assertions)]
+//       & debug level from env variable using init!()
 // (run cargo with `--features silly/debug`)
 
 macro_rules! debug {

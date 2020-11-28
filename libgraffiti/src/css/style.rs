@@ -10,7 +10,7 @@ use core::convert::TryFrom;
 use std::error::Error;
 use std::mem::discriminant;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Style {
     props: Vec<StyleProp>,
 }
@@ -43,6 +43,12 @@ impl Style {
         }
 
         Ok(())
+    }
+}
+
+impl From<&str> for Style {
+    fn from(style: &str) -> Style {
+        parse::style().parse(style.as_bytes()).unwrap()
     }
 }
 
@@ -320,12 +326,26 @@ mod tests {
     }
 }
 
-mod parse {
+pub(crate) mod parse {
     use super::*;
     use pom::char_class::{alpha, hex_digit};
     use pom::parser::*;
 
-    pub fn parse_style_prop<'a>(prop: &'a str, value: &'a str) -> Result<StyleProp, &'a str> {
+    pub(crate) fn style<'a>() -> Parser<'a, u8, Style> {
+        // TODO: quotes, comments, etc.
+        let prop_name = is_a(alpha_dash).repeat(1..).collect().convert(std::str::from_utf8);
+        let prop_value = none_of(b";{}\"'").repeat(0..).collect().convert(std::str::from_utf8);
+    
+        let prop = prop_name - sym(b':') - space() + prop_value - one_of(b"; \n\r\t").repeat(0..);
+
+        prop.repeat(0..).map(|props| Style {
+            props: props.iter().filter_map(|(p, v)| {
+                parse_style_prop(p, v).ok()
+            }).collect()
+        })
+    }
+
+    pub(super) fn parse_style_prop<'a>(prop: &'a str, value: &'a str) -> Result<StyleProp, &'a str> {
         let parser = match prop {
             "align-content" => align().map(StyleProp::AlignContent),
             "align-items" => align().map(StyleProp::AlignItems),
@@ -565,7 +585,7 @@ mod parse {
     }
 
     fn space<'a>() -> Parser<'a, u8, ()> {
-        sym(b' ').repeat(0..).discard()
+        one_of(b" \t\r\n").repeat(0..).discard()
     }
 
     fn fail<'a, T: 'static>(msg: &'static str) -> Parser<'a, u8, T> {
