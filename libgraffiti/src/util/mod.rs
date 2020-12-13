@@ -20,10 +20,10 @@ macro_rules! c_string {
 */
 
 macro_rules! offsetof {
-    ($ty:ty, $field:ident $(,)?) => ({
+    ($ty:ty, $field:ident $(,)?) => {{
         let null: &$ty = core::mem::transmute(ptr::null::<$ty>());
         &null.$field as *const _ as *const std::os::raw::c_void
-    });
+    }};
 }
 
 #[macro_use]
@@ -39,20 +39,15 @@ mod lazy;
 pub(crate) mod dylib;
 
 mod atom;
-
 mod id_tree;
-
-mod slotmap;
-
 mod lookup;
-
+mod slotmap;
 mod tree;
 
-pub use tree::Tree;
-pub(crate) use tree::TreeAdapter;
-pub use dylib::Dylib;
-pub use lazy::Lazy;
-pub use lookup::Lookup;
-pub use slotmap::SlotMap;
-pub use id_tree::IdTree;
-pub use atom::Atom;
+pub use atom::*;
+pub use dylib::*;
+pub use id_tree::*;
+pub use lazy::*;
+pub use lookup::*;
+pub use slotmap::*;
+pub use tree::*;

@@ -24,17 +24,17 @@ pub enum Tag {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Selector {
-    parts: Vec<SelectorPart>,
+    pub(super) parts: Vec<SelectorPart>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum SelectorPart {
+pub(super) enum SelectorPart {
     Combinator(Combinator),
     Tag(Atom<Tag>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum Combinator {
+pub(super) enum Combinator {
     Universal,
     Parent,
     Ancestor,
@@ -133,7 +133,7 @@ impl TryFrom<&str> for Selector {
     type Error = InvalidSelector;
 
     fn try_from(selector: &str) -> Result<Self, Self::Error> {
-        (parse::selector() - pom::parser::end())
+        (super::parser::selector() - pom::parser::end())
             .parse(selector.as_bytes())
             .map_err(|_| InvalidSelector)
     }
@@ -169,61 +169,6 @@ impl<'a, T: IntoIterator<Item = &'a Atom<Tag>>> From<T> for SelectorMask {
     }
 }
 
-pub(crate) mod parse {
-    use super::*;
-    use pom::char_class::alphanum;
-    use pom::parser::*;
-
-    pub(crate) fn selector<'a>() -> Parser<'a, u8, Selector> {
-        let tag = || {
-            let ident = || ident().map(str::to_owned);
-            let local_name = ident().map(Tag::LocalName);
-            let id = sym(b'#') * ident().map(Tag::Identifier);
-            let class_name = sym(b'.') * ident().map(Tag::ClassNamePart);
-            let universal = sym(b'*').map(|_| SelectorPart::Combinator(Combinator::Universal));
-
-            universal | (local_name | id | class_name).map(Atom::new).map(SelectorPart::Tag)
-        };
-
-        // note we parse child/descendant but we flip the final order so it's parent/ancestor
-        let child = space() * sym(b'>') * space().map(|_| Combinator::Parent);
-        let descendant = sym(b' ').repeat(1..).map(|_| Combinator::Ancestor);
-        let or = space() * sym(b',') * space().map(|_| Combinator::Or);
-        let comb = (child | descendant | or).map(SelectorPart::Combinator);
-
-        let selector = tag() + (comb.opt() + tag()).repeat(0..);
-
-        selector.map(|(head, tail)| {
-            let mut parts = Vec::with_capacity(tail.len() + 1);
-
-            // reversed (child/descendant -> parent/ancestor)
-            for (comb, tag) in tail.into_iter().rev() {
-                parts.push(tag);
-
-                if let Some(comb) = comb {
-                    parts.push(comb);
-                }
-            }
-
-            parts.push(head);
-
-            Selector { parts }
-        })
-    }
-
-    fn space<'a>() -> Parser<'a, u8, ()> {
-        sym(b' ').repeat(0..).discard()
-    }
-
-    fn ident<'a>() -> Parser<'a, u8, &'a str> {
-        is_a(alphanum_dash).repeat(1..).collect().convert(std::str::from_utf8)
-    }
-
-    fn alphanum_dash(b: u8) -> bool {
-        alphanum(b) || b == b'-'
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -235,92 +180,6 @@ mod tests {
         use std::mem::size_of;
 
         assert_eq!(size_of::<SelectorPart>(), size_of::<Atom<Tag>>())
-    }
-
-    #[test]
-    fn parsing() {
-        use Combinator as C;
-        use SelectorPart as P;
-        use Tag as T;
-
-        let s = |s| Selector::try_from(s).unwrap().parts;
-        #[allow(non_snake_case)]
-        let A = Atom::new;
-
-        // simple
-        assert_eq!(s("*"), &[P::Combinator(C::Universal)]);
-        assert_eq!(s("body"), &[P::Tag(A(T::LocalName("body".into())))]);
-        assert_eq!(s("h2"), &[P::Tag(A(T::LocalName("h2".into())))]);
-        assert_eq!(s("#app"), &[P::Tag(A(T::Identifier("app".into())))]);
-        assert_eq!(s(".btn"), &[P::Tag(A(T::ClassNamePart("btn".into())))]);
-
-        // combined
-        assert_eq!(
-            s(".btn.btn-primary"),
-            &[
-                P::Tag(A(T::ClassNamePart("btn-primary".into()))),
-                P::Tag(A(T::ClassNamePart("btn".into())))
-            ]
-        );
-        assert_eq!(
-            s("*.test"),
-            &[
-                P::Tag(A(T::ClassNamePart("test".into()))),
-                P::Combinator(Combinator::Universal)
-            ]
-        );
-        assert_eq!(
-            s("div#app.test"),
-            &[
-                P::Tag(A(T::ClassNamePart("test".into()))),
-                P::Tag(A(T::Identifier("app".into()))),
-                P::Tag(A(T::LocalName("div".into())))
-            ]
-        );
-
-        // combined with combinators
-        assert_eq!(
-            s("body > div.test div#test"),
-            &[
-                P::Tag(A(T::Identifier("test".into()))),
-                P::Tag(A(T::LocalName("div".into()))),
-                P::Combinator(C::Ancestor),
-                P::Tag(A(T::ClassNamePart("test".into()))),
-                P::Tag(A(T::LocalName("div".into()))),
-                P::Combinator(C::Parent),
-                P::Tag(A(T::LocalName("body".into())))
-            ]
-        );
-
-        // multi
-        assert_eq!(
-            s("html, body"),
-            &[
-                P::Tag(A(T::LocalName("body".into()))),
-                P::Combinator(C::Or),
-                P::Tag(A(T::LocalName("html".into())))
-            ]
-        );
-        assert_eq!(
-            s("body > div, div button span"),
-            &[
-                P::Tag(A(T::LocalName("span".into()))),
-                P::Combinator(C::Ancestor),
-                P::Tag(A(T::LocalName("button".into()))),
-                P::Combinator(C::Ancestor),
-                P::Tag(A(T::LocalName("div".into()))),
-                P::Combinator(C::Or),
-                P::Tag(A(T::LocalName("div".into()))),
-                P::Combinator(C::Parent),
-                P::Tag(A(T::LocalName("body".into()))),
-            ]
-        );
-
-        // invalid
-        assert!(Selector::try_from("").is_err());
-        assert!(Selector::try_from(" ").is_err());
-        assert!(Selector::try_from("a,,b").is_err());
-        assert!(Selector::try_from("a>>b").is_err());
     }
 
     #[test]
