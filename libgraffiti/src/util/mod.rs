@@ -27,9 +27,6 @@ macro_rules! offsetof {
 }
 
 #[macro_use]
-mod debug;
-
-#[macro_use]
 mod init;
 
 #[macro_use]

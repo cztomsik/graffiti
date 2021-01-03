@@ -1,0 +1,11 @@
+[package]
+name = "graffiti-yoga"
+version = "1.18.0"
+edition = "2018"
+build = "build.rs"
+
+[lib]
+path = "lib.rs"
+
+[build-dependencies]
+cc = "1"

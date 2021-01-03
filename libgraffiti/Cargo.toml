@@ -11,30 +11,29 @@ crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 pom = "3.2.0"
+fontdue = "0.4.0"
 graffiti-glfw = { path = "graffiti-glfw" }
-# TODO: platform-specific font/text dylib(s)
-graffiti-stb = { path = "graffiti-stb" }
-stretch = { git = "https://github.com/cztomsik/stretch" }
-gl = "0.14.0"
-nanovg-sys = { version = "1.0.2", features = ["gl2"] }
+graffiti-yoga = { path = "graffiti-yoga" }
+paste = "1.0"
+fnv = "1.0.7"
 # TODO: fork it & make serde optional
 arc-interner = "0.5.0"
-fnv = "1.0.7"
+
+# --features=tiny_skia
+tiny-skia = { git = "https://github.com/RazrFalcon/tiny-skia", rev = "7b5914d", optional = true }
 
 [features]
 default = []
 
-# nodejs bindings
+# bindings
 nodejs = []
-
-# deno bindings
 deno = []
 
-# include debug logs
-debug = []
-silly = []
-
 [profile.release]
-# fix raspi --release builds
-# https://github.com/rust-lang/rust/issues/62896
+# fix --release for raspi https://github.com/rust-lang/rust/issues/62896
 codegen-units = 1
+
+[[example]]
+name = "tiny_skia"
+path = "examples/tiny_skia.rs"
+required-features = ["tiny-skia"]

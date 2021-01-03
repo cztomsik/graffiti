@@ -83,7 +83,7 @@ macro_rules! dylib {
         unsafe impl Sync for __LibFns {}
         static mut __LIB_FNS: __LibFns = __LibFns { $( $fn: crate::util::dylib::__not_loaded as _ ),* };
 
-        pub(crate) unsafe fn load_with(load_symbol: fn(&str) -> *mut c_void) {
+        pub(crate) unsafe fn load_with(load_symbol: impl Fn(&str) -> *mut c_void) {
             $(__LIB_FNS.$fn = load_symbol(stringify!($fn));)*
         }
 

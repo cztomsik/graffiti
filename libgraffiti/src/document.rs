@@ -1,4 +1,7 @@
 // observable model
+// x holds the data/truth (tree of nodes)
+// x allows changes
+// x notifies listener
 
 use std::collections::HashMap;
 use crate::util::{IdTree};
@@ -8,7 +11,6 @@ pub type NodeId = u32;
 #[derive(Debug)]
 pub enum DocumentEvent {
     ParentChanged(NodeId),
-    ChildrenChanged(NodeId),
     NodeDestroyed(NodeId),
 
     TextNodeCreated(NodeId),
@@ -16,20 +18,23 @@ pub enum DocumentEvent {
 
     ElementCreated(NodeId),
     AttributesChanged(NodeId),
+    NodeInserted(NodeId, NodeId, usize),
+    NodeRemoved(NodeId, NodeId),
 }
 
 pub struct Document {
     tree: IdTree<NodeData>,
     root: NodeId,
 
-    listener: Option<Box<dyn Fn(DocumentEvent)>>
+    listener: Box<dyn Fn(DocumentEvent)>
 }
 
 // private shorthand
 type Event = DocumentEvent;
 
 impl Document {
-    pub fn new(listener: Option<Box<dyn Fn(DocumentEvent)>>) -> Self {
+    pub fn new(listener: impl Fn(DocumentEvent) + 'static) -> Self {
+        let listener = Box::new(listener);
         let mut tree = IdTree::new();
 
         let root = tree.create_node(NodeData::Element(ElementData {
@@ -37,9 +42,7 @@ impl Document {
             attributes: HashMap::new(),
          }));
 
-        if let Some(l) = &listener {
-            l(Event::ElementCreated(root));
-        }
+        listener(Event::ElementCreated(root));
 
         Self { tree, root, listener }
     }
@@ -69,14 +72,14 @@ impl Document {
     pub fn insert_child(&mut self, parent: NodeId, child: NodeId, index: usize) {
         self.tree.insert_child(parent, child, index);
 
-        self.emit(Event::ChildrenChanged(parent));
+        self.emit(Event::NodeInserted(parent, child, index));
         self.emit(Event::ParentChanged(child));
     }
 
     pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
         self.tree.remove_child(parent, child);
 
-        self.emit(Event::ChildrenChanged(parent));
+        self.emit(Event::NodeRemoved(parent, child));
         self.emit(Event::ParentChanged(child));
     }
 
@@ -142,9 +145,7 @@ impl Document {
     // helpers
 
     fn emit(&self, event: Event) {
-        if let Some(listener) = &self.listener {
-            listener(event);
-        }
+        (self.listener)(event);
     }
 }
 
@@ -194,7 +195,7 @@ mod tests {
 
     #[test]
     fn test() {
-        let mut d = Document::new(None);
+        let mut d = Document::new(|_| {});
 
         let div = d.create_element("div");
         let hello = d.create_text_node("hello");

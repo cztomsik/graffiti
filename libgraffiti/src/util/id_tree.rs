@@ -52,7 +52,6 @@ impl<T> IdTree<T> {
     }
 
     pub fn insert_child(&mut self, parent: NodeId, child: NodeId, index: usize) {
-        silly!("insert {:?}", (parent, child, index));
         debug_assert_eq!(self.nodes[child].parent, None);
 
         if index == 0 {
@@ -71,7 +70,6 @@ impl<T> IdTree<T> {
     }
 
     pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
-        silly!("remove {:?}", (parent, child));
         debug_assert_eq!(self.nodes[child].parent, Some(parent));
 
         if let Some(prev) = self.prev_sibling(child) {

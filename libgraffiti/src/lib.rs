@@ -5,9 +5,7 @@ mod api;
 mod app;
 mod css;
 mod document;
-mod gfx;
 mod layout;
-mod render;
 mod viewport;
 mod window;
 
