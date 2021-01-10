@@ -1,128 +1,116 @@
-// s tim microserde to vypadalo asi lip (a nodejs by mozna bylo taky snazsi pak)
-
 // deno bindings
 
-use super::API;
-use crate::api::WindowId;
-use crate::util::Lazy;
-use crate::window::Event;
-use core::future::Future;
+use crate::util::SlotMap;
+use crate::{App, Viewport, Window};
+use core::cell::RefCell;
 use deno_unstable_api::*;
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::Mutex;
-use std::task::Waker;
-use std::task::{Context, Poll};
+use std::rc::Rc;
 
-// temporary hack
-static WAKERS: Lazy<Mutex<Vec<Waker>>> = lazy!(|| Mutex::new(Vec::new()));
+type WindowId = u32;
+type ViewportId = u32;
+
+#[derive(Default)]
+struct Ctx {
+    app: Option<Rc<App>>,
+    windows: SlotMap<WindowId, Window>,
+    viewports: SlotMap<ViewportId, Viewport>,
+}
+
+thread_local! {
+    static CTX: RefCell<Ctx> = Default::default()
+}
 
 #[no_mangle]
 pub fn deno_plugin_init(interface: &mut dyn Interface) {
-    silly!("deno_plugin_init");
+    dbg!();
 
     macro_rules! op {
-        ($name: expr, $handler: expr) => {
+        // TODO: generics
+        ($name: literal, |$ctx:ident, ($($arg:ident),*)| $body:tt) => {
             interface.register_op($name, |_, bufs| {
-                silly!("[deno] {}", $name);
-                let handler: fn(&mut ArgsReader) -> _ = $handler;
-                handler(&mut ArgsReader::new(bufs.iter().map(|b| &**b))).into()
+                CTX.with(|ctx| {
+                    let mut $ctx = ctx.borrow_mut();
+                    let mut _bufs = bufs.iter();
+                    $(let $arg = FromBytes::from_bytes(_bufs.next().expect("arg missing"));)*
+
+                    ($body).into()
+                })
             })
         };
     }
 
-    op!("GFT_TICK", |_| API.tick());
+    op!("GFT_INIT", |ctx, ()| {
+        ctx.app = Some(unsafe { App::init() });
+    });
 
-    op!("GFT_CREATE_WINDOW", |arg| API.create_window(arg.str(), arg.i32(), arg.i32(), |win| {
-        WAKERS.lock().unwrap().drain(..).for_each(Waker::wake);
-    }));
+    op!("GFT_NEXT_EVENT", |ctx, ()| {
+        // TODO: return win id + event or wait or undefined
+    });
 
-    op!("GFT_CREATE_TEXT_NODE", |arg| API.create_text_node(arg.u32(), arg.str()));
-    op!("GFT_SET_TEXT", |arg| API.set_text(arg.u32(), arg.u32(), arg.str()));
+    op!("GFT_CREATE_WINDOW", |ctx, (title, width, height)| {
+        let window = ctx.app.as_ref().expect("no app").create_window(title, width, height);
+        ctx.windows.insert(window)
+    });
 
-    op!("GFT_CREATE_ELEMENT", |arg| API.create_element(arg.u32(), arg.str()));
-    op!("GFT_SET_STYLE", |arg| API.set_style(arg.u32(), arg.u32(), arg.str(), arg.str()));
-    op!("GFT_SET_ATTRIBUTE", |arg| API.set_attribute(arg.u32(), arg.u32(), arg.str(), arg.str()));
-    op!("GFT_REMOVE_ATTRIBUTE", |arg| API.remove_attribute(arg.u32(), arg.u32(), arg.str()));
-    op!("GFT_INSERT_CHILD", |arg| API.insert_child(arg.u32(), arg.u32(), arg.u32(), arg.u32() as usize));
-    op!("GFT_REMOVE_CHILD", |arg| API.remove_child(arg.u32(), arg.u32(), arg.u32()));
+    op!("GFT_CREATE_VIEWPORT", |_ctx, ()| {
+        //state.viewports.insert(Viewport::new(GlBackend::new()));
+    });
 
-    op!("GFT_TAKE_EVENT", |arg| {
-        struct NextEvent(WindowId);
+    op!("GFT_CREATE_TEXT_NODE", |ctx, (viewport, text)| {
+        ctx.viewports[viewport].document_mut().create_text_node(text)
+    });
 
-        impl Future for NextEvent {
-            type Output = Box<[u8]>;
+    op!("GFT_SET_TEXT", |ctx, (viewport, node, text)| {
+        ctx.viewports[viewport].document_mut().set_text(node, text)
+    });
 
-            fn poll(self: std::pin::Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<<Self>::Output> {
-                match API.take_event(self.0) {
-                    Some(event) => Poll::Ready(bytes(event)),
-                    None => {
-                        WAKERS.lock().unwrap().push(ctx.waker().clone());
+    op!("GFT_CREATE_ELEMENT", |ctx, (viewport, local_name)| {
+        ctx.viewports[viewport].document_mut().create_element(local_name)
+    });
 
-                        Poll::Pending
-                    }
-                }
-            }
-        }
+    op!("GFT_SET_ATTRIBUTE", |ctx, (viewport, el, att, value)| {
+        ctx.viewports[viewport].document_mut().set_attribute(el, att, value)
+    });
 
-        Op::Async(Box::pin(NextEvent(arg.u32())))
-    })
+    op!("GFT_REMOVE_ATTRIBUTE", |ctx, (viewport, el, att)| {
+        ctx.viewports[viewport].document_mut().remove_attribute(el, att)
+    });
+
+    op!("GFT_INSERT_CHILD", |ctx, (viewport, el, child, index)| {
+        // TODO: usize arg?
+        let index: u32 = index;
+        let index = index as _;
+
+        ctx.viewports[viewport].document_mut().insert_child(el, child, index)
+    });
+
+    op!("GFT_REMOVE_CHILD", |ctx, (viewport, parent, child)| {
+        ctx.viewports[viewport].document_mut().remove_child(parent, child)
+    });
 }
 
-use std::cell::Cell;
+// safe to read from &[u8], any combination MUST HAVE valid meaning
+trait Pod: Copy {}
+impl Pod for u32 {}
+impl Pod for i32 {}
+impl Pod for f32 {}
+impl Pod for f64 {}
 
-struct ArgsReader<'a> {
-    bin: &'a [u8],
-    offset: Cell<usize>,
-    strs: Vec<&'a str>,
-    str_index: Cell<usize>,
+trait FromBytes<'a> {
+    fn from_bytes(bytes: &'a [u8]) -> Self;
 }
 
-impl<'a> ArgsReader<'a> {
-    fn new(mut bufs: impl Iterator<Item = &'a [u8]>) -> Self {
-        Self {
-            bin: bufs.next().unwrap_or(&[]),
-            offset: Cell::new(0),
-            strs: bufs.map(|b| unsafe { std::str::from_utf8_unchecked(b) }).collect(),
-            str_index: Cell::new(0),
-        }
-    }
-
-    fn u32(&self) -> u32 {
-        self.pod()
-    }
-
-    fn i32(&self) -> i32 {
-        self.pod()
-    }
-
-    fn pod<T: Copy>(&self) -> T {
-        let res = unsafe { *(&self.bin[self.offset.get()] as *const _ as *const T) };
-
-        self.offset.set(self.offset.get() + std::mem::size_of::<T>());
-
-        res
-    }
-
-    fn str(&self) -> &str {
-        let res = self.strs.get(self.str_index.get()).expect("str missing");
-
-        self.str_index.set(self.str_index.get() + 1);
-
-        res
+impl<'a, T: Pod> FromBytes<'a> for T {
+    fn from_bytes(bytes: &'a [u8]) -> T {
+        assert!(bytes.len() == std::mem::size_of::<T>());
+        unsafe { *(bytes.as_ptr() as *const _) }
     }
 }
 
-impl<T: Copy> From<T> for Op {
-    fn from(v: T) -> Self {
-        Self::Sync(bytes(v))
+impl<'a> FromBytes<'a> for &'a str {
+    fn from_bytes(bytes: &'a [u8]) -> Self {
+        std::str::from_utf8(bytes).expect("utf-8")
     }
-}
-
-fn bytes<T: Copy>(v: T) -> Box<[u8]> {
-    let data_ptr = Box::into_raw(Box::new(v));
-    let len = std::mem::size_of::<T>();
-
-    unsafe { Vec::from_raw_parts(data_ptr as *mut u8, len, len).into_boxed_slice() }
 }
 
 // subset of deno plugin api so we don't need to compile whole deno
@@ -133,14 +121,22 @@ mod deno_unstable_api {
         fn register_op(&mut self, name: &str, handler: fn(&mut dyn Interface, &mut [V8Buf]) -> Op);
     }
 
-    pub type Buf = Box<[u8]>;
-
-    pub type OpAsyncFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Buf>>>;
+    pub type OpAsyncFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Box<[u8]>>>>;
 
     pub enum Op {
-        Sync(Buf),
+        Sync(Box<[u8]>),
         Async(OpAsyncFuture),
         AsyncUnref(OpAsyncFuture),
+    }
+
+    impl<T: Copy> From<T> for Op {
+        fn from(v: T) -> Self {
+            let data_ptr = Box::into_raw(Box::new(v));
+            let len = std::mem::size_of::<T>();
+            let bytes = unsafe { Vec::from_raw_parts(data_ptr as *mut u8, len, len).into_boxed_slice() };
+
+            Self::Sync(bytes)
+        }
     }
 
     pub struct V8Buf {
@@ -155,12 +151,6 @@ mod deno_unstable_api {
 
         fn deref(&self) -> &[u8] {
             unsafe { std::slice::from_raw_parts((*self.data_ptr_ptr).add(self.offset), self.len) }
-        }
-    }
-
-    impl core::ops::DerefMut for V8Buf {
-        fn deref_mut(&mut self) -> &mut [u8] {
-            unsafe { std::slice::from_raw_parts_mut((*self.data_ptr_ptr).add(self.offset), self.len) }
         }
     }
 }

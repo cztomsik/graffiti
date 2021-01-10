@@ -21,11 +21,17 @@ impl<V> SlotMap<u32, V> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (u32, &V)> + '_ {
-        self.slots.iter().enumerate().filter_map(|(i, slot)| slot.as_ref().map(|v| (i as u32, v)))
+        self.slots
+            .iter()
+            .enumerate()
+            .filter_map(|(i, slot)| slot.as_ref().map(|v| (i as u32, v)))
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (u32, &mut V)> + '_ {
-        self.slots.iter_mut().enumerate().filter_map(|(i, slot)| slot.as_mut().map(|v| (i as u32, v)))
+        self.slots
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(i, slot)| slot.as_mut().map(|v| (i as u32, v)))
     }
 
     pub fn slot(&self, key: u32) -> &Option<V> {
@@ -51,7 +57,6 @@ impl<V> SlotMap<u32, V> {
     pub fn put(&mut self, key: u32, value: V) {
         // TODO: full
         let min_len = key as usize + 1;
-        
         if min_len > self.slots.len() {
             self.slots.resize_with(min_len, || None);
         }
@@ -61,6 +66,12 @@ impl<V> SlotMap<u32, V> {
 
     pub fn remove(&mut self, key: u32) {
         *self.slot_mut(key) = None;
+    }
+}
+
+impl<V> Default for SlotMap<u32, V> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

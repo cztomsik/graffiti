@@ -17,43 +17,47 @@ impl LayoutEngine {
     }
 
     pub fn create_node(&mut self) -> LayoutNode {
-        unsafe { 
+        unsafe {
             let node = YGNodeNew();
 
             YGNodeStyleSetPadding(node, YGEdge::All, 10.);
             YGNodeStyleSetMinWidth(node, 100.);
             YGNodeStyleSetMinHeight(node, 20.);
 
-            node
+            LayoutNode(node)
         }
     }
 
     pub fn insert_child(&mut self, parent: LayoutNode, child: LayoutNode, index: usize) {
-        unsafe { YGNodeInsertChild(parent, child, index.try_into().unwrap()) }
+        unsafe { YGNodeInsertChild(parent.0, child.0, index.try_into().unwrap()) }
     }
 
     pub fn remove_child(&mut self, parent: LayoutNode, child: LayoutNode) {
-        unsafe { YGNodeRemoveChild(parent, child) }
+        unsafe { YGNodeRemoveChild(parent.0, child.0) }
     }
 
     pub fn calculate(&mut self, root: LayoutNode, avail_size: (f32, f32)) {
         // height is ignored (yoga would use it as maxHeight which is not what we want, for now)
-        unsafe { YGNodeCalculateLayout(root, avail_size.0, YGUndefined, YGDirection::LTR) }
+        unsafe { YGNodeCalculateLayout(root.0, avail_size.0, YGUndefined, YGDirection::LTR) }
     }
 
     #[inline]
-    pub fn node_offset(&self, node: YGNodeRef) -> (f32, f32) {
-        unsafe { (YGNodeLayoutGetLeft(node), YGNodeLayoutGetTop(node)) }
+    pub fn node_offset(&self, node: LayoutNode) -> (f32, f32) {
+        unsafe { (YGNodeLayoutGetLeft(node.0), YGNodeLayoutGetTop(node.0)) }
     }
 
     #[inline]
-    pub fn node_size(&self, node: YGNodeRef) -> (f32, f32) {
-        unsafe { (YGNodeLayoutGetWidth(node), YGNodeLayoutGetHeight(node)) }
+    pub fn node_size(&self, node: LayoutNode) -> (f32, f32) {
+        unsafe { (YGNodeLayoutGetWidth(node.0), YGNodeLayoutGetHeight(node.0)) }
     }
 
     pub fn free_node(&mut self, node: LayoutNode) {
-        unsafe { YGNodeFree(node) }
+        unsafe { YGNodeFree(node.0) }
     }
 }
 
-pub type LayoutNode = YGNodeRef;
+#[derive(Clone, Copy)]
+pub struct LayoutNode(YGNodeRef);
+
+unsafe impl Send for LayoutNode {}
+unsafe impl Sync for LayoutNode {}

@@ -1,4 +1,9 @@
-pub trait RenderBackend {
+// low-level rendering
+// x inspired by imgui backend
+// x super-simple to implement
+//   (or to integrate to an existing game engine pipeline)
+
+pub trait RenderBackend: Send + Sync {
   fn render_frame(&mut self, frame: Frame);
 }
 

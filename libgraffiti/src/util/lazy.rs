@@ -52,9 +52,3 @@ impl<T> core::ops::Deref for Lazy<T> {
         unsafe { (*self.inner()).as_ref().unwrap() }
     }
 }
-
-impl<T> core::ops::DerefMut for Lazy<T> {
-    fn deref_mut(&mut self) -> &mut T {
-        unsafe { (*self.inner()).as_mut().unwrap() }
-    }
-}
