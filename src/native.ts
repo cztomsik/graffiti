@@ -34,9 +34,10 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
   const rid = Deno.openPlugin(LIB)
 
   const {
-    GFT_TICK,
+    GFT_INIT,
+    GFT_NEXT_EVENT,
     GFT_CREATE_WINDOW,
-    GFT_TAKE_EVENT,
+    GFT_CREATE_VIEWPORT,
     GFT_CREATE_TEXT_NODE,
     GFT_SET_TEXT,
     GFT_CREATE_ELEMENT,
@@ -52,10 +53,17 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
   const utf8 = new TextEncoder()
 
   // const(perf)
-  const dispatch = Deno.core.dispatch
+  const dispatch = (...args) => {
+    const res = Deno.core.dispatch(...args)
 
-  // shared
-  const binMsg = new DataView(new ArrayBuffer(4 * 4))
+    if (res) {
+      return new DataView(res.buffer)
+    }
+  }
+
+  // TODO: avoid allocs, one DataView can point to one, shared ArrayBuffer
+  const i32 = v => new Int32Array([v])
+  const u32 = v => new Uint32Array([v])
 
   const decodeEvent = bytes => {
     let bin = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
@@ -75,80 +83,64 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
         return ['keyup', bin.getUint32(4, LE)]
       case 6:
         return ['keypress', bin.getUint32(4, LE)]
-      }
+    }
 
     return ERR('unknown event', bytes)
   }
 
+  dispatch(GFT_INIT)
+
   return {
-    tick: () => dispatch(GFT_TICK),
+    waitEvents: () => {
+      return dispatch(GFT_NEXT_EVENT)
+    },
 
     createWindow: (title, width, height) => {
-      binMsg.setInt32(0, width, LE)
-      binMsg.setInt32(4, height, LE)
-      return new DataView(dispatch(GFT_CREATE_WINDOW, binMsg, utf8.encode(title)).buffer).getUint32(0, LE)
+      return dispatch(GFT_CREATE_WINDOW, utf8.encode(title), i32(width), i32(height))!.getUint32(0, LE)
     },
 
-    takeEvent: (windowId, handler) => {
-      Deno.core.setAsyncHandler(GFT_TAKE_EVENT, bytes => handler(decodeEvent(bytes)))
-
-      binMsg.setUint32(0, windowId)
-      dispatch(GFT_TAKE_EVENT, binMsg)
+    nextEvent: win => {
+      //handler(decodeEvent(dispatch(GFT_NEXT_EVENT, u32(win))))
     },
 
-    createTextNode: (windowId, text) => {
-      binMsg.setUint32(0, windowId)
-      return new DataView(dispatch(GFT_CREATE_TEXT_NODE, binMsg, utf8.encode(text)).buffer).getUint32(0, LE)
+    createViewport: win => {
+      return dispatch(GFT_CREATE_VIEWPORT, u32(win))!.getUint32(0, LE)
     },
 
-    setText: (windowId, textNode, text) => {
-      binMsg.setUint32(0, windowId, LE)
-      binMsg.setUint32(4, textNode, LE)
-      dispatch(GFT_SET_TEXT, binMsg, utf8.encode(text))
+    createTextNode: (win, text) => {
+      return dispatch(GFT_CREATE_TEXT_NODE, u32(win), utf8.encode(text))!.getUint32(0, LE)
     },
 
-    createElement: (windowId, localName) => {
-      binMsg.setUint32(0, windowId, LE)
-      return new DataView(dispatch(GFT_CREATE_ELEMENT, binMsg, utf8.encode(localName)).buffer).getUint32(0, LE)
+    setText: (win, node, text) => {
+      return dispatch(GFT_SET_TEXT, u32(win), u32(node), utf8.encode(text))
     },
 
-    setAttribute: (windowId, el, attName, value) => {
-      binMsg.setUint32(0, windowId, LE)
-      binMsg.setUint32(4, el, LE)
-      dispatch(GFT_SET_ATTRIBUTE, binMsg, utf8.encode(attName), utf8.encode(value))
+    createElement: (win, localName) => {
+      return dispatch(GFT_CREATE_ELEMENT, u32(win), utf8.encode(localName))!.getUint32(0, LE)
     },
 
-    removeAttribute: (windowId, el, attName) => {
-      binMsg.setUint32(0, windowId, LE)
-      binMsg.setUint32(4, el, LE)
-      dispatch(GFT_REMOVE_ATTRIBUTE, binMsg, utf8.encode(attName))
+    setAttribute: (win, el, attName, value) => {
+      return dispatch(GFT_SET_ATTRIBUTE, u32(win), u32(el), utf8.encode(attName), utf8.encode(value))
     },
 
-    setStyle: (windowId, el, prop, value) => {
-      binMsg.setUint32(0, windowId, LE)
-      binMsg.setUint32(4, el, LE)
-      dispatch(GFT_SET_STYLE, binMsg, utf8.encode(prop), utf8.encode(value))
+    removeAttribute: (win, el, attName) => {
+      return dispatch(GFT_REMOVE_ATTRIBUTE, u32(win), utf8.encode(attName))
     },
 
-    insertChild: (windowId, parent, child, index) => {
-      binMsg.setUint32(0, windowId, LE)
-      binMsg.setUint32(4, parent, LE)
-      binMsg.setUint32(8, child, LE)
-      binMsg.setUint32(12, index, LE)
-      dispatch(GFT_INSERT_CHILD, binMsg)
+    setStyle: (win, el, prop, value) => {
+      return console.log('TODO: setStyle')
     },
 
-    removeChild: (windowId, parent, child) => {
-      binMsg.setUint32(0, windowId, LE)
-      binMsg.setUint32(4, parent, LE)
-      binMsg.setUint32(8, child, LE)
-      dispatch(GFT_REMOVE_CHILD, binMsg)
+    insertChild: (win, parent, child, index) => {
+      return dispatch(GFT_INSERT_CHILD, u32(win), u32(parent), u32(child), u32(index))
     },
 
-    freeNode: (windowId, node) => {
-      binMsg.setUint32(0, windowId, LE)
-      binMsg.setUint32(4, node, LE)
-      dispatch(GFT_FREE_NODE, binMsg)
+    removeChild: (win, parent, child) => {
+      return dispatch(GFT_REMOVE_CHILD, u32(win), u32(parent), u32(child))
+    },
+
+    freeNode: (win, node) => {
+      return dispatch(GFT_FREE_NODE, u32(win), u32(node))
     },
   }
 }

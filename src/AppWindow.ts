@@ -1,18 +1,17 @@
 export class AppWindow {
-  _worker?: Worker
+  #id: number
+  #worker?: Worker
 
-  constructor(private _id, private _createWorker) {}
-
-  async loadURL(url) {
-    this._worker?.terminate()
-
-    this._worker = this._createWorker() as Worker
-    this._worker.postMessage({ windowId: this._id, url })
+  constructor(id) {
+    this.#id = id
   }
 
-  // TODO: dispatch beforeunload and optionally call destroy()
-  // async close() {}
+  async loadURL(url) {
+    this.#worker?.terminate()
 
-  // TODO: destroy immediately (incl native window? or app should do that?)
-  // destroy() {}
+    const Worker = globalThis.Worker ?? (await import('worker_threads')).Worker
+
+    this.#worker = new Worker(new URL('worker.js', import.meta.url), { type: 'module' } as any)
+    this.#worker.postMessage({ windowId: this.#id, url })
+  }
 }

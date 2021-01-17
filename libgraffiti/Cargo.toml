@@ -16,8 +16,7 @@ graffiti-glfw = { path = "graffiti-glfw" }
 graffiti-yoga = { path = "graffiti-yoga" }
 paste = "1.0"
 fnv = "1.0.7"
-# TODO: fork it & make serde optional
-arc-interner = "0.5.0"
+dashmap = "4.0.2"
 
 # --features=tiny_skia
 tiny-skia = { git = "https://github.com/RazrFalcon/tiny-skia", rev = "7b5914d", optional = true }

@@ -1,7 +1,7 @@
 use graffiti::App;
 
 fn main() {
-    let app = unsafe { App::init() };
+    let mut app = unsafe { App::init() };
     let mut w = app.create_window("Hello", 400, 300);
     assert_eq!(w.resizable(), true);
     assert_eq!(w.size(), (400, 300));

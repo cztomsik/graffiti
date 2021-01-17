@@ -153,7 +153,7 @@ unsafe fn create_program(vs: &str, fs: &str) -> GLuint {
 
 unsafe fn shader(shader_type: GLuint, source: &str) -> GLuint {
     let shader = glCreateShader(shader_type);
-    glShaderSource(shader, 1, &(CString::new(source.as_bytes()).expect("invalid source")).as_ptr(), ptr::null());
+    glShaderSource(shader, 1, &c_str!(source), ptr::null());
     glCompileShader(shader);
 
     let mut success = GL_FALSE as GLint;
