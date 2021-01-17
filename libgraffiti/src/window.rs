@@ -1,11 +1,13 @@
 // x !Send + !Sync
 // - optional module
 
+use crate::backend::GlBackend;
+use crate::Viewport;
 use graffiti_glfw::*;
 use std::ffi::CStr;
-use std::os::raw::{c_char, c_double, c_int, c_uint, c_void};
+use std::os::raw::{c_char, c_double, c_int, c_uint};
 use std::ptr::null_mut;
-use std::rc::{Rc};
+use std::rc::Rc;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
 pub struct App {
@@ -18,7 +20,9 @@ impl App {
 
         glfwSetErrorCallback(handle_glfw_error);
 
-        Self { glfw_ctx: Rc::new(GlfwCtx) }
+        Self {
+            glfw_ctx: Rc::new(GlfwCtx),
+        }
     }
 
     pub fn create_window(&mut self, title: &str, width: i32, height: i32) -> Window {
@@ -53,6 +57,8 @@ impl Drop for GlfwCtx {
 }
 
 pub struct Window {
+    viewport: Viewport,
+
     glfw_ctx: Rc<GlfwCtx>,
     title: String,
     glfw_window: GlfwWindow,
@@ -72,7 +78,7 @@ impl Window {
                 glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
             }
 
-            let glfw_window = glfwCreateWindow(width, height, c_str!(title), null_mut(), null_mut());
+            let glfw_window = glfwCreateWindow(width, height, *c_str!(title), null_mut(), null_mut());
             assert_ne!(glfw_window, null_mut(), "create GLFW window");
             let (events_tx, events) = channel();
 
@@ -88,7 +94,15 @@ impl Window {
             glfwSetFramebufferSizeCallback(glfw_window, handle_glfw_framebuffer_size);
             glfwSetWindowCloseCallback(glfw_window, handle_glfw_window_close);
 
+            glfwMakeContextCurrent(glfw_window);
+
+            GlBackend::load_with(|s| glfwGetProcAddress(*c_str!(s)) as _);
+
+            let viewport = Viewport::new((width as _, height as _), GlBackend::new());
+
             Self {
+                viewport,
+
                 glfw_ctx,
                 title: title.to_owned(),
                 glfw_window,
@@ -97,12 +111,23 @@ impl Window {
         }
     }
 
+    pub fn viewport(&self) -> &Viewport {
+        &self.viewport
+    }
+
+    pub fn viewport_mut(&mut self) -> &mut Viewport {
+        // TODO: find a better way to make sure backend is always called in right context
+        unsafe { glfwMakeContextCurrent(self.glfw_window) }
+
+        &mut self.viewport
+    }
+
     pub fn title(&self) -> &str {
         &self.title
     }
 
     pub fn set_title(&mut self, title: &str) {
-        unsafe { glfwSetWindowTitle(self.glfw_window, c_str!(title)) }
+        unsafe { glfwSetWindowTitle(self.glfw_window, *c_str!(title)) }
 
         self.title = title.to_owned();
     }
@@ -215,15 +240,19 @@ impl Window {
         self.events.try_recv().ok()
     }
 
-
-    // misc
+    // GLFW says it's possible to call this from any thread but
+    // some people say everything related to HDC is tied to the original thread
+    // and drivers are free to depend on this
+    pub fn swap_buffers(&mut self) {
+        unsafe { glfwSwapBuffers(self.glfw_window) }
+    }
 
     pub fn clipboard_string(&self) -> Option<&str> {
         unsafe { CStr::from_ptr(glfwGetClipboardString(self.glfw_window)).to_str().ok() }
     }
 
     pub fn set_clipboard_string(&mut self, string: &str) {
-        unsafe { glfwSetClipboardString(self.glfw_window, c_str!(string)) }
+        unsafe { glfwSetClipboardString(self.glfw_window, *c_str!(string)) }
     }
 }
 

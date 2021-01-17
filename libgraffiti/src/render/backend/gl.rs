@@ -1,18 +1,25 @@
 #![allow(unused, non_snake_case)]
 
-use super::{RenderBackend, Frame, Quad, Vertex};
+use super::{Frame, Quad, RenderBackend, Vertex};
 
 /// Super-simple OpengGL 2.1 backend
 /// - one vbo
 /// - one shader
 /// - drawArrays
-pub struct GlRenderBackend {
+pub struct GlBackend {
     vao: GLuint,
     vbo: GLuint,
-    program: GLuint
+    program: GLuint,
 }
 
-impl GlRenderBackend {
+impl GlBackend {
+    pub unsafe fn load_with(load_symbol: impl Fn(&str) -> *mut c_void) {
+        self::load_with(load_symbol)
+    }
+
+    // TODO: do something about context
+    //       maybe make it generic & require trait with is_current(), make_current()?
+    //       or take make_context_current: Fn()
     pub fn new() -> Self {
         let STRIDE = mem::size_of::<Vertex>() as _;
 
@@ -34,7 +41,7 @@ impl GlRenderBackend {
             glBindBuffer(GL_ARRAY_BUFFER, vbo);
             assert_ne!(vbo, 0);
             check("vbo");
-            
+
             // one shader
             let program = create_program(VS, FS);
             glUseProgram(program);
@@ -50,15 +57,14 @@ impl GlRenderBackend {
             glEnableVertexAttribArray(loc);
             glVertexAttribPointer(loc, 4, GL_UNSIGNED_BYTE, GL_TRUE, STRIDE, offsetof!(Vertex, color));
             check("a_color");
-            
+
             Self { vao, vbo, program }
         }
     }
 }
 
-impl Drop for GlRenderBackend {
+impl Drop for GlBackend {
     fn drop(&mut self) {
-        // TODO: push as closure to the job queue
         unsafe {
             glDeleteBuffers(1, &mut self.vbo);
             glDeleteVertexArrays(1, &mut self.vao);
@@ -67,24 +73,44 @@ impl Drop for GlRenderBackend {
     }
 }
 
-impl RenderBackend for GlRenderBackend {
+impl RenderBackend for GlBackend {
     fn render_frame(&mut self, frame: Frame) {
         unsafe {
             // TODO: uniform
             // TODO: glViewport(0, 0, width, height);
 
-            glBufferData(GL_ARRAY_BUFFER, mem::size_of_val(&frame.quads[..]) as _, frame.quads.as_ptr() as _, GL_DYNAMIC_DRAW);
+            // TODO: use pregenerated, only-growing IBO
+            let vertices: Vec<_> = frame
+                .quads
+                .iter()
+                .flat_map(|q| {
+                    let [a, b, c, d] = q.vertices;
+
+                    vec![a, b, c, b, c, d]
+                })
+                .collect();
+
+            glBufferData(
+                GL_ARRAY_BUFFER,
+                mem::size_of_val(&vertices[..]) as _,
+                vertices.as_ptr() as _,
+                GL_DYNAMIC_DRAW,
+            );
             check("upload vbo");
 
             glClearColor(0.25, 0., 0., 1.);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT/* | GL_STENCIL_BUFFER_BIT*/);
+            glClear(
+                GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, /* | GL_STENCIL_BUFFER_BIT*/
+            );
 
             // TODO: pass.opaque/alpha
             //glDepthMask(GL_FALSE);
             //glEnable(GL_BLEND);
 
-            // zatim jenom jeden pass
-            glDrawArrays(GL_TRIANGLES, 0, (frame.quads.len() * 6) as _);
+            //for dc in frame.draw_calls {
+            // TODO: drawIndexed
+            glDrawArrays(GL_TRIANGLES, 0, vertices.len() as _);
+            //}
         }
     }
 }
@@ -102,8 +128,11 @@ varying vec4 v_color;
 varying vec2 v_uv;
 
 void main() {
+    vec2 size = vec2(1024., 768.);
+    vec2 xy = (a_pos.xy / (size / 2.)) - 1.;
+
     // TODO: Z
-    gl_Position = vec4(a_pos * 0.5, 1.0);
+    gl_Position = vec4(xy.x, xy.y * -1., 0.5, 1.0);
     v_uv = a_uv;
     v_color = a_color;
 }
@@ -121,7 +150,6 @@ void main() {
     gl_FragColor = v_color;
 }
 "#;
-
 
 // gl utils
 
@@ -153,7 +181,7 @@ unsafe fn create_program(vs: &str, fs: &str) -> GLuint {
 
 unsafe fn shader(shader_type: GLuint, source: &str) -> GLuint {
     let shader = glCreateShader(shader_type);
-    glShaderSource(shader, 1, &c_str!(source), ptr::null());
+    glShaderSource(shader, 1, &*c_str!(source), ptr::null());
     glCompileShader(shader);
 
     let mut success = GL_FALSE as GLint;

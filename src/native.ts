@@ -35,7 +35,7 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
 
   const {
     GFT_INIT,
-    GFT_NEXT_EVENT,
+    GFT_TICK,
     GFT_CREATE_WINDOW,
     GFT_CREATE_VIEWPORT,
     GFT_CREATE_TEXT_NODE,
@@ -91,8 +91,8 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
   dispatch(GFT_INIT)
 
   return {
-    waitEvents: () => {
-      return dispatch(GFT_NEXT_EVENT)
+    tick: () => {
+      return dispatch(GFT_TICK)
     },
 
     createWindow: (title, width, height) => {
