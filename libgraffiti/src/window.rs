@@ -2,49 +2,41 @@
 // - optional module
 
 use graffiti_glfw::*;
-use std::cell::UnsafeCell;
 use std::ffi::CStr;
-use std::os::raw::{c_char, c_double, c_int, c_uint};
+use std::os::raw::{c_char, c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
-use std::rc::{Rc, Weak};
+use std::rc::{Rc};
 use std::sync::mpsc::{channel, Receiver, Sender};
 
 pub struct App {
-    weak: UnsafeCell<Weak<App>>,
+    glfw_ctx: Rc<GlfwCtx>,
 }
 
 impl App {
-    pub unsafe fn init() -> Rc<Self> {
+    pub unsafe fn init() -> Self {
         assert_eq!(glfwInit(), GLFW_TRUE);
 
         glfwSetErrorCallback(handle_glfw_error);
 
-        let app = Rc::new(Self {
-            weak: UnsafeCell::new(Weak::new()),
-        });
-
-        *app.weak.get() = Rc::downgrade(&Rc::clone(&app));
-
-        app
+        Self { glfw_ctx: Rc::new(GlfwCtx) }
     }
 
-    pub fn create_window(&self, title: &str, width: i32, height: i32) -> Window {
-        let app = unsafe { (*self.weak.get()).upgrade().unwrap() };
+    pub fn create_window(&mut self, title: &str, width: i32, height: i32) -> Window {
+        let glfw_ctx = Rc::clone(&self.glfw_ctx);
 
-        Window::new(app, title, width, height)
+        Window::new(glfw_ctx, title, width, height)
     }
 
-    pub fn poll_events(&self) {
+    pub fn poll_events(&mut self) {
         unsafe { glfwPollEvents() }
     }
 
-    pub fn wait_events(&self, timeout: Option<f64>) {
-        unsafe {
-            match timeout {
-                Some(t) => glfwWaitEventsTimeout(t),
-                None => glfwWaitEvents(),
-            }
-        }
+    pub fn wait_events(&mut self) {
+        unsafe { glfwWaitEvents() }
+    }
+
+    pub fn wait_events_timeout(&mut self, timeout: f64) {
+        unsafe { glfwWaitEventsTimeout(timeout) }
     }
 
     pub fn wake_up() {
@@ -52,20 +44,23 @@ impl App {
     }
 }
 
-impl Drop for App {
+struct GlfwCtx;
+
+impl Drop for GlfwCtx {
     fn drop(&mut self) {
         unsafe { glfwTerminate() }
     }
 }
 
 pub struct Window {
-    app: Rc<App>,
+    glfw_ctx: Rc<GlfwCtx>,
+    title: String,
     glfw_window: GlfwWindow,
     events: Receiver<Event>,
 }
 
 impl Window {
-    fn new(app: Rc<App>, title: &str, width: i32, height: i32) -> Self {
+    fn new(glfw_ctx: Rc<GlfwCtx>, title: &str, width: i32, height: i32) -> Self {
         unsafe {
             glfwDefaultWindowHints();
 
@@ -93,38 +88,23 @@ impl Window {
             glfwSetFramebufferSizeCallback(glfw_window, handle_glfw_framebuffer_size);
             glfwSetWindowCloseCallback(glfw_window, handle_glfw_window_close);
 
-            // attach
-            glfwMakeContextCurrent(glfw_window);
-
-            /*
-            // context must be current here
-
-            gl::load_with(|s| glfwGetProcAddress(c_str!(s)));
-
-            GlBackend::load_gl_with(|s| {
-                std::mem::transmute(glfwGetProcAddress(std::ffi::CString::new(s).unwrap().as_ptr()))
-            });
-
-            // TODO: GlBackend::new() shoudl be in context too
-            */
-            // detach
-            glfwMakeContextCurrent(null_mut());
-
             Self {
-                app,
+                glfw_ctx,
+                title: title.to_owned(),
                 glfw_window,
                 events,
             }
         }
     }
 
-    /*
     pub fn title(&self) -> &str {
-        todo!()
+        &self.title
     }
 
     pub fn set_title(&mut self, title: &str) {
         unsafe { glfwSetWindowTitle(self.glfw_window, c_str!(title)) }
+
+        self.title = title.to_owned();
     }
 
     pub fn resizable(&self) -> bool {
@@ -136,12 +116,33 @@ impl Window {
     }
 
     pub fn size(&self) -> (i32, i32) {
-        todo!()
+        let mut size = (0, 0);
+
+        unsafe { glfwGetWindowSize(self.glfw_window, &mut size.0, &mut size.1) }
+
+        size
     }
 
     pub fn set_size(&mut self, (width, height): (i32, i32)) {
         unsafe { glfwSetWindowSize(self.glfw_window, width as _, height as _) }
     }
+
+    pub fn framebuffer_size(&self) -> (i32, i32) {
+        let mut size = (0, 0);
+
+        unsafe { glfwGetFramebufferSize(self.glfw_window, &mut size.0, &mut size.1) }
+
+        size
+    }
+
+    pub fn content_scale(&self) -> (f32, f32) {
+        let mut scale = (0., 0.);
+
+        unsafe { glfwGetWindowContentScale(self.glfw_window, &mut scale.0, &mut scale.1) }
+
+        scale
+    }
+
     pub fn transparent(&self) -> bool {
         unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_TRANSPARENT_FRAMEBUFFER) == GLFW_TRUE }
     }
@@ -207,7 +208,6 @@ impl Window {
     pub fn set_should_close(&mut self, value: bool) {
         unsafe { glfwSetWindowShouldClose(self.glfw_window, value as _) }
     }
-    */
 
     // needs to be processed one by one because each event can cause new changes,
     // styles, dimensions and so the target might not be valid anymore
@@ -232,6 +232,7 @@ impl Drop for Window {
         unsafe {
             let ptr = glfwGetWindowUserPointer(self.glfw_window);
             glfwSetWindowUserPointer(self.glfw_window, null_mut());
+            glfwDestroyWindow(self.glfw_window);
 
             drop(Box::from_raw(ptr as *mut Sender<Event>));
         }
@@ -252,6 +253,7 @@ pub enum Event {
     Char(char),
 
     Resize(i32, i32),
+    FramebufferSize(i32, i32),
     Close,
 }
 
@@ -300,8 +302,8 @@ unsafe extern "C" fn handle_glfw_window_size(w: GlfwWindow, width: c_int, height
     send_event(w, Event::Resize(width, height));
 }
 
-unsafe extern "C" fn handle_glfw_framebuffer_size(_w: GlfwWindow, width: c_int, height: c_int) {
-    panic!("TODO: framebuffer_size callback {} {}", width, height);
+unsafe extern "C" fn handle_glfw_framebuffer_size(w: GlfwWindow, width: c_int, height: c_int) {
+    send_event(w, Event::FramebufferSize(width, height));
 }
 
 unsafe extern "C" fn handle_glfw_window_close(w: GlfwWindow) {

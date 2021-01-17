@@ -3,7 +3,7 @@
 // x super-simple to implement
 //   (or to integrate to an existing game engine pipeline)
 
-pub trait RenderBackend: Send + Sync {
+pub trait RenderBackend {
   fn render_frame(&mut self, frame: Frame);
 }
 

@@ -5,13 +5,13 @@ use graffiti::{
 use tiny_skia::{Canvas, Paint, Pixmap, Rect};
 
 fn main() {
-    let mut viewport = Viewport::new(PixmapBackend(Pixmap::new(400, 300).unwrap()));
+    let mut viewport = Viewport::new((400., 300.), PixmapBackend(Pixmap::new(400, 300).unwrap()));
 
-    let d = viewport.document_mut();
-    let h1 = d.create_element("h1");
-    let hello = d.create_text_node("Hello tiny-skia!");
-    d.insert_child(h1, hello, 0);
-    d.insert_child(d.root(), h1, 0);
+    let doc = viewport.document_mut();
+    let h1 = doc.create_element("h1");
+    let hello = doc.create_text_node("Hello tiny-skia!");
+    doc.insert_child(h1, hello, 0);
+    doc.insert_child(doc.root(), h1, 0);
 
     viewport.update();
     viewport.render();

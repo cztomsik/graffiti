@@ -64,8 +64,8 @@ impl<V> SlotMap<u32, V> {
         *self.slot_mut(key) = Some(value);
     }
 
-    pub fn remove(&mut self, key: u32) {
-        *self.slot_mut(key) = None;
+    pub fn remove(&mut self, key: u32) -> Option<V> {
+        self.slot_mut(key).take()
     }
 }
 
