@@ -1,19 +1,20 @@
 // deno bindings
 
+use std::sync::Mutex;
+use crate::util::Lazy;
 use crate::util::SlotMap;
-use crate::{App, Viewport, Window};
+use crate::{App, Window, Viewport};
 use core::cell::RefCell;
 use deno_unstable_api::*;
-use std::rc::Rc;
 
 type WindowId = u32;
-type ViewportId = u32;
+
+static VIEWPORTS: Lazy<Mutex<SlotMap<WindowId, Viewport>>> = lazy!(|| Mutex::new(SlotMap::new()));
 
 #[derive(Default)]
 struct Ctx {
-    app: Option<Rc<App>>,
+    app: Option<App>,
     windows: SlotMap<WindowId, Window>,
-    viewports: SlotMap<ViewportId, Viewport>,
 }
 
 thread_local! {
@@ -43,49 +44,64 @@ pub fn deno_plugin_init(interface: &mut dyn Interface) {
         ctx.app = Some(unsafe { App::init() });
     });
 
-    op!("GFT_NEXT_EVENT", |ctx, ()| {
-        // TODO: return win id + event or wait or undefined
+    op!("GFT_TICK", |ctx, ()| {
+        for (id, win) in ctx.windows.iter_mut() {
+            if let Some(e) = win.take_event() {
+                println!("TODO: {:?}", e);
+            }
+
+            let viewport = &mut VIEWPORTS.lock().unwrap()[id];
+
+            viewport.update();
+            viewport.render();
+
+            win.swap_buffers();
+        }
+
+        ctx.app.as_mut().expect("no app").wait_events_timeout(0.1);
     });
 
     op!("GFT_CREATE_WINDOW", |ctx, (title, width, height)| {
-        let window = ctx.app.as_ref().expect("no app").create_window(title, width, height);
-        ctx.windows.insert(window)
+        let mut window = ctx.app.as_mut().expect("no app").create_window(title, width, height);
+        let viewport = window.create_viewport();
+
+        let id = ctx.windows.insert(window);
+
+        VIEWPORTS.lock().unwrap().put(id, viewport);
+
+        id
     });
 
-    op!("GFT_CREATE_VIEWPORT", |_ctx, ()| {
-        //state.viewports.insert(Viewport::new(GlBackend::new()));
+    op!("GFT_CREATE_TEXT_NODE", |ctx, (win, text)| {
+        VIEWPORTS.lock().unwrap()[win].document_mut().create_text_node(text)
     });
 
-    op!("GFT_CREATE_TEXT_NODE", |ctx, (viewport, text)| {
-        ctx.viewports[viewport].document_mut().create_text_node(text)
+    op!("GFT_SET_TEXT", |ctx, (win, node, text)| {
+        VIEWPORTS.lock().unwrap()[win].document_mut().set_text(node, text)
     });
 
-    op!("GFT_SET_TEXT", |ctx, (viewport, node, text)| {
-        ctx.viewports[viewport].document_mut().set_text(node, text)
+    op!("GFT_CREATE_ELEMENT", |ctx, (win, local_name)| {
+        VIEWPORTS.lock().unwrap()[win].document_mut().create_element(local_name)
     });
 
-    op!("GFT_CREATE_ELEMENT", |ctx, (viewport, local_name)| {
-        ctx.viewports[viewport].document_mut().create_element(local_name)
+    op!("GFT_SET_ATTRIBUTE", |ctx, (win, el, att, value)| {
+        VIEWPORTS.lock().unwrap()[win].document_mut().set_attribute(el, att, value)
     });
 
-    op!("GFT_SET_ATTRIBUTE", |ctx, (viewport, el, att, value)| {
-        ctx.viewports[viewport].document_mut().set_attribute(el, att, value)
+    op!("GFT_REMOVE_ATTRIBUTE", |ctx, (win, el, att)| {
+        VIEWPORTS.lock().unwrap()[win].document_mut().remove_attribute(el, att)
     });
 
-    op!("GFT_REMOVE_ATTRIBUTE", |ctx, (viewport, el, att)| {
-        ctx.viewports[viewport].document_mut().remove_attribute(el, att)
-    });
-
-    op!("GFT_INSERT_CHILD", |ctx, (viewport, el, child, index)| {
+    op!("GFT_INSERT_CHILD", |ctx, (win, el, child, index)| {
         // TODO: usize arg?
         let index: u32 = index;
         let index = index as _;
 
-        ctx.viewports[viewport].document_mut().insert_child(el, child, index)
+        VIEWPORTS.lock().unwrap()[win].document_mut().insert_child(el, child, index)
     });
 
-    op!("GFT_REMOVE_CHILD", |ctx, (viewport, parent, child)| {
-        ctx.viewports[viewport].document_mut().remove_child(parent, child)
+    op!("GFT_REMOVE_CHILD", |ctx, (win, parent, child)| {
+        VIEWPORTS.lock().unwrap()[win].document_mut().remove_child(parent, child)
     });
 }
 
@@ -127,6 +143,7 @@ mod deno_unstable_api {
         Sync(Box<[u8]>),
         Async(OpAsyncFuture),
         AsyncUnref(OpAsyncFuture),
+        NotFound,
     }
 
     impl<T: Copy> From<T> for Op {

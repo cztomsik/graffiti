@@ -1,5 +1,6 @@
 // internal (this is the "main script" of each window)
 
+import { loadNativeApi } from './native'
 import { Window } from './window/Window'
 import { DOMParser } from './dom/DOMParser'
 import { createAdapter } from './adapter'
@@ -14,13 +15,15 @@ if ('process' in globalThis) {
 async function main({ windowId, url }) {
   console.log('worker init', windowId, url)
 
+  let nativeApi = await loadNativeApi()
+
   // get html
   // TODO: file:// urls
   const res = await fetch(url)
   const html = await res.text()
 
   // create document
-  const document: any = new DOMParser(createAdapter(windowId, url)).parseFromString(html, 'text/html')
+  const document: any = new DOMParser(createAdapter(nativeApi, windowId, url)).parseFromString(html, 'text/html')
   document.URL = url
 
   // create window

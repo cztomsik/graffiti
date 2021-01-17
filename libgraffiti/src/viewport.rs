@@ -28,7 +28,7 @@ pub struct Viewport {
 }
 
 impl Viewport {
-    pub fn new(size: (f32, f32), render_backend: impl RenderBackend + 'static) -> Self {
+    pub fn new(size: (f32, f32), render_backend: impl RenderBackend + 'static + Send) -> Self {
         const ROBOTO: &'static [u8] = include_bytes!("../resources/Roboto/Roboto-Regular.ttf");
 
         let (changes_tx, changes) = channel();

@@ -88,9 +88,11 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
     return ERR('unknown event', bytes)
   }
 
-  dispatch(GFT_INIT)
-
   return {
+    init: () => {
+      return dispatch(GFT_INIT)
+    },
+
     tick: () => {
       return dispatch(GFT_TICK)
     },
@@ -101,10 +103,6 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
 
     nextEvent: win => {
       //handler(decodeEvent(dispatch(GFT_NEXT_EVENT, u32(win))))
-    },
-
-    createViewport: win => {
-      return dispatch(GFT_CREATE_VIEWPORT, u32(win))!.getUint32(0, LE)
     },
 
     createTextNode: (win, text) => {

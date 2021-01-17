@@ -1,5 +1,5 @@
 use graffiti::{
-    render::backend::{DrawCall, Frame, RenderBackend},
+    backend::{DrawCall, Frame, RenderBackend},
     Viewport,
 };
 use tiny_skia::{Canvas, Paint, Pixmap, Rect};

@@ -34,6 +34,8 @@ export class App {
   static async init() {
     const nativeApi = await loadNativeApi()
 
+    nativeApi.init();
+
     return new App(nativeApi)
   }
 }

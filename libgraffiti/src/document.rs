@@ -26,14 +26,14 @@ pub struct Document {
     tree: IdTree<NodeData>,
     root: NodeId,
 
-    listener: Box<dyn Fn(DocumentEvent)>
+    listener: Box<dyn Fn(DocumentEvent) + Send>
 }
 
 // private shorthand
 type Event = DocumentEvent;
 
 impl Document {
-    pub fn new(listener: impl Fn(DocumentEvent) + 'static) -> Self {
+    pub fn new(listener: impl Fn(DocumentEvent) + 'static + Send) -> Self {
         let listener = Box::new(listener);
         let mut tree = IdTree::new();
 

@@ -5,7 +5,7 @@ use crate::backend::GlBackend;
 use crate::Viewport;
 use graffiti_glfw::*;
 use std::ffi::CStr;
-use std::os::raw::{c_char, c_double, c_int, c_uint};
+use std::os::raw::{c_char, c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
 use std::rc::Rc;
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -57,8 +57,6 @@ impl Drop for GlfwCtx {
 }
 
 pub struct Window {
-    viewport: Viewport,
-
     glfw_ctx: Rc<GlfwCtx>,
     title: String,
     glfw_window: GlfwWindow,
@@ -94,15 +92,7 @@ impl Window {
             glfwSetFramebufferSizeCallback(glfw_window, handle_glfw_framebuffer_size);
             glfwSetWindowCloseCallback(glfw_window, handle_glfw_window_close);
 
-            glfwMakeContextCurrent(glfw_window);
-
-            GlBackend::load_with(|s| glfwGetProcAddress(*c_str!(s)) as _);
-
-            let viewport = Viewport::new((width as _, height as _), GlBackend::new());
-
             Self {
-                viewport,
-
                 glfw_ctx,
                 title: title.to_owned(),
                 glfw_window,
@@ -111,15 +101,17 @@ impl Window {
         }
     }
 
-    pub fn viewport(&self) -> &Viewport {
-        &self.viewport
-    }
+    pub fn create_viewport(&mut self) -> Viewport {
+        let (w, h) = self.size();
 
-    pub fn viewport_mut(&mut self) -> &mut Viewport {
-        // TODO: find a better way to make sure backend is always called in right context
-        unsafe { glfwMakeContextCurrent(self.glfw_window) }
+        unsafe {
+            glfwMakeContextCurrent(self.glfw_window);
 
-        &mut self.viewport
+            GlBackend::load_with(|s| glfwGetProcAddress(*c_str!(s)) as _);
+        };
+
+        // TODO: make sure the context is current when backend issues gl commands
+        Viewport::new((w as _, h as _), GlBackend::new())
     }
 
     pub fn title(&self) -> &str {
@@ -238,6 +230,12 @@ impl Window {
     // styles, dimensions and so the target might not be valid anymore
     pub fn take_event(&mut self) -> Option<Event> {
         self.events.try_recv().ok()
+    }
+
+    // GL
+
+    pub fn get_proc_address(&mut self, symbol: &str) -> *const c_void {
+        unsafe { glfwGetProcAddress(*c_str!(symbol)) }
     }
 
     // GLFW says it's possible to call this from any thread but
