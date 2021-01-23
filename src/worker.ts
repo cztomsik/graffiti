@@ -15,6 +15,8 @@ if ('process' in globalThis) {
 async function main({ windowId, url }) {
   console.log('worker init', windowId, url)
 
+  // unfortunately, we need native in worker too - there are some blocking APIs
+  // like getClientRect() and those would be impossible to emulate with async postMessage()
   let nativeApi = await loadNativeApi()
 
   // get html

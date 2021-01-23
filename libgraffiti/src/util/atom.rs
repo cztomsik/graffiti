@@ -16,6 +16,10 @@ static ATOMS_OF: Lazy<DashMap<TypeId, Box<dyn Any + Send + Sync>>> = lazy!(|| Da
 
 impl<T: 'static + Eq + Hash + Send + Sync> Atom<T> {
     pub fn new(v: T) -> Self {
+        // TODO: static var per generic type wouldn't work, rust
+        //       accepts the syntax but it's shared for all types (WTF)
+        //       https://github.com/rust-lang/rust/issues/22991
+
         let type_id = TypeId::of::<T>();
         let atoms = match ATOMS_OF.get(&type_id) {
             Some(set) => set,
