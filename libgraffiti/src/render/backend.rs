@@ -3,6 +3,8 @@
 // x super-simple to implement
 //   (or to integrate to an existing game engine pipeline)
 
+pub type RGBA8 = [u8; 4];
+
 pub trait RenderBackend {
   fn render_frame(&mut self, frame: Frame);
 }
@@ -40,7 +42,7 @@ pub struct Quad {
 pub struct Vertex {
   pub xyz: [f32; 3],
   pub uv: [f32; 2],
-  pub color: [u8; 4],
+  pub color: RGBA8,
 }
 
 mod gl;

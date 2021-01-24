@@ -1,6 +1,5 @@
 #![allow(unused)]
 
-use fontdue::Font;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
 use crate::css::{CssEngine, Style};
@@ -20,7 +19,6 @@ pub struct Viewport {
     // intermediate
     resolved_styles: SlotMap<NodeId, ResolvedStyle>,
     layout_nodes: SlotMap<NodeId, LayoutNode>,
-    fonts: Vec<Font>,
 
     css_engine: CssEngine,
     layout_engine: LayoutEngine,
@@ -29,8 +27,6 @@ pub struct Viewport {
 
 impl Viewport {
     pub fn new(size: (f32, f32), render_backend: impl RenderBackend + 'static + Send) -> Self {
-        const ROBOTO: &'static [u8] = include_bytes!("../resources/Roboto/Roboto-Regular.ttf");
-
         let (changes_tx, changes) = channel();
 
         Self {
@@ -41,7 +37,6 @@ impl Viewport {
 
             resolved_styles: SlotMap::new(),
             layout_nodes: SlotMap::new(),
-            fonts: vec![Font::from_bytes(ROBOTO, Default::default()).unwrap()],
 
             css_engine: CssEngine::new(),
             layout_engine: LayoutEngine::new(),

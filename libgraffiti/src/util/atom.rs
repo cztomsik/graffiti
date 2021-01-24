@@ -1,3 +1,4 @@
+// TODO: check how slower RwLock<SlotMap> would be instead of DashMap
 // TODO: NonZeroU32 (so more selector parts could be stored inline)
 
 use crate::util::Lazy;
