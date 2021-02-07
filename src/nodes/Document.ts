@@ -111,6 +111,7 @@ export class Document extends Node implements globalThis.Document {
       case 'th': return new HTMLTableHeaderCellElement(this, tagName)
       case 'style': return new HTMLStyleElement(this, tagName)
       case 'script': return new HTMLScriptElement(this, tagName)
+      //case 'canvas': return new HTMLCanvasElement(this, tagName)
       case 'head': return new HTMLHeadElement(this, tagName)
       case 'body': return new HTMLBodyElement(this, tagName)
       case 'html': return new HTMLHtmlElement(this, tagName)

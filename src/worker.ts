@@ -31,4 +31,8 @@ async function main({ windowId, url }) {
   // create window
   const w = new Window(document)
   Object.setPrototypeOf(globalThis, w)
+
+  // remove `location` from WorkerGlobalScope (TODO: navigator should go too)
+  // @ts-expect-error
+  delete globalThis.location
 }

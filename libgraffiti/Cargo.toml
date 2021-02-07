@@ -24,10 +24,6 @@ tiny-skia = { git = "https://github.com/RazrFalcon/tiny-skia", rev = "7b5914d", 
 [features]
 default = []
 
-# bindings
-nodejs = []
-deno = []
-
 [profile.release]
 # fix --release for raspi https://github.com/rust-lang/rust/issues/62896
 codegen-units = 1

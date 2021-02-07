@@ -30,7 +30,7 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "cargo test --tests --manifest-path ./libgraffiti/Cargo.toml",
-    "build": "cargo build --features=nodejs --manifest-path ./libgraffiti/Cargo.toml",
+    "build": "cargo build --manifest-path ./libgraffiti/Cargo.toml",
     "postinstall": "npm run build -- --release",
     "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:fetch --external:ws --external:https://jspm.dev --external:https://deno.land --outdir=./lib ./src/index.ts ./src/worker.ts"
   },
