@@ -1,6 +1,13 @@
 use crate::util::Dylib;
+use core::marker::PhantomData;
 use napi::*;
 use std::ptr::{null, null_mut};
+
+macro_rules! check {
+    ($body:expr) => {
+        assert_eq!($body, NapiStatus::Ok)
+    };
+}
 
 macro_rules! js_module {
     ($($inner:tt)*) => {
@@ -38,23 +45,12 @@ macro_rules! js_module {
             macro_rules! js_fn {
                 ($name:literal, $fn:expr) => {{
                     unsafe extern "C" fn fun(env: NapiEnv, cb_info: NapiCallbackInfo) -> NapiValue {
-                        // TODO: 4 is good for now
-                        let mut argv = [std::mem::zeroed(); 4];
-                        let mut argc = argv.len();
-                        let mut this_arg = std::mem::zeroed();
-                        napi_get_cb_info(env, cb_info, &mut argc, &mut argv[0], &mut this_arg, null_mut());
-
-                        println!("TODO: {}", stringify!($name));
-
-                        let mut res = std::mem::zeroed();
-                        napi_get_undefined(env, &mut res);
-
-                        res
+                        $fn.call_napi(env, cb_info)
                     }
 
                     let mut val = std::mem::zeroed();
-                    assert_eq!(napi_create_function(env, null(), NAPI_AUTO_LENGTH, fun, null(), &mut val), NapiStatus::Ok);
-                    napi_set_named_property(env, exports, c_str!($name), val);
+                    check!(napi_create_function(env, null(), NAPI_AUTO_LENGTH, fun, null(), &mut val));
+                    check!(napi_set_named_property(env, exports, c_str!($name), val));
                 }};
             };
 
@@ -67,6 +63,106 @@ macro_rules! js_module {
 
 include!("shared.rs");
 
+pub trait FromNapi {
+    fn from_napi(env: NapiEnv, napi_value: NapiValue) -> Self;
+    fn to_napi(&self, env: NapiEnv) -> NapiValue;
+}
+
+macro_rules! impl_from_napi {
+    ($type:ty, $from:expr, $to:expr) => {
+        impl FromNapi for $type {
+            fn from_napi(env: NapiEnv, napi_value: NapiValue) -> Self {
+                let mut val = Default::default();
+                unsafe { check!($from(env, napi_value, &mut val)) }
+                val
+            }
+
+            fn to_napi(&self, env: NapiEnv) -> NapiValue {
+                unsafe {
+                    let mut res = std::mem::zeroed();
+                    check!($to(env, *self, &mut res));
+                    res
+                }
+            }
+        }
+    };
+}
+
+impl_from_napi!((), |_, _, _| NapiStatus::Ok, |env, _, res| napi_get_undefined(env, res));
+impl_from_napi!(bool, napi_get_value_bool, napi_get_boolean);
+impl_from_napi!(u32, napi_get_value_uint32, napi_create_uint32);
+impl_from_napi!(i32, napi_get_value_int32, napi_create_int32);
+impl_from_napi!(f64, napi_get_value_double, napi_create_double);
+
+// &str results needs .to_owned() and closures need to accept String but it's not that common
+impl FromNapi for String {
+    fn from_napi(env: NapiEnv, napi_value: NapiValue) -> Self {
+        unsafe {
+            let mut len = Default::default();
+            check!(napi_get_value_string_utf8(env, napi_value, null_mut(), 0, &mut len));
+
+            // +1 because of \0
+            let mut bytes = Vec::with_capacity(len + 1);
+            bytes.set_len(len);
+            check!(napi_get_value_string_utf8(
+                env,
+                napi_value,
+                bytes.as_mut_ptr() as *mut _,
+                len + 1,
+                null_mut()
+            ));
+
+            String::from_utf8_unchecked(bytes)
+        }
+    }
+
+    fn to_napi(&self, env: NapiEnv) -> NapiValue {
+        unsafe {
+            let mut res = std::mem::zeroed();
+            check!(napi_create_string_utf8(
+                env,
+                self.as_ptr() as *const _,
+                self.len(),
+                &mut res
+            ));
+            res
+        }
+    }
+}
+
+// any Fn(A1, A2, ...) -> R can be used as napi callback if values are convertible
+// generic because we need PhantomData to bind arg types
+pub trait NapiCallable<P> {
+    fn call_napi(&self, env: NapiEnv, cb_info: NapiCallbackInfo) -> NapiValue;
+}
+
+macro_rules! impl_callable {
+    ($len:literal $(, $param:ident)*) => {
+        // note we use &T in PhantomData<>
+        // there was some trait collision with (), probably related to impl_callable!(0) for empty args
+        impl <$($param,)* R, F> NapiCallable<PhantomData<($(&$param),*)>> for F
+        where $($param: FromNapi,)* R: FromNapi, F: Fn($($param),*) -> R {
+            #[allow(unconditional_panic, non_snake_case)]
+            fn call_napi(&self, env: NapiEnv, cb_info: NapiCallbackInfo) -> NapiValue {
+                unsafe {
+                    let mut argv = [std::mem::zeroed(); $len];
+                    napi_get_cb_info(env, cb_info, &mut $len, argv.as_mut_ptr(), null_mut(), null_mut());
+                    let [$($param),*] = argv;
+
+                    self($($param::from_napi(env, $param)),*).to_napi(env)
+                }
+            }
+        }
+    }
+}
+
+impl_callable!(0);
+impl_callable!(1, A1);
+impl_callable!(2, A1, A2);
+impl_callable!(3, A1, A2, A3);
+impl_callable!(4, A1, A2, A3, A4);
+
+// headers
 mod napi {
     use std::os::raw::{c_char, c_double, c_int, c_uint, c_void};
 
