@@ -12,7 +12,7 @@ export class App {
   createWindow({ title = 'Graffiti', width = 800, height = 600 } = {}) {
     const id = this.#nativeApi.createWindow(title, width, height)
 
-    return new AppWindow(id)
+    return new AppWindow(this.#nativeApi, id)
   }
 
   run() {

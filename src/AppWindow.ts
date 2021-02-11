@@ -1,9 +1,35 @@
 export class AppWindow {
+  #nativeApi: any
   #id: number
   #worker?: Worker
 
-  constructor(id) {
+  constructor(nativeApi, id) {
+    this.#nativeApi = nativeApi
     this.#id = id
+  }
+
+  show() {
+    this.#nativeApi.showWindow(this.#id);
+  }
+
+  hide() {
+    this.#nativeApi.hideWindow(this.#id);
+  }
+
+  focus() {
+    this.#nativeApi.focusWindow(this.#id);
+  }
+
+  minimize() {
+    this.#nativeApi.minimizeWindow(this.#id);
+  }
+
+  maximize() {
+    this.#nativeApi.maximizeWindow(this.#id);
+  }
+
+  restore() {
+    this.#nativeApi.restoreWindow(this.#id);
   }
 
   async loadURL(url) {

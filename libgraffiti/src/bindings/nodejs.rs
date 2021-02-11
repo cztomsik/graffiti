@@ -61,7 +61,7 @@ macro_rules! js_module {
     };
 }
 
-include!("shared.rs");
+include!("api.rs");
 
 pub trait FromNapi {
     fn from_napi(env: NapiEnv, napi_value: NapiValue) -> Self;
