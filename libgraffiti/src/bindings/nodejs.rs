@@ -131,8 +131,20 @@ impl FromNapi for String {
 }
 
 impl<T: FromNapi + Clone> FromNapi for Vec<T> {
-    fn from_napi(env: NapiEnv, napi_value: NapiValue) -> Self {
-        todo!()
+    fn from_napi(env: NapiEnv, arr: NapiValue) -> Self {
+        unsafe {
+            let mut len = 0;
+            check!(napi_get_array_length(env, arr, &mut len));
+
+            (0..len)
+                .map(|i| {
+                    let mut v = std::mem::zeroed();
+                    check!(napi_get_element(env, arr, i, &mut v));
+
+                    T::from_napi(env, v)
+                })
+                .collect()
+        }
     }
 
     fn to_napi(&self, env: NapiEnv) -> NapiValue {
