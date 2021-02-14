@@ -148,6 +148,7 @@ mod deno_unstable_api {
 
     impl<T: Copy> From<T> for Op {
         fn from(v: T) -> Self {
+            // Box::new() doesn't allocate if T is zero-sized
             let data_ptr = Box::into_raw(Box::new(v));
             let len = std::mem::size_of::<T>();
             let bytes = unsafe { Vec::from_raw_parts(data_ptr as *mut u8, len, len).into_boxed_slice() };

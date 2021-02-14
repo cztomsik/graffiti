@@ -130,6 +130,25 @@ impl FromNapi for String {
     }
 }
 
+impl<T: FromNapi + Clone> FromNapi for Vec<T> {
+    fn from_napi(env: NapiEnv, napi_value: NapiValue) -> Self {
+        todo!()
+    }
+
+    fn to_napi(&self, env: NapiEnv) -> NapiValue {
+        unsafe {
+            let mut arr = std::mem::zeroed();
+            check!(napi_create_array(env, &mut arr));
+
+            for (i, v) in self.iter().enumerate() {
+                check!(napi_set_element(env, arr, i as _, v.to_napi(env)));
+            }
+
+            arr
+        }
+    }
+}
+
 // any Fn(A1, A2, ...) -> R can be used as napi callback if values are convertible
 // generic because we need PhantomData to bind arg types
 pub trait NapiCallable<P> {
@@ -218,20 +237,29 @@ mod napi {
             pub fn napi_set_named_property(env: NapiEnv, object: NapiValue, utf8name: *const c_char, value: NapiValue) -> NapiStatus;
 
             pub fn napi_get_undefined(env: NapiEnv, result: *mut NapiValue) -> NapiStatus;
+
             pub fn napi_get_boolean(env: NapiEnv, value: bool, result: *mut NapiValue) -> NapiStatus;
+            pub fn napi_get_value_bool(env: NapiEnv, value: NapiValue, result: *mut bool) -> NapiStatus;
+            
             pub fn napi_create_uint32(env: NapiEnv, value: c_uint, result: *mut NapiValue) -> NapiStatus;
+            pub fn napi_get_value_uint32(env: NapiEnv, value: NapiValue, result: *mut c_uint) -> NapiStatus;
+
             pub fn napi_create_int32(env: NapiEnv, value: c_int, result: *mut NapiValue) -> NapiStatus;
+            pub fn napi_get_value_int32(env: NapiEnv, value: NapiValue, result: *mut c_int) -> NapiStatus;
+
             pub fn napi_create_double(env: NapiEnv, value: c_double, result: *mut NapiValue) -> NapiStatus;
+            pub fn napi_get_value_double(env: NapiEnv, value: NapiValue, result: *mut c_double) -> NapiStatus;
+
             pub fn napi_create_string_utf8(env: NapiEnv, buf: *const c_char, len: usize, result: *mut NapiValue) -> NapiStatus;
+            pub fn napi_get_value_string_utf8(env: NapiEnv, value: NapiValue, buf: *mut c_char, bufsize: usize, result: *mut usize) -> NapiStatus;
+
+            pub fn napi_create_array(env: NapiEnv, result: *mut NapiValue) -> NapiStatus;
+            pub fn napi_get_array_length(env: NapiEnv, napi_value: NapiValue, result: *mut c_uint) -> NapiStatus;
+            pub fn napi_get_element(env: NapiEnv, arr: NapiValue, index: c_uint, result: *mut NapiValue) -> NapiStatus;
+            pub fn napi_set_element(env: NapiEnv, arr: NapiValue, index: c_uint, value: NapiValue) -> NapiStatus;
 
             pub fn napi_create_function(env: NapiEnv, utf8name: *const c_char, length: usize, cb: NapiCallback, data: *const c_void, result: *mut NapiValue) -> NapiStatus;
             pub fn napi_get_cb_info(env: NapiEnv, cb_info: NapiCallbackInfo, argc: *mut usize, argv: *mut NapiValue, this_arg: *mut NapiValue, data: *mut c_void) -> NapiStatus;
-
-            pub fn napi_get_value_bool(env: NapiEnv, value: NapiValue, result: *mut bool) -> NapiStatus;
-            pub fn napi_get_value_uint32(env: NapiEnv, value: NapiValue, result: *mut c_uint) -> NapiStatus;
-            pub fn napi_get_value_int32(env: NapiEnv, value: NapiValue, result: *mut c_int) -> NapiStatus;
-            pub fn napi_get_value_double(env: NapiEnv, value: NapiValue, result: *mut c_double) -> NapiStatus;
-            pub fn napi_get_value_string_utf8(env: NapiEnv, value: NapiValue, buf: *mut c_char, bufsize: usize, result: *mut usize) -> NapiStatus;
         }
     }
 }

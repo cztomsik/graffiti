@@ -1,3 +1,5 @@
+// API similar to electron BrowserWindow
+
 export class AppWindow {
   #nativeApi: any
   #id: number
@@ -6,6 +8,14 @@ export class AppWindow {
   constructor(nativeApi, id) {
     this.#nativeApi = nativeApi
     this.#id = id
+  }
+
+  get title() {
+    return this.#nativeApi.getWindowTitle(this.#id)
+  }
+
+  set title(title: string) {
+    this.#nativeApi.setWindowTitle(this.#id, title)
   }
 
   show() {

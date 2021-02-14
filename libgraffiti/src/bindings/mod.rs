@@ -2,9 +2,8 @@
 // - thread-local storage, shared fns (this file)
 // - submodules define macros and then include!("api.rs")
 
-
 use crate::util::SlotMap;
-use crate::{App, Window};
+use crate::{App, Document, Window};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -21,11 +20,13 @@ macro_rules! ctx {
 }
 
 type WindowId = u32;
+type DocumentId = u32;
 
 #[derive(Default)]
 struct Ctx {
     app: Option<App>,
     windows: SlotMap<WindowId, Window>,
+    documents: SlotMap<DocumentId, Document>,
 }
 
 impl Ctx {
@@ -34,14 +35,13 @@ impl Ctx {
     }
 
     fn create_window(&mut self, title: &str, width: i32, height: i32) -> WindowId {
-        let mut window = self.app.as_mut().expect("no app").create_window(&title, width, height);
-        //let viewport = window.create_viewport();
+        let app = self.app.as_mut().expect("no app");
 
-        let id = self.windows.insert(window);
+        self.windows.insert(app.create_window(&title, width, height))
+    }
 
-        //VIEWPORTS.lock().unwrap().put(id, viewport);
-
-        id
+    fn create_document(&mut self) -> DocumentId {
+        self.documents.insert(Document::new(|_| {}))
     }
 
     fn tick(&mut self) {
@@ -63,4 +63,4 @@ impl Ctx {
 }
 
 mod nodejs;
-mod deno;
+//mod deno;

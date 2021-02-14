@@ -6,7 +6,10 @@
 js_module! {
     js_fn!("init", || ctx!().init_app());
     js_fn!("tick", || ctx!().tick());
+
     js_fn!("createWindow", |title: String, width, height| ctx!().create_window(&title, width, height));
+    js_fn!("getWindowTitle", |w| ctx!().windows[w].title().to_owned());
+    js_fn!("setWindowTitle", |w, title: String| ctx!().windows[w].set_title(&title));
     js_fn!("showWindow", |w| ctx!().windows[w].show());
     js_fn!("hideWindow", |w| ctx!().windows[w].hide());
     js_fn!("focusWindow", |w| ctx!().windows[w].focus());
