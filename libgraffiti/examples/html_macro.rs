@@ -1,7 +1,11 @@
-use graffiti::Document;
+use graffiti::{App};
 
 fn main() {
-    let mut doc = Document::new(|e| println!("{:?}", e));
+    let mut app = unsafe { App::init() };
+    let mut win = app.create_window("Hello", 800, 600);
+    let mut viewport = win.create_viewport();
+
+    let doc = viewport.document_mut();
 
     // super-simple prefix macro
     macro_rules! html {
@@ -29,5 +33,15 @@ fn main() {
         ]
     );
 
+    doc.insert_child(doc.root(), div, 0);
+
     println!("{:#?}", div);
+
+    while !win.should_close() {
+        viewport.update();
+        viewport.render();
+
+        win.swap_buffers();
+        app.wait_events();
+    }
 }

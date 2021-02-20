@@ -9,20 +9,18 @@ import { createAdapter } from './adapter'
 if ('process' in globalThis) {
   import('worker_threads').then(w => w.parentPort?.once('message', main))
 } else {
-  self.addEventListener('message', e => main(e.data), { once: true })
+  self.addEventListener('message', ev => main(ev.data), { once: true })
 }
 
 async function main({ windowId, url }) {
   console.log('worker init', windowId, url)
 
-  // unfortunately, we need native in worker too - there are some blocking APIs
-  // like getClientRect() and those would be impossible to emulate with async postMessage()
+  // unfortunately, we need native in worker too - there are many blocking APIs
+  // and those would be impossible to emulate with parent<->worker postMessage()
   let nativeApi = await loadNativeApi()
 
   // get html
-  // TODO: file:// urls
-  const res = await fetch(url)
-  const html = await res.text()
+  const html = await nativeApi.readURL(url)
 
   // create document
   const document: any = new DOMParser(createAdapter(nativeApi, windowId, url)).parseFromString(html, 'text/html')

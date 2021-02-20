@@ -252,7 +252,7 @@ mod napi {
 
             pub fn napi_get_boolean(env: NapiEnv, value: bool, result: *mut NapiValue) -> NapiStatus;
             pub fn napi_get_value_bool(env: NapiEnv, value: NapiValue, result: *mut bool) -> NapiStatus;
-            
+
             pub fn napi_create_uint32(env: NapiEnv, value: c_uint, result: *mut NapiValue) -> NapiStatus;
             pub fn napi_get_value_uint32(env: NapiEnv, value: NapiValue, result: *mut c_uint) -> NapiStatus;
 

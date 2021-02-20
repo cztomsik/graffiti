@@ -12,33 +12,28 @@
   },
   "dependencies": {
     "htm": "^3.0.4",
-    "node-fetch": "^2.6.1"
-  },
-  "peerDependencies": {
-    "ws": "^7.3.1"
+    "node-fetch": "^2.6.1",
+    "ws": "^7.4.3"
   },
   "files": [
-    "build.js",
     "src",
     "lib",
     "libgraffiti/Cargo.*",
     "libgraffiti/resources",
     "libgraffiti/src",
-    "libgraffiti/graffiti-glfw",
-    "libgraffiti/graffiti-stb"
+    "libgraffiti/graffiti-glfw"
   ],
   "scripts": {
     "check": "tsc --noEmit",
     "test": "cargo test --tests --manifest-path ./libgraffiti/Cargo.toml",
     "build": "cargo build --manifest-path ./libgraffiti/Cargo.toml",
     "postinstall": "npm run build -- --release",
-    "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:fetch --external:ws --external:https://jspm.dev --external:https://deno.land --outdir=./lib ./src/index.ts ./src/worker.ts"
+    "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:https://deno.land --outdir=./lib ./src/index.ts ./src/worker.ts"
   },
   "devDependencies": {
     "@types/node": "^14.6.2",
-    "esbuild": "^0.8.46",
+    "esbuild": "^0.8.49",
     "prettier": "^2.0.5",
-    "typescript": "^4.0.2",
-    "ws": "^7.3.1"
+    "typescript": "^4.0.2"
   }
 }

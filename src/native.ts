@@ -1,5 +1,5 @@
 import { version as VERSION } from '../package.json'
-import { ERR, LITTLE_ENDIAN as LE, TODO } from './util'
+import { ERR, LITTLE_ENDIAN as LE, TODO, UNSUPPORTED } from './util'
 
 // TODO: PREBUILT, .dll/so/dylib
 const LIB = new URL('../libgraffiti/target/debug/libgraffiti.dylib', import.meta.url).pathname
@@ -25,7 +25,29 @@ export const loadNodejsAddon = async () => {
   // require() would make ncc bundle some unnecessary build artifacts
   process['dlopen'](module, LIB)
 
-  return exports as any
+  return {
+    ...exports,
+
+    async readURL(url) {
+      url = new URL(url)
+
+      if (url.protocol === 'data:') {
+        return TODO()
+      }
+
+      if (url.protocol === 'file:') {
+        let fs = await import('fs/promises')
+        return fs.readFile(url.pathname, 'utf-8')
+      }
+
+      if (url.protocol.match(/^https?:$/)) {
+        const fetch = await import('node-fetch')
+        return fetch(url).then(res => res.text())
+      }
+
+      return UNSUPPORTED()
+    },
+  }
 }
 
 const loadDenoPlugin = async (Deno = globalThis.Deno) => {

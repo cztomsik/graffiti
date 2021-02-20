@@ -19,35 +19,35 @@ export class AppWindow {
   }
 
   show() {
-    this.#nativeApi.showWindow(this.#id);
+    this.#nativeApi.showWindow(this.#id)
   }
 
   hide() {
-    this.#nativeApi.hideWindow(this.#id);
+    this.#nativeApi.hideWindow(this.#id)
   }
 
   focus() {
-    this.#nativeApi.focusWindow(this.#id);
+    this.#nativeApi.focusWindow(this.#id)
   }
 
   minimize() {
-    this.#nativeApi.minimizeWindow(this.#id);
+    this.#nativeApi.minimizeWindow(this.#id)
   }
 
   maximize() {
-    this.#nativeApi.maximizeWindow(this.#id);
+    this.#nativeApi.maximizeWindow(this.#id)
   }
 
   restore() {
-    this.#nativeApi.restoreWindow(this.#id);
+    this.#nativeApi.restoreWindow(this.#id)
   }
 
-  async loadURL(url) {
+  async loadURL(url: URL | string) {
     this.#worker?.terminate()
 
     const Worker = globalThis.Worker ?? (await import('worker_threads')).Worker
 
     this.#worker = new Worker(new URL('worker.js', import.meta.url), { type: 'module', deno: true } as any)
-    this.#worker.postMessage({ windowId: this.#id, url })
+    this.#worker.postMessage({ windowId: this.#id, url: '' + url })
   }
 }

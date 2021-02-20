@@ -27,7 +27,6 @@ import { HTMLTableCellElement } from './HTMLTableCellElement'
 import { HTMLTableHeaderCellElement } from './HTMLTableHeaderCellElement'
 import { HTMLTableRowElement } from './HTMLTableRowElement'
 import { DOMImplementation } from '../dom/DOMImplementation'
-//import { nwsapi } from '../nwsapi'
 
 export class Document extends Node implements globalThis.Document {
   readonly ownerDocument
@@ -35,7 +34,6 @@ export class Document extends Node implements globalThis.Document {
   readonly implementation = new DOMImplementation()
   readonly childNodes = new NodeList<ChildNode>()
   readonly compatMode = 'CSS1Compat'
-  //readonly nwsapi = nwsapi({ document: this })
 
   // TODO: getter, should be last focused or body (which can be null sometimes)
   readonly activeElement: Element | null = null
@@ -180,7 +178,7 @@ export class Document extends Node implements globalThis.Document {
   get links() { return this.getElementsByTagName('link') }
   get scripts() { return this.getElementsByTagName('script') }
 
-  // TODO: querySelector, nwsapi
+  // TODO: querySelector
   getElementById(id) {
     return document.body.childNodes.find(n => n.id === id)
   }
