@@ -1,14 +1,14 @@
 import { Node } from './nodes/Node'
 import { CSSStyleSheet } from './css/CSSStyleSheet'
 
-export const createAdapter = (nativeApi, windowId, url) => {
+export const createAdapter = (nativeApi, docId, url) => {
   const NATIVE_NODE_ID = Symbol()
 
   const id = node => node[NATIVE_NODE_ID] || (node[NATIVE_NODE_ID] = createNativeNodeFor(node))
 
   const createNativeNodeFor = node => {
     if (node.nodeType === Node.ELEMENT_NODE) {
-      return nativeApi.createElement(windowId, node.localName)
+      return nativeApi.createElement(docId, node.localName)
     }
 
     // TODO: we could set it when adapter is created
@@ -18,14 +18,14 @@ export const createAdapter = (nativeApi, windowId, url) => {
     }
 
     // TODO: comments?
-    return nativeApi.createTextNode(windowId, node.data)
+    return nativeApi.createTextNode(docId, node.data)
   }
 
   return {
     childInserted: (parent, child, index) => {
       // TODO: fragment notifies too
       if (parent.nodeType === Node.ELEMENT_NODE || parent.nodeType === Node.DOCUMENT_NODE) {
-        nativeApi.insertChild(windowId, id(parent), id(child), index)
+        nativeApi.insertChild(docId, id(parent), id(child), index)
       }
 
       // TODO: head only
@@ -61,20 +61,20 @@ export const createAdapter = (nativeApi, windowId, url) => {
     childRemoved: (parent, child) => {
       // TODO: fragment notifies too
       if (parent.nodeType === Node.ELEMENT_NODE || parent.nodeType === Node.DOCUMENT_NODE) {
-        nativeApi.removeChild(windowId, id(parent), id(child))
+        nativeApi.removeChild(docId, id(parent), id(child))
       }
     },
 
-    styleChanged: (el, prop, value) => nativeApi.setStyle(windowId, id(el), prop, value),
+    styleChanged: (el, prop, value) => nativeApi.setStyle(docId, id(el), prop, value),
 
     attributeChanged: (el, attName, value) => {
       if (value === null) {
-        nativeApi.removeAttribute(windowId, id(el), attName)
+        nativeApi.removeAttribute(docId, id(el), attName)
       } else {
-        nativeApi.setAttribute(windowId, id(el), attName, value)
+        nativeApi.setAttribute(docId, id(el), attName, value)
       }
     },
 
-    dataChanged: (textNode, data) => nativeApi.setText(windowId, id(textNode), data),
+    dataChanged: (textNode, data) => nativeApi.setText(docId, id(textNode), data),
   }
 }

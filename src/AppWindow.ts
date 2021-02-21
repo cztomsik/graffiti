@@ -11,35 +11,35 @@ export class AppWindow {
   }
 
   get title() {
-    return this.#nativeApi.getWindowTitle(this.#id)
+    return this.#nativeApi.window_title(this.#id)
   }
 
   set title(title: string) {
-    this.#nativeApi.setWindowTitle(this.#id, title)
+    this.#nativeApi.window_set_title(this.#id, title)
   }
 
   show() {
-    this.#nativeApi.showWindow(this.#id)
+    this.#nativeApi.window_show(this.#id)
   }
 
   hide() {
-    this.#nativeApi.hideWindow(this.#id)
+    this.#nativeApi.window_hide(this.#id)
   }
 
   focus() {
-    this.#nativeApi.focusWindow(this.#id)
+    this.#nativeApi.window_focus(this.#id)
   }
 
   minimize() {
-    this.#nativeApi.minimizeWindow(this.#id)
+    this.#nativeApi.window_minimize(this.#id)
   }
 
   maximize() {
-    this.#nativeApi.maximizeWindow(this.#id)
+    this.#nativeApi.window_maximize(this.#id)
   }
 
   restore() {
-    this.#nativeApi.restoreWindow(this.#id)
+    this.#nativeApi.window_restore(this.#id)
   }
 
   async loadURL(url: URL | string) {

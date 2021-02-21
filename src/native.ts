@@ -19,6 +19,10 @@ export const loadNativeApi = async () => {
 }
 
 export const loadNodejsAddon = async () => {
+  if (!globalThis.fetch) {
+    globalThis.fetch = await import('node-fetch');
+  }
+
   // tell dylib to register napi extension
   process.env.GFT_NODEJS = '1'
 
@@ -28,6 +32,7 @@ export const loadNodejsAddon = async () => {
   return {
     ...exports,
 
+    // could be shared, not sure yet
     async readURL(url) {
       url = new URL(url)
 
@@ -41,7 +46,6 @@ export const loadNodejsAddon = async () => {
       }
 
       if (url.protocol.match(/^https?:$/)) {
-        const fetch = await import('node-fetch')
         return fetch(url).then(res => res.text())
       }
 

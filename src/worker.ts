@@ -23,7 +23,9 @@ async function main({ windowId, url }) {
   const html = await nativeApi.readURL(url)
 
   // create document
-  const document: any = new DOMParser(createAdapter(nativeApi, windowId, url)).parseFromString(html, 'text/html')
+  const docId = nativeApi.createDocument()
+  console.log('docId', docId)
+  const document: any = new DOMParser(createAdapter(nativeApi, docId, url)).parseFromString(html, 'text/html')
   document.URL = url
 
   // create window
