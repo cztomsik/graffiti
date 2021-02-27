@@ -1,11 +1,11 @@
 use std::os::raw::{c_char, c_double, c_float, c_int, c_uint, c_void};
 
-// link compiled glfw lib (static)
+// link compiled lib (static)
 #[cfg(not(target_arch = "wasm32"))]
 #[link(name = "glfw3", kind = "static")]
 extern "C" {}
 
-// link glfw deps (dynamic)
+// link deps (dynamic)
 #[cfg(target_os = "linux")]
 #[link(name = "X11")]
 extern "C" {}
@@ -25,6 +25,9 @@ extern "C" {}
 
 pub const GLFW_TRUE: c_int = 1;
 //pub const GLFW_FALSE: c_int = 0;
+
+pub const GLFW_CLIENT_API: c_int = 0x00022001;
+pub const GLFW_NO_API: c_int = 0x00000000;
 
 pub const GLFW_FOCUSED: c_int = 0x00020001;
 pub const GLFW_ICONIFIED: c_int = 0x00020002;
@@ -69,6 +72,8 @@ extern "C" {
     pub fn glfwDestroyWindow(window: GlfwWindow);
     pub fn glfwSetWindowUserPointer(window: GlfwWindow, ptr: *mut c_void);
     pub fn glfwGetWindowUserPointer(window: GlfwWindow) -> *mut c_void;
+    #[cfg(target_os = "macos")]
+    pub fn glfwGetCocoaWindow(window: GlfwWindow) -> *mut c_void;
 
     // props
     pub fn glfwSetWindowTitle(window: GlfwWindow, title: *const c_char);

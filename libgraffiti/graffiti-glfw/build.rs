@@ -3,15 +3,19 @@ use std::process::Command;
 
 // based on https://github.com/glfw/glfw/blob/master/src/CMakeLists.txt
 fn main() {
-    Command::new("git").args(&["submodule", "init"]).status().expect("git submodule init");
-    Command::new("git").args(&["submodule", "update"]).status().expect("git submodule update");
+    Command::new("git")
+        .args(&["submodule", "init"])
+        .status()
+        .expect("git submodule init");
+    Command::new("git")
+        .args(&["submodule", "update"])
+        .status()
+        .expect("git submodule update");
 
     let mut build = Build::new();
 
-    // no warns
+    // no warns, optim
     build.flag("-w");
-
-    // optim
     build.flag("-O3");
 
     // platform

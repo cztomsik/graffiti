@@ -21,14 +21,18 @@
     "libgraffiti/Cargo.*",
     "libgraffiti/resources",
     "libgraffiti/src",
-    "libgraffiti/graffiti-glfw"
+    "libgraffiti/graffiti-glfw",
+    "libgraffiti/graffiti-yoga"
   ],
+  "bin": {
+    "graffiti": "./bin/gft.js"
+  },
   "scripts": {
     "check": "tsc --noEmit",
     "test": "cargo test --tests --manifest-path ./libgraffiti/Cargo.toml",
     "build": "cargo build --manifest-path ./libgraffiti/Cargo.toml",
     "postinstall": "npm run build -- --release",
-    "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:https://deno.land --outdir=./lib ./src/index.ts ./src/worker.ts"
+    "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:node-fetch --external:https://deno.land --outdir=./lib ./src/cli.ts ./src/index.ts ./src/worker.ts"
   },
   "devDependencies": {
     "@types/node": "^14.6.2",

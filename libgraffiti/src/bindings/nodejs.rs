@@ -44,7 +44,7 @@ macro_rules! js_module {
 
             macro_rules! js_fn {
                 ($name:literal, $fn:expr) => {{
-                    unsafe extern "C" fn fun(env: NapiEnv, cb_info: NapiCallbackInfo) -> NapiValue {
+                    extern "C" fn fun(env: NapiEnv, cb_info: NapiCallbackInfo) -> NapiValue {
                         $fn.call_napi(env, cb_info)
                     }
 
