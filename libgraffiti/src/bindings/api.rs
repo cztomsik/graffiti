@@ -1,12 +1,21 @@
 // included by both nodejs.rs and deno.rs files
 // which both provide different macros so it does slightly different things
 
+#[cfg(target_os = "macos")]
+#[link(name = "WebKit", kind = "framework")]
+extern "C" {}
+
 // TODO: js_const
 // TODO: rename to export and take hash/mapping?
 js_module! {
     js_fn!("init", || ctx!().init_app());
     js_fn!("tick", || ctx!().tick());
 
+    js_fn!("webview_new", |w| ctx!().create_webview(w));
+    js_fn!("webview_loadURL", |wv, url: String| ctx!().webviews[wv].loadURL(url));
+    js_fn!("webview_eval", |wv, js: String| ctx!().webviews[wv].eval(js));
+
+    js_fn!("window_new", |title: String, width, height| ctx!().create_window(&title, width, height));
     js_fn!("window_title", |w| ctx!().windows[w].title().to_owned());
     js_fn!("window_set_title", |w, title: String| ctx!().windows[w].set_title(&title));
     js_fn!("window_show", |w| ctx!().windows[w].show());

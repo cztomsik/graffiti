@@ -6,16 +6,16 @@ mod document;
 mod layout;
 mod render;
 mod viewport;
-
-//#[cfg(feature = "window")]
+mod webview;
 mod window;
-pub use window::*;
 
 pub use self::{
     css::ResolvedStyle,
     document::{Document, NodeId},
     render::backend,
     viewport::Viewport,
+    webview::*,
+    window::*,
 };
 
 #[derive(Debug, Clone, Copy)]

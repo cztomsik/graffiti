@@ -20,12 +20,14 @@ macro_rules! ctx {
 }
 
 type WindowId = u32;
+type WebViewId = u32;
 type DocumentId = u32;
 
 #[derive(Default)]
 struct Ctx {
     app: Option<App>,
     windows: SlotMap<WindowId, Window>,
+    webviews: SlotMap<WebViewId, WebView>,
     documents: SlotMap<DocumentId, Document>,
 }
 
@@ -38,6 +40,10 @@ impl Ctx {
         let app = self.app.as_mut().expect("no app");
 
         self.windows.insert(app.create_window(&title, width, height))
+    }
+
+    fn create_webview(&mut self, window: WindowId) -> WebViewId {
+        self.webviews.insert(WebView::new())
     }
 
     fn create_document(&mut self) -> DocumentId {

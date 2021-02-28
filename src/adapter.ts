@@ -8,7 +8,7 @@ export const createAdapter = (nativeApi, docId, url) => {
 
   const createNativeNodeFor = node => {
     if (node.nodeType === Node.ELEMENT_NODE) {
-      return nativeApi.createElement(docId, node.localName)
+      return nativeApi.document_create_element(docId, node.localName)
     }
 
     // TODO: we could set it when adapter is created
@@ -18,14 +18,14 @@ export const createAdapter = (nativeApi, docId, url) => {
     }
 
     // TODO: comments?
-    return nativeApi.createTextNode(docId, node.data)
+    return nativeApi.document_create_text_node(docId, node.data)
   }
 
   return {
     childInserted: (parent, child, index) => {
       // TODO: fragment notifies too
       if (parent.nodeType === Node.ELEMENT_NODE || parent.nodeType === Node.DOCUMENT_NODE) {
-        nativeApi.insertChild(docId, id(parent), id(child), index)
+        nativeApi.document_insert_child(docId, id(parent), id(child), index)
       }
 
       // TODO: head only
@@ -61,7 +61,7 @@ export const createAdapter = (nativeApi, docId, url) => {
     childRemoved: (parent, child) => {
       // TODO: fragment notifies too
       if (parent.nodeType === Node.ELEMENT_NODE || parent.nodeType === Node.DOCUMENT_NODE) {
-        nativeApi.removeChild(docId, id(parent), id(child))
+        nativeApi.document_remove_child(docId, id(parent), id(child))
       }
     },
 
@@ -69,12 +69,12 @@ export const createAdapter = (nativeApi, docId, url) => {
 
     attributeChanged: (el, attName, value) => {
       if (value === null) {
-        nativeApi.removeAttribute(docId, id(el), attName)
+        nativeApi.document_remove_attribute(docId, id(el), attName)
       } else {
-        nativeApi.setAttribute(docId, id(el), attName, value)
+        nativeApi.document_set_attribute(docId, id(el), attName, value)
       }
     },
 
-    dataChanged: (textNode, data) => nativeApi.setText(docId, id(textNode), data),
+    dataChanged: (textNode, data) => nativeApi.document_set_text(docId, id(textNode), data),
   }
 }
