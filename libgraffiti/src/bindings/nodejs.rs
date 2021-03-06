@@ -1,5 +1,4 @@
 use crate::util::Dylib;
-use core::marker::PhantomData;
 use napi::*;
 use std::ptr::{null, null_mut};
 
@@ -162,16 +161,15 @@ impl<T: FromNapi + Clone> FromNapi for Vec<T> {
 }
 
 // any Fn(A1, A2, ...) -> R can be used as napi callback if values are convertible
-// generic because we need PhantomData to bind arg types
+// generic because we need to bind arg types somewhere
 pub trait NapiCallable<P> {
     fn call_napi(&self, env: NapiEnv, cb_info: NapiCallbackInfo) -> NapiValue;
 }
 
 macro_rules! impl_callable {
     ($len:literal $(, $param:ident)*) => {
-        // note we use &T in PhantomData<>
-        // there was some trait collision with (), probably related to impl_callable!(0) for empty args
-        impl <$($param,)* R, F> NapiCallable<PhantomData<($(&$param),*)>> for F
+        #[allow(unused_parens)]
+        impl <$($param,)* R, F> NapiCallable<($(&$param),*)> for F
         where $($param: FromNapi,)* R: FromNapi, F: Fn($($param),*) -> R {
             #[allow(unconditional_panic, non_snake_case)]
             fn call_napi(&self, env: NapiEnv, cb_info: NapiCallbackInfo) -> NapiValue {
