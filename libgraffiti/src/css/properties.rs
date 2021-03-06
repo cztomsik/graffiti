@@ -1,6 +1,7 @@
 // supported CSS props (longhand)
 
 use super::values::*;
+use crate::util::Atom;
 
 // type shorthand
 type V<T> = Value<T>;
@@ -65,6 +66,7 @@ pub enum StyleProp {
     JustifyContent(V<Align>),
 
     // text
+    FontFamily(V<Atom<String>>),
     FontSize(V<Dimension>),
     LineHeight(V<Dimension>),
     TextAlign(V<TextAlign>),

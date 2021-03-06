@@ -3,7 +3,7 @@
 // - submodules define macros and then include!("api.rs")
 
 use crate::util::SlotMap;
-use crate::{App, Document, Window};
+use crate::{App, Document, Window, WebView};
 use std::cell::RefCell;
 use std::rc::Rc;
 

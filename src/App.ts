@@ -10,7 +10,7 @@ export class App {
   }
 
   createWindow({ title = 'Graffiti', width = 800, height = 600 } = {}) {
-    const id = this.#nativeApi.createWindow(title, width, height)
+    const id = this.#nativeApi.window_new(title, width, height)
 
     return new AppWindow(this.#nativeApi, id)
   }

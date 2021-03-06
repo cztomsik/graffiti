@@ -125,6 +125,7 @@ fn parse_style_prop<'a>(prop: &'a [u8], value: &'a [u8]) -> Result<StyleProp, &'
         b"justify-content" => v(align()).map(StyleProp::JustifyContent),
 
         // text
+        b"font-family" => v(font_family()).map(StyleProp::FontFamily),
         b"font-size" => v(dimension()).map(StyleProp::FontSize),
         b"line-height" => v(dimension()).map(StyleProp::LineHeight),
         b"text-align" => v(text_align()).map(StyleProp::TextAlign),
@@ -299,6 +300,13 @@ fn position<'a>() -> Parser<'a, u8, Position> {
     })
 }
 
+fn font_family<'a>() -> Parser<'a, u8, Atom<String>> {
+    // TODO: extend pattern for quoted strings, support commas
+    //       but keep it as Atom<String> because that is easy to
+    //       map/cache to FontQuery and I'd like to keep CSS unaware of fonts
+    is_a(alphanum_dash).repeat(1..).collect().convert(std::str::from_utf8).map(|s| Atom::new(s.into()))
+}
+
 fn text_align<'a>() -> Parser<'a, u8, TextAlign> {
     keyword().convert(|kw| match kw {
         b"left" => Ok(TextAlign::Left),
@@ -382,7 +390,7 @@ mod tests {
         let ua = include_str!("../../resources/ua.css");
         let sheet = super::sheet().parse(ua.as_bytes()).unwrap();
 
-        assert_eq!(sheet.rules.len(), 19);
+        assert_eq!(sheet.rules.len(), 22);
     }
 
     #[test]

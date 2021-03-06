@@ -1,4 +1,9 @@
 // internal (this is the "main script" of each window)
+//
+// note workers make things MORE COMPLICATED but:
+// - we need separate require-chains becase some JS libraries depend on globals (and keep them)
+//   - Deno doesn't have runInContext and it might not be enough anyway)
+// - we want location.reload() for development purposes (live-reload, HMR)
 
 import { loadNativeApi } from './native'
 import { Window } from './window/Window'

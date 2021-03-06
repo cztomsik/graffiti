@@ -12,8 +12,8 @@ js_module! {
     js_fn!("tick", || ctx!().tick());
 
     js_fn!("webview_new", |w| ctx!().create_webview(w));
-    js_fn!("webview_loadURL", |wv, url: String| ctx!().webviews[wv].loadURL(url));
-    js_fn!("webview_eval", |wv, js: String| ctx!().webviews[wv].eval(js));
+    js_fn!("webview_loadURL", |wv, url: String| ctx!().webviews[wv].loadURL(&url));
+    js_fn!("webview_eval", |wv, js: String| ctx!().webviews[wv].eval(&js));
 
     js_fn!("window_new", |title: String, width, height| ctx!().create_window(&title, width, height));
     js_fn!("window_title", |w| ctx!().windows[w].title().to_owned());
