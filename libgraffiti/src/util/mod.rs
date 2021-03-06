@@ -37,10 +37,6 @@ macro_rules! offsetof {
 mod init;
 
 #[macro_use]
-mod lazy;
-pub use lazy::*;
-
-#[macro_use]
 pub(crate) mod dylib;
 pub use dylib::*;
 

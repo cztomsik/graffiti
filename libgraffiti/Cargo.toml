@@ -10,11 +10,12 @@ name = "graffiti"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
+once_cell = "1.7.2"
 #bytemuck = "1.4.1"
 pom = "3.2.0"
 #fontdue = "0.4.0"
-#fontdb = "0.5.1"
-#owned_ttf_parser = "0.9"
+fontdb = "0.5.1"
+owned_ttf_parser = "0.9"
 #rustybuzz = "0.3.0"
 graffiti-glfw = { path = "graffiti-glfw" }
 graffiti-yoga = { path = "graffiti-yoga" }

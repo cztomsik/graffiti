@@ -1,7 +1,7 @@
 // TODO: check how slower RwLock<SlotMap> would be instead of DashMap
 // TODO: NonZeroU32 (so more selector parts could be stored inline)
 
-use crate::util::Lazy;
+use once_cell::sync::Lazy;
 use core::any::{Any, TypeId};
 use core::hash::Hash;
 use core::ops::Deref;
@@ -13,7 +13,7 @@ pub struct Atom<T: Eq + Hash + Send + Sync + 'static>(Arc<T>);
 
 type AtomsOf<T> = DashMap<Arc<T>, ()>;
 
-static ATOMS_OF: Lazy<DashMap<TypeId, Box<dyn Any + Send + Sync>>> = lazy!(|| DashMap::new());
+static ATOMS_OF: Lazy<DashMap<TypeId, Box<dyn Any + Send + Sync>>> = Lazy::new(|| DashMap::new());
 
 impl<T: 'static + Eq + Hash + Send + Sync> Atom<T> {
     pub fn new(v: T) -> Self {

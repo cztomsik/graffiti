@@ -2,7 +2,7 @@
 // - shorthands
 // - normalize (bold -> 700)
 
-use super::{Dimension, StyleProp, Value};
+use super::StyleProp;
 use std::mem::discriminant;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -38,45 +38,17 @@ impl From<&str> for Style {
     }
 }
 
+// TODO: I thought it would be useful to keep resolved styles but
+//       it looks like changes are not that frequent and we can
+//       apply props immediately to layout, etc.
+//
+//       if anything, it will be array of refs to styles or something like that
 #[derive(Debug, Clone, PartialEq)]
-pub struct ResolvedStyle {
-    pub width: Dim,
-    pub height: Dim,
-    pub min_width: Dim,
-    pub min_height: Dim,
-    pub max_width: Dim,
-    pub max_height: Dim,
-
-    pub padding: [Dim; 4],
-    pub margin: [Dim; 4],
-
-    pub top: Dim,
-    pub right: Dim,
-    pub bottom: Dim,
-    pub left: Dim,
-}
+pub struct ResolvedStyle {}
 
 impl ResolvedStyle {
-    pub const INITIAL: ResolvedStyle = ResolvedStyle {
-        width: Dim::Auto,
-        height: Dim::Auto,
-        min_width: Dim::Auto,
-        min_height: Dim::Auto,
-        max_width: Dim::Px(f32::INFINITY),  // none
-        max_height: Dim::Px(f32::INFINITY), // none
-
-        padding: [Dim::ZERO, Dim::ZERO, Dim::ZERO, Dim::ZERO],
-        margin: [Dim::ZERO, Dim::ZERO, Dim::ZERO, Dim::ZERO],
-
-        top: Dim::Auto,
-        right: Dim::Auto,
-        bottom: Dim::Auto,
-        left: Dim::Auto,
-    };
+    pub const INITIAL: Self = Self {};
 }
-
-// private shorthand
-type Dim = Dimension;
 
 #[cfg(test)]
 mod tests {

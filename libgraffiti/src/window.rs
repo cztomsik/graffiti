@@ -101,6 +101,11 @@ impl Window {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn native_handle(&mut self) -> *mut c_void {
+        unsafe { glfwGetCocoaWindow(self.glfw_window) as _ }
+    }
+
     pub fn create_viewport(&mut self) -> Viewport {
         let (w, h) = self.size();
 
