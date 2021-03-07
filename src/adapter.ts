@@ -1,5 +1,4 @@
 import { Node } from './nodes/Node'
-import { CSSStyleSheet } from './css/CSSStyleSheet'
 
 export const createAdapter = (nativeApi, docId, url) => {
   const NATIVE_NODE_ID = Symbol()
@@ -26,35 +25,6 @@ export const createAdapter = (nativeApi, docId, url) => {
       // TODO: fragment notifies too
       if (parent.nodeType === Node.ELEMENT_NODE || parent.nodeType === Node.DOCUMENT_NODE) {
         nativeApi.document_insert_child(docId, id(parent), id(child), index)
-      }
-
-      // TODO: head only
-      if (child.localName === 'style') {
-        // TODO: order
-        // TODO: text changed
-        const sheet = (child.sheet = new CSSStyleSheet(child, null))
-
-        sheet.insertRule(child.textContent)
-
-        // TODO: native style
-        //console.log(sheet)
-      }
-
-      // TODO: head/body only
-      if (child.localName === 'script') {
-        const { text, src } = child
-
-        if (src) {
-          // TODO: queue (or just chain promises in global var - but use finally)
-          console.log('[import]', src)
-          const promise = import('' + new URL(src, url))
-        } else if (text) {
-          console.log('[eval]', text)
-          const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-          new AsyncFunction('__filename', text.replace(/import\s+(".*?")/gi, 'await import(new URL($1, __filename))'))(
-            url
-          )
-        }
       }
     },
 

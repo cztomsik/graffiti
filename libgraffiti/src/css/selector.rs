@@ -55,6 +55,7 @@ impl Selector {
         todo!()
     }
 
+    // TODO: change to trait so we can use SmallVec for tags
     pub fn matches<'a>(&'a self, tags_stack: &[Vec<Atom<Tag>>]) -> bool {
         debug_assert!(tags_stack.len() > 0);
 

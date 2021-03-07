@@ -1,7 +1,7 @@
 use graffiti::App;
 
 fn main() {
-    let mut app = unsafe { App::init() };
+    let app = unsafe { App::init() };
     let mut win = app.create_window("Hello", 400, 300);
     let mut viewport = win.create_viewport();
 

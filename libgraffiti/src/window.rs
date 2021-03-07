@@ -1,70 +1,22 @@
-// x !Send + !Sync
-// - optional module
-
 use crate::backend::GlBackend;
-use crate::Viewport;
+use crate::{App, Viewport};
 use graffiti_glfw::*;
 use std::ffi::CStr;
-use std::os::raw::{c_char, c_double, c_int, c_uint, c_void};
+use std::os::raw::{c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
 use std::rc::Rc;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
-pub struct App {
-    glfw_ctx: Rc<GlfwCtx>,
-}
-
-impl App {
-    pub unsafe fn init() -> Self {
-        assert_eq!(glfwInit(), GLFW_TRUE);
-
-        glfwSetErrorCallback(handle_glfw_error);
-
-        Self {
-            glfw_ctx: Rc::new(GlfwCtx),
-        }
-    }
-
-    pub fn create_window(&mut self, title: &str, width: i32, height: i32) -> Window {
-        let glfw_ctx = Rc::clone(&self.glfw_ctx);
-
-        Window::new(glfw_ctx, title, width, height)
-    }
-
-    pub fn poll_events(&mut self) {
-        unsafe { glfwPollEvents() }
-    }
-
-    pub fn wait_events(&mut self) {
-        unsafe { glfwWaitEvents() }
-    }
-
-    pub fn wait_events_timeout(&mut self, timeout: f64) {
-        unsafe { glfwWaitEventsTimeout(timeout) }
-    }
-
-    pub fn wake_up() {
-        unsafe { glfwPostEmptyEvent() }
-    }
-}
-
-struct GlfwCtx;
-
-impl Drop for GlfwCtx {
-    fn drop(&mut self) {
-        unsafe { glfwTerminate() }
-    }
-}
-
 pub struct Window {
-    glfw_ctx: Rc<GlfwCtx>,
+    // !Send + !Sync
+    app: Rc<App>,
     title: String,
     glfw_window: GlfwWindow,
     events: Receiver<Event>,
 }
 
 impl Window {
-    fn new(glfw_ctx: Rc<GlfwCtx>, title: &str, width: i32, height: i32) -> Self {
+    pub(crate) fn new(app: Rc<App>, title: &str, width: i32, height: i32) -> Self {
         unsafe {
             glfwDefaultWindowHints();
 
@@ -93,7 +45,7 @@ impl Window {
             glfwSetWindowCloseCallback(glfw_window, handle_glfw_window_close);
 
             Self {
-                glfw_ctx,
+                app,
                 title: title.to_owned(),
                 glfw_window,
                 events,
@@ -287,10 +239,6 @@ pub enum Event {
     Resize(i32, i32),
     FramebufferSize(i32, i32),
     Close,
-}
-
-unsafe extern "C" fn handle_glfw_error(code: c_int, desc: *const c_char) {
-    eprintln!("GLFW error {} {:?}", code, std::ffi::CStr::from_ptr(desc));
 }
 
 unsafe extern "C" fn handle_glfw_cursor_pos(w: GlfwWindow, x: c_double, y: c_double) {

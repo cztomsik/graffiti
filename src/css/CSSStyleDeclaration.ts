@@ -1,5 +1,4 @@
-import { UNSUPPORTED } from '../util'
-import { parseRules } from './parse'
+import { TODO, UNSUPPORTED } from '../util'
 
 // minimal impl just to get something working
 // (many props are missing)
@@ -47,6 +46,9 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   }
 
   set cssText(cssText: string) {
+    TODO()
+
+    /*
     for (const prop of this._values.keys()) {
       this.removeProperty(prop)
     }
@@ -56,6 +58,7 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
     for (const [prop, v] of Object.entries(props)) {
       this.setProperty(prop, v)
     }
+    */
   }
 
   // TODO: extend Array<string> but it's tricky because it should be

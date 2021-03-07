@@ -1,3 +1,3 @@
 export { App } from './App'
-
-export type { AppWindow } from './AppWindow'
+export { AppWindow } from './AppWindow'
+export { WebView } from './WebView'

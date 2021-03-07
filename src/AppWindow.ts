@@ -1,5 +1,3 @@
-// API similar to electron BrowserWindow
-
 export class AppWindow {
   #nativeApi: any
   #id: number
@@ -8,6 +6,11 @@ export class AppWindow {
   constructor(nativeApi, id) {
     this.#nativeApi = nativeApi
     this.#id = id
+  }
+
+  // TODO: not sure if this is good (but WebView needs it)
+  get id() {
+    return this.#id
   }
 
   get title() {

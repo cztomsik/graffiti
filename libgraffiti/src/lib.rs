@@ -1,6 +1,7 @@
 #[macro_use]
 mod util;
 
+mod app;
 mod css;
 mod document;
 mod layout;
@@ -10,6 +11,7 @@ mod webview;
 mod window;
 
 pub use self::{
+    app::App,
     css::ResolvedStyle,
     document::{Document, NodeId},
     render::backend,

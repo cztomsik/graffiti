@@ -1,4 +1,4 @@
-import { AppWindow } from './AppWindow'
+import { AppWindow, WebView } from './index'
 import { loadNativeApi } from './native'
 import { ERR } from './util'
 
@@ -13,6 +13,12 @@ export class App {
     const id = this.#nativeApi.window_new(title, width, height)
 
     return new AppWindow(this.#nativeApi, id)
+  }
+
+  createWebView() {
+    const id = this.#nativeApi.webview_new()
+
+    return new WebView(this.#nativeApi, id)
   }
 
   run() {

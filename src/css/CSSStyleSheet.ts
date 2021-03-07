@@ -1,6 +1,5 @@
 import { StyleSheet } from './StyleSheet'
 import { CSSRuleList } from './CSSRuleList'
-import { parseRules } from './parse'
 import { CSSStyleRule } from './CSSStyleRule'
 
 export class CSSStyleSheet extends StyleSheet implements globalThis.CSSStyleSheet {
@@ -21,11 +20,12 @@ export class CSSStyleSheet extends StyleSheet implements globalThis.CSSStyleShee
   }
 
   insertRule(rule: string, index = 0): number {
-    this.insertRules(rule, index)
+    //this.insertRules(rule, index)
 
     return index
   }
 
+  /*
   insertRules(str, index = 0) {
     const rules = parseRules(str).map(({ selector, props }) => {
       const rule = new CSSStyleRule(this, selector)
@@ -37,6 +37,7 @@ export class CSSStyleSheet extends StyleSheet implements globalThis.CSSStyleShee
 
     this.cssRules.splice(index, 0, ...rules)
   }
+  */
 
   deleteRule(index: number) {
     this.cssRules.splice(index, 1)
