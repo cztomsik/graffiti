@@ -15,8 +15,6 @@ const HTML = `
     start your own web-server and point it there if you want. Or pass HTML in
     data url like here.
   </p>
-
-  <a href="https://excalidraw.com/">Start excalidraw</a>
 `
 
 // maybe it should be just new WebView() because that's definitely what people will try to do
@@ -27,6 +25,12 @@ webview.loadURL(`data:text/html,${encodeURIComponent(HTML)}`)
 
 // TODO: events
 
-setTimeout(() => webview.eval('alert("Hello from WebView")'), 1000)
+setTimeout(
+  () =>
+    webview.eval(
+      `document.body.innerHTML += ${JSON.stringify('<a href="https://excalidraw.com/">Start excalidraw</a>')}`
+    ),
+  1000
+)
 
 app.run()

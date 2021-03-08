@@ -3,7 +3,7 @@ use graffiti::App;
 fn main() {
     let app = unsafe { App::init() };
 
-    let mut w = app.create_window("Hello WebView", 400, 300);
+    let mut w = app.create_window("Hello WebView", 640, 480);
     let mut webview = app.create_webview();
 
     webview.attach(&mut w);

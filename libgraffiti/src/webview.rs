@@ -1,7 +1,9 @@
 // TODO: win/linux
 
 use crate::{App, Window};
-use objc::{class, declare::ClassDecl, msg_send, rc::StrongPtr, runtime::Object, sel, sel_impl};
+use objc::{class, msg_send, rc::StrongPtr, runtime::Object, sel, sel_impl};
+use std::os::raw::c_void;
+use std::ptr::null;
 use std::rc::Rc;
 #[allow(non_camel_case_types)]
 type id = *mut Object;
@@ -15,23 +17,10 @@ impl WebView {
     pub(crate) fn new(app: Rc<App>) -> Self {
         unsafe {
             let cfg: id = msg_send![class!(WKWebViewConfiguration), new];
-            // at least on mac, zero works too
-            let rect: [f64; 4] = [0., 0., 800., 600.];
-            let cls = {
-                let cls = ClassDecl::new("WebViewDelegate", class!(NSObject)).unwrap();
-                // TODO: handlers
-                cls.register()
-            };
-            let del: id = msg_send![cls, alloc];
+            let del: id = msg_send![class!(NSObject), alloc];
             let webview: id = msg_send![class!(WKWebView), alloc];
-            let () = msg_send![webview, initWithFrame:rect configuration:cfg];
+            let () = msg_send![webview, initWithFrame:[0f64, 0., 0., 0.] configuration:cfg];
             let () = msg_send![webview, setUIDelegate: del];
-
-            // TODO: find out what's the reason (see load_url())
-            let url: id = msg_send![class!(NSString), stringWithUTF8String: c_str!("https://google.com")];
-            let url: id = msg_send![class!(NSURL), URLWithString: url];
-            let req: id = msg_send![class!(NSURLRequest), requestWithURL: url];
-            let () = msg_send![webview, loadRequest: req];
 
             Self {
                 app,
@@ -49,22 +38,25 @@ impl WebView {
 
     // TODO: doesn't work when in separate method (it only works as part of new())
     pub fn load_url(&mut self, url: &str) {
-        // unsafe {
-        //     let url: id = msg_send![class!(NSString), stringWithUTF8String: c_str!(url)];
-        //     let url: id = msg_send![class!(NSURL), URLWithString: url];
-        //     let req: id = msg_send![class!(NSURLRequest), requestWithURL: url];
-        //     let () = msg_send![self.webview, loadRequest: req];
-        // }
+        unsafe {
+            let url: id = msg_send![class!(NSString), stringWithUTF8String: *c_str!(url)];
+            let url: id = msg_send![class!(NSURL), URLWithString: url];
+            let req: id = msg_send![class!(NSURLRequest), requestWithURL: url];
+            let () = msg_send![*self.webview, loadRequest: req];
+        }
     }
 
     pub fn eval(&mut self, js: &str) {
+        println!("eval: {:?}", js);
+
+        // TODO: get result (might be tricky because of main thread queue & possible deadlocks)
         //let (tx, rx) = channel();
 
         unsafe {
-            let js: id = msg_send![class!(NSString), stringWithUTF8String: c_str!(js)];
+            let js: id = msg_send![class!(NSString), stringWithUTF8String: *c_str!(js)];
 
             // TODO: pass closure & get the result
-            let () = msg_send![*self.webview, evaluateJavaScript:js completionHandler:std::ptr::null::<*const ()>()];
+            let () = msg_send![*self.webview, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
         }
     }
 }

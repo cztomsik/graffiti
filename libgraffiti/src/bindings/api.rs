@@ -52,9 +52,8 @@ js_module! {
     }));
     js_fn!("webview_attach", |wv, w| CTX.with(|ctx| {
         let Ctx { ref mut webviews, ref mut windows, .. } = *ctx.borrow_mut();
-        let w = &mut windows[w];
 
-        webviews[wv].attach(w);
+        webviews[wv].attach(&mut windows[w]);
     }));
     js_fn!("webview_load_url", |wv, url: String| ctx!().webviews[wv].load_url(&url));
     js_fn!("webview_eval", |wv, js: String| ctx!().webviews[wv].eval(&js));
