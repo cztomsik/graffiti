@@ -1,5 +1,9 @@
 // TODO: win/linux
 
+#[cfg(target_os = "macos")]
+#[link(name = "WebKit", kind = "framework")]
+extern "C" {}
+
 use crate::{App, Window};
 use objc::{class, msg_send, rc::StrongPtr, runtime::Object, sel, sel_impl};
 use std::os::raw::c_void;

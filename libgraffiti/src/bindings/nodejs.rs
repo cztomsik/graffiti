@@ -8,59 +8,52 @@ macro_rules! check {
     };
 }
 
-macro_rules! js_module {
-    ($($inner:tt)*) => {
-        // napi module needs to be registered when lib is loaded
-        init! {
-            // proceed only if we are loaded from nodejs
-            if !std::env::var("GFT_NODEJS").is_ok() {
-                return
-            }
+// napi module needs to be registered when the lib is loaded
+init! {
+    // proceed only if we are loaded from nodejs
+    if !std::env::var("GFT_NODEJS").is_ok() {
+        return
+    }
 
-            // needs to be static
-            static mut NAPI_MODULE: NapiModule = NapiModule {
-                nm_version: 1,
-                nm_flags: 0,
-                nm_filename: c_str!("nodejs.rs"),
-                nm_register_func: js_init_module,
-                nm_modname: c_str!("libgraffiti"),
-                nm_priv: null(),
-                reserved: [null(); 4],
-            };
-
-            unsafe {
-                // load from current node process (we are dylib)
-                let node = Dylib::load(if cfg!(target_os = "windows") { c_str!("node.exe") } else { null() });
-                napi::load_with(|s| node.symbol(*c_str!(s)));
-
-                // register & call js_init_module (below)
-                napi_module_register(&mut NAPI_MODULE);
-            }
-        }
-
-        unsafe extern "C" fn js_init_module(env: NapiEnv, exports: NapiValue) -> NapiValue {
-            // TODO: js_const
-
-            macro_rules! js_fn {
-                ($name:literal, $fn:expr) => {{
-                    extern "C" fn fun(env: NapiEnv, cb_info: NapiCallbackInfo) -> NapiValue {
-                        $fn.call_napi(env, cb_info)
-                    }
-
-                    let mut val = std::mem::zeroed();
-                    check!(napi_create_function(env, null(), NAPI_AUTO_LENGTH, fun, null(), &mut val));
-                    check!(napi_set_named_property(env, exports, c_str!($name), val));
-                }};
-            };
-
-            $($inner)*
-
-            exports
-        }
+    // needs to be static
+    static mut NAPI_MODULE: NapiModule = NapiModule {
+        nm_version: 1,
+        nm_flags: 0,
+        nm_filename: c_str!("nodejs.rs"),
+        nm_register_func: js_init_module,
+        nm_modname: c_str!("libgraffiti"),
+        nm_priv: null(),
+        reserved: [null(); 4],
     };
+
+    unsafe {
+        // load from current node process (we are dylib)
+        let node = Dylib::load(if cfg!(target_os = "windows") { c_str!("node.exe") } else { null() });
+        napi::load_with(|s| node.symbol(*c_str!(s)));
+
+        // register & call js_init_module (below)
+        napi_module_register(&mut NAPI_MODULE);
+    }
 }
 
-include!("api.rs");
+unsafe extern "C" fn js_init_module(env: NapiEnv, exports: NapiValue) -> NapiValue {
+    macro_rules! export {
+        ($($name:ident : $fn:expr),*) => {{
+            $(
+                extern "C" fn $name(env: NapiEnv, cb_info: NapiCallbackInfo) -> NapiValue {
+                    $fn.call_napi(env, cb_info)
+                }
+                let mut val = std::mem::zeroed();
+                check!(napi_create_function(env, null(), NAPI_AUTO_LENGTH, $name, null(), &mut val));
+                check!(napi_set_named_property(env, exports, *c_str!(stringify!($name)), val));
+            )*
+
+            exports
+        }}
+    }
+
+    export_api!()
+}
 
 pub trait FromNapi {
     fn from_napi(env: NapiEnv, napi_value: NapiValue) -> Self;

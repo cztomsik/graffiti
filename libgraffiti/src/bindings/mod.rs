@@ -3,7 +3,7 @@
 // - submodules define macros and then include!("api.rs")
 
 use crate::util::SlotMap;
-use crate::{App, Document, Window, WebView};
+use crate::{App, Document, WebView, Window};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -31,5 +31,64 @@ macro_rules! ctx {
     };
 }
 
+// used in nodejs/deno.rs which both provide different export! macro so it does slightly different things
+// note we are using closure syntax but we only support fn() (deno limitation)
+// BTW: for tuples, we can just accept multiple args and create (a, b, ...) here
+macro_rules! export_api {
+    () => {{
+        use super::*;
+
+        export! {
+            init: || ctx!().app = Some(unsafe { App::init() }),
+            tick: || CTX.with(|ctx| {
+                let Ctx { ref mut app, ref mut windows, .. } = *ctx.borrow_mut();
+                let app = app.as_mut().expect("no app");
+                for (id, win) in windows.iter_mut() {
+                    if let Some(e) = win.take_event() {
+                        println!("TODO: {:?}", e);
+                    }
+                    win.swap_buffers();
+                }
+                app.wait_events_timeout(0.1)
+            }),
+
+            window_new: |title: String, width, height| CTX.with(|ctx| {
+                let Ctx { ref mut app, ref mut windows, .. } = *ctx.borrow_mut();
+                let app = app.as_mut().expect("no app");
+                windows.insert(app.create_window(&title, width, height))
+            }),
+            window_title: |w| ctx!().windows[w].title().to_owned(),
+            window_set_title: |w, title: String| ctx!().windows[w].set_title(&title),
+            window_show: |w| ctx!().windows[w].show(),
+            window_hide: |w| ctx!().windows[w].hide(),
+            window_focus: |w| ctx!().windows[w].focus(),
+            window_minimize: |w| ctx!().windows[w].minimize(),
+            window_maximize: |w| ctx!().windows[w].maximize(),
+            window_restore: |w| ctx!().windows[w].restore(),
+
+            webview_new: || CTX.with(|ctx| {
+                let Ctx { ref mut app, ref mut webviews, .. } = *ctx.borrow_mut();
+                let app = app.as_mut().expect("no app");
+                webviews.insert(app.create_webview())
+            }),
+            webview_attach: |wv, w| CTX.with(|ctx| {
+                let Ctx { ref mut webviews, ref mut windows, .. } = *ctx.borrow_mut();
+                webviews[wv].attach(&mut windows[w]);
+            }),
+            webview_load_url: |wv, url: String| ctx!().webviews[wv].load_url(&url),
+            webview_eval: |wv, js: String| ctx!().webviews[wv].eval(&js),
+
+            document_new: || ctx!().documents.insert(Document::new(|_| {})),
+            document_create_text_node: |doc, text: String| ctx!().documents[doc].create_text_node(&text),
+            document_set_text: |doc, node, text: String| ctx!().documents[doc].set_text(node, &text),
+            document_create_element: |doc, local_name: String| ctx!().documents[doc].create_element(&local_name),
+            document_set_attribute: |doc, el, attr: String, text: String| ctx!().documents[doc].set_attribute(el, &attr, &text),
+            document_remove_attribute: |doc, el, attr: String| ctx!().documents[doc].remove_attribute(el, &attr),
+            document_insert_child: |doc, el, child, index: u32| ctx!().documents[doc].insert_child(el, child, index as _),
+            document_remove_child: |doc, el, child| ctx!().documents[doc].remove_child(el, child)
+        }
+    }};
+}
+
+mod deno;
 mod nodejs;
-//mod deno;
