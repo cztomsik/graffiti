@@ -1,133 +1,86 @@
 // deno bindings
 
-use std::sync::Mutex;
-use crate::util::Lazy;
-use crate::util::SlotMap;
-use crate::{App, Window, Viewport};
-use core::cell::RefCell;
 use deno_unstable_api::*;
-
-type WindowId = u32;
-
-static VIEWPORTS: Lazy<Mutex<SlotMap<WindowId, Viewport>>> = lazy!(|| Mutex::new(SlotMap::new()));
-
-#[derive(Default)]
-struct Ctx {
-    app: Option<App>,
-    windows: SlotMap<WindowId, Window>,
-}
-
-thread_local! {
-    static CTX: RefCell<Ctx> = Default::default()
-}
+use nanoserde::{DeJson, DeJsonErr, SerJson};
 
 #[no_mangle]
 pub fn deno_plugin_init(interface: &mut dyn Interface) {
     dbg!();
 
-    macro_rules! op {
-        // TODO: generics
-        ($name: literal, |$ctx:ident, ($($arg:ident),*)| $body:tt) => {
-            interface.register_op($name, |_, bufs| {
-                CTX.with(|ctx| {
-                    let mut $ctx = ctx.borrow_mut();
-                    let mut _bufs = bufs.iter();
-                    $(let $arg = FromBytes::from_bytes(_bufs.next().expect("arg missing"));)*
-
-                    ($body).into()
-                })
-            })
-        };
+    macro_rules! export {
+        ($($name:ident : $fn:expr),*) => {{
+            $(
+                fn $name(_: &mut dyn Interface, bufs: &mut [V8Buf]) -> Op { $fn.call_deno(bufs) }
+                interface.register_op(concat!("GFT_", stringify!($name)), $name);
+            )*
+        }}
     }
 
-    op!("GFT_INIT", |ctx, ()| {
-        ctx.app = Some(unsafe { App::init() });
-    });
+    export_api!()
+}
 
-    op!("GFT_TICK", |ctx, ()| {
-        for (id, win) in ctx.windows.iter_mut() {
-            if let Some(e) = win.take_event() {
-                println!("TODO: {:?}", e);
+trait DenoCallable<P> {
+    fn call_deno(&self, bufs: &mut [V8Buf]) -> Op;
+}
+
+macro_rules! impl_callable {
+    (@args $bufs:ident $($param:ident,)*) => {{
+        let json = std::str::from_utf8(&$bufs[0]).expect("invalid utf-8");
+        <($($param,)*)>::deserialize_json(json).expect("invalid json")
+    }};
+
+    ($($param:ident),*) => {
+        // Fn(A1: DeJson, ...) -> ()
+        #[allow(unused, non_snake_case)]
+        impl <$($param,)* F> DenoCallable<(() $(, &$param)*)> for F
+        where F: Fn($($param),*), $($param: DeJson,)* {
+            fn call_deno(&self, bufs: &mut [V8Buf]) -> Op {
+                let ($($param,)*) = impl_callable!(@args bufs $($param,)*);
+                self($($param),*);
+
+                // this should not alloc
+                Op::Sync(Box::new([]))
             }
-
-            let viewport = &mut VIEWPORTS.lock().unwrap()[id];
-
-            viewport.update();
-            viewport.render();
-
-            win.swap_buffers();
         }
 
-        ctx.app.as_mut().expect("no app").wait_events_timeout(0.1);
-    });
+        // Fn(A1: DeJson, ...) -> R: SerJson
+        #[allow(unused, non_snake_case)]
+        impl <$($param,)* R, F> DenoCallable<(&R $(, &$param)*)> for F
+        where F: Fn($($param),*) -> R, $($param: DeJson,)* R: SerJson {
+            fn call_deno(&self, bufs: &mut [V8Buf]) -> Op {
+                let ($($param,)*) = impl_callable!(@args bufs $($param,)*);
 
-    op!("GFT_CREATE_WINDOW", |ctx, (title, width, height)| {
-        let mut window = ctx.app.as_mut().expect("no app").create_window(title, width, height);
-        let viewport = window.create_viewport();
-
-        let id = ctx.windows.insert(window);
-
-        VIEWPORTS.lock().unwrap().put(id, viewport);
-
-        id
-    });
-
-    op!("GFT_CREATE_TEXT_NODE", |ctx, (win, text)| {
-        VIEWPORTS.lock().unwrap()[win].document_mut().create_text_node(text)
-    });
-
-    op!("GFT_SET_TEXT", |ctx, (win, node, text)| {
-        VIEWPORTS.lock().unwrap()[win].document_mut().set_text(node, text)
-    });
-
-    op!("GFT_CREATE_ELEMENT", |ctx, (win, local_name)| {
-        VIEWPORTS.lock().unwrap()[win].document_mut().create_element(local_name)
-    });
-
-    op!("GFT_SET_ATTRIBUTE", |ctx, (win, el, att, value)| {
-        VIEWPORTS.lock().unwrap()[win].document_mut().set_attribute(el, att, value)
-    });
-
-    op!("GFT_REMOVE_ATTRIBUTE", |ctx, (win, el, att)| {
-        VIEWPORTS.lock().unwrap()[win].document_mut().remove_attribute(el, att)
-    });
-
-    op!("GFT_INSERT_CHILD", |ctx, (win, el, child, index)| {
-        // TODO: usize arg?
-        let index: u32 = index;
-        let index = index as _;
-
-        VIEWPORTS.lock().unwrap()[win].document_mut().insert_child(el, child, index)
-    });
-
-    op!("GFT_REMOVE_CHILD", |ctx, (win, parent, child)| {
-        VIEWPORTS.lock().unwrap()[win].document_mut().remove_child(parent, child)
-    });
-}
-
-// safe to read from &[u8], any combination MUST HAVE valid meaning
-trait Pod: Copy {}
-impl Pod for u32 {}
-impl Pod for i32 {}
-impl Pod for f32 {}
-impl Pod for f64 {}
-
-trait FromBytes<'a> {
-    fn from_bytes(bytes: &'a [u8]) -> Self;
-}
-
-impl<'a, T: Pod> FromBytes<'a> for T {
-    fn from_bytes(bytes: &'a [u8]) -> T {
-        assert!(bytes.len() == std::mem::size_of::<T>());
-        unsafe { *(bytes.as_ptr() as *const _) }
+                Op::Sync(SerJson::serialize_json(&self($($param),*)).into_bytes().into_boxed_slice())
+            }
+        }
     }
 }
 
-impl<'a> FromBytes<'a> for &'a str {
-    fn from_bytes(bytes: &'a [u8]) -> Self {
-        std::str::from_utf8(bytes).expect("utf-8")
+// extends nanoserde, works only for the top level and even that is miracle
+// (hopefully it's not a bug in compiler because then I don't know how it could be done)
+trait DeJsonExt: Sized {
+    fn deserialize_json(_: &str) -> Result<Self, DeJsonErr>;
+}
+
+// () is not supported at all
+impl DeJsonExt for () {
+    fn deserialize_json(_: &str) -> Result<Self, DeJsonErr> {
+        Ok(())
     }
 }
+
+// (T,) is not supported so we skip initial [ and parse it as T
+impl<T: DeJson> DeJsonExt for (T,) {
+    fn deserialize_json(input: &str) -> Result<Self, DeJsonErr> {
+        T::deserialize_json(&input[1..]).map(|v| (v,))
+    }
+}
+
+impl_callable!();
+impl_callable!(A1);
+impl_callable!(A1, A2);
+impl_callable!(A1, A2, A3);
+impl_callable!(A1, A2, A3, A4);
 
 // subset of deno plugin api so we don't need to compile whole deno
 // note this is not safe nor ABI stable between different versions
@@ -144,17 +97,6 @@ mod deno_unstable_api {
         Async(OpAsyncFuture),
         AsyncUnref(OpAsyncFuture),
         NotFound,
-    }
-
-    impl<T: Copy> From<T> for Op {
-        fn from(v: T) -> Self {
-            // Box::new() doesn't allocate if T is zero-sized
-            let data_ptr = Box::into_raw(Box::new(v));
-            let len = std::mem::size_of::<T>();
-            let bytes = unsafe { Vec::from_raw_parts(data_ptr as *mut u8, len, len).into_boxed_slice() };
-
-            Self::Sync(bytes)
-        }
     }
 
     pub struct V8Buf {
