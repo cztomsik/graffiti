@@ -25,6 +25,7 @@ struct Ctx {
     documents: SlotMap<DocumentId, Document>,
 }
 
+// Rc<> hack shorthand, TLS.with() is PITA and thread_local crate requires Send
 macro_rules! ctx {
     () => {
         super::CTX.with(|ctx| ctx.clone()).borrow_mut()
@@ -33,11 +34,12 @@ macro_rules! ctx {
 
 // used in nodejs/deno.rs which both provide different export! macro so it does slightly different things
 // note we are using closure syntax but we only support fn() (deno limitation)
-// BTW: for tuples, we can just accept multiple args and create (a, b, ...) here
 macro_rules! export_api {
     () => {{
         use super::*;
 
+        // tuples worked but hinting was pain (generics are pain too but at least this part looks better)
+        // https://github.com/cztomsik/graffiti/blob/6637adf0e2fbec4034fb28c770a3fd026a4012c3/libgraffiti/src/bindings/deno.rs
         export! {
             init: || ctx!().app = Some(unsafe { App::init() }),
             tick: || CTX.with(|ctx| {
@@ -59,6 +61,8 @@ macro_rules! export_api {
             }),
             window_title: |w| ctx!().windows[w].title().to_owned(),
             window_set_title: |w, title: String| ctx!().windows[w].set_title(&title),
+            window_size: |w| ctx!().windows[w].size(),
+            window_set_size: |w, width, height| ctx!().windows[w].set_size((width, height)),
             window_show: |w| ctx!().windows[w].show(),
             window_hide: |w| ctx!().windows[w].hide(),
             window_focus: |w| ctx!().windows[w].focus(),

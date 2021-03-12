@@ -103,6 +103,7 @@ dependencies = [
  "fontdb",
  "graffiti-glfw",
  "graffiti-yoga",
+ "nanoserde",
  "objc",
  "once_cell",
  "owned_ttf_parser",
@@ -175,6 +176,19 @@ checksum = "791daaae1ed6889560f8c4359194f56648355540573244a5448a83ba1ecc7435"
 dependencies = [
  "adler32",
 ]
+
+[[package]]
+name = "nanoserde"
+version = "0.1.22"
+source = "git+https://github.com/not-fl3/nanoserde?rev=c66efbd#c66efbd3e47b409221ff36c1c0f9f752f93af435"
+dependencies = [
+ "nanoserde-derive",
+]
+
+[[package]]
+name = "nanoserde-derive"
+version = "0.1.14"
+source = "git+https://github.com/not-fl3/nanoserde?rev=c66efbd#c66efbd3e47b409221ff36c1c0f9f752f93af435"
 
 [[package]]
 name = "num_cpus"

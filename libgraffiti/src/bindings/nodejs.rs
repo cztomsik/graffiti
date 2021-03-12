@@ -2,12 +2,6 @@ use crate::util::Dylib;
 use napi::*;
 use std::ptr::{null, null_mut};
 
-macro_rules! check {
-    ($body:expr) => {
-        assert_eq!($body, NapiStatus::Ok)
-    };
-}
-
 // napi module needs to be registered when the lib is loaded
 init! {
     // proceed only if we are loaded from nodejs
@@ -36,6 +30,12 @@ init! {
     }
 }
 
+macro_rules! check {
+    ($body:expr) => {
+        assert_eq!($body, NapiStatus::Ok)
+    };
+}
+
 unsafe extern "C" fn js_init_module(env: NapiEnv, exports: NapiValue) -> NapiValue {
     macro_rules! export {
         ($($name:ident : $fn:expr),*) => {{
@@ -57,10 +57,13 @@ unsafe extern "C" fn js_init_module(env: NapiEnv, exports: NapiValue) -> NapiVal
 
 pub trait FromNapi {
     fn from_napi(env: NapiEnv, napi_value: NapiValue) -> Self;
+}
+
+pub trait ToNapi {
     fn to_napi(&self, env: NapiEnv) -> NapiValue;
 }
 
-macro_rules! impl_from_napi {
+macro_rules! impl_from_to_napi {
     ($type:ty, $from:expr, $to:expr) => {
         impl FromNapi for $type {
             fn from_napi(env: NapiEnv, napi_value: NapiValue) -> Self {
@@ -68,7 +71,9 @@ macro_rules! impl_from_napi {
                 unsafe { check!($from(env, napi_value, &mut val)) }
                 val
             }
+        }
 
+        impl ToNapi for $type {
             fn to_napi(&self, env: NapiEnv) -> NapiValue {
                 unsafe {
                     let mut res = std::mem::zeroed();
@@ -80,13 +85,12 @@ macro_rules! impl_from_napi {
     };
 }
 
-impl_from_napi!((), |_, _, _| NapiStatus::Ok, |env, _, res| napi_get_undefined(env, res));
-impl_from_napi!(bool, napi_get_value_bool, napi_get_boolean);
-impl_from_napi!(u32, napi_get_value_uint32, napi_create_uint32);
-impl_from_napi!(i32, napi_get_value_int32, napi_create_int32);
-impl_from_napi!(f64, napi_get_value_double, napi_create_double);
+impl_from_to_napi!((), |_, _, _| NapiStatus::Ok, |env, _, res| napi_get_undefined(env, res));
+impl_from_to_napi!(bool, napi_get_value_bool, napi_get_boolean);
+impl_from_to_napi!(u32, napi_get_value_uint32, napi_create_uint32);
+impl_from_to_napi!(i32, napi_get_value_int32, napi_create_int32);
+impl_from_to_napi!(f64, napi_get_value_double, napi_create_double);
 
-// &str results needs .to_owned() and closures need to accept String but it's not that common
 impl FromNapi for String {
     fn from_napi(env: NapiEnv, napi_value: NapiValue) -> Self {
         unsafe {
@@ -107,7 +111,15 @@ impl FromNapi for String {
             String::from_utf8_unchecked(bytes)
         }
     }
+}
 
+impl ToNapi for String {
+    fn to_napi(&self, env: NapiEnv) -> NapiValue {
+        self.as_str().to_napi(env)
+    }
+}
+
+impl ToNapi for &str {
     fn to_napi(&self, env: NapiEnv) -> NapiValue {
         unsafe {
             let mut res = std::mem::zeroed();
@@ -138,7 +150,24 @@ impl<T: FromNapi + Clone> FromNapi for Vec<T> {
                 .collect()
         }
     }
+}
 
+impl<T: ToNapi + Clone> ToNapi for Vec<T> {
+    fn to_napi(&self, env: NapiEnv) -> NapiValue {
+        self.as_slice().to_napi(env)
+    }
+}
+
+impl<T: ToNapi + Clone> ToNapi for (T, T) {
+    fn to_napi(&self, env: NapiEnv) -> NapiValue {
+        let (a, b) = self.clone();
+        // TODO(array_methods)
+        // [a, b].as_slice().to_napi(env)
+        (&[a, b][..]).to_napi(env)
+    }
+}
+
+impl<T: ToNapi + Clone> ToNapi for &[T] {
     fn to_napi(&self, env: NapiEnv) -> NapiValue {
         unsafe {
             let mut arr = std::mem::zeroed();
@@ -161,10 +190,9 @@ pub trait NapiCallable<P> {
 
 macro_rules! impl_callable {
     ($len:literal $(, $param:ident)*) => {
-        #[allow(unused_parens)]
-        impl <$($param,)* R, F> NapiCallable<($(&$param),*)> for F
-        where $($param: FromNapi,)* R: FromNapi, F: Fn($($param),*) -> R {
-            #[allow(unconditional_panic, non_snake_case)]
+        #[allow(unused, non_snake_case)]
+        impl <F, $($param,)* R> NapiCallable<($(&$param),*)> for F
+        where F: Fn($($param),*) -> R, $($param: FromNapi,)* R: ToNapi {
             fn call_napi(&self, env: NapiEnv, cb_info: NapiCallbackInfo) -> NapiValue {
                 unsafe {
                     let mut argv = [std::mem::zeroed(); $len];
@@ -236,7 +264,7 @@ mod napi {
 
     dylib! {
         extern "C" {
-            pub fn napi_module_register(module: *mut NapiModule) -> NapiStatus;
+            pub fn napi_module_register(module: *mut NapiModule);
             pub fn napi_set_named_property(env: NapiEnv, object: NapiValue, utf8name: *const c_char, value: NapiValue) -> NapiStatus;
 
             pub fn napi_get_undefined(env: NapiEnv, result: *mut NapiValue) -> NapiStatus;
