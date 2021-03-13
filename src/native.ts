@@ -72,7 +72,6 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
             const res = Deno.core.dispatch(v, encoder.encode(JSON.stringify(args)))
 
             if (res) {
-              console.log(decoder.decode(res))
               return JSON.parse(decoder.decode(res))
             }
           },
