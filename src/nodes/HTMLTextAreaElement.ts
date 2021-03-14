@@ -1,4 +1,4 @@
-import { HTMLElement } from "./HTMLElement"
+import { HTMLElement } from './index'
 
 export class HTMLTextAreaElement extends HTMLElement implements globalThis.HTMLTextAreaElement {
   type = 'textarea'

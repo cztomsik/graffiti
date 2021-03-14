@@ -1,4 +1,4 @@
-import { SVGElement } from './SVGElement'
+import { SVGElement } from './index'
 
 export abstract class SVGGraphicsElement extends SVGElement implements globalThis.SVGGraphicsElement {
   getBBox

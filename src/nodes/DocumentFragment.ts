@@ -1,6 +1,4 @@
-import { Node } from './Node'
-import { NodeList } from './NodeList'
-import { Document } from './Document'
+import { Node, NodeList, Document } from './index'
 
 export class DocumentFragment extends Node implements globalThis.DocumentFragment {
   readonly childNodes = new NodeList<ChildNode>()

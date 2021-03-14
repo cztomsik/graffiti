@@ -1,4 +1,4 @@
-import { SVGGraphicsElement } from './SVGGraphicsElement'
+import { SVGGraphicsElement } from './index'
 
 export class SVGSVGElement extends SVGGraphicsElement implements globalThis.SVGSVGElement {
   animationsPaused

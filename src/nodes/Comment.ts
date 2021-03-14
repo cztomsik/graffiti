@@ -1,5 +1,4 @@
-import { Node } from './Node'
-import { CharacterData } from './CharacterData'
+import { Node, CharacterData } from './index'
 
 export class Comment extends CharacterData implements globalThis.Comment {
   get nodeType() {

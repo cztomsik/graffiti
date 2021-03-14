@@ -51,6 +51,19 @@ export class AppWindow {
     const Worker = globalThis.Worker ?? (await import('worker_threads')).Worker
 
     this.#worker = new Worker(new URL('worker.js', import.meta.url), { type: 'module', deno: true } as any)
-    this.#worker.postMessage({ windowId: this.#id, url: '' + url })
+    this.#worker.postMessage({ type: 'init', windowId: this.#id, scriptUrl: '' + url })
+  }
+
+  async eval(js: string) {
+    if (!this.#worker) {
+      throw new Error('no worker')
+    }
+    
+    return new Promise(resolve => {
+      // TODO: id
+      this.#worker?.postMessage({ type: 'eval', js })
+      // TODO: type, id
+      this.#worker?.addEventListener('message', e => resolve(e.data), { once: true })
+    })
   }
 }

@@ -1,5 +1,4 @@
-import { Element } from './Element'
-import { HTMLElement } from './HTMLElement'
+import { Element, HTMLElement } from './index'
 import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
 
 export class SVGElement extends Element implements globalThis.SVGElement {

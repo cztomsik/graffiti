@@ -8,7 +8,7 @@
 // UNLIKELY: https://github.com/jsdom/js-symbol-tree might be interesting too
 // (it does some caching useful for NodeIterator - document order)
 import { EventTarget } from '../events/EventTarget'
-import { NodeList } from './NodeList'
+import { NodeList } from './index'
 import { assert, last, TODO, UNSUPPORTED } from '../util'
 
 export abstract class Node extends EventTarget implements G.Node, G.ParentNode, G.ChildNode, G.NonDocumentTypeChildNode, G.Slottable {
@@ -46,9 +46,6 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     this.childNodes.splice(index, 0, child)
     ;(child as any).parentNode = this
 
-    // notify
-    this.ownerDocument._childInserted(this, child, index)
-
     return child
   }
 
@@ -57,9 +54,6 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
 
     ;(child as any).parentNode = null
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
-
-    // notify
-    this.ownerDocument._childRemoved(this, child)
 
     return child
   }

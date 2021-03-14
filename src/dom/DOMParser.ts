@@ -3,8 +3,6 @@ import { parseFragment } from '../nodes/Element'
 import { ERR, TODO } from '../util'
 
 export class DOMParser implements globalThis.DOMParser {
-  constructor(private _adapter?: DocumentAdapter) {}
-
   parseFromString(string: string, contentType: DOMParserSupportedType): globalThis.Document {
     switch (contentType) {
       case 'application/xml':
@@ -17,7 +15,7 @@ export class DOMParser implements globalThis.DOMParser {
         const html = string.replace(/[\s\S]*(<html[\s\S]*)/i, '$1')
 
         // TODO: defaultView, URL
-        const document = new Document(this._adapter)
+        const document = new Document()
         const frag = parseFragment(document, html)
 
         // happy-case

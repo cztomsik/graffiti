@@ -1,6 +1,5 @@
 import htm from 'htm'
-import { Node } from './Node'
-import { NodeList } from './NodeList'
+import { Node, NodeList } from './index'
 import { ERR } from '../util'
 import { XMLSerializer } from '../dom/XMLSerializer'
 
@@ -56,14 +55,10 @@ export abstract class Element extends Node implements globalThis.Element {
 
   setAttribute(name: string, value: string) {
     this._attributes.set(name, value)
-
-    this.ownerDocument._attributeChanged(this, name, value)
   }
 
   removeAttribute(name: string) {
     this._attributes.delete(name)
-
-    this.ownerDocument._attributeChanged(this, name, null)
   }
 
   toggleAttribute(name: string, force?: boolean): boolean {

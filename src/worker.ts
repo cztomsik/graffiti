@@ -8,17 +8,28 @@
 import { loadNativeApi } from './native'
 import { Window } from './window/Window'
 import { DOMParser } from './dom/DOMParser'
-import { createAdapter } from './adapter'
+import * as nodes from './nodes/index'
+
+// cleanup first (deno)
+for (const k of ['location']) {
+  delete globalThis[k]
+}
 
 // nodejs
 if ('process' in globalThis) {
-  import('worker_threads').then(w => w.parentPort?.once('message', main))
+  import('worker_threads').then(w => w.parentPort?.on('message', handleMessage))
 } else {
-  self.addEventListener('message', ev => main(ev.data), { once: true })
+  self.addEventListener('message', ev => handleMessage(ev.data))
 }
 
-async function main({ windowId, url }) {
-  console.log('worker init', windowId, url)
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'init': return main(msg)
+    // TODO: type, id
+    case 'eval': return postMessage(eval(msg.js), '')
+  }
+}
+
 
   // unfortunately, we need native in worker too - there are many blocking APIs
   // and those would be impossible to emulate with parent<->worker postMessage()

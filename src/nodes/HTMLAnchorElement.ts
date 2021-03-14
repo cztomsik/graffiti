@@ -1,4 +1,4 @@
-import { HTMLElement } from './HTMLElement'
+import { HTMLElement } from './index'
 
 export class HTMLAnchorElement extends HTMLElement implements globalThis.HTMLAnchorElement {
   charset

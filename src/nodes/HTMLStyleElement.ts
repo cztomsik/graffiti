@@ -1,4 +1,4 @@
-import { HTMLElement } from './HTMLElement'
+import { HTMLElement } from './index'
 
 export class HTMLStyleElement extends HTMLElement implements globalThis.HTMLStyleElement {
   sheet: CSSStyleSheet | null = null

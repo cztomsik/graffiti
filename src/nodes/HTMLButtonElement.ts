@@ -1,4 +1,4 @@
-import { HTMLElement } from './HTMLElement'
+import { HTMLElement } from './index'
 
 export class HTMLButtonElement extends HTMLElement implements globalThis.HTMLButtonElement {
   disabled = false

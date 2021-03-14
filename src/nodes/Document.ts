@@ -1,31 +1,34 @@
-import { Node } from './Node'
-import { NodeList } from './NodeList'
-import { Text } from './Text'
-import { Comment } from './Comment'
-import { DocumentFragment } from './DocumentFragment'
+import {
+  Node,
+  NodeList,
+  Text,
+  Comment,
+  DocumentFragment,
+  HTMLHtmlElement,
+  HTMLHeadElement,
+  HTMLBodyElement,
+  HTMLStyleElement,
+  HTMLScriptElement,
+  HTMLDivElement,
+  HTMLSpanElement,
+  HTMLInputElement,
+  HTMLTextAreaElement,
+  HTMLButtonElement,
+  HTMLUnknownElement,
+  HTMLAnchorElement,
+  SVGElement,
+  SVGSVGElement,
+  SVGGElement,
+  HTMLTableSectionElement,
+  HTMLTableElement,
+  HTMLTableCellElement,
+  HTMLTableHeaderCellElement,
+  HTMLTableRowElement,
+} from './index'
+
 import { StyleSheetList } from '../css/StyleSheetList'
 import { UNSUPPORTED } from '../util'
 
-import { HTMLHtmlElement } from './HTMLHtmlElement'
-import { HTMLHeadElement } from './HTMLHeadElement'
-import { HTMLBodyElement } from './HTMLBodyElement'
-import { HTMLStyleElement } from './HTMLStyleElement'
-import { HTMLScriptElement } from './HTMLScriptElement'
-import { HTMLDivElement } from './HTMLDivElement'
-import { HTMLSpanElement } from './HTMLSpanElement'
-import { HTMLInputElement } from './HTMLInputElement'
-import { HTMLTextAreaElement } from './HTMLTextAreaElement'
-import { HTMLButtonElement } from './HTMLButtonElement'
-import { HTMLUnknownElement } from './HTMLUnknownElement'
-import { HTMLAnchorElement } from './HTMLAnchorElement'
-import { SVGElement } from './SVGElement'
-import { SVGSVGElement } from './SVGSVGElement'
-import { SVGGElement } from './SVGGElement'
-import { HTMLTableSectionElement } from './HTMLTableSectionElement'
-import { HTMLTableElement } from './HTMLTableElement'
-import { HTMLTableCellElement } from './HTMLTableCellElement'
-import { HTMLTableHeaderCellElement } from './HTMLTableHeaderCellElement'
-import { HTMLTableRowElement } from './HTMLTableRowElement'
 import { DOMImplementation } from '../dom/DOMImplementation'
 
 export class Document extends Node implements globalThis.Document {
@@ -42,7 +45,7 @@ export class Document extends Node implements globalThis.Document {
   // mousedown origin
   _clickedElement
 
-  constructor(private readonly _adapter = NOOP_ADAPTER) {
+  constructor() {
     super(null as any)
 
     // non-standard, we are using parent.ownerDocument in Node.insertBefore()
@@ -52,7 +55,7 @@ export class Document extends Node implements globalThis.Document {
   }
 
   get nodeType() {
-   return Node.DOCUMENT_NODE
+    return Node.DOCUMENT_NODE
   }
 
   get nodeName() {
@@ -183,27 +186,6 @@ export class Document extends Node implements globalThis.Document {
     return document.body.childNodes.find(n => n.id === id)
   }
 
-  // change notifiers
-  _childInserted(parent, child, index) {
-    this._adapter.childInserted(parent, child, index)
-  }
-
-  _childRemoved(parent, child) {
-    this._adapter.childRemoved(parent, child)
-  }
-
-  _attributeChanged(el, att, value) {
-    this._adapter.attributeChanged(el, att, value)
-  }
-
-  _styleChanged(el, prop, value) {
-    this._adapter.styleChanged(el, prop, value)
-  }
-
-  _dataChanged(cdata, data) {
-    this._adapter.dataChanged(cdata, data)
-  }
-
   // intentionally left out (out-of-scope)
   clear = UNSUPPORTED
   close = UNSUPPORTED
@@ -281,16 +263,6 @@ export class Document extends Node implements globalThis.Document {
   caretRangeFromPoint
   releaseEvents
   vlinkColor
-}
-
-export type DocumentAdapter = typeof NOOP_ADAPTER
-
-const NOOP_ADAPTER = {
-  childInserted: (parent, child, index) => {},
-  childRemoved: (parent, child) => {},
-  styleChanged: (el, prop, value) => {},
-  attributeChanged: (el, attName, value) => {},
-  dataChanged: (cdata, data) => {}
 }
 
 type Doc = Document

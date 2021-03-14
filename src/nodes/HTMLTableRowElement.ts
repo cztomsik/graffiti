@@ -1,4 +1,4 @@
-import { HTMLElement } from './HTMLElement'
+import { HTMLElement } from './index'
 
 export class HTMLTableRowElement extends HTMLElement implements globalThis.HTMLTableRowElement {
   align

@@ -1,4 +1,4 @@
-import { HTMLElement } from './HTMLElement'
+import { HTMLElement } from './index'
 
 export class HTMLBodyElement extends HTMLElement implements globalThis.HTMLBodyElement {
   // deprecated

@@ -1,4 +1,4 @@
-import { HTMLElement } from './HTMLElement'
+import { HTMLElement } from './index'
 
 export class HTMLTableCellElement extends HTMLElement implements globalThis.HTMLTableCellElement {
   abbr

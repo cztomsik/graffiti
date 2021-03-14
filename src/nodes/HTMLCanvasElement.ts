@@ -1,7 +1,7 @@
 // TODO
 
 import { HTMLElement } from './HTMLElement'
-import { WebGLRenderingContext } from '../webgl/WebGLRenderingContext'
+//import { WebGLRenderingContext } from '../webgl/WebGLRenderingContext'
 import { UNSUPPORTED } from '../util'
 
 export class HTMLCanvasElement extends HTMLElement implements globalThis.HTMLCanvasElement {

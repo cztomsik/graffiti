@@ -1,4 +1,4 @@
-import { Node } from './Node'
+import { Node } from './index'
 
 export abstract class CharacterData extends Node implements globalThis.CharacterData {
   // don't call setter first-time
@@ -13,9 +13,6 @@ export abstract class CharacterData extends Node implements globalThis.Character
   set data(data) {
     // preact passes data as is
     this._data = typeof data === 'string' ?data :'' + data
-
-    // notify
-    this.ownerDocument._dataChanged(this, data)
   }
 
   get nodeValue() {

@@ -1,4 +1,4 @@
-import { HTMLElement } from "./HTMLElement";
+import { HTMLElement } from './index';
 
 export class HTMLScriptElement extends HTMLElement implements globalThis.HTMLScriptElement {
   get src() {

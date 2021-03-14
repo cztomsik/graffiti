@@ -1,4 +1,4 @@
-import { HTMLElement } from './HTMLElement'
+import { HTMLElement } from './index'
 
 export class HTMLTableElement extends HTMLElement implements globalThis.HTMLTableElement {
   caption
