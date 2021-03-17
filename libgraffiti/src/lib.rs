@@ -13,7 +13,7 @@ mod window;
 pub use self::{
     app::App,
     css::ResolvedStyle,
-    document::{Document, NodeId},
+    document::{Document, NodeType, NodeId},
     render::backend,
     viewport::Viewport,
     webview::*,

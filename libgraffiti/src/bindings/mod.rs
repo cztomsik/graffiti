@@ -2,8 +2,10 @@
 // - thread-local storage, shared fns (this file)
 // - submodules define macros and then include!("api.rs")
 
+use crate::css::Selector;
 use crate::util::SlotMap;
 use crate::{App, Document, WebView, Window};
+use core::convert::TryFrom;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -83,13 +85,18 @@ macro_rules! export_api {
             webview_eval: |wv, js: String| ctx!().webviews[wv].eval(&js),
 
             document_new: || ctx!().documents.insert(Document::new(|_| {})),
+            document_node_type: |doc, node| ctx!().documents[doc].node_type(node) as u32,
             document_create_text_node: |doc, text: String| ctx!().documents[doc].create_text_node(&text),
-            document_set_text: |doc, node, text: String| ctx!().documents[doc].set_text(node, &text),
+            document_create_comment: |doc, text: String| ctx!().documents[doc].create_comment(&text),
+            document_set_cdata: |doc, node, text: String| ctx!().documents[doc].set_cdata(node, &text),
             document_create_element: |doc, local_name: String| ctx!().documents[doc].create_element(&local_name),
             document_set_attribute: |doc, el, attr: String, text: String| ctx!().documents[doc].set_attribute(el, &attr, &text),
             document_remove_attribute: |doc, el, attr: String| ctx!().documents[doc].remove_attribute(el, &attr),
             document_insert_child: |doc, el, child, index: u32| ctx!().documents[doc].insert_child(el, child, index as _),
-            document_remove_child: |doc, el, child| ctx!().documents[doc].remove_child(el, child)
+            document_remove_child: |doc, el, child| ctx!().documents[doc].remove_child(el, child),
+            document_query_selector: |doc, node, sel: String| ctx!().documents[doc].query_selector(node, &Selector::try_from(sel.as_str()).unwrap()),
+            document_query_selector_all: |doc, node, sel: String| ctx!().documents[doc].query_selector_all(node, &Selector::try_from(sel.as_str()).unwrap()),
+            document_free: |doc| { ctx!().documents.remove(doc); }
         }
     }};
 }

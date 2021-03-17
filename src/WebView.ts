@@ -1,28 +1,30 @@
+import { native } from './native'
 import { AppWindow } from './index'
 
 export class WebView {
-  #nativeApi: any
-  #id: number
+  _id: number
 
-  constructor(nativeApi, id) {
-    this.#nativeApi = nativeApi
-    this.#id = id
+  constructor() {
+    this._id = native.webview_new()
+
+    REGISTRY.register(this, this._id)
   }
 
   attach(window: AppWindow) {
-    // TODO: not sure about id visibility
-    this.#nativeApi.webview_attach(this.#id, window.id)
+    native.webview_attach(this._id, window._id)
   }
 
   async loadURL(url: URL | string) {
-    this.#nativeApi.webview_load_url(this.#id, '' + url)
+    native.webview_load_url(this._id, '' + url)
   }
 
   async eval(js) {
-    const res = this.#nativeApi.webview_eval(this.#id, js)
+    const res = native.webview_eval(this._id, js)
 
     if (res !== undefined) {
       return JSON.parse(res)
     }
   }
 }
+
+const REGISTRY = new FinalizationRegistry(id => native.webview_free(id))

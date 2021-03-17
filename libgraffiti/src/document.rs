@@ -3,8 +3,9 @@
 // x allows changes
 // x notifies listener
 
+use crate::css::Selector;
+use crate::util::IdTree;
 use std::collections::HashMap;
-use crate::util::{IdTree};
 
 pub type NodeId = u32;
 
@@ -14,7 +15,9 @@ pub enum DocumentEvent {
     NodeDestroyed(NodeId),
 
     TextNodeCreated(NodeId),
-    TextChanged(NodeId),
+    CommentCreated(NodeId),
+
+    CharacterDataChanged(NodeId),
 
     ElementCreated(NodeId),
     AttributesChanged(NodeId),
@@ -22,11 +25,28 @@ pub enum DocumentEvent {
     NodeRemoved(NodeId, NodeId),
 }
 
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum NodeType {
+    Element = 1,
+    Attribute = 2,
+    Text = 3,
+    CdataSection = 4,
+    EntityReference = 5,
+    Entity = 6,
+    ProcessingInstruction = 7,
+    Comment = 8,
+    Document = 9,
+    DocumentType = 10,
+    DocumentFragment = 11,
+    Notation = 12,
+}
+
 pub struct Document {
     tree: IdTree<NodeData>,
     root: NodeId,
 
-    listener: Box<dyn Fn(DocumentEvent) + Send>
+    listener: Box<dyn Fn(DocumentEvent) + Send>,
 }
 
 // private shorthand
@@ -37,10 +57,7 @@ impl Document {
         let listener = Box::new(listener);
         let mut tree = IdTree::new();
 
-        let root = tree.create_node(NodeData::Element(ElementData {
-            local_name: ":root".to_owned(),
-            attributes: HashMap::new(),
-         }));
+        let root = tree.create_node(NodeData::Document);
 
         listener(Event::ElementCreated(root));
 
@@ -53,12 +70,13 @@ impl Document {
 
     // shared for all node types
 
-    pub fn is_element(&self, node: NodeId) -> bool {
-        matches!(self.tree.data(node), NodeData::Element(_))
-    }
-
-    pub fn is_text(&self, node: NodeId) -> bool {
-        matches!(self.tree.data(node), NodeData::Text(_))
+    pub fn node_type(&self, node: NodeId) -> NodeType {
+        match self.tree.data(node) {
+            NodeData::Element(_) => NodeType::Element,
+            NodeData::Text(_) => NodeType::Text,
+            NodeData::Comment(_) => NodeType::Comment,
+            NodeData::Document => NodeType::Document,
+        }
     }
 
     pub fn parent(&self, node: NodeId) -> Option<NodeId> {
@@ -67,6 +85,14 @@ impl Document {
 
     pub fn children(&self, node: NodeId) -> impl Iterator<Item = NodeId> + '_ {
         self.tree.children(node)
+    }
+
+    pub fn query_selector(&self, context: NodeId, selector: &Selector) -> NodeId {
+        self.query_selector_all(context, selector)[0]
+    }
+
+    pub fn query_selector_all(&self, context: NodeId, selector: &Selector) -> Vec<NodeId> {
+        todo!()
     }
 
     pub fn insert_child(&mut self, parent: NodeId, child: NodeId, index: usize) {
@@ -91,22 +117,34 @@ impl Document {
 
     // text node
 
-    pub fn create_text_node(&mut self, text: &str) -> NodeId {
-        let id = self.tree.create_node(NodeData::Text(text.to_owned()));
+    pub fn create_text_node(&mut self, cdata: &str) -> NodeId {
+        let id = self.tree.create_node(NodeData::Text(cdata.to_owned()));
 
         self.emit(Event::TextNodeCreated(id));
 
         id
     }
 
-    pub fn text(&self, text_node: NodeId) -> &str {
-        self.tree.data(text_node).text()
+    // comment
+
+    pub fn create_comment(&mut self, cdata: &str) -> NodeId {
+        let id = self.tree.create_node(NodeData::Comment(cdata.to_owned()));
+
+        self.emit(Event::CommentCreated(id));
+
+        id
+    }
+    
+    // text/comment node
+
+    pub fn cdata(&self, cdata_node: NodeId) -> &str {
+        self.tree.data(cdata_node).cdata()
     }
 
-    pub fn set_text(&mut self, text_node: NodeId, text: &str) {
-        *self.tree.data_mut(text_node) = NodeData::Text(text.to_owned());
+    pub fn set_cdata(&mut self, cdata_node: NodeId, cdata: &str) {
+        *self.tree.data_mut(cdata_node).cdata_mut() = cdata.to_owned();
 
-        self.emit(Event::TextChanged(text_node));
+        self.emit(Event::CharacterDataChanged(cdata_node));
     }
 
     // element
@@ -127,11 +165,20 @@ impl Document {
     }
 
     pub fn attribute(&self, element: NodeId, att_name: &str) -> Option<&str> {
-        self.tree.data(element).el().attributes.get(att_name).map(String::as_ref)
+        self.tree
+            .data(element)
+            .el()
+            .attributes
+            .get(att_name)
+            .map(String::as_ref)
     }
 
     pub fn set_attribute(&mut self, element: NodeId, att_name: &str, value: &str) {
-        self.tree.data_mut(element).el_mut().attributes.insert(att_name.to_owned(), value.to_owned());
+        self.tree
+            .data_mut(element)
+            .el_mut()
+            .attributes
+            .insert(att_name.to_owned(), value.to_owned());
 
         self.emit(Event::AttributesChanged(element));
     }
@@ -153,8 +200,10 @@ impl Document {
 // private from here
 
 enum NodeData {
+    Document,
     Element(ElementData),
     Text(String),
+    Comment(String),
 }
 
 struct ElementData {
@@ -165,7 +214,7 @@ struct ElementData {
 // TODO: macro?
 impl NodeData {
     fn el(&self) -> &ElementData {
-        if let NodeData::Element(data) = &self {
+        if let NodeData::Element(data) = self {
             data
         } else {
             panic!("not an element")
@@ -180,11 +229,19 @@ impl NodeData {
         }
     }
 
-    fn text(&self) -> &str {
-        if let NodeData::Text(data) = &self {
+    fn cdata(&self) -> &str {
+        if let NodeData::Text(data) | NodeData::Comment(data) = self {
             data
         } else {
-            panic!("not a text node")
+            panic!("not a cdata node")
+        }
+    }
+
+    fn cdata_mut(&mut self) -> &mut String {
+        if let NodeData::Text(data) | NodeData::Comment(data) = self {
+            data
+        } else {
+            panic!("not a cdata node")
         }
     }
 }

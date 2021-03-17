@@ -1,5 +1,14 @@
 import { version as VERSION } from '../package.json'
-import { ERR, LITTLE_ENDIAN as LE, TODO, UNSUPPORTED } from './util'
+import { ERR, TODO, UNSUPPORTED } from './util'
+
+export let native: any = new Proxy(
+  {},
+  {
+    get() {
+      throw new Error('not loaded, init first')
+    },
+  }
+)
 
 // TODO: PREBUILT, .dll/so/dylib
 const LIB = new URL('../libgraffiti/target/debug/libgraffiti.dylib', import.meta.url).pathname
@@ -20,7 +29,9 @@ export const loadNativeApi = async () => {
 
 export const loadNodejsAddon = async () => {
   if (!globalThis.fetch) {
-    globalThis.fetch = await import('node-fetch')
+    // @ts-expect-error
+    const { default: fetch } = await import('node-fetch')
+    globalThis.fetch = fetch
   }
 
   // tell dylib to register napi extension
@@ -29,7 +40,7 @@ export const loadNodejsAddon = async () => {
   // require() would make ncc bundle some unnecessary build artifacts
   process['dlopen'](module, LIB)
 
-  return {
+  native = {
     ...exports,
 
     // could be shared, not sure yet
@@ -62,7 +73,7 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
   const encoder = new TextEncoder()
   const decoder = new TextDecoder()
 
-  return Object.fromEntries(
+  native = Object.fromEntries(
     Object.entries(Deno.core.ops())
       .filter(([k, v]) => k.startsWith('GFT_'))
       .map(([k, v]) => {
@@ -78,31 +89,4 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
         ]
       })
   )
-
-  /*
-
-  const decodeEvent = bytes => {
-    let bin = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-
-    switch (bin.getUint32(0, LE)) {
-      case 0:
-        return ['mousemove', bin.getUint32(4, LE), bin.getFloat64(8, LE), bin.getFloat64(16, LE)]
-      case 1:
-        return ['mousedown', bin.getUint32(4, LE)]
-      case 2:
-        return ['mouseup', bin.getUint32(4, LE)]
-      case 3:
-        return ['scroll', bin.getUint32(4, LE), bin.getFloat64(8, LE), bin.getFloat64(16, LE)]
-      case 4:
-        return ['keydown', bin.getUint32(4, LE)]
-      case 5:
-        return ['keyup', bin.getUint32(4, LE)]
-      case 6:
-        return ['keypress', bin.getUint32(4, LE)]
-    }
-
-    return ERR('unknown event', bytes)
-  }
-
-  */
 }

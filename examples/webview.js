@@ -1,9 +1,9 @@
 // npm run build && npm run prepare && RUST_BACKTRACE=1 node examples/webview.js
 // npm run build && npm run prepare && RUST_BACKTRACE=1 deno run -A --unstable examples/webview.js
-import { App, WebView } from '../lib/index.js'
+import { App, AppWindow, WebView } from '../lib/index.js'
 
 const app = await App.init()
-const w = app.createWindow()
+const w = new AppWindow()
 
 const HTML = `
   <style>
@@ -22,8 +22,7 @@ const HTML = `
   <a href="https://vole.wtf/kilobytes-gambit/">Kilobyte's gambit</a>
 `
 
-// maybe it should be just new WebView() because that's definitely what people will try to do
-const webview = app.createWebView()
+const webview = new WebView()
 
 webview.attach(w)
 webview.loadURL(`data:text/html,${encodeURIComponent(HTML)}`)

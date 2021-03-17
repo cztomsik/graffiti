@@ -1,12 +1,13 @@
 use super::backend::{DrawCall, Frame, Quad, RenderBackend, Vertex, RGBA8};
-use crate::util::{Lazy, Lookup};
-use crate::{Document, NodeId, Rect, ResolvedStyle};
+use once_cell::sync::Lazy;
+use crate::util::{Lookup};
+use crate::{Document, NodeId, NodeType, Rect, ResolvedStyle};
 use owned_ttf_parser::{AsFaceRef, OwnedFace};
 
 // not checked/enforced for now but debug_assert! might be enough
 pub struct AABB { a: (f32, f32), b: (f32, f32) }
 
-static SANS_SERIF_FACE: Lazy<Font> = lazy!(|| {
+static SANS_SERIF_FACE: Lazy<Font> = Lazy::new(|| {
     use fontdb::{Database, Family, Query};
 
     let mut db = Database::new();
@@ -78,12 +79,12 @@ impl<'a, RS: Lookup<NodeId, &'a ResolvedStyle>, LR: Lookup<NodeId, Rect>> Render
         rect.pos.0 += offset.0;
         rect.pos.1 += offset.1;
 
-        if self.document.is_element(node) {
+        if self.document.node_type(node) == NodeType::Element {
             self.render_element(rect, self.resolved_styles.lookup(node), self.document.children(node));
         }
 
-        if self.document.is_text(node) {
-            self.render_text_node(rect, self.document.text(node));
+        if self.document.node_type(node) == NodeType::Text {
+            self.render_text_node(rect, self.document.cdata(node));
         }
     }
 

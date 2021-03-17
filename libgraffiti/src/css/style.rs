@@ -52,7 +52,7 @@ impl ResolvedStyle {
 
 #[cfg(test)]
 mod tests {
-    use super::super::Display;
+    use super::super::{Value, Display};
     use super::*;
 
     #[test]

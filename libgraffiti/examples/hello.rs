@@ -13,7 +13,7 @@ fn main() {
 
     while !win.should_close() {
         if let Some(e) = win.take_event() {
-            viewport.document_mut().set_text(hello, &format!("Hello {:#?}", e));
+            viewport.document_mut().set_cdata(hello, &format!("Hello {:#?}", e));
         }
 
         viewport.update();
