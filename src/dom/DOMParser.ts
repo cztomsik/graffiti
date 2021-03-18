@@ -1,4 +1,4 @@
-import { Document, DocumentAdapter } from '../nodes/Document'
+import { Document } from '../nodes/Document'
 import { parseFragment } from '../nodes/Element'
 import { ERR, TODO } from '../util'
 

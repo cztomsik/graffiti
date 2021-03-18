@@ -2,10 +2,10 @@
   "compilerOptions": {
     "strict": true,
     "noImplicitAny": false,
-    "lib": ["es2018", "dom"],
+    "lib": ["esnext", "dom"],
     "skipLibCheck": true,
     
-    "target": "es2018",
+    "target": "esnext",
     "alwaysStrict": true,
     "jsx": "react",
     "module": "esnext",

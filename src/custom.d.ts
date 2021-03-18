@@ -1,7 +1,13 @@
-declare var FinalizationRegistry: any
+// TODO: update TS version & add esnext.weakref lib
 
-declare class WeakRef<T>{
-  deref
+declare class FinalizationRegistry {
+  constructor(f: (heldValue: any) => {})
+  register(target: object, heldValue: any)
+}
+
+declare class WeakRef<T> {
+  constructor(v: T)
+  deref(): T | undefined
 }
 
 interface Object {

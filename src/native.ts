@@ -75,12 +75,13 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
 
   native = Object.fromEntries(
     Object.entries(Deno.core.ops())
-      .filter(([k, v]) => k.startsWith('GFT_'))
-      .map(([k, v]) => {
+      .filter(([opName, opId]) => opName.startsWith('GFT_'))
+      .map(([opName, opId]) => {
         return [
-          k.slice(4),
+          opName.slice(4),
           (...args) => {
-            const res = Deno.core.dispatch(v, encoder.encode(JSON.stringify(args)))
+            //console.log(opName, ...args)
+            const res = Deno.core.dispatch(opId, encoder.encode(JSON.stringify(args)))
 
             if (res) {
               return JSON.parse(decoder.decode(res))
