@@ -30,25 +30,28 @@ function handleMessage(msg) {
   }
 }
 
+// TODO: (pre)loader and/or html
+async function main({ windowId, scriptUrl }) {
+  console.log('worker init', windowId, scriptUrl)
 
   // unfortunately, we need native in worker too - there are many blocking APIs
   // and those would be impossible to emulate with parent<->worker postMessage()
-  let nativeApi = await loadNativeApi()
-
-  // get html
-  const html = await nativeApi.readURL(url)
+  await loadNativeApi()
 
   // create document
-  const docId = nativeApi.document_new()
-  console.log('docId', docId)
-  const document: any = new DOMParser(createAdapter(nativeApi, docId, url)).parseFromString(html, 'text/html')
-  document.URL = url
+  const document: any = new DOMParser().parseFromString('<html><head><title></title></head><body><div id="page"></div></body></html>', 'text/html')
+  document.URL = 'graffiti:///'
 
   // create window
   const w = new Window(document)
-  Object.setPrototypeOf(globalThis, w)
 
-  // remove `location` from WorkerGlobalScope (TODO: navigator should go too)
-  // @ts-expect-error
-  delete globalThis.location
+  // setup env
+  Object.setPrototypeOf(globalThis, w)
+  Object.assign(w, nodes)
+
+  try {
+    await import(scriptUrl)
+  } catch (e) {
+    console.log(e)
+  }
 }

@@ -1,25 +1,7 @@
-import { AppWindow, WebView } from './index'
-import { loadNativeApi } from './native'
-import { ERR } from './util'
+import { native, loadNativeApi } from './native'
 
 export class App {
-  #nativeApi
-
-  constructor(nativeApi = ERR('use App.init()')) {
-    this.#nativeApi = nativeApi
-  }
-
-  createWindow({ title = 'Graffiti', width = 800, height = 600 } = {}) {
-    const id = this.#nativeApi.window_new(title, width, height)
-
-    return new AppWindow(this.#nativeApi, id)
-  }
-
-  createWebView() {
-    const id = this.#nativeApi.webview_new()
-
-    return new WebView(this.#nativeApi, id)
-  }
+  private constructor() {}
 
   run() {
     const loop = () => {
@@ -34,14 +16,14 @@ export class App {
 
   // useful for testing/debugging
   tick() {
-    this.#nativeApi.tick()
+    native.tick()
   }
 
   static async init() {
-    const nativeApi = await loadNativeApi()
+    await loadNativeApi()
 
-    nativeApi.init();
+    native.init()
 
-    return new App(nativeApi)
+    return new App()
   }
 }

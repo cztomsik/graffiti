@@ -35,10 +35,18 @@ macro_rules! ctx {
 }
 
 // used in nodejs/deno.rs which both provide different export! macro so it does slightly different things
-// note we are using closure syntax but we only support fn() (deno limitation)
+//
+// notes:
+// - we are using closure syntax but we only support fn() (deno limitation)
+// - finalization order is nondeterministic but it's not a problem for top-level "objects"
+//   (key is occupied so reuse can't happen before finalizer is called)
 macro_rules! export_api {
     () => {{
         use super::*;
+
+        fn parse_sel(sel: String) -> Selector {
+            Selector::try_from(sel.as_str()).unwrap()
+        }
 
         // tuples worked but hinting was pain (generics are pain too but at least this part looks better)
         // https://github.com/cztomsik/graffiti/blob/6637adf0e2fbec4034fb28c770a3fd026a4012c3/libgraffiti/src/bindings/deno.rs
@@ -94,8 +102,9 @@ macro_rules! export_api {
             document_remove_attribute: |doc, el, attr: String| ctx!().documents[doc].remove_attribute(el, &attr),
             document_insert_child: |doc, el, child, index: u32| ctx!().documents[doc].insert_child(el, child, index as _),
             document_remove_child: |doc, el, child| ctx!().documents[doc].remove_child(el, child),
-            document_query_selector: |doc, node, sel: String| ctx!().documents[doc].query_selector(node, &Selector::try_from(sel.as_str()).unwrap()),
-            document_query_selector_all: |doc, node, sel: String| ctx!().documents[doc].query_selector_all(node, &Selector::try_from(sel.as_str()).unwrap()),
+            document_query_selector: |doc, node, sel| ctx!().documents[doc].query_selector(node, &parse_sel(sel)),
+            document_query_selector_all: |doc, node, sel| ctx!().documents[doc].query_selector_all(node, &parse_sel(sel)),
+            document_free_node: |doc, node| ctx!().documents[doc].free_node(node),
             document_free: |doc| { ctx!().documents.remove(doc); }
         }
     }};

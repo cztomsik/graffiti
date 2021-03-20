@@ -19,13 +19,13 @@ fn rule<'a>() -> Parser<'a, u8, Rule> {
 
 pub(crate) fn selector<'a>() -> Parser<'a, u8, Selector> {
     let tag = || {
-        let ident = || ident().convert(std::str::from_utf8).map(str::to_owned);
-        let local_name = ident().map(Tag::LocalName);
-        let id = sym(b'#') * ident().map(Tag::Identifier);
-        let class_name = sym(b'.') * ident().map(Tag::ClassNamePart);
+        let ident = || ident().convert(std::str::from_utf8).map(Atom::from);
+        let local_name = ident().map(Component::LocalName);
+        let id = sym(b'#') * ident().map(Component::Identifier);
+        let class_name = sym(b'.') * ident().map(Component::ClassName);
         let universal = sym(b'*').map(|_| SelectorPart::Combinator(Combinator::Universal));
 
-        universal | (local_name | id | class_name).map(Atom::new).map(SelectorPart::Tag)
+        universal | (local_name | id | class_name).map(SelectorPart::Component)
     };
 
     // note we parse child/descendant but we flip the final order so it's parent/ancestor
@@ -304,7 +304,11 @@ fn font_family<'a>() -> Parser<'a, u8, Atom<String>> {
     // TODO: extend pattern for quoted strings, support commas
     //       but keep it as Atom<String> because that is easy to
     //       map/cache to FontQuery and I'd like to keep CSS unaware of fonts
-    is_a(alphanum_dash).repeat(1..).collect().convert(std::str::from_utf8).map(|s| Atom::new(s.into()))
+    is_a(alphanum_dash)
+        .repeat(1..)
+        .collect()
+        .convert(std::str::from_utf8)
+        .map(Atom::from)
 }
 
 fn text_align<'a>() -> Parser<'a, u8, TextAlign> {
@@ -395,42 +399,37 @@ mod tests {
 
     #[test]
     fn parse_selector() {
-        use Combinator as C;
-        use SelectorPart as P;
-        use Tag as T;
+        use super::Combinator::*;
+        use super::Component::*;
+        use SelectorPart::{Combinator, Component};
 
         let s = |s| Selector::try_from(s).unwrap().parts;
-        #[allow(non_snake_case)]
-        let A = Atom::new;
 
         // simple
-        assert_eq!(s("*"), &[P::Combinator(C::Universal)]);
-        assert_eq!(s("body"), &[P::Tag(A(T::LocalName("body".into())))]);
-        assert_eq!(s("h2"), &[P::Tag(A(T::LocalName("h2".into())))]);
-        assert_eq!(s("#app"), &[P::Tag(A(T::Identifier("app".into())))]);
-        assert_eq!(s(".btn"), &[P::Tag(A(T::ClassNamePart("btn".into())))]);
+        assert_eq!(s("*"), &[Combinator(Universal)]);
+        assert_eq!(s("body"), &[Component(LocalName("body".into()))]);
+        assert_eq!(s("h2"), &[Component(LocalName("h2".into()))]);
+        assert_eq!(s("#app"), &[Component(Identifier("app".into()))]);
+        assert_eq!(s(".btn"), &[Component(ClassName("btn".into()))]);
 
         // combined
         assert_eq!(
             s(".btn.btn-primary"),
             &[
-                P::Tag(A(T::ClassNamePart("btn-primary".into()))),
-                P::Tag(A(T::ClassNamePart("btn".into())))
+                Component(ClassName("btn-primary".into())),
+                Component(ClassName("btn".into()))
             ]
         );
         assert_eq!(
             s("*.test"),
-            &[
-                P::Tag(A(T::ClassNamePart("test".into()))),
-                P::Combinator(Combinator::Universal)
-            ]
+            &[Component(ClassName("test".into())), Combinator(Universal)]
         );
         assert_eq!(
             s("div#app.test"),
             &[
-                P::Tag(A(T::ClassNamePart("test".into()))),
-                P::Tag(A(T::Identifier("app".into()))),
-                P::Tag(A(T::LocalName("div".into())))
+                Component(ClassName("test".into())),
+                Component(Identifier("app".into())),
+                Component(LocalName("div".into()))
             ]
         );
 
@@ -438,13 +437,13 @@ mod tests {
         assert_eq!(
             s("body > div.test div#test"),
             &[
-                P::Tag(A(T::Identifier("test".into()))),
-                P::Tag(A(T::LocalName("div".into()))),
-                P::Combinator(C::Ancestor),
-                P::Tag(A(T::ClassNamePart("test".into()))),
-                P::Tag(A(T::LocalName("div".into()))),
-                P::Combinator(C::Parent),
-                P::Tag(A(T::LocalName("body".into())))
+                Component(Identifier("test".into())),
+                Component(LocalName("div".into())),
+                Combinator(Ancestor),
+                Component(ClassName("test".into())),
+                Component(LocalName("div".into())),
+                Combinator(Parent),
+                Component(LocalName("body".into()))
             ]
         );
 
@@ -452,23 +451,23 @@ mod tests {
         assert_eq!(
             s("html, body"),
             &[
-                P::Tag(A(T::LocalName("body".into()))),
-                P::Combinator(C::Or),
-                P::Tag(A(T::LocalName("html".into())))
+                Component(LocalName("body".into())),
+                Combinator(Or),
+                Component(LocalName("html".into()))
             ]
         );
         assert_eq!(
             s("body > div, div button span"),
             &[
-                P::Tag(A(T::LocalName("span".into()))),
-                P::Combinator(C::Ancestor),
-                P::Tag(A(T::LocalName("button".into()))),
-                P::Combinator(C::Ancestor),
-                P::Tag(A(T::LocalName("div".into()))),
-                P::Combinator(C::Or),
-                P::Tag(A(T::LocalName("div".into()))),
-                P::Combinator(C::Parent),
-                P::Tag(A(T::LocalName("body".into()))),
+                Component(LocalName("span".into())),
+                Combinator(Ancestor),
+                Component(LocalName("button".into())),
+                Combinator(Ancestor),
+                Component(LocalName("div".into())),
+                Combinator(Or),
+                Component(LocalName("div".into())),
+                Combinator(Parent),
+                Component(LocalName("body".into())),
             ]
         );
 

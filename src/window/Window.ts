@@ -36,6 +36,12 @@ export class Window extends EventTarget implements globalThis.Window {
   requestAnimationFrame = requestAnimationFrame
   cancelAnimationFrame = cancelAnimationFrame
 
+  // react-dom needs both
+  HTMLIFrameElement = class {}
+
+  // wouter needs global Event & it could be referenced via window.* too
+  Event = Event
+
   constructor(public readonly document: globalThis.Document) {
     super()
   }
@@ -155,19 +161,3 @@ export class Window extends EventTarget implements globalThis.Window {
   webkitConvertPointFromPageToNode
   webkitRequestAnimationFrame
 }
-
-/*
-
-export class Window extends EventTarget implements globalThis.Window {
-  // react-dom needs both
-  HTMLIFrameElement = class {}
-
-  // wouter needs global Event & it could be referenced via window.* too
-  Event = Event
-
-  _handleEvent(event) {
-    handleWindowEvent(this.document, event)
-  }
-
-}
-*/

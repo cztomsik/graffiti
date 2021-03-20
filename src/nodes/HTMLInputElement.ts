@@ -13,7 +13,6 @@ export class HTMLInputElement extends HTMLElement implements globalThis.HTMLInpu
   defaultChecked = false
   accept = ''
 
-  _prevValue = ''
   _value = ''
   _textNode: Text = this.ownerDocument.createTextNode('')
 
@@ -51,10 +50,13 @@ export class HTMLInputElement extends HTMLElement implements globalThis.HTMLInpu
       this._fire('input', { data: e.key, inputType: 'insertText' })
     })
 
-    this.addEventListener('focus', () => this._prevValue = this.value)
+    // scope-private
+    let prevValue = ''
+
+    this.addEventListener('focus', () => prevValue = this.value)
 
     this.addEventListener('blur', e => {
-      if (this._prevValue !== this.value) {
+      if (prevValue !== this.value) {
         this._fire('change')
       }
     })

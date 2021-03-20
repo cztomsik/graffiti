@@ -8,15 +8,15 @@ use core::ops::Deref;
 use dashmap::DashMap;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Atom<T: Eq + Hash + Send + Sync + 'static>(Arc<T>);
 
 type AtomsOf<T> = DashMap<Arc<T>, ()>;
 
 static ATOMS_OF: Lazy<DashMap<TypeId, Box<dyn Any + Send + Sync>>> = Lazy::new(|| DashMap::new());
 
-impl<T: 'static + Eq + Hash + Send + Sync> Atom<T> {
-    pub fn new(v: T) -> Self {
+impl<T: 'static + Eq + Hash + Send + Sync> From<T> for Atom<T> {
+    fn from(v: T) -> Self {
         // TODO: static var per generic type wouldn't work, rust
         //       accepts the syntax but it's shared for all types (WTF)
         //       https://github.com/rust-lang/rust/issues/22991
@@ -33,6 +33,14 @@ impl<T: 'static + Eq + Hash + Send + Sync> Atom<T> {
         let atoms: &AtomsOf<T> = atoms.value().downcast_ref::<AtomsOf<T>>().unwrap();
         let entry = atoms.entry(Arc::new(v)).or_insert(());
         return Self(entry.key().clone());
+    }
+}
+
+// conv helper
+// TODO: ToOwned vs. conflicts?
+impl From<&str> for Atom<String> {
+    fn from(v: &str) -> Self {
+        Self::from(v.to_owned())
     }
 }
 
