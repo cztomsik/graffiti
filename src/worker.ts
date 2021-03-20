@@ -82,7 +82,7 @@ async function main({ windowId, url }) {
     }
   } catch (e) {
     console.log(e)
-    throw e
+    //throw e
   }
 }
 

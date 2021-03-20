@@ -122,6 +122,10 @@ export class Document extends Node implements globalThis.Document {
 
       // otherwise try lowercase and eventually fall-back to HTMLUnknownElement
       default:
+        if (typeof tagName !== 'string') {
+          tagName = '' + tagName
+        }
+
         const lower = tagName.toLowerCase()
 
         if (tagName === lower) {

@@ -58,6 +58,8 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   setAttribute(name: string, value: string) {
+    value = (typeof value === 'string' ? value : '' + value).toLowerCase()
+
     this.#attributes.set(name, value)
 
     setAttribute(this.ownerDocument, this, name, value)
