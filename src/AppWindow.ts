@@ -1,10 +1,12 @@
 import { native } from './native'
+import { ERR } from './util'
 
 export const ID = Symbol()
 
 export class AppWindow {
   #id: number
   #worker?: Worker
+  #send = ERR.bind('no worker')
 
   constructor({ title = 'Graffiti', width = 800, height = 600 } = {}) {
     this.#id = native.window_new(title, width, height)
@@ -53,27 +55,40 @@ export class AppWindow {
     this.#worker?.terminate()
 
     const Worker = globalThis.Worker ?? (await import('worker_threads')).Worker
-    const worker = (this.#worker = new Worker(new URL('worker.js', import.meta.url), {
+    const worker = new Worker(new URL('worker.js', import.meta.url), {
       type: 'module',
       deno: true,
-    } as any))
+    } as any)
 
-    worker.postMessage({ type: 'init', windowId: this.#id, url: '' + url })
+    let current = Promise.resolve()
+    let next
 
-    return new Promise(resolve => worker.addEventListener('message', e => resolve(e.data)))
+    worker.addEventListener('message', ({ data }) => {
+      if (data?.type === '__GFT') {
+        if (data.error) {
+          return next.reject(data.error)
+        }
+
+        // BTW: can be undefined (key will be missing)
+        return next.resolve(data.result)
+      }
+    })
+
+    // setup sequential req/res communication
+    // TODO: prefix or isolate entirely, not sure yet
+    this.#worker = worker
+    this.#send = async msg => {
+      await current
+      next = null
+      worker.postMessage(msg)
+      return (current = new Promise((resolve, reject) => (next = { resolve, reject })))
+    }
+
+    await this.#send({ type: 'init', windowId: this.#id, url: '' + url })
   }
 
   async eval(js: string) {
-    if (!this.#worker) {
-      throw new Error('no worker')
-    }
-
-    return new Promise(resolve => {
-      // TODO: id
-      this.#worker?.postMessage({ type: 'eval', js })
-      // TODO: type, id
-      this.#worker?.addEventListener('message', e => resolve(e.data), { once: true })
-    })
+    return this.#send({ type: 'eval', js })
   }
 }
 

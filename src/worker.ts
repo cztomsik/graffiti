@@ -18,16 +18,24 @@ if ('process' in globalThis) {
   self.addEventListener('message', ev => handleMessage(ev.data))
 }
 
-function handleMessage(msg) {
-  switch (msg.type) {
-    case 'init': return main(msg)
-    // TODO: type, id
-    case 'eval': return postMessage(eval(msg.js), '')
+async function handleMessage(msg) {
+  try {
+    switch (msg.type) {
+      case 'init':
+        return postMessage({ type: '__GFT', result: await main(msg) }, '')
+      case 'eval':
+        return postMessage({ type: '__GFT', result: eval(msg.js) }, '')
+    }
+  } catch (e) {
+    postMessage({ type: '__GFT', error: e.message }, '')
   }
 }
 
 async function main({ windowId, url }) {
-  console.log('worker init', windowId, url)
+  //console.log('worker init', windowId, url)
+
+  // TODO: wpt global (find a way to pass some custom init or something)
+  globalThis.rv = null
 
   // cleanup first (deno)
   for (const k of ['location']) {
@@ -39,7 +47,7 @@ async function main({ windowId, url }) {
     const { default: fetch } = await import('node-fetch')
     globalThis.fetch = fetch
   }
-  
+
   // unfortunately, we need native in worker too - there are many blocking APIs
   // and those would be impossible to emulate with parent<->worker postMessage()
   await loadNativeApi()
@@ -56,38 +64,32 @@ async function main({ windowId, url }) {
   Object.setPrototypeOf(globalThis, window)
   Object.assign(window, nodes)
 
-  try {
-    // we replace <link> with <style> which works surprisingly well
-    // TODO: qsa link[rel="stylesheet"]
-    for (const link of document.querySelectorAll('link')) {
-      if (link.rel === 'stylesheet' && link.href) {
-        const style = document.createElement('style')
-        style.textContent = await readURL('' + new URL(link.getAttribute('href'), url))
-        link.replaceWith(style)
-      }
+  // we replace <link> with <style> which works surprisingly well
+  // TODO: qsa link[rel="stylesheet"]
+  for (const link of document.querySelectorAll('link')) {
+    if (link.rel === 'stylesheet' && link.href) {
+      const style = document.createElement('style')
+      style.textContent = await readURL('' + new URL(link.getAttribute('href'), url))
+      link.replaceWith(style)
     }
-
-    // run (once) all the scripts
-    for (const { src, text } of document.querySelectorAll('script')) {
-      if (src) {
-        console.log('[script]', src)
-        await import('' + new URL(src, url))
-      } else {
-        console.log('[eval]', text)
-        const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-        await new AsyncFunction('__filename', text.replace(/import\s+(".*?")/gi, 'await import(new URL($1, __filename))'))(
-          url
-        )
-      }
-    }
-
-    window._fire('load')
-
-    postMessage(true, '')
-  } catch (e) {
-    console.log(e)
-    //throw e
   }
+
+  // run (once) all the scripts
+  for (const { src, text } of document.querySelectorAll('script')) {
+    if (src) {
+      //console.log('[script]', src)
+      await import('' + new URL(src, url))
+    } else {
+      //console.log('[eval]', text)
+      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+      await new AsyncFunction(
+        '__filename',
+        text.replace(/import\s+(".*?")/gi, 'await import(new URL($1, __filename))')
+      )(url)
+    }
+  }
+
+  window._fire('load')
 }
 
 async function readURL(url) {
