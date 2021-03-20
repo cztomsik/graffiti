@@ -27,7 +27,7 @@ async function handleMessage(msg) {
         return postMessage({ type: '__GFT', result: eval(msg.js) }, '')
     }
   } catch (e) {
-    postMessage({ type: '__GFT', error: e.message }, '')
+    postMessage({ type: '__GFT', error: `${e.message}\n${e.stack}` }, '')
   }
 }
 

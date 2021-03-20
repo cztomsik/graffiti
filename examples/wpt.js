@@ -29,6 +29,12 @@ const urls = [
   'http://web-platform.test:8000/dom/nodes/CharacterData-data.html',
   'http://web-platform.test:8000/dom/nodes/Node-parentElement.html',
   'http://web-platform.test:8000/dom/nodes/Node-appendChild.html',
+  //'http://web-platform.test:8000/dom/nodes/Node-properties.html',
+  'http://web-platform.test:8000/dom/nodes/CharacterData-data.html',
+  'http://web-platform.test:8000/dom/nodes/CharacterData-appendChild.html',
+  //'http://web-platform.test:8000/dom/nodes/ChildNode-after.html',
+  //'http://web-platform.test:8000/dom/nodes/Element-tagName.html',
+  //'http://web-platform.test:8000/dom/nodes/Document-createElement.html',
   //'http://web-platform.test:8000/dom/nodes/ParentNode-querySelector-All.html',
 ]
 
