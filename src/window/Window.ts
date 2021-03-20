@@ -1,9 +1,9 @@
 import { EventTarget } from '../events/EventTarget'
-import { Document } from '../nodes/Document'
 import { Location } from './Location'
 import { History } from './History'
+import { Storage } from './Storage'
 import { requestAnimationFrame, cancelAnimationFrame } from './raf'
-import { TODO } from '../util'
+import { NOOP, TODO } from '../util'
 
 const G = globalThis
 
@@ -14,10 +14,14 @@ export class Window extends EventTarget implements globalThis.Window {
   self = this.window
   history = new History(this, new URL(this.document.URL))
   location = new Location(this.history)
+  sessionStorage = new Storage()
+  localStorage = new Storage()
   // TODO
   navigator: any = {
     userAgent: 'graffiti'
   }
+  // TODO
+  customElements = { define: NOOP } as any
 
   // provided by deno/nodejs and/or polyfilled in worker.ts
   setInterval = G.setInterval
@@ -80,14 +84,6 @@ export class Window extends EventTarget implements globalThis.Window {
   scrollTo = TODO
   stop = TODO
 
-  get localStorage() {
-    return TODO()
-  }
-
-  get sessionStorage() {
-    return TODO()
-  }
-
   get innerHeight() {
     return TODO()
   }
@@ -117,7 +113,6 @@ export class Window extends EventTarget implements globalThis.Window {
   caches
   clientInformation
   closed
-  customElements
   defaultStatus
   devicePixelRatio
   doNotTrack

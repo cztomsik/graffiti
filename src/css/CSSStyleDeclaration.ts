@@ -46,7 +46,7 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   }
 
   set cssText(cssText: string) {
-    TODO()
+    console.log('TODO: CSSStyleDeclaration.cssText = ', cssText)
 
     /*
     for (const prop of this.#values.keys()) {

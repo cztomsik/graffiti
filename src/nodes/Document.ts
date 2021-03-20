@@ -14,6 +14,7 @@ import {
   HTMLDivElement,
   HTMLSpanElement,
   HTMLInputElement,
+  HTMLIFrameElement,
   HTMLTextAreaElement,
   HTMLButtonElement,
   HTMLUnknownElement,
@@ -116,6 +117,7 @@ export class Document extends Node implements globalThis.Document {
       case 'script': return new HTMLScriptElement(this, tagName)
       //case 'canvas': return new HTMLCanvasElement(this, tagName)
       case 'link': return new HTMLLinkElement(this, tagName)
+      case 'iframe': return new HTMLIFrameElement(this, tagName)
       case 'head': return new HTMLHeadElement(this, tagName)
       case 'body': return new HTMLBodyElement(this, tagName)
       case 'html': return new HTMLHtmlElement(this, tagName)

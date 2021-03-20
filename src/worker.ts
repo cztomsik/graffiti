@@ -75,17 +75,18 @@ async function main({ windowId, url }) {
       } else {
         console.log('[eval]', text)
         const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-        new AsyncFunction('__filename', text.replace(/import\s+(".*?")/gi, 'await import(new URL($1, __filename))'))(
+        await new AsyncFunction('__filename', text.replace(/import\s+(".*?")/gi, 'await import(new URL($1, __filename))'))(
           url
         )
       }
     }
+
+    postMessage(true, '')
   } catch (e) {
     console.log(e)
     //throw e
   }
 }
-
 
 async function readURL(url) {
   url = new URL(url)
