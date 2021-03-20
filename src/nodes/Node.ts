@@ -80,7 +80,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
   }
 
   get parentElement(): HTMLElement | null {
-    return this.parentNode as HTMLElement
+    return (this.parentNode instanceof HTMLElement) ?this.parentNode :null
   }
 
   get nextSibling(): G.ChildNode | null {
