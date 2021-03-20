@@ -15,13 +15,6 @@
 use crate::util::Atom;
 use std::convert::TryFrom;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum Tag {
-    LocalName(String),
-    Identifier(String),
-    ClassNamePart(String),
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Selector {
     pub(super) parts: Vec<SelectorPart>,
@@ -29,8 +22,23 @@ pub struct Selector {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum SelectorPart {
+    // TODO: I think inner discriminant could be squashed but it's not
+    Component(Component),
     Combinator(Combinator),
-    Tag(Atom<Tag>),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) enum Component {
+    LocalName(Atom<String>),
+    Identifier(Atom<String>),
+    ClassName(Atom<String>),
+    // AttrExists(Atom<String>),
+    // AttrEq(Atom<(Atom<String>, Atom<String>)>) // deref first, then compare both atoms
+    // FirstChild // (prev == None)
+    // LastChild // (next == None)
+    // OnlyChild // (prev == None && next == None)
+
+    // PseudoClass(Atom<String>) // :root, :hover, :focus, :active, :enabled, :disabled, :valid, :invalid, ...
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -38,60 +46,61 @@ pub(super) enum Combinator {
     Universal,
     Parent,
     Ancestor,
+    // Adjacent,
+    // Sibling,
     Or,
 }
 
-impl Selector {
-    // mask of all tail tags
-    // can be stored somewhere and used for short-circuiting:
-    // (s.tail_mask().includes(SelectorMask::from(&[Tag::LocalName(..), Tag::ClassNamePart(..), ...])))
-    pub fn tail_mask(&self) -> SelectorMask {
-        // TODO: split by Combinator::Or and get tail (first because we are reversed)
-        //SelectorMask::from(self.parts.iter().filter_map(|p| match p {
-        //    SelectorPart::Tag(tag) => Some(tag),
-        //    _ => None,
-        //}))
+pub(crate) struct MatchingContext<'a, E> {
+    pub has_local_name: &'a dyn Fn(E, &Atom<String>) -> bool,
+    pub has_identifier: &'a dyn Fn(E, &Atom<String>) -> bool,
+    pub has_class: &'a dyn Fn(E, &Atom<String>) -> bool,
+    //has_pseudo_class: &'a dyn Fn(E, &Atom<String>) -> bool,
+    pub parent: &'a dyn Fn(E) -> Option<E>,
+}
 
-        todo!()
+impl<E: Copy> MatchingContext<'_, E> {
+    fn match_component(&self, component: &Component, el: E) -> bool {
+        use Component::*;
+
+        match component {
+            LocalName(name) => (self.has_local_name)(el, name),
+            Identifier(id) => (self.has_identifier)(el, id),
+            ClassName(cls) => (self.has_class)(el, cls),
+        }
     }
 
-    // TODO: change to trait so we can use SmallVec for tags
-    pub fn matches<'a>(&'a self, tags_stack: &[Vec<Atom<Tag>>]) -> bool {
-        debug_assert!(tags_stack.len() > 0);
-
-        // useful for reset
-        let initial_pos = tags_stack.len() - 1;
-
+    pub fn match_selector<'a>(&'a self, selector: &Selector, el: E) -> bool {
         // so we can fast-forward to next OR
-        let mut parts_iter = self.parts.iter();
+        let mut parts_iter = selector.parts.iter();
 
         // state
-        let mut pos = initial_pos;
+        let mut curr = el;
         let mut parent = false;
         let mut ancestors = false;
 
         // we are always going forward
         'next_part: while let Some(p) = parts_iter.next() {
             match p {
-                SelectorPart::Tag(t) => {
+                SelectorPart::Component(comp) => {
                     loop {
                         if parent || ancestors {
                             parent = false;
 
-                            // nothing left to match
-                            if pos == 0 {
-                                break;
-                            }
+                            match (self.parent)(curr) {
+                                Some(p) => curr = p,
 
-                            // go up
-                            pos -= 1;
+                                // nothing left to match
+                                None => break,
+                            }
                         }
 
-                        if tags_stack[pos].contains(t) {
+                        if self.match_component(&comp, curr) {
                             ancestors = false;
                             continue 'next_part;
                         }
 
+                        // we got no match on parent
                         if !ancestors {
                             break;
                         }
@@ -101,7 +110,7 @@ impl Selector {
                     while let Some(p) = parts_iter.next() {
                         if p == &SelectorPart::Combinator(Combinator::Or) {
                             // reset stack
-                            pos = initial_pos;
+                            curr = el;
                             continue 'next_part;
                         }
                     }
@@ -140,6 +149,7 @@ impl TryFrom<&str> for Selector {
     }
 }
 
+/*
 pub struct SelectorMask(u32);
 
 impl SelectorMask {
@@ -169,66 +179,70 @@ impl<'a, T: IntoIterator<Item = &'a Atom<Tag>>> From<T> for SelectorMask {
         )
     }
 }
+*/
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // TODO: it should be possible (tag is nonzero) but maybe it's easier to make Atom shorter
     #[ignore]
     #[test]
-    fn part_has_same_size_as_tag() {
+    fn part_size() {
         use std::mem::size_of;
 
-        assert_eq!(size_of::<SelectorPart>(), size_of::<Atom<Tag>>())
+        // TODO: either find a way or inline components in SelectorPart
+        // TODO: make Atom NonZeroU32 to further push this down
+        assert_eq!(size_of::<SelectorPart>(), 2 * size_of::<Atom<String>>())
     }
 
     #[test]
     fn matching() {
-        use Tag as T;
+        let local_names = &vec!["html", "body", "div", "button", "span"];
+        let ids = &vec!["", "app", "panel", "", ""];
+        let class_names = &vec!["", "", "", "btn", ""];
+        let parents = &vec![None, Some(0), Some(1), Some(2), Some(3)];
 
-        let s = |s| Selector::try_from(s).unwrap();
+        let ctx = MatchingContext {
+            has_local_name: &|e, n| **n == local_names[e],
+            has_identifier: &|e, id| **id == ids[e],
+            has_class: &|e, cls| **cls == class_names[e],
+            parent: &|e| parents[e],
+        };
 
-        let stack = vec![
-            vec![T::LocalName("html".into())],
-            vec![T::LocalName("body".into()), T::Identifier("app".into())],
-            vec![T::LocalName("div".into()), T::Identifier("panel".into())],
-            vec![T::LocalName("button".into()), T::ClassNamePart("btn".into())],
-            vec![T::LocalName("span".into())],
-        ]
-        .iter()
-        .map(|tags| tags.iter().cloned().map(Atom::new).collect())
-        .collect::<Vec<Vec<_>>>();
+        let match_sel = |s, el| ctx.match_selector(&Selector::try_from(s).unwrap(), el);
 
         // basic
-        assert!(s("*").matches(&stack));
-        assert!(s("html").matches(&stack[0..1]));
-        assert!(s("body").matches(&stack[1..2]));
-        assert!(s("div").matches(&stack[2..3]));
-        assert!(s("button").matches(&stack[3..4]));
-        assert!(s("span").matches(&stack[4..5]));
+        assert!(match_sel("*", 0));
+        assert!(match_sel("html", 0));
+        assert!(match_sel("body", 1));
+        assert!(match_sel("#app", 1));
+        assert!(match_sel("div", 2));
+        assert!(match_sel("#panel", 2));
+        assert!(match_sel("button", 3));
+        assert!(match_sel(".btn", 3));
+        assert!(match_sel("span", 4));
 
         // combined
-        assert!(s("#app").matches(&stack[1..2]));
-        assert!(s("div#panel").matches(&stack[2..3]));
-        assert!(s(".btn").matches(&stack[3..4]));
+        assert!(match_sel("body#app", 1));
+        assert!(match_sel("div#panel", 2));
+        assert!(match_sel("button.btn", 3));
 
         // parent
-        assert!(s("button > span").matches(&stack));
-        assert!(s("div#panel > button.btn > span").matches(&stack));
+        assert!(match_sel("button > span", 4));
+        assert!(match_sel("div#panel > button.btn > span", 4));
 
         // ancestor
-        assert!(s("button span").matches(&stack));
-        assert!(s("div#panel span").matches(&stack));
-        assert!(s("body div .btn span").matches(&stack));
+        assert!(match_sel("button span", 4));
+        assert!(match_sel("div#panel span", 4));
+        assert!(match_sel("body div .btn span", 4));
 
         // OR
-        assert!(s("div, span").matches(&stack));
-        assert!(s("a, b, c, span, d").matches(&stack));
-        assert!(s("html, body").matches(&stack[1..2]));
+        assert!(match_sel("div, span", 4));
+        assert!(match_sel("a, b, c, span, d", 4));
+        assert!(match_sel("html, body", 1));
 
         // complex
-        assert!(s("div, span.foo, #panel span").matches(&stack));
-        assert!(s("a b c d e f g, span").matches(&stack));
+        assert!(match_sel("div, span.foo, #panel span", 4));
+        assert!(match_sel("a b c d e f g, span", 4));
     }
 }

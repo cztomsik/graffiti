@@ -1,14 +1,7 @@
 import { version as VERSION } from '../package.json'
-import { ERR, TODO, UNSUPPORTED } from './util'
+import { ERR } from './util'
 
-export let native: any = new Proxy(
-  {},
-  {
-    get() {
-      throw new Error('not loaded, init first')
-    },
-  }
-)
+export let native: any = new Proxy({}, { get: ERR.bind(null, 'not loaded, init first') })
 
 // TODO: PREBUILT, .dll/so/dylib
 const LIB = new URL('../libgraffiti/target/debug/libgraffiti.dylib', import.meta.url).pathname
@@ -28,41 +21,13 @@ export const loadNativeApi = async () => {
 }
 
 export const loadNodejsAddon = async () => {
-  if (!globalThis.fetch) {
-    // @ts-expect-error
-    const { default: fetch } = await import('node-fetch')
-    globalThis.fetch = fetch
-  }
-
   // tell dylib to register napi extension
   process.env.GFT_NODEJS = '1'
 
   // require() would make ncc bundle some unnecessary build artifacts
   process['dlopen'](module, LIB)
 
-  native = {
-    ...exports,
-
-    // could be shared, not sure yet
-    async readURL(url) {
-      url = new URL(url)
-
-      if (url.protocol === 'data:') {
-        return TODO()
-      }
-
-      if (url.protocol === 'file:') {
-        let fs = await import('fs/promises')
-        return fs.readFile(url.pathname, 'utf-8')
-      }
-
-      if (url.protocol.match(/^https?:$/)) {
-        return fetch(url).then(res => res.text())
-      }
-
-      return UNSUPPORTED()
-    },
-  }
+  native = exports
 }
 
 const loadDenoPlugin = async (Deno = globalThis.Deno) => {

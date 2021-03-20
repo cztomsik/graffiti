@@ -1,3 +1,4 @@
+import { native } from '../native'
 import {
   Node,
   NodeList,
@@ -30,6 +31,7 @@ import { StyleSheetList } from '../css/StyleSheetList'
 import { UNSUPPORTED } from '../util'
 
 import { DOMImplementation } from '../dom/DOMImplementation'
+import { GET_THE_PARENT } from '../events/EventTarget'
 
 export class Document extends Node implements globalThis.Document {
   readonly ownerDocument
@@ -38,19 +40,16 @@ export class Document extends Node implements globalThis.Document {
   readonly childNodes = new NodeList<ChildNode>()
   readonly compatMode = 'CSS1Compat'
 
-  // TODO: getter, should be last focused or body (which can be null sometimes)
+  // TODO: getter, should be last focused (from symbol?) or body (which can be null sometimes)
   readonly activeElement: Element | null = null
-  // last time over for enter/leave
-  _overElement
-  // mousedown origin
-  _clickedElement
 
   constructor() {
+    // TS defines Node.ownerDocument as nullable but redefines it on every subclass except Document
     super(null as any)
 
     // non-standard, we are using parent.ownerDocument in Node.insertBefore()
-    // to dispatch changes (and we are using doc.appendChild() during parsing)
-    // if it's a problem we could use child.ownerDocument (should be same)
+    // and we are using doc.appendChild() during parsing
+    // if it's ever a problem we could use child.ownerDocument
     this.ownerDocument = this
   }
 
@@ -148,8 +147,6 @@ export class Document extends Node implements globalThis.Document {
   }
 
   createComment(data: string): Comment {
-    // empty text node for now
-    // (temporary hack)
     return new Comment(data, this)
   }
 
@@ -166,8 +163,8 @@ export class Document extends Node implements globalThis.Document {
     return true
   }
 
-  _getTheParent() {
-    return this.defaultView
+  [GET_THE_PARENT]() {
+    return this.defaultView as any
   }
 
   get styleSheets(): StyleSheetList {
@@ -176,14 +173,13 @@ export class Document extends Node implements globalThis.Document {
     return new StyleSheetList(this.querySelectorAll('style').map(s => undefined/*s.sheet*/))
   }
 
-  get forms() { return this.getElementsByTagName('form') }
-  get images() { return this.getElementsByTagName('img') }
-  get links() { return this.getElementsByTagName('link') }
-  get scripts() { return this.getElementsByTagName('script') }
+  get forms() { return this.querySelectorAll('form') }
+  get images() { return this.querySelectorAll('img') }
+  get links() { return this.querySelectorAll('link') }
+  get scripts() { return this.querySelectorAll('script') }
 
-  // TODO: querySelector
   getElementById(id) {
-    return document.body.childNodes.find(n => n.id === id)
+    return this.querySelector(`#${id}`)
   }
 
   // intentionally left out (out-of-scope)
