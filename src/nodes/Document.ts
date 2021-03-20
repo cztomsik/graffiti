@@ -299,7 +299,7 @@ const lookup = (doc, id) => (id && doc[REFS][id]?.deref()) ?? null
 // package-private
 export const initTextNode = (doc, node, cdata) => initNode(doc, node, native.document_create_text_node(doc[DOC_ID], cdata))
 export const initComment = (doc, node, cdata) => initNode(doc, node, native.document_create_comment(doc[DOC_ID], cdata))
-export const setCdata = (doc, node, cdata) => native.document_set_attribute(doc[DOC_ID], node[NODE_ID], cdata)
+export const setCdata = (doc, node, cdata) => native.document_set_cdata(doc[DOC_ID], node[NODE_ID], cdata)
 export const initElement = (doc, el, localName) => initNode(doc, el, native.document_create_element(doc[DOC_ID], localName))
 export const setAttribute = (doc, el, k, v) => native.document_set_attribute(doc[DOC_ID], el[NODE_ID], k, v)
 export const removeAttribute = (doc, el, k) => native.document_remove_attribute(doc[DOC_ID], el[NODE_ID], k)

@@ -1,18 +1,33 @@
+import { setCdata } from './Document'
 import { Node } from './index'
 
 export abstract class CharacterData extends Node implements globalThis.CharacterData {
+  #data = ''
+
   // don't call setter first-time
-  constructor(private _data = '', doc = document) {
+  constructor(data = '', doc = document) {
     super(doc)
+    this.#data = data
   }
 
   get data() {
-    return this._data
+    return this.#data
   }
 
   set data(data) {
+    // spec allows null but not undefined
+    if (data === null) {
+      data = ''
+    }
+
     // preact passes data as is
-    this._data = typeof data === 'string' ?data :'' + data
+    if (typeof data !== 'string') {
+      data = '' + data
+    }
+
+    this.#data = data
+
+    setCdata(this.ownerDocument, this, data)
   }
 
   get nodeValue() {
