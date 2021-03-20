@@ -3,15 +3,15 @@ import { TODO, UNSUPPORTED } from '../util'
 // minimal impl just to get something working
 // (many props are missing)
 export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
-  _values = new Map<string, string>()
-  _onChange
+  #values = new Map<string, string>()
+  #onChange
 
   constructor(public readonly parentRule, onChange) {
-    this._onChange = onChange
+    this.#onChange = onChange
   }
 
   getPropertyValue(propertyName: string): string {
-    return this._values.get(propertyName) ?? ''
+    return this.#values.get(propertyName) ?? ''
   }
 
   getPropertyPriority(propertyName: string): string {
@@ -28,28 +28,28 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
       console.warn('!important is not supported')
     }
 
-    this._values.set(propertyName, value)
-    this._onChange(propertyName, value)
+    this.#values.set(propertyName, value)
+    this.#onChange(propertyName, value)
   }
 
   removeProperty(propertyName: string): string {
-    const prev = this._values.get(propertyName)
+    const prev = this.#values.get(propertyName)
 
-    this._values.delete(propertyName)
-    this._onChange(propertyName, undefined)
+    this.#values.delete(propertyName)
+    this.#onChange(propertyName, undefined)
 
     return prev ?? ''
   }
 
   get cssText(): string {
-    return Array.from(this._values).map(([prop, value]) => `${prop}: ${value}`).join('; ')
+    return Array.from(this.#values).map(([prop, value]) => `${prop}: ${value}`).join('; ')
   }
 
   set cssText(cssText: string) {
     TODO()
 
     /*
-    for (const prop of this._values.keys()) {
+    for (const prop of this.#values.keys()) {
       this.removeProperty(prop)
     }
 

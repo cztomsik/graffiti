@@ -2,17 +2,21 @@ import htm from 'htm'
 import { Node, NodeList } from './index'
 import { ERR } from '../util'
 import { XMLSerializer } from '../dom/XMLSerializer'
+import { GET_THE_PARENT } from '../events/EventTarget'
+import { initElement, removeAttribute, setAttribute } from './Document'
 
 export abstract class Element extends Node implements globalThis.Element {
   abstract readonly tagName: string
   readonly childNodes = new NodeList<ChildNode>()
-  _localName: string
-  _attributes = new Map<string, string>()
+  #localName: string
+  #attributes = new Map<string, string>()
 
   constructor(doc = document, localName: string = ERR('new Element() is not supported')) {
     super(doc)
 
-    this._localName = localName
+    this.#localName = localName
+
+    initElement(doc, this, localName)
   }
 
   get nodeType() {
@@ -24,7 +28,7 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   get localName() {
-    return this._localName
+    return this.#localName
   }
 
   /** @deprecated */
@@ -34,19 +38,19 @@ export abstract class Element extends Node implements globalThis.Element {
     // it would only make everything much more complex with no real benefit
     // if we'll ever need it, it should be lazy-created weak-stored proxy
     // and it should still delegate to el.get/setAttribute()
-    return Array.from(this._attributes).map(([name, value]) => ({ name, value }))
+    return Array.from(this.#attributes).map(([name, value]) => ({ name, value }))
   }
 
   getAttribute(name: string): string | null {
-    return this._attributes.get(name) ?? null
+    return this.#attributes.get(name) ?? null
   }
 
   getAttributeNames(): string[] {
-    return [...this._attributes.keys()]
+    return [...this.#attributes.keys()]
   }
 
   hasAttribute(name: string): boolean {
-    return this._attributes.has(name)
+    return this.#attributes.has(name)
   }
 
   hasAttributes(): boolean {
@@ -54,11 +58,15 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   setAttribute(name: string, value: string) {
-    this._attributes.set(name, value)
+    this.#attributes.set(name, value)
+
+    setAttribute(this.ownerDocument, this, name, value)
   }
 
   removeAttribute(name: string) {
-    this._attributes.delete(name)
+    this.#attributes.delete(name)
+
+    removeAttribute(this.ownerDocument, this, name)
   }
 
   toggleAttribute(name: string, force?: boolean): boolean {
@@ -97,7 +105,7 @@ export abstract class Element extends Node implements globalThis.Element {
 
   // so the events can bubble
   // @see EventTarget
-  _getTheParent() {
+  [GET_THE_PARENT]() {
     return this.parentElement as any
   }
 

@@ -1,15 +1,25 @@
 import { Event } from '../events/Event'
 
+export const GET_THE_PARENT = Symbol()
+
 export class EventTarget implements globalThis.EventTarget {
-  // preact uses node._listeners
-  _etListeners: { [type in string]?: readonly EventListenerOrEventListenerObject[] } = {}
+  // beware collisions, preact is using node._listeners
+  #listeners: { [type in string]: readonly EventListenerOrEventListenerObject[] } = Object.create(
+    new Proxy(
+      {},
+      {
+        // return empty array for unknown event types
+        get: () => [],
+      }
+    )
+  )
 
   addEventListener(type: string, listener) {
-    this._etListeners[type] = [...this._getListeners(type), listener]
+    this.#listeners[type] = [...this.#listeners[type], listener]
   }
 
   removeEventListener(type: string, listener) {
-    this._etListeners[type] = this._getListeners(type).filter(l => l !== listener)
+    this.#listeners[type] = this.#listeners[type].filter(l => l !== listener)
   }
 
   dispatchEvent(event: Event) {
@@ -24,10 +34,11 @@ export class EventTarget implements globalThis.EventTarget {
     this.dispatchEvent(Object.assign(new Event(type), { target: this, ...data }))
   }
 
+  // TODO: inline in dispatchEvent but it MUST NOT set event.target during bubbling
   _dispatch(event: Event) {
     event.currentTarget = this
 
-    for (const l of this._getListeners(event.type)) {
+    for (const l of this.#listeners[event.type]) {
       if ('handleEvent' in l) {
         l.handleEvent(event)
       } else {
@@ -40,37 +51,24 @@ export class EventTarget implements globalThis.EventTarget {
     }
 
     if (!event.cancelBubble) {
-      this._bubble(event)
-    }
-  }
-
-  _bubble(event) {
-    const parent = this._getTheParent()
-
-    if (parent) {
-      parent._dispatch(event)
+      // bubble
+      this[GET_THE_PARENT]()?._dispatch(event)
     }
   }
 
   // https://dom.spec.whatwg.org/#get-the-parent
-  _getTheParent(): EventTarget | null {
+  [GET_THE_PARENT](): EventTarget | null {
     return null
-  }
-
-  _getListeners(type) {
-    return this._etListeners[type] ?? []
   }
 
   // on* event handler props
   // - makes TS happy
-  // - everything is here so we don't need to repeat it again for document & window
+  // - everything is here so we don't need to repeat it again in all possible ev targets
   // - we only define getter, setter is not supported and will throw
   // - preact needs this for some golfing: name = (nameLower in dom ? nameLower : name).slice(2);
   //   https://github.com/preactjs/preact/blob/013dc382cf7239422e834e74a6ab0b592c5a9c43/src/diff/props.js#L80
   //
-  // note we define everything here so it's at one place and not spread across various el impls
-  //
-  // TODO: unsupported events should only be declared
+  // TODO: unsupported events could only be declared so they throw when used
 
   get onabort() { return null }
   get onafterprint() { return null }

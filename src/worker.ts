@@ -31,15 +31,15 @@ function handleMessage(msg) {
 }
 
 // TODO: (pre)loader and/or html
-async function main({ windowId, scriptUrl }) {
-  console.log('worker init', windowId, scriptUrl)
+async function main({ windowId, url }) {
+  console.log('worker init', windowId, url)
 
   // unfortunately, we need native in worker too - there are many blocking APIs
   // and those would be impossible to emulate with parent<->worker postMessage()
   await loadNativeApi()
 
   // create document
-  const document: any = new DOMParser().parseFromString('<html><head><title></title></head><body><div id="page"></div></body></html>', 'text/html')
+  const document: any = new DOMParser().parseFromString('<html><head><title></title><style></style></head><body><div class="app todoapp" id="page"></div></body></html>', 'text/html')
   document.URL = 'graffiti:///'
 
   // create window
@@ -50,7 +50,7 @@ async function main({ windowId, scriptUrl }) {
   Object.assign(w, nodes)
 
   try {
-    await import(scriptUrl)
+    await import(url)
   } catch (e) {
     console.log(e)
   }

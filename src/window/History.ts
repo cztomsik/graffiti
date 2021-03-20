@@ -1,13 +1,13 @@
 import { Event } from '../events/Event'
 
 export class History implements globalThis.History {
-  _states: any[] = []
-  _index = 0
+  #states: any[] = []
+  #index = 0
 
   // TODO: accept callback (decouple from Window)
   constructor(private _window, url: URL) {
     // initial state
-    this._states.push({
+    this.#states.push({
       data: undefined,
       title: '',
       url
@@ -26,7 +26,7 @@ export class History implements globalThis.History {
 
   get length() {
     // TODO: not sure about this
-    return Math.min(this._index, this._states.length)
+    return Math.min(this.#index, this.#states.length)
   }
 
   get state() {
@@ -34,7 +34,7 @@ export class History implements globalThis.History {
   }
 
   get _current() {
-    return this._states[this._index]
+    return this.#states[this.#index]
   }
 
   go(delta?) {
@@ -46,7 +46,7 @@ export class History implements globalThis.History {
 
       this._notifyAfterTransition({
         from: this._current,
-        to: this._states[this._index = Math.max(0, this._index + delta)]
+        to: this.#states[this.#index = Math.max(0, this.#index + delta)]
       })
     })
   }
@@ -54,12 +54,12 @@ export class History implements globalThis.History {
   pushState(data, title, url) {
     const state = this._resolve(data, title, url)
     // strip & advance
-    this._states[this._states.length = ++this._index] = state
+    this.#states[this.#states.length = ++this.#index] = state
   }
 
   replaceState(data, title, url) {
     // TODO: not sure if it should keep the stack
-    this._states[this._index] = this._resolve(data, title, url)
+    this.#states[this.#index] = this._resolve(data, title, url)
   }
 
   _navigate(href, replace) {

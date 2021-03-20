@@ -1,14 +1,9 @@
-// x nodes should not directly depend on native
 // x follow spec as possible, avoid custom extensions
 //   x it's ok to include mixins (to avoid duplication)
 
-// TODO: consider linked list (but measure first)
-// (JS arrays contain references so it could save one cache-miss)
-//
-// UNLIKELY: https://github.com/jsdom/js-symbol-tree might be interesting too
-// (it does some caching useful for NodeIterator - document order)
 import { EventTarget } from '../events/EventTarget'
 import { NodeList } from './index'
+import { insertChild, removeChild, querySelector, querySelectorAll } from './Document'
 import { assert, last, TODO, UNSUPPORTED } from '../util'
 
 export abstract class Node extends EventTarget implements G.Node, G.ParentNode, G.ChildNode, G.NonDocumentTypeChildNode, G.Slottable {
@@ -46,6 +41,10 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     this.childNodes.splice(index, 0, child)
     ;(child as any).parentNode = this
 
+    if (this.nodeType !== DOCUMENT_FRAGMENT_NODE) {
+      insertChild(this.ownerDocument, this, child, index)
+    }
+
     return child
   }
 
@@ -54,6 +53,10 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
 
     ;(child as any).parentNode = null
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
+
+    if (this.nodeType !== DOCUMENT_FRAGMENT_NODE) {
+      removeChild(this.ownerDocument, this, child)
+    }
 
     return child
   }
@@ -81,11 +84,11 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
   }
 
   get nextSibling(): G.ChildNode | null {
-    return sibling(this.parentNode, this, 1)
+    return sibling(this.parentNode?.childNodes, this, 1)
   }
 
   get previousSibling(): G.ChildNode | null {
-    return sibling(this.parentNode, this, -1)
+    return sibling(this.parentNode?.childNodes, this, -1)
   }
 
   // https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeValue
@@ -244,11 +247,11 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
   }
 
   querySelector(selectors) {
-    return TODO()
+    return querySelector(this.ownerDocument, this, selectors)
   }
 
   querySelectorAll(selectors) {
-    return TODO()
+    return querySelectorAll(this.ownerDocument, this, selectors)
   }
 
   // ---
@@ -281,13 +284,19 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
 
   // ---
   // NonDocumentTypeChildNode:
-  // TODO
-  nextElementSibling
-  previousElementSibling
+
+  get nextElementSibling(): Element | null {
+    return sibling(this.parentNode?.children, this, 1)
+  }
+
+  get previousElementSibling(): Element | null {
+    return sibling(this.parentNode?.children, this, -1)
+  }
 
   // ---
   // Slottable:
   // TODO
+
   assignedSlot
 }
 
@@ -301,8 +310,8 @@ const COMMENT_NODE = Node.COMMENT_NODE
 const DOCUMENT_NODE = Node.DOCUMENT_NODE
 const DOCUMENT_FRAGMENT_NODE = Node.DOCUMENT_FRAGMENT_NODE
 
-const sibling = (parent, child, offset) =>
-  parent && (parent.childNodes[parent.childNodes.indexOf(child) + offset] ?? null)
+const sibling = (nodes, child, offset) =>
+  (nodes && nodes[nodes.indexOf(child) + offset]) ?? null
 
 const strToNode = (parent, n) => (typeof n === 'string' ? parent.ownerDocument.createTextNode('' + n) : n)
 
