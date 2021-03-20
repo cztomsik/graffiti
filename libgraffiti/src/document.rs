@@ -7,7 +7,6 @@
 
 use crate::css::{MatchingContext, Selector};
 use crate::util::{Atom, IdTree};
-use std::collections::HashMap;
 
 pub type NodeId = u32;
 
@@ -309,21 +308,27 @@ impl AttrMap {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::convert::TryFrom;
 
     #[test]
     fn test() {
         let mut d = Document::new(|_| {});
+        assert_eq!(d.node_type(d.root()), NodeType::Document);
 
         let div = d.create_element("div");
+        assert_eq!(d.local_name(div), "div");
+
         let hello = d.create_text_node("hello");
+        assert_eq!(d.cdata(hello), "hello");
 
         d.insert_child(d.root(), div, 0);
         d.insert_child(div, hello, 0);
 
-        // TODO: impl from(&'static str)?
-        use std::convert::TryFrom;
+        d.set_attribute(div, "id", "panel");
+        assert_eq!(d.attribute(div, "id"), Some("panel"));
+
         assert_eq!(
-            d.query_selector(d.root(), &Selector::try_from("div").unwrap()),
+            d.query_selector(d.root(), &Selector::try_from("div#panel").unwrap()),
             Some(div)
         );
     }

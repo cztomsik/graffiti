@@ -367,7 +367,6 @@ fn alphanum_dash(b: u8) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use std::convert::TryFrom;
 
     #[test]

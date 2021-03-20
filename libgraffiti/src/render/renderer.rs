@@ -1,3 +1,5 @@
+// TODO: remove Lookup, closures are fine
+
 use super::backend::{DrawCall, Frame, Quad, RenderBackend, Vertex, RGBA8};
 use once_cell::sync::Lazy;
 use crate::util::{Lookup};

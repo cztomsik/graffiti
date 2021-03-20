@@ -50,11 +50,11 @@ async function main({ windowId, url }) {
   document.URL = url
 
   // create window
-  const w = new Window(document)
+  const window = new Window(document)
 
   // setup env
-  Object.setPrototypeOf(globalThis, w)
-  Object.assign(w, nodes)
+  Object.setPrototypeOf(globalThis, window)
+  Object.assign(window, nodes)
 
   try {
     // we replace <link> with <style> which works surprisingly well
@@ -80,6 +80,8 @@ async function main({ windowId, url }) {
         )
       }
     }
+
+    window._fire('load')
 
     postMessage(true, '')
   } catch (e) {
