@@ -9,7 +9,8 @@ const G = globalThis
 
 // note all props will leak to global scope
 export class Window extends EventTarget implements globalThis.Window {
-  window = this as any
+  parent = this as any
+  window = this.parent
   self = this.window
   history = new History(this, new URL(this.document.URL))
   location = new Location(this.history)
@@ -136,7 +137,6 @@ export class Window extends EventTarget implements globalThis.Window {
   origin
   pageXOffset
   pageYOffset
-  parent
   personalbar
   screen
   screenLeft

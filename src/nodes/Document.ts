@@ -7,6 +7,7 @@ import {
   DocumentFragment,
   HTMLHtmlElement,
   HTMLHeadElement,
+  HTMLLinkElement,
   HTMLBodyElement,
   HTMLStyleElement,
   HTMLScriptElement,
@@ -51,6 +52,8 @@ export class Document extends Node implements globalThis.Document {
     // and we are using doc.appendChild() during parsing
     // if it's ever a problem we could use child.ownerDocument
     this.ownerDocument = this
+
+    initDocument(this)
   }
 
   get nodeType() {
@@ -87,7 +90,7 @@ export class Document extends Node implements globalThis.Document {
 
   get location() {
     // DOMParser docs should have null (TS is wrong)
-    return (this.defaultView?.location ?? null) as any
+    return this.defaultView?.location ?? (null as any)
   }
 
   // TODO: basic custom elements (no shadow DOM)
@@ -112,6 +115,7 @@ export class Document extends Node implements globalThis.Document {
       case 'style': return new HTMLStyleElement(this, tagName)
       case 'script': return new HTMLScriptElement(this, tagName)
       //case 'canvas': return new HTMLCanvasElement(this, tagName)
+      case 'link': return new HTMLLinkElement(this, tagName)
       case 'head': return new HTMLHeadElement(this, tagName)
       case 'body': return new HTMLBodyElement(this, tagName)
       case 'html': return new HTMLHtmlElement(this, tagName)
@@ -182,6 +186,10 @@ export class Document extends Node implements globalThis.Document {
     return this.querySelector(`#${id}`)
   }
 
+  getElementsByTagName(tagName) {
+    return this.querySelectorAll(tagName)
+  }
+
   // intentionally left out (out-of-scope)
   clear = UNSUPPORTED
   close = UNSUPPORTED
@@ -224,7 +232,6 @@ export class Document extends Node implements globalThis.Document {
   fullscreenEnabled
   getAnimations
   getElementsByName
-  getElementsByTagName
   getElementsByTagNameNS
   getElementsByClassName
   getSelection
@@ -266,3 +273,39 @@ type Doc = Document
 declare global {
   interface Document extends Doc {}
 }
+
+const DOC_ID = Symbol()
+const REFS = Symbol()
+const NODE_REGISTRY = Symbol()
+const NODE_ID = Symbol()
+
+const initDocument = (doc) => {
+  doc[DOC_ID] = native.document_new()
+  doc[REFS] = []
+  doc[NODE_REGISTRY] = new FinalizationRegistry(id => native.document_free_node(doc, id))
+  initNode(doc, doc, 0)
+
+  DOCUMENT_REGISTRY.register(doc, doc[DOC_ID])
+}
+
+const initNode = (doc, node, id) => {
+  node[NODE_ID] = id
+  doc[REFS][id] = new WeakRef(node)
+  doc[NODE_REGISTRY].register(node, id)
+}
+
+const lookup = (doc, id) => (id && doc[REFS][id]?.deref()) ?? null
+
+// package-private
+export const initTextNode = (doc, node, cdata) => initNode(doc, node, native.document_create_text_node(doc[DOC_ID], cdata))
+export const initComment = (doc, node, cdata) => initNode(doc, node, native.document_create_comment(doc[DOC_ID], cdata))
+export const setCdata = (doc, node, cdata) => native.document_set_attribute(doc[DOC_ID], node[NODE_ID], cdata)
+export const initElement = (doc, el, localName) => initNode(doc, el, native.document_create_element(doc[DOC_ID], localName))
+export const setAttribute = (doc, el, k, v) => native.document_set_attribute(doc[DOC_ID], el[NODE_ID], k, v)
+export const removeAttribute = (doc, el, k) => native.document_remove_attribute(doc[DOC_ID], el[NODE_ID], k)
+export const insertChild = (doc, parent, child, index) => native.document_insert_child(doc[DOC_ID], parent[NODE_ID], child[NODE_ID], index)
+export const removeChild = (doc, parent, child) => native.document_remove_child(doc[DOC_ID], parent[NODE_ID], child[NODE_ID])
+export const querySelector = (doc, ctxNode, sel) => lookup(doc, native.document_query_selector(doc[DOC_ID], ctxNode[NODE_ID], sel))
+export const querySelectorAll = (doc, ctxNode, sel) => native.document_query_selector_all(doc[DOC_ID], ctxNode[NODE_ID], sel).map(id => lookup(doc, id))
+
+const DOCUMENT_REGISTRY = new FinalizationRegistry(id => native.document_free(id))

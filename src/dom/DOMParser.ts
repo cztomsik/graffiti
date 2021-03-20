@@ -12,7 +12,7 @@ export class DOMParser implements globalThis.DOMParser {
 
       case 'text/html': {
         // strip <!DOCTYPE & other garbage
-        const html = string.replace(/[\s\S]*(<html[\s\S]*)/i, '$1')
+        const html = string.replace(/[\s\S]*?(<\w+[\s\S]*)/i, '$1')
 
         // TODO: defaultView, URL
         const document = new Document()

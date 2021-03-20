@@ -57,8 +57,20 @@ async function main({ windowId, url }) {
   Object.assign(w, nodes)
 
   try {
+    // we replace <link> with <style> which works surprisingly well
+    // TODO: qsa link[rel="stylesheet"]
+    for (const link of document.querySelectorAll('link')) {
+      if (link.rel === 'stylesheet' && link.href) {
+        const style = document.createElement('style')
+        style.textContent = await readURL('' + new URL(link.getAttribute('href'), url))
+        link.replaceWith(style)
+      }
+    }
+
+    // run (once) all the scripts
     for (const { src, text } of document.querySelectorAll('script')) {
       if (src) {
+        console.log('[script]', src)
         await import('' + new URL(src, url))
       } else {
         console.log('[eval]', text)
