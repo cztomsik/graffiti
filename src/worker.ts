@@ -18,6 +18,7 @@ if ('process' in globalThis) {
   self.addEventListener('message', ev => handleMessage(ev.data))
 }
 
+// TODO: prefix? wrap/unwrap?
 async function handleMessage(msg) {
   try {
     switch (msg.type) {

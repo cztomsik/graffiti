@@ -19,12 +19,15 @@ webview.attach(progress)
 webview.loadURL(`data:text/html,${encodeURIComponent('Please wait...')}`)
 
 // show progress
-// TODO: seems like one has to move mouse around to see something (webview/glfw-related)
+// TODO: moving mouse around will make tests run faster
+//       (app.tick() blocks main process and we have lots of promises
+//        using Promise.resolve() in the tick() instead of setTimeout() might resolve the issue)
 setInterval(async () => {
-  const html = await runner.eval('globalThis.document?.documentElement?.innerHTML')
+  const html = await runner.eval('document.documentElement.innerHTML')
   webview.loadURL(`data:text/html,${encodeURIComponent(html)}`)
 }, 100)
 
+// TODO: find ../wpt | grep '\.html$' | grep '/dom/'
 const urls = [
   'http://web-platform.test:8000/dom/nodes/CharacterData-data.html',
   'http://web-platform.test:8000/dom/nodes/Node-parentElement.html',

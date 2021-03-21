@@ -1,25 +1,35 @@
-// npm run prepare && ./bin/gft.js run test.js
+// ./bin/gft.js run test.js
 // deno install -A --unstable https://deno.land/x/graffiti/bin/gft.js
 // deno run -Ar --unstable lib/cli.js run hello
 
-const USAGE = `Graffiti GUI toolkit
+// TODO: docopt?
+const USAGE = `Graffiti HTML/CSS engine
 
-Usage: gft run <script.js>
+Usage:
+  gft run <index>
+
+Arguments:
+  <index>  HTML file or URL
 `
 
 cli('process' in globalThis ? process.argv.slice(2) : globalThis['Deno'].args)
 
 async function cli(args) {
   // should work for both node & deno
-  const gft = await import(`${import.meta.url}`.replace('/cli', '/index'))
+  const { App, AppWindow } = await import(`${import.meta.url}`.replace('/cli', '/index'))
 
   if (args.length === 0 || args.includes('--help')) {
     console.log(USAGE)
   } else if (args[0] === 'run') {
-    console.log(args)
+    const app = await App.init()
+    const w = new AppWindow()
 
-    console.log(gft)
+    await w.loadURL(args[1])
+
+    setInterval(async () => console.log(await w.eval(`JSON.stringify(document.body, ['nodeName', 'data', 'childNodes'], 2)`)), 2000)
+
+    app.run()
   } else {
-    throw new Error('unknown')
+    throw new Error('Unknown cmd')
   }
 }

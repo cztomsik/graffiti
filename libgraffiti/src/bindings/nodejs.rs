@@ -1,3 +1,11 @@
+// TODO: Option<T>
+//
+// TODO: impl for all SerJson/DeJson values?
+//       (call JSON.stringify & JSON.parse using napi)
+//       so we could have slower, generic case + fast-path for some types
+//
+//       might be useful for events but maybe [type, opt_a, opt_b, opt_c] will be enough
+
 use crate::util::Dylib;
 use napi::*;
 use std::ptr::{null, null_mut};
