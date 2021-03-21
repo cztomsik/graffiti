@@ -5,11 +5,11 @@
 //   - Deno doesn't have runInContext and it might not be enough anyway)
 // - we want location.reload() for development purposes (live-reload, HMR)
 
-import { loadNativeApi } from './native'
+import { native, loadNativeApi } from './native'
 import { Window } from './window/Window'
 import { DOMParser } from './dom/DOMParser'
 import * as nodes from './nodes/index'
-import { TODO, UNSUPPORTED } from './util'
+import { readURL, TODO, UNSUPPORTED } from './util'
 
 // nodejs
 if ('process' in globalThis) {
@@ -91,23 +91,4 @@ async function main({ windowId, url }) {
   }
 
   window._fire('load')
-}
-
-async function readURL(url) {
-  url = new URL(url)
-
-  if (url.protocol === 'data:') {
-    return TODO()
-  }
-
-  if (url.protocol === 'file:') {
-    let fs = await import('fs/promises')
-    return fs.readFile(url.pathname, 'utf-8')
-  }
-
-  if (url.protocol.match(/^https?:$/)) {
-    return fetch(url).then(res => res.text())
-  }
-
-  return UNSUPPORTED()
 }

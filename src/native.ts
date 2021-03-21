@@ -44,6 +44,7 @@ const loadDenoPlugin = async (Deno = globalThis.Deno) => {
       .map(([opName, opId]) => {
         return [
           opName.slice(4),
+          // TODO: Deno.core.jsonOpSync(op, argsArr)
           (...args) => {
             //console.log(opName, ...args)
             const res = Deno.core.dispatch(opId, encoder.encode(JSON.stringify(args)))

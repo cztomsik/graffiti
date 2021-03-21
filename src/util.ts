@@ -20,3 +20,27 @@ export const camelCase = name => name.replace(/\-[a-zA-Z]/g, match => match.slic
 export const kebabCase = name => name.replace(/[A-Z]/g, match => '-' + match.toLowerCase())
 export const pascalCase = name => ((name = camelCase(name)), name[0].toUpperCase() + name.slice(1))
 
+export const readTextFile =
+  globalThis.Deno?.readTextFile ??
+  (async path => {
+    const fs = await import('fs/promises')
+    return fs.readFile(path, 'utf-8')
+  })
+
+export async function readURL(url) {
+  url = new URL(url)
+
+  if (url.protocol === 'data:') {
+    return TODO()
+  }
+
+  if (url.protocol === 'file:') {
+    return readTextFile(url.pathname)
+  }
+
+  if (url.protocol.match(/^https?:$/)) {
+    return fetch(url).then(res => res.text())
+  }
+
+  return UNSUPPORTED()
+}

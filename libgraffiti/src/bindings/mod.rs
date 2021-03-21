@@ -4,12 +4,20 @@
 
 use crate::css::Selector;
 use crate::util::SlotMap;
-use crate::{App, Document, WebView, Window};
+use crate::{App, Document, Event, WebView, Window};
 use core::convert::TryFrom;
+use crossbeam_channel::{unbounded as channel, Receiver, Sender};
+use dashmap::DashMap;
+use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+type Task = Box<dyn Fn() + 'static + Send>;
+static TASK_CHANNEL: Lazy<(Sender<Task>, Receiver<Task>)> = Lazy::new(channel);
+
 //static VIEWPORTS: Lazy<Mutex<SlotMap<WindowId, Viewport>>> = lazy!(|| Mutex::new(SlotMap::new()));
+
+static EVENTS: Lazy<DashMap<WindowId, Receiver<Event>>> = Lazy::new(DashMap::new);
 
 thread_local! {
     static CTX: Rc<RefCell<Ctx>> = Default::default();
@@ -79,6 +87,7 @@ macro_rules! export_api {
             window_minimize: |w| ctx!().windows[w].minimize(),
             window_maximize: |w| ctx!().windows[w].maximize(),
             window_restore: |w| ctx!().windows[w].restore(),
+            window_free: |w| { ctx!().windows.remove(w); },
 
             webview_new: || CTX.with(|ctx| {
                 let Ctx { ref mut app, ref mut webviews, .. } = *ctx.borrow_mut();
@@ -91,6 +100,7 @@ macro_rules! export_api {
             }),
             webview_load_url: |wv, url: String| ctx!().webviews[wv].load_url(&url),
             webview_eval: |wv, js: String| ctx!().webviews[wv].eval(&js),
+            webview_free: |wv| { ctx!().webviews.remove(wv); },
 
             document_new: || ctx!().documents.insert(Document::new(|_| {})),
             document_node_type: |doc, node| ctx!().documents[doc].node_type(node) as u32,

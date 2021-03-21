@@ -1,0 +1,18 @@
+exclude:
+    - node_modules
+    - libgraffiti
+    - src
+    - lib
+    - examples
+
+remote_theme: pmarsceill/just-the-docs
+markdown: gfm
+
+aux_links:
+  "Discord":
+    - "https://discord.gg/zQwyzFb"
+  "GitHub":
+    - "//github.com/cztomsik/graffiti"
+
+# actually, it's this + /project_name
+url: //tomsik.cz
