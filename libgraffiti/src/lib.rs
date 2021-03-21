@@ -1,16 +1,29 @@
 #[macro_use]
-mod macros;
-
-// if you're interested in how it works, it's good to go in the mod-order
-mod commons;
-mod app;
-mod viewport;
-mod box_layout;
-mod text_layout;
-mod picker;
-mod render;
 mod util;
-mod platform;
-mod interop;
 
-pub use app::{App};
+mod app;
+mod css;
+mod document;
+mod layout;
+mod render;
+mod viewport;
+mod webview;
+mod window;
+
+pub use self::{
+    app::App,
+    css::ResolvedStyle,
+    document::{Document, NodeType, NodeId},
+    render::backend,
+    viewport::Viewport,
+    webview::*,
+    window::*,
+};
+
+#[derive(Debug, Clone, Copy)]
+pub struct Rect {
+    pub pos: (f32, f32),
+    pub size: (f32, f32),
+}
+
+mod bindings;

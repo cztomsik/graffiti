@@ -1,127 +1,64 @@
-use crate::commons::{ElementId, Bounds};
-use crate::viewport::{Viewport, Event, SceneChange};
-use crate::platform;
-use crate::platform::{NativeWindow, WINDOWS_PTR, VIEWPORTS_PTR, PENDING_EVENTS_PTR};
+use crate::{WebView, Window};
+use core::cell::RefCell;
+use graffiti_glfw::*;
+use std::ffi::CStr;
+use std::os::raw::{c_char, c_int};
+use std::rc::{Rc, Weak};
 
-
-
-/// Root for the whole native part
-/// Only one instance is allowed
-///
-/// - create/destroy windows
-/// - update their viewports
-/// - get pending events (with resolved targets) of all windows
 pub struct App {
-    // there's not many windows so it should be fine
-    windows: Vec<NativeWindow>,
-    viewports: Vec<Viewport>,
-
-    //async_updates: Sender<AsyncUpdate>,
-}
-
-//struct AsyncUpdate(WindowId, NativeWindow, Vec<SceneChange>);
-//unsafe impl std::marker::Send for AsyncUpdate {}
-
-pub type WindowId = usize;
-
-#[derive(Debug, Clone)]
-pub struct WindowEvent {
-    pub window: WindowId,
-    pub event: Event,
+    weak: RefCell<Weak<Self>>,
 }
 
 impl App {
-    pub unsafe fn init() -> Self {
-        platform::init();
+    pub unsafe fn init() -> Rc<Self> {
+        assert_eq!(glfwInit(), GLFW_TRUE);
 
-        /* worker poc
-        let viewports: Vec<Viewport> = Vec::new();
-        let viewports = Arc::new(Mutex::new(viewports));
+        glfwSetErrorCallback(handle_glfw_error);
 
-        // worker
-        let (async_updates, rx) = channel();
-        let worker_viewports = viewports.clone();
-        std::thread::spawn(move || {
-            loop {
-                let AsyncUpdate(id, native_window, updates) = rx.recv().unwrap();
-
-                unsafe { platform::make_current(native_window) }
-
-                println!("update");
-                worker_viewports.lock().unwrap().deref_mut()[id].update_styles(&updates);
-
-                unsafe {
-                    println!("swap");
-                    platform::swap_buffers(native_window)
-                }
-           }
+        let res = Rc::new(Self {
+            weak: RefCell::new(Weak::new()),
         });
-        */
 
-        App {
-            windows: Vec::new(),
-            viewports: Vec::new(),
-        }
+        res.weak.replace(Rc::downgrade(&res));
+
+        res
+    }
+
+    fn rc(&self) -> Rc<Self> {
+        self.weak.borrow().upgrade().unwrap()
+    }
+
+    pub fn create_window(&self, title: &str, width: i32, height: i32) -> Window {
+        Window::new(self.rc(), title, width, height)
+    }
+
+    pub fn create_webview(&self) -> WebView {
+        WebView::new(self.rc())
+    }
+
+    pub fn poll_events(&self) {
+        unsafe { glfwPollEvents() }
+    }
+
+    pub fn wait_events(&self) {
+        unsafe { glfwWaitEvents() }
+    }
+
+    pub fn wait_events_timeout(&self, timeout: f64) {
+        unsafe { glfwWaitEventsTimeout(timeout) }
+    }
+
+    pub fn wake_up() {
+        unsafe { glfwPostEmptyEvent() }
     }
 }
 
-impl App {
-    pub fn get_events(&mut self, poll: bool) -> Vec<WindowEvent> {
-        let mut events = Vec::new();
-
-        unsafe {
-            WINDOWS_PTR = &mut self.windows;
-            VIEWPORTS_PTR = &mut self.viewports;
-            PENDING_EVENTS_PTR = &mut events;
-
-            platform::get_events(poll);
-
-            WINDOWS_PTR = std::ptr::null_mut();
-            VIEWPORTS_PTR = std::ptr::null_mut();
-            PENDING_EVENTS_PTR = std::ptr::null_mut();
-        }
-
-        events
-    }
-
-    pub fn create_window(&mut self, title: &str, width: i32, height: i32) -> WindowId {
-        let id = self.windows.len();
-
-        let native_window = unsafe { platform::create_window(title, width, height) };
-        let viewport = Viewport::new((width as f32, height as f32));
-
-        // detach so it can be attached by another thread
-        unsafe { platform::detach_current() }
-
-        self.windows.push(native_window);
-        self.viewports.push(viewport);
-
-        id
-    }
-
-    pub fn update_window_scene(&mut self, id: WindowId, changes: &[SceneChange]) {
-        let native_window = &mut self.windows[id];
-        let viewport = &mut self.viewports[id];
-
-        unsafe { platform::make_current(*native_window) }
-
-        viewport.update_scene(changes);
-        unsafe {
-            platform::swap_buffers(*native_window)
-        }
-    }
-
-    pub fn get_offset_bounds(&self, window: WindowId, element: ElementId) -> Bounds {
-        self.viewports[window].get_offset_bounds(element)
-    }
-
-    pub fn destroy_window(&mut self, _id: WindowId) {
-        todo!()
-
-        // TODO (+freelist)
-        //   free viewports[id]
-        //   platform::destroy_window(native_windows[id])
+impl Drop for App {
+    fn drop(&mut self) {
+        unsafe { glfwTerminate() }
     }
 }
 
-
+unsafe extern "C" fn handle_glfw_error(code: c_int, desc: *const c_char) {
+    eprintln!("GLFW error {} {:?}", code, CStr::from_ptr(desc));
+}

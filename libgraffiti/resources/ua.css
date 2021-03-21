@@ -1,0 +1,132 @@
+/* default styles */
+
+/* TODO: comments are not yet supported inside rules and it will stop parsing further */
+
+/* should be serif but everybody sets it to sans-serif anyway */
+html {
+  font-family: sans-serif;
+  display: block;
+  width: 100%;
+  min-height: 100%;
+}
+
+head, meta, title, link, style, script {
+  display: none;
+}
+
+/* TODO: margin: 10px */
+body {
+  display: block;
+  width: 100%;
+  min-height: 100%;
+}
+
+div {
+  display: block;
+}
+
+h1 {
+  display: block;
+  font-size: 40px;
+  line-height: 48px;
+  margin-bottom: 8px;
+}
+
+h2 {
+  display: block;
+  font-size: 32px;
+  line-height: 38px;
+  margin-bottom: 8px;
+}
+
+h3 {
+  display: block;
+  font-size: 28px;
+  line-height: 32px;
+  margin-bottom: 8px;
+}
+
+h4 {
+  display: block;
+  font-size: 24px;
+  line-height: 28px;
+  margin-bottom: 8px;
+}
+
+h5 {
+  display: block;
+  font-size: 20px;
+  line-height: 24px;
+  margin-bottom: 8px;
+}
+
+h6 {
+  display: block;
+  font-size: 16px;
+  line-height: 20px;
+  margin-bottom: 8px;
+}
+
+p {
+  display: block;
+  margin-bottom: 16px;
+}
+
+a {
+  color: #4338ad;
+}
+
+form, fieldset {
+  display: block;
+}
+
+input {
+  line-height: 16px;
+  padding: 8px;
+  min-height: 32px;
+}
+
+textarea {
+  display: block;
+}
+
+button {
+  background-color: #2196F3;
+  padding-left: 10px;
+  padding-right: 10px;
+  border-radius: 2px;
+  font-size: 14px;
+  line-height: 32px;
+  color: #ffffff;
+  text-align: center;
+  justify-content: space-around;
+}
+
+table {
+  display: flex;
+  flex-direction: column;
+}
+
+thead {
+  display: flex;
+  flex-direction: column;
+}
+
+tbody {
+  display: flex;
+  flex-direction: column;
+}
+
+tr {
+  display: flex;
+  width: 100%;
+}
+
+th {
+  flex: 1;
+  color: #666;
+}
+
+td {
+  flex: 1;
+}

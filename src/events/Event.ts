@@ -3,7 +3,7 @@ export class Event implements globalThis.Event {
   readonly bubbles = true
   readonly cancelable = true
   readonly composed = false
-  isTrusted = true;
+  isTrusted = true
 
   // TODO: phasing
   eventPhase = 0
@@ -11,8 +11,8 @@ export class Event implements globalThis.Event {
   cancelBubbleImmediately = false
   defaultPrevented = false
 
-  target: EventTarget | null;
-  currentTarget: EventTarget | null;
+  target: EventTarget | null = null
+  currentTarget: EventTarget | null = null
 
   constructor(public type: string, eventInit = undefined) {}
 
@@ -41,13 +41,13 @@ export class Event implements globalThis.Event {
     return !this.cancelBubble
   }
 
-  static readonly NONE = 0;
-  static readonly CAPTURING_PHASE = 1;
-  static readonly AT_TARGET = 2;
-  static readonly BUBBLING_PHASE = 3;
+  static readonly NONE = 0
+  static readonly CAPTURING_PHASE = 1
+  static readonly AT_TARGET = 2
+  static readonly BUBBLING_PHASE = 3
 
   // later
-  composedPath;
+  composedPath
 
   NONE
   CAPTURING_PHASE

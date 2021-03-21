@@ -1,18 +1,14 @@
 {
   "compilerOptions": {
+    "strict": true,
     "noImplicitAny": false,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
-    "strictBindCallApply": true,
-    "strictNullChecks": false,
-    "strictFunctionTypes": true,
-    "strictPropertyInitialization": false,
-    "lib": ["es2018", "dom"],
-    "target": "es2018",
-    "module": "commonjs",
-    "esModuleInterop": true,
-    "jsx": "react",
+    "lib": ["esnext", "dom"],
     "skipLibCheck": true,
+    
+    "target": "esnext",
+    "alwaysStrict": true,
+    "jsx": "react",
+    "module": "esnext",
     "outDir": "lib"
   },
   "include": ["src"]

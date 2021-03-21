@@ -11,8 +11,6 @@ markdown: gfm
 aux_links:
   "Discord":
     - "https://discord.gg/zQwyzFb"
-  "Gitter":
-    - "https://gitter.im/node-webrender/community"
   "GitHub":
     - "//github.com/cztomsik/graffiti"
 

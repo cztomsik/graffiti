@@ -2,41 +2,42 @@
   "name": "graffiti",
   "version": "0.2.0",
   "description": "Cross-platform GUI toolkit for node.js",
+  "type": "module",
   "main": "./lib/index.js",
-  "types": "./lib/index.d.ts",
   "author": "Kamil Tomšík <info@tomsik.cz>",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cztomsik/graffiti.git"
   },
-  "dependencies": {},
+  "dependencies": {
+    "htm": "^3.0.4",
+    "node-fetch": "^2.6.1",
+    "ws": "^7.4.3"
+  },
   "files": [
-    "build.js",
     "src",
     "lib",
     "libgraffiti/Cargo.*",
     "libgraffiti/resources",
     "libgraffiti/src",
-    "libgraffiti/graffiti-yoga",
-    "libgraffiti/graffiti-stb"
+    "libgraffiti/graffiti-glfw",
+    "libgraffiti/graffiti-yoga"
   ],
+  "bin": {
+    "graffiti": "./bin/gft.js"
+  },
   "scripts": {
-    "build": "node build.js",
+    "check": "tsc --noEmit",
+    "test": "cargo test --tests --manifest-path ./libgraffiti/Cargo.toml",
+    "build": "cargo build --manifest-path ./libgraffiti/Cargo.toml",
     "postinstall": "npm run build -- --release",
-    "prepare": "tsc -d",
-    "example": "node -r ts-node/register/transpile-only -r ./src/register -e \"require('./examples/' + (process.argv[1] || 'example-browser'))\""
+    "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:node-fetch --external:https://deno.land --outdir=./lib ./src/cli.ts ./src/index.ts ./src/worker.ts"
   },
   "devDependencies": {
-    "@types/node": "^10.14.6",
-    "glfw-dylib": "github:cztomsik/node-glfw-dylib",
-    "mithril": "^2.0.4",
-    "open": "^7.0.0",
-    "preact": "^10.0.0",
-    "react": "^16.13.0",
-    "react-dom": "^16.13.0",
-    "ts-node": "^8.5.2",
-    "typescript": "^3.8.3",
-    "ws": "^6.2.1"
+    "@types/node": "^14.6.2",
+    "esbuild": "^0.9.3",
+    "prettier": "^2.0.5",
+    "typescript": "^4.0.2"
   }
 }

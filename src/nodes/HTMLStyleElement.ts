@@ -1,0 +1,15 @@
+import { HTMLElement } from './index'
+
+export class HTMLStyleElement extends HTMLElement implements globalThis.HTMLStyleElement {
+  sheet: CSSStyleSheet | null = null
+
+  get media() {
+    return this.getAttribute('media') ?? ''
+  }
+
+  // later
+  nonce?: string | undefined
+
+  // deprecated
+  type
+}

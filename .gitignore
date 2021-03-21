@@ -1,14 +1,9 @@
 libgraffiti/target
 libgraffiti/graffiti-glfw/target
 libgraffiti/graffiti-yoga/target
-libgraffiti/graffiti-stb/target
-native/target
-native/index.node
-native/artifacts.json
 **/*~
 **/node_modules
 **/.DS_Store
 .vscode
 lib
 _site/
-*.sublime-*

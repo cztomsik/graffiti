@@ -1,0 +1,45 @@
+import { SVGGraphicsElement } from './index'
+
+export class SVGSVGElement extends SVGGraphicsElement implements globalThis.SVGSVGElement {
+  animationsPaused
+  checkEnclosure
+  checkIntersection
+  contentScriptType
+  contentStyleType
+  createEvent
+  createSVGAngle
+  createSVGLength
+  createSVGMatrix
+  createSVGNumber
+  createSVGPoint
+  createSVGRect
+  createSVGTransform
+  createSVGTransformFromMatrix
+  currentScale
+  currentTranslate
+  deselectAll
+  forceRedraw
+  getComputedStyle
+  getCurrentTime
+  getElementById
+  getEnclosureList
+  getIntersectionList
+  height
+  pauseAnimations
+  pixelUnitToMillimeterX
+  pixelUnitToMillimeterY
+  preserveAspectRatio
+  screenPixelToMillimeterX
+  screenPixelToMillimeterY
+  setCurrentTime
+  suspendRedraw
+  unpauseAnimations
+  unsuspendRedraw
+  unsuspendRedrawAll
+  viewBox
+  viewport
+  width
+  x
+  y
+  zoomAndPan
+}

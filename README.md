@@ -3,89 +3,32 @@ title: Home
 permalink: /
 ---
 
-Note: I've noticed (from the increasing number of stars) some people are interested in this, could you please submit your use-case in this [tracking issue](https://github.com/cztomsik/graffiti/issues/143)? It would help me a lot, thanks.
+**Work in progress**, here's last version which kinda worked on all platforms, including raspi. https://github.com/cztomsik/graffiti/tree/d60a4b75bf0a9fdb67af8fd449f054a411127f38
 
-# graffiti
-Experimental GUI toolkit for node.js. The idea is to re-implement just enough subset of DOM & styling so that you can use react & other web frameworks, including the most of the related libraries but keep it as simple as possible so it can run fluently even on cheap devices like Raspberry Pi. The trick is to render everything using GPU and to keep the scope & abstractions at minimum.
+Follow me on my [twitter](https://twitter.com/cztomsik) for updates.
 
-One day, it could be viable alternative to [electron](https://github.com/electron/electron) but you will never be able to just take an existing web app and run it with this (but it should be possible the other way around).
+[Discord](https://discord.gg/zQwyzFb)
 
 ---
 
-<div style="display: flex; align-items: center">
-<div style="max-height: 400px; overflow-y: scroll">
+# graffiti 
 
-```javascript
-import * as React from 'react'
-import { render } from 'react-dom'
+HTML/CSS engine for node.js and deno. No electron, no webkit, no servo, all from scratch.
 
-const Counter = () => {
-  const [count, setCount] = React.useState(0)
-  const dec = () => setCount(count - 1)
-  const inc = () => setCount(count + 1)
-
-  return (
-    <div style={styles.counter}>
-      <span>{count}</span>
-
-      <div style={{ ...styles.bar, width: count * 5 }} />
-
-      <div style={styles.buttons}>
-        <button onClick={dec}>--</button>
-        <button onClick={inc}>++</button>
-      </div>
-    </div>
-  )
-}
-
-const styles = {
-  counter: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'space-between'
-  },
-
-  bar: {
-    backgroundColor: '#ff0000',
-    height: 20
-  },
-
-  buttons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between'
-  }
-}
-
-render(<Counter />, document.body)
+```
+npx gft run https://developit.github.io/hn_minimal/
 ```
 
-</div>
-<img src="./docs/images/counter.gif" />
-</div>
-<br>
+## Features and limitations
+- low memory footprint (when compared to electron)
+- JS libraries generally work fine (react, vue, svelte, ...)
+- `<script>` elements are only evaluated during page-load
+- CSS-in-JS should work fine, `@import` is not supported
+- flexbox only (block is emulated, inline/float is not supported at all)
+
+
+![react-calculator](https://github.com/cztomsik/graffiti/blob/master/docs/images/react-calculator.png?raw=true)
+
+![hmr](https://github.com/cztomsik/graffiti/blob/master/docs/images/hmr.gif?raw=true)
 
 ![hackable-tv](https://user-images.githubusercontent.com/3526922/74057963-4ad47f00-49e5-11ea-9e0d-b39c98f5fe1b.gif)
-Separate project of mine, [hackable-tv](https://github.com/cztomsik/hackable-tv), built using graffiti.
-
-## Why it's interesting
-- quick to setup, apart from rust, it should be just one `npm install` away
-- can be combined with most of the libraries you already know (react, mobx, lodash, ...)
-- works with existing tooling (debug in vscode, profile in chrome devtools, react-devtools, ...)
-- hot-reload works even without webpack (and it's faster)
-- bundle can be made using already established and mature tools (ncc + electron-builder)
-- low memory footprint (when compared to electron)
-- the language & platform you already know (when compared to flutter)
-
-## Status
-It's getting very close to v1 now, so stay tuned if you're looking for something like this but as with other hobby projects, there are no deadlines. Follow me on my [twitter](https://twitter.com/cztomsik) to get notified :-)
-
-**Note: I'm looking for somebody wiling to maintain windows part. It's not about just making it work (it should work now) but rather about having some deeper knowledge of the platform and being familiar with the issues on various versions/configurations (basically, it implies you're daily windows user)**
-
----
-
-## Documentation
-Please refer to respective sub-page on the
-[project website](http://tomsik.cz/graffiti)
-
-## License
-This project is [MIT licensed](./LICENSE). By contributing to this project, you also agree that your contributions will be licensed under the MIT license.

@@ -1,11 +1,13 @@
 root = true
 
-[*.rs]
-indent_size = 4
-
-[*.{js,ts,tsx}]
+[*.{rs,js,ts,tsx}]
 charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
 indent_style = space
+
+[*.rs]
+indent_size = 4
+
+[*.{js,ts,tsx}]
 indent_size = 2

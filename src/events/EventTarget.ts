@@ -1,18 +1,28 @@
 import { Event } from '../events/Event'
 
+export const GET_THE_PARENT = Symbol()
+
 export class EventTarget implements globalThis.EventTarget {
-  // preact uses node._listeners
-  _etListeners: { [type in string]?: readonly EventListenerOrEventListenerObject[] } = {}
+  // beware collisions, preact is using node._listeners
+  #listeners: { [type in string]: readonly EventListenerOrEventListenerObject[] } = Object.create(
+    new Proxy(
+      {},
+      {
+        // return empty array for unknown event types
+        get: () => [],
+      }
+    )
+  )
 
-  addEventListener(type, listener) {
-    this._etListeners[type] = [...this._getListeners(type), listener]
+  addEventListener(type: string, listener) {
+    this.#listeners[type] = [...this.#listeners[type], listener]
   }
 
-  removeEventListener(type, listener) {
-    this._etListeners[type] = this._getListeners(type).filter(l => l !== listener)
+  removeEventListener(type: string, listener) {
+    this.#listeners[type] = this.#listeners[type].filter(l => l !== listener)
   }
 
-  dispatchEvent(event) {
+  dispatchEvent(event: Event) {
     event.target = this
 
     this._dispatch(event)
@@ -20,14 +30,15 @@ export class EventTarget implements globalThis.EventTarget {
     return !event.defaultPrevented
   }
 
-  _fire(type, data = {}) {
+  _fire(type: string, data = {}) {
     this.dispatchEvent(Object.assign(new Event(type), { target: this, ...data }))
   }
 
-  _dispatch(event) {
+  // TODO: inline in dispatchEvent but it MUST NOT set event.target during bubbling
+  _dispatch(event: Event) {
     event.currentTarget = this
 
-    for (const l of this._getListeners(event.type)) {
+    for (const l of this.#listeners[event.type]) {
       if ('handleEvent' in l) {
         l.handleEvent(event)
       } else {
@@ -40,40 +51,34 @@ export class EventTarget implements globalThis.EventTarget {
     }
 
     if (!event.cancelBubble) {
-      this._bubble(event)
-    }
-  }
-
-  _bubble(event) {
-    const parent = this._getTheParent()
-
-    if (parent) {
-      parent._dispatch(event)
+      // bubble
+      this[GET_THE_PARENT]()?._dispatch(event)
     }
   }
 
   // https://dom.spec.whatwg.org/#get-the-parent
-  _getTheParent() {
+  [GET_THE_PARENT](): EventTarget | null {
     return null
-  }
-
-  _getListeners(type) {
-    return this._etListeners[type] || []
   }
 
   // on* event handler props
   // - makes TS happy
-  // - everything is here so we don't need to repeat it again for document & window
-  // - we only define getter -> setter is not supported and will throw
+  // - everything is here so we don't need to repeat it again in all possible ev targets
+  // - we only define getter, setter is not supported and will throw
   // - preact needs this for some golfing: name = (nameLower in dom ? nameLower : name).slice(2);
   //   https://github.com/preactjs/preact/blob/013dc382cf7239422e834e74a6ab0b592c5a9c43/src/diff/props.js#L80
+  //
+  // TODO: unsupported events could only be declared so they throw when used
 
   get onabort() { return null }
+  get onafterprint() { return null }
   get onanimationcancel() { return null }
   get onanimationend() { return null }
   get onanimationiteration() { return null }
   get onanimationstart() { return null }
   get onauxclick() { return null }
+  get onbeforeprint() { return null }
+  get onbeforeunload() { return null }
   get onblur() { return null }
   get oncancel() { return null }
   get oncanplay() { return null }
@@ -81,11 +86,16 @@ export class EventTarget implements globalThis.EventTarget {
   get onchange() { return null }
   get onclick() { return null }
   get onclose() { return null }
+  get oncompassneedscalibration() { return null }
   get oncontextmenu() { return null }
   get oncopy() { return null }
   get oncuechange() { return null }
   get oncut() { return null }
   get ondblclick() { return null }
+  get ondevicelight() { return null }
+  get ondevicemotion() { return null }
+  get ondeviceorientation() { return null }
+  get ondeviceorientationabsolute() { return null }
   get ondrag() { return null }
   get ondragend() { return null }
   get ondragenter() { return null }
@@ -102,16 +112,20 @@ export class EventTarget implements globalThis.EventTarget {
   get onfullscreenchange() { return null }
   get onfullscreenerror() { return null }
   get ongotpointercapture() { return null }
+  get onhashchange() { return null }
   get oninput() { return null }
   get oninvalid() { return null }
   get onkeydown() { return null }
   get onkeypress() { return null }
   get onkeyup() { return null }
+  get onlanguagechange() { return null }
   get onload() { return null }
   get onloadeddata() { return null }
   get onloadedmetadata() { return null }
   get onloadstart() { return null }
   get onlostpointercapture() { return null }
+  get onmessage() { return null }
+  get onmessageerror() { return null }
   get onmousedown() { return null }
   get onmouseenter() { return null }
   get onmouseleave() { return null }
@@ -119,6 +133,12 @@ export class EventTarget implements globalThis.EventTarget {
   get onmouseout() { return null }
   get onmouseover() { return null }
   get onmouseup() { return null }
+  get onmousewheel() { return null }
+  get onoffline() { return null }
+  get ononline() { return null }
+  get onorientationchange() { return null }
+  get onpagehide() { return null }
+  get onpageshow() { return null }
   get onpaste() { return null }
   get onpause() { return null }
   get onplay() { return null }
@@ -127,12 +147,17 @@ export class EventTarget implements globalThis.EventTarget {
   get onpointerdown() { return null }
   get onpointerenter() { return null }
   get onpointerleave() { return null }
+  get onpointerlockchange() { return null }
+  get onpointerlockerror() { return null }
   get onpointermove() { return null }
   get onpointerout() { return null }
   get onpointerover() { return null }
   get onpointerup() { return null }
+  get onpopstate() { return null }
   get onprogress() { return null }
   get onratechange() { return null }
+  get onreadystatechange() { return null }
+  get onrejectionhandled() { return null }
   get onreset() { return null }
   get onresize() { return null }
   get onscroll() { return null }
@@ -143,6 +168,7 @@ export class EventTarget implements globalThis.EventTarget {
   get onselectionchange() { return null }
   get onselectstart() { return null }
   get onstalled() { return null }
+  get onstorage() { return null }
   get onsubmit() { return null }
   get onsuspend() { return null }
   get ontimeupdate() { return null }
@@ -155,11 +181,44 @@ export class EventTarget implements globalThis.EventTarget {
   get ontransitionend() { return null }
   get ontransitionrun() { return null }
   get ontransitionstart() { return null }
+  get onunhandledrejection() { return null }
+  get onunload() { return null }
+  get onvisibilitychange() { return null }
   get onvolumechange() { return null }
+  get onvrdisplayactivate() { return null }
+  get onvrdisplayblur() { return null }
+  get onvrdisplayconnect() { return null }
+  get onvrdisplaydeactivate() { return null }
+  get onvrdisplaydisconnect() { return null }
+  get onvrdisplayfocus() { return null }
+  get onvrdisplaypointerrestricted() { return null }
+  get onvrdisplaypointerunrestricted() { return null }
+  get onvrdisplaypresentchange() { return null }
   get onwaiting() { return null }
   get onwheel() { return null }
+  get onzoom() { return null }
 
-  // special case for react-dom
+  // special-case for react-dom
   // which tries to set noop to onclick to avoid some safari bug
   set onclick(cb) {}
+
+  // ignore vendor
+  onmsgesturechange
+  onmsgesturedoubletap
+  onmsgestureend
+  onmsgesturehold
+  onmsgesturestart
+  onmsgesturetap
+  onmsinertiastart
+  onmspointercancel
+  onmspointerdown
+  onmspointerenter
+  onmspointerleave
+  onmspointermove
+  onmspointerout
+  onmspointerover
+  onmspointerup
+
+  // WTF
+  [index: number]: Window
 }
