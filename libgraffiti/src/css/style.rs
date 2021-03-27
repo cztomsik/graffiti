@@ -32,6 +32,7 @@ impl Style {
     }
 }
 
+// never fails
 impl From<&str> for Style {
     fn from(style: &str) -> Style {
         super::parser::style().parse(style.as_bytes()).unwrap()

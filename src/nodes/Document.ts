@@ -288,7 +288,7 @@ const NODE_ID = Symbol()
 const initDocument = (doc) => {
   doc[DOC_ID] = native.document_new()
   doc[REFS] = []
-  doc[NODE_REGISTRY] = new FinalizationRegistry(id => native.document_free_node(doc, id))
+  doc[NODE_REGISTRY] = new FinalizationRegistry(id => native.document_drop_node(doc, id))
   initNode(doc, doc, 0)
 
   DOCUMENT_REGISTRY.register(doc, doc[DOC_ID])
@@ -303,15 +303,17 @@ const initNode = (doc, node, id) => {
 const lookup = (doc, id) => (id && doc[REFS][id]?.deref()) ?? null
 
 // package-private
+export const getDocId = (doc) => doc[DOC_ID]
 export const initTextNode = (doc, node, cdata) => initNode(doc, node, native.document_create_text_node(doc[DOC_ID], cdata))
 export const initComment = (doc, node, cdata) => initNode(doc, node, native.document_create_comment(doc[DOC_ID], cdata))
 export const setCdata = (doc, node, cdata) => native.document_set_cdata(doc[DOC_ID], node[NODE_ID], cdata)
 export const initElement = (doc, el, localName) => initNode(doc, el, native.document_create_element(doc[DOC_ID], localName))
 export const setAttribute = (doc, el, k, v) => native.document_set_attribute(doc[DOC_ID], el[NODE_ID], k, v)
 export const removeAttribute = (doc, el, k) => native.document_remove_attribute(doc[DOC_ID], el[NODE_ID], k)
+export const setElementStyleProp = (doc, el, prop, val) => native.document_set_style_prop(doc[DOC_ID], el[NODE_ID], prop, val)
 export const insertChild = (doc, parent, child, index) => native.document_insert_child(doc[DOC_ID], parent[NODE_ID], child[NODE_ID], index)
 export const removeChild = (doc, parent, child) => native.document_remove_child(doc[DOC_ID], parent[NODE_ID], child[NODE_ID])
 export const querySelector = (doc, ctxNode, sel) => lookup(doc, native.document_query_selector(doc[DOC_ID], ctxNode[NODE_ID], sel))
 export const querySelectorAll = (doc, ctxNode, sel) => native.document_query_selector_all(doc[DOC_ID], ctxNode[NODE_ID], sel).map(id => lookup(doc, id))
 
-const DOCUMENT_REGISTRY = new FinalizationRegistry(id => native.document_free(id))
+const DOCUMENT_REGISTRY = new FinalizationRegistry(id => native.document_drop(id))

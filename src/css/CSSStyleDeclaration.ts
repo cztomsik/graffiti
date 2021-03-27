@@ -46,6 +46,11 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   }
 
   set cssText(cssText: string) {
+    // TODO: make sure attribute is set in native
+
+    // TODO: either parse props in JS or get hashmap from native
+    //       subset of https://github.com/cztomsik/graffiti/blob/e87f8f336401f06909c54d5471202ef0711c76a9/src/css/parse.ts
+
     console.log('TODO: CSSStyleDeclaration.cssText = ', cssText)
 
     /*

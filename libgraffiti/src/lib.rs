@@ -6,16 +6,14 @@ mod css;
 mod document;
 mod layout;
 mod render;
-mod viewport;
 mod webview;
 mod window;
 
 pub use self::{
     app::App,
     css::ResolvedStyle,
-    document::{Document, NodeType, NodeId},
+    document::{Document, NodeId, NodeType},
     render::backend,
-    viewport::Viewport,
     webview::*,
     window::*,
 };

@@ -1,3 +1,6 @@
+// slotmap reimplementation with u32 and without versioning
+// the reason is that V8 doesn't like numbers above 2^30
+
 use core::marker::PhantomData;
 use core::ops::{Index, IndexMut};
 

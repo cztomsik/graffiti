@@ -13,7 +13,7 @@ pub struct GlBackend {
 }
 
 impl GlBackend {
-    pub unsafe fn load_with(load_symbol: impl Fn(&str) -> *mut c_void) {
+    pub unsafe fn load_with(load_symbol: impl FnMut(&str) -> *mut c_void) {
         self::load_with(load_symbol)
     }
 

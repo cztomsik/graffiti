@@ -1,5 +1,4 @@
-use crate::backend::GlBackend;
-use crate::{App, Viewport};
+use super::App;
 use graffiti_glfw::*;
 use std::ffi::CStr;
 use std::os::raw::{c_double, c_int, c_uint, c_void};
@@ -32,6 +31,9 @@ impl Window {
             assert_ne!(glfw_window, null_mut(), "create GLFW window");
             let (events_tx, events) = channel();
 
+            // TODO: window.make_current() or something
+            glfwMakeContextCurrent(glfw_window);
+
             // TODO: drop
             glfwSetWindowUserPointer(glfw_window, Box::into_raw(Box::new(events_tx)) as *mut _);
 
@@ -56,19 +58,6 @@ impl Window {
     #[cfg(target_os = "macos")]
     pub fn native_handle(&mut self) -> *mut c_void {
         unsafe { glfwGetCocoaWindow(self.glfw_window) as _ }
-    }
-
-    pub fn create_viewport(&mut self) -> Viewport {
-        let (w, h) = self.size();
-
-        unsafe {
-            glfwMakeContextCurrent(self.glfw_window);
-
-            GlBackend::load_with(|s| glfwGetProcAddress(*c_str!(s)) as _);
-        };
-
-        // TODO: make sure the context is current when backend issues gl commands
-        Viewport::new((w as _, h as _), GlBackend::new())
     }
 
     pub fn title(&self) -> &str {

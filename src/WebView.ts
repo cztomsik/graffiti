@@ -28,4 +28,4 @@ export class WebView {
   }
 }
 
-const WEBVIEW_REGISTRY = new FinalizationRegistry(id => native.webview_free(id))
+const WEBVIEW_REGISTRY = new FinalizationRegistry(id => native.webview_drop(id))

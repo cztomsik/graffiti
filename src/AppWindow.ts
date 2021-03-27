@@ -92,4 +92,4 @@ export class AppWindow {
   }
 }
 
-const WINDOW_REGISTRY = new FinalizationRegistry(id => native.window_free(id))
+const WINDOW_REGISTRY = new FinalizationRegistry(id => native.window_drop(id))

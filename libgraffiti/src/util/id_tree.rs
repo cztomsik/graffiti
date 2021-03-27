@@ -22,7 +22,7 @@ impl<T> IdTree<T> {
         })
     }
 
-    pub fn free_node(&mut self, node: NodeId) {
+    pub fn drop_node(&mut self, node: NodeId) {
         self.nodes.remove(node);
     }
 
