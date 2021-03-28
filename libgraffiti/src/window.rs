@@ -15,7 +15,7 @@ pub struct Window {
 }
 
 impl Window {
-    pub(crate) fn new(app: Rc<App>, title: &str, width: i32, height: i32) -> Self {
+    pub fn new(app: &Rc<App>, title: &str, width: i32, height: i32) -> Self {
         unsafe {
             glfwDefaultWindowHints();
 
@@ -47,7 +47,7 @@ impl Window {
             glfwSetWindowCloseCallback(glfw_window, handle_glfw_window_close);
 
             Self {
-                app,
+                app: Rc::clone(app),
                 title: title.to_owned(),
                 glfw_window,
                 events,

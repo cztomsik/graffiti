@@ -1,11 +1,11 @@
 // TODO: check how slower RwLock<SlotMap> would be instead of DashMap
 // TODO: NonZeroU32 (so more selector parts could be stored inline)
 
-use once_cell::sync::Lazy;
-use core::any::{Any, TypeId};
-use core::hash::Hash;
-use core::ops::Deref;
 use dashmap::DashMap;
+use once_cell::sync::Lazy;
+use std::any::{Any, TypeId};
+use std::hash::Hash;
+use std::ops::Deref;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

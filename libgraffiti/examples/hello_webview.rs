@@ -1,10 +1,10 @@
-use graffiti::App;
+use graffiti::{App, Window, WebView};
 
 fn main() {
     let app = unsafe { App::init() };
 
-    let mut w = app.create_window("Hello WebView", 640, 480);
-    let mut webview = app.create_webview();
+    let mut w = Window::new(&app, "Hello WebView", 640, 480);
+    let mut webview = WebView::new(&app);
 
     webview.attach(&mut w);
     webview.load_url("https://github.com/cztomsik/graffiti");

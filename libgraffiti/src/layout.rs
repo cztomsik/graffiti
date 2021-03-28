@@ -51,7 +51,7 @@ impl LayoutEngine {
         unsafe { (YGNodeLayoutGetWidth(node.0), YGNodeLayoutGetHeight(node.0)) }
     }
 
-    pub fn free_node(&mut self, node: LayoutNode) {
+    pub fn drop_node(&mut self, node: LayoutNode) {
         unsafe { YGNodeFree(node.0) }
     }
 }

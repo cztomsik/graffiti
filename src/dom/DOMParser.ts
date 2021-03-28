@@ -3,7 +3,7 @@ import { parseFragment } from '../nodes/Element'
 import { ERR, TODO } from '../util'
 
 export class DOMParser implements globalThis.DOMParser {
-  parseFromString(string: string, contentType: DOMParserSupportedType): globalThis.Document {
+  parseFromString(string: string, contentType: DOMParserSupportedType): Document {
     switch (contentType) {
       case 'application/xml':
       case 'text/xml':

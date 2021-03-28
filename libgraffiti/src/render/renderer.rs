@@ -1,13 +1,13 @@
-// TODO: remove Lookup, closures are fine
-
-use super::backend::{DrawCall, Frame, Quad, RenderBackend, Vertex, RGBA8};
+use super::backend::{DrawCall, Frame, Quad, Vertex, RGBA8};
+use crate::{Document, NodeId, NodeType, Rect};
 use once_cell::sync::Lazy;
-use crate::util::{Lookup};
-use crate::{Document, NodeId, NodeType, Rect, ResolvedStyle};
 use owned_ttf_parser::{AsFaceRef, OwnedFace};
 
 // not checked/enforced for now but debug_assert! might be enough
-pub struct AABB { a: (f32, f32), b: (f32, f32) }
+pub struct AABB {
+    a: (f32, f32),
+    b: (f32, f32),
+}
 
 static SANS_SERIF_FACE: Lazy<Font> = Lazy::new(|| {
     use fontdb::{Database, Family, Query};
@@ -37,52 +37,54 @@ struct Font {
 }
 
 pub struct Renderer {
-    backend: Box<dyn RenderBackend + Send>,
+    // TODO: fonts, images, caching, ...
 }
 
 impl Renderer {
-    pub fn new(backend: impl RenderBackend + 'static + Send) -> Self {
-        Self {
-            backend: Box::new(backend),
-        }
+    pub fn new() -> Self {
+        Self {}
     }
 
     pub fn render<'a>(
         &mut self,
         document: &'a Document,
-        resolved_styles: impl Lookup<NodeId, &'a ResolvedStyle>,
-        layout_rects: impl Lookup<NodeId, Rect>,
-    ) {
+        layout_rect: &'a dyn Fn(NodeId) -> Rect,
+    ) -> Frame {
         let root = document.root();
 
         let mut ctx = RenderContext {
             document,
             frame: Frame::new(),
-            resolved_styles,
-            layout_rects,
+            layout_rect,
         };
 
         ctx.render_node((0., 0.), root);
-        self.backend.render_frame(ctx.frame);
+        
+        ctx.frame
     }
 }
 
-struct RenderContext<'a, RS, LR> {
+struct RenderContext<'a> {
     document: &'a Document,
     frame: Frame,
-    resolved_styles: RS,
-    layout_rects: LR,
+    layout_rect: &'a dyn Fn(NodeId) -> Rect,
 }
 
-impl<'a, RS: Lookup<NodeId, &'a ResolvedStyle>, LR: Lookup<NodeId, Rect>> RenderContext<'a, RS, LR> {
+impl<'a> RenderContext<'a> {
     fn render_node(&mut self, offset: (f32, f32), node: NodeId) {
-        let mut rect = self.layout_rects.lookup(node);
+        let mut rect = (self.layout_rect)(node);
 
         rect.pos.0 += offset.0;
         rect.pos.1 += offset.1;
 
+        if self.document.node_type(node) == NodeType::Document {
+            for ch in self.document.children(node) {
+                self.render_node(rect.pos, ch)
+            }
+        }
+
         if self.document.node_type(node) == NodeType::Element {
-            self.render_element(rect, self.resolved_styles.lookup(node), self.document.children(node));
+            self.render_element(rect, /*self.resolved_styles.lookup(node),*/ self.document.children(node));
         }
 
         if self.document.node_type(node) == NodeType::Text {
@@ -90,8 +92,8 @@ impl<'a, RS: Lookup<NodeId, &'a ResolvedStyle>, LR: Lookup<NodeId, Rect>> Render
         }
     }
 
-    fn render_element(&mut self, rect: Rect, style: &ResolvedStyle, children: impl Iterator<Item = NodeId>) {
-        let _s = style;
+    fn render_element(&mut self, rect: Rect, /*style: &ResolvedStyle,*/ children: impl Iterator<Item = NodeId>) {
+        //let _s = style;
 
         self.fill_rect(rect, [255, 63, 63, 100]);
 

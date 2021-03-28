@@ -10,12 +10,11 @@ use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
+use std::convert::TryFrom;
 use std::rc::Rc;
 
-type Task = Box<dyn Fn() + 'static + Send>;
+type Task = Box<dyn FnOnce() + 'static + Send>;
 static TASK_CHANNEL: Lazy<(Sender<Task>, Receiver<Task>)> = Lazy::new(channel);
-
-//static VIEWPORTS: Lazy<Mutex<SlotMap<WindowId, Viewport>>> = lazy!(|| Mutex::new(SlotMap::new()));
 
 static EVENTS: Lazy<DashMap<WindowId, Receiver<Event>>> = Lazy::new(DashMap::new);
 
@@ -56,18 +55,16 @@ macro_rules! export_api {
             Selector::try_from(sel.as_str()).unwrap()
         }
 
-        // tuples worked but hinting was pain (generics are pain too but at least this part looks better)
-        // https://github.com/cztomsik/graffiti/blob/6637adf0e2fbec4034fb28c770a3fd026a4012c3/libgraffiti/src/bindings/deno.rs
         export! {
             init: || ctx!().app = Some(unsafe { App::init() }),
-            tick: || CTX.with(|ctx| {
-                let Ctx { ref mut app, ref mut windows, .. } = *ctx.borrow_mut();
-                let app = app.as_mut().expect("no app");
-                for (id, win) in windows.iter_mut() {
-                    if let Some(e) = win.take_event() {
-                        println!("TODO: {:?}", e);
-                    }
-                    win.swap_buffers();
+            tick: || {
+                for task in TASK_CHANNEL.1.try_iter() {
+                    task();
+                }
+
+                ctx!().app.as_ref().unwrap().wait_events_timeout(0.1);
+            },
+            render: |w: u32, d: u32| {
                 }
                 app.wait_events_timeout(0.1)
             }),
@@ -87,22 +84,18 @@ macro_rules! export_api {
             window_minimize: |w| ctx!().windows[w].minimize(),
             window_maximize: |w| ctx!().windows[w].maximize(),
             window_restore: |w| ctx!().windows[w].restore(),
-            window_free: |w| { ctx!().windows.remove(w); },
+            window_drop: |w| drop(ctx!().windows.remove(w)),
 
-            webview_new: || CTX.with(|ctx| {
-                let Ctx { ref mut app, ref mut webviews, .. } = *ctx.borrow_mut();
-                let app = app.as_mut().expect("no app");
-                webviews.insert(app.create_webview())
-            }),
+            webview_new: || ctx!().webviews.insert(WebView::new(ctx!().app.as_ref().unwrap())),
             webview_attach: |wv, w| CTX.with(|ctx| {
                 let Ctx { ref mut webviews, ref mut windows, .. } = *ctx.borrow_mut();
                 webviews[wv].attach(&mut windows[w]);
             }),
             webview_load_url: |wv, url: String| ctx!().webviews[wv].load_url(&url),
             webview_eval: |wv, js: String| ctx!().webviews[wv].eval(&js),
-            webview_free: |wv| { ctx!().webviews.remove(wv); },
+            webview_drop: |wv| drop(ctx!().webviews.remove(wv)),
 
-            document_new: || ctx!().documents.insert(Document::new(|_| {})),
+            document_new: || ctx!().documents.insert(Document::new()),
             document_node_type: |doc, node| ctx!().documents[doc].node_type(node) as u32,
             document_create_text_node: |doc, text: String| ctx!().documents[doc].create_text_node(&text),
             document_create_comment: |doc, text: String| ctx!().documents[doc].create_comment(&text),
@@ -114,8 +107,9 @@ macro_rules! export_api {
             document_remove_child: |doc, el, child| ctx!().documents[doc].remove_child(el, child),
             document_query_selector: |doc, node, sel| ctx!().documents[doc].query_selector(node, &parse_sel(sel)),
             document_query_selector_all: |doc, node, sel| ctx!().documents[doc].query_selector_all(node, &parse_sel(sel)),
-            document_free_node: |doc, node| ctx!().documents[doc].free_node(node),
-            document_free: |doc| { ctx!().documents.remove(doc); }
+            document_drop_node: |doc, node| ctx!().documents[doc].drop_node(node),
+            document_drop: |doc| drop(ctx!().documents.remove(doc)),
+
         }
     }};
 }
