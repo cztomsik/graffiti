@@ -1,11 +1,12 @@
 // bindings for deno & nodejs
 // - thread-local storage, shared fns (this file)
-// - submodules define macros and then include!("api.rs")
+// - submodules define macros and then call export_api!() which is defined here
 
+use crate::backend::{GlBackend, RenderBackend};
 use crate::css::Selector;
+use crate::render::Renderer;
 use crate::util::SlotMap;
-use crate::{App, Document, Event, WebView, Window};
-use core::convert::TryFrom;
+use crate::{App, Document, Event, Rect, WebView, Window};
 use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
@@ -65,15 +66,34 @@ macro_rules! export_api {
                 ctx!().app.as_ref().unwrap().wait_events_timeout(0.1);
             },
             render: |w: u32, d: u32| {
-                }
-                app.wait_events_timeout(0.1)
-            }),
+                println!("TODO: render {} {}", w, d);
 
-            window_new: |title: String, width, height| CTX.with(|ctx| {
-                let Ctx { ref mut app, ref mut windows, .. } = *ctx.borrow_mut();
-                let app = app.as_mut().expect("no app");
-                windows.insert(app.create_window(&title, width, height))
-            }),
+                // TODO: keep it (in TLS)
+                let mut renderer = Renderer::new();
+
+                let frame = renderer.render(&ctx!().documents[d], &|_| Rect { pos: (0., 0.), size: (100., 100.) });
+
+                let _ = TASK_CHANNEL.0.send(Box::new(move || {
+                    // TODO: keep it somewhere (in main thread?)
+                    let mut backend = GlBackend::new();
+
+                    backend.render_frame(frame);
+
+                    ctx!().windows[w].swap_buffers();
+                }));
+            },
+
+            window_new: |title: String, width, height| {
+                let mut w = Window::new(ctx!().app.as_ref().unwrap(), &title, width, height);
+
+                // TODO: make window context current
+                unsafe {
+                    GlBackend::load_with(|s| w.get_proc_address(s) as _);
+                }
+
+                ctx!().windows.insert(w)
+            },
+            window_next_event: |_w: u32| None::<String>,
             window_title: |w| ctx!().windows[w].title().to_owned(),
             window_set_title: |w, title: String| ctx!().windows[w].set_title(&title),
             window_size: |w| ctx!().windows[w].size(),
@@ -108,8 +128,7 @@ macro_rules! export_api {
             document_query_selector: |doc, node, sel| ctx!().documents[doc].query_selector(node, &parse_sel(sel)),
             document_query_selector_all: |doc, node, sel| ctx!().documents[doc].query_selector_all(node, &parse_sel(sel)),
             document_drop_node: |doc, node| ctx!().documents[doc].drop_node(node),
-            document_drop: |doc| drop(ctx!().documents.remove(doc)),
-
+            document_drop: |doc| drop(ctx!().documents.remove(doc))
         }
     }};
 }

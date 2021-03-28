@@ -5,25 +5,20 @@
 // x panics for invalid node types
 //  (another layer on top of this should make sure it never happens)
 
-use crate::css::{MatchingContext, Selector};
-use crate::util::{Atom, IdTree};
+use crate::css::{MatchingContext, Selector, Style};
+use crate::util::{Atom, IdTree, SlotMap};
+use std::any::Any;
 
 pub type NodeId = u32;
 
 #[derive(Debug)]
 pub enum DocumentEvent {
-    ParentChanged(NodeId),
-    NodeDestroyed(NodeId),
+    Create(NodeId, NodeType),
+    Insert(NodeId, NodeId, usize),
+    Remove(NodeId, NodeId),
 
-    TextNodeCreated(NodeId),
-    CommentCreated(NodeId),
-
-    CharacterDataChanged(NodeId),
-
-    ElementCreated(NodeId),
-    AttributesChanged(NodeId),
-    NodeInserted(NodeId, NodeId, usize),
-    NodeRemoved(NodeId, NodeId),
+    // TODO: call during Document::Drop, probably in document order (children first)
+    Drop(NodeId),
 }
 
 #[repr(u32)]
@@ -47,24 +42,33 @@ pub struct Document {
     tree: IdTree<NodeData>,
     root: NodeId,
 
-    listener: Box<dyn Fn(DocumentEvent) + Send>,
+    listeners: Vec<Box<dyn Fn(&Document, &Event)>>,
+
+    // SlotMap + Vec because node freeing has to be fast
+    weak_data: SlotMap<NodeId, Vec<Box<dyn Any>>>,
 }
 
 // private shorthand
 type Event = DocumentEvent;
 
 impl Document {
-    pub fn new(listener: impl Fn(DocumentEvent) + 'static + Send) -> Self {
-        let listener = Box::new(listener);
-        let mut tree = IdTree::new();
+    pub fn new() -> Self {
+        let mut doc = Self {
+            tree: IdTree::new(),
+            root: 0,
+            listeners: Vec::new(),
+            weak_data: SlotMap::new(),
+        };
 
-        let root = tree.create_node(NodeData::Document);
+        let root = doc.create_node(NodeData::Document);
+        doc.root = root;
 
-        listener(Event::ElementCreated(root));
-
-        Self { tree, root, listener }
+        doc
     }
 
+    pub fn add_listener(&mut self, listener: impl Fn(&Document, &Event) + 'static) {
+        self.listeners.push(Box::new(listener));
+    }
     pub fn root(&self) -> NodeId {
         self.root
     }
@@ -129,29 +133,45 @@ impl Document {
     pub fn insert_child(&mut self, parent: NodeId, child: NodeId, index: usize) {
         self.tree.insert_child(parent, child, index);
 
-        self.emit(Event::NodeInserted(parent, child, index));
-        self.emit(Event::ParentChanged(child));
+        self.emit(Event::Insert(parent, child, index));
     }
 
     pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
         self.tree.remove_child(parent, child);
 
-        self.emit(Event::NodeRemoved(parent, child));
-        self.emit(Event::ParentChanged(child));
+        self.emit(Event::Remove(parent, child));
     }
 
-    pub fn free_node(&mut self, node: NodeId) {
-        self.tree.free_node(node);
+    // meant for sparse, any-shape data like attaching StyleSheet to <style>
+    pub fn weak_data<T: 'static>(&self, node: NodeId) -> Option<&T> {
+        self.weak_data[node].iter().find_map(|any| any.downcast_ref())
+    }
 
-        self.emit(Event::NodeDestroyed(node));
+    pub fn weak_data_mut<T: 'static>(&mut self, node: NodeId) -> Option<&mut T> {
+        self.weak_data[node].iter_mut().find_map(|any| any.downcast_mut())
+    }
+
+    pub fn set_weak_data<T: 'static>(&mut self, node: NodeId, data: T) {
+        if let Some(v) = self.weak_data[node].iter_mut().find(|any| any.is::<T>()) {
+            *v = Box::new(data);
+        } else {
+            self.weak_data[node].push(Box::new(data));
+        }
+    }
+
+    pub fn remove_weak_data<T: 'static>(&mut self, node: NodeId) {
+        self.weak_data[node].retain(|any| !any.is::<T>());
+    }
+
+    pub fn drop_node(&mut self, node: NodeId) {
+        self.tree.drop_node(node);
+        self.weak_data.remove(node);
     }
 
     // text node
 
     pub fn create_text_node(&mut self, cdata: &str) -> NodeId {
-        let id = self.tree.create_node(NodeData::Text(cdata.to_owned()));
-
-        self.emit(Event::TextNodeCreated(id));
+        let id = self.create_node(NodeData::Text(cdata.to_owned()));
 
         id
     }
@@ -159,9 +179,7 @@ impl Document {
     // comment
 
     pub fn create_comment(&mut self, cdata: &str) -> NodeId {
-        let id = self.tree.create_node(NodeData::Comment(cdata.to_owned()));
-
-        self.emit(Event::CommentCreated(id));
+        let id = self.create_node(NodeData::Comment(cdata.to_owned()));
 
         id
     }
@@ -179,8 +197,6 @@ impl Document {
     pub fn set_cdata(&mut self, cdata_node: NodeId, cdata: &str) {
         if let NodeData::Text(data) | NodeData::Comment(data) = self.tree.data_mut(cdata_node) {
             *data = cdata.to_owned();
-
-            self.emit(Event::CharacterDataChanged(cdata_node));
         } else {
             panic!("not a cdata node")
         }
@@ -189,12 +205,13 @@ impl Document {
     // element
 
     pub fn create_element(&mut self, local_name: &str) -> NodeId {
-        let id = self.tree.create_node(NodeData::Element(ElementData {
+        let id = self.create_node(NodeData::Element(ElementData {
             local_name: local_name.into(),
-            attributes: AttrMap::default(),
+            identifier: None,
+            class_name: None,
+            //style: Style::EMPTY,
+            attrs: Vec::new(),
         }));
-
-        self.emit(Event::ElementCreated(id));
 
         id
     }
@@ -203,23 +220,68 @@ impl Document {
         &self.el(element).local_name
     }
 
+    // note that document is using the same &'static strs
+    // so that matching should be quick
     pub fn attribute(&self, element: NodeId, att_name: &str) -> Option<&str> {
-        self.el(element).attributes.get(att_name)
+        let el_data = self.el(element);
+
+        let opt = match att_name {
+            "id" => el_data.identifier.as_deref(),
+            "class" => el_data.class_name.as_deref(),
+            // TODO: stringify? properties macro?
+            //"style" => todo!(),
+            _ => el_data.attrs.iter().find(|(a, _)| att_name == **a).map(|(_, v)| &**v),
+        };
+
+        opt.map(String::as_str)
     }
 
     pub fn set_attribute(&mut self, element: NodeId, att_name: &str, value: &str) {
-        self.el_mut(element).attributes.set(att_name, value);
+        let el_data = self.el_mut(element);
 
-        self.emit(Event::AttributesChanged(element));
+        match att_name {
+            "id" => el_data.identifier = Some(value.into()),
+            "class" => el_data.class_name = Some(value.into()),
+            //"style" => el_data.style = Style::from(value),
+            _ => {
+                if let Some(a) = el_data.attrs.iter_mut().find(|(a, _)| att_name == **a) {
+                    a.1 = value.into();
+                } else {
+                    el_data.attrs.push((att_name.into(), value.into()));
+                }
+            }
+        }
     }
 
     pub fn remove_attribute(&mut self, element: NodeId, att_name: &str) {
-        self.el_mut(element).attributes.remove(att_name);
+        let el_data = self.el_mut(element);
 
-        self.emit(Event::AttributesChanged(element));
+        match att_name {
+            "id" => drop(el_data.identifier.take()),
+            "class" => drop(el_data.identifier.take()),
+            //"style" => el_data.style = Style::EMPTY,
+            _ => el_data.attrs.retain(|(a, _)| att_name != **a),
+        };
     }
 
+    /*
+    pub fn style(&self, element: NodeId) -> &Style {
+        &self.el(element).style
+    }
+    */
+
     // helpers
+
+    fn create_node(&mut self, data: NodeData) -> NodeId {
+        let id = self.tree.create_node(data);
+        let weak_id = self.weak_data.insert(Vec::new());
+
+        debug_assert_eq!(id, weak_id);
+
+        self.emit(Event::Create(id, self.node_type(id)));
+
+        id
+    }
 
     fn descendant_children(&self, element: NodeId) -> Vec<NodeId> {
         self.children(element)
@@ -244,7 +306,9 @@ impl Document {
     }
 
     fn emit(&self, event: Event) {
-        (self.listener)(event);
+        for listener in &self.listeners {
+            listener(self, &event);
+        }
     }
 }
 
@@ -259,50 +323,10 @@ enum NodeData {
 
 struct ElementData {
     local_name: Atom<String>,
-    attributes: AttrMap,
-}
-
-#[derive(Default)]
-struct AttrMap {
     identifier: Option<Atom<String>>,
     class_name: Option<Atom<String>>,
+    //style: Style,
     attrs: Vec<(Atom<String>, Atom<String>)>,
-}
-
-// note that document is using the same &'static strs
-// so that matching should be quick
-impl AttrMap {
-    fn get(&self, att: &str) -> Option<&str> {
-        let opt = match att {
-            "id" => self.identifier.as_deref(),
-            "class" => self.class_name.as_deref(),
-            _ => self.attrs.iter().find(|(a, _)| att == **a).map(|(_, v)| &**v),
-        };
-
-        opt.map(String::as_str)
-    }
-
-    fn set(&mut self, att: &str, v: &str) {
-        match att {
-            "id" => self.identifier = Some(v.into()),
-            "class" => self.class_name = Some(v.into()),
-            _ => {
-                if let Some(a) = self.attrs.iter_mut().find(|(a, _)| att == **a) {
-                    a.1 = v.into();
-                } else {
-                    self.attrs.push((att.into(), v.into()));
-                }
-            }
-        }
-    }
-
-    fn remove(&mut self, att: &str) {
-        match att {
-            "id" => self.identifier.take(),
-            "class" => self.identifier.take(),
-            _ => return self.attrs.retain(|(a, _)| att != **a),
-        };
-    }
 }
 
 #[cfg(test)]
@@ -312,7 +336,7 @@ mod tests {
 
     #[test]
     fn test() {
-        let mut d = Document::new(|_| {});
+        let mut d = Document::new();
         assert_eq!(d.node_type(d.root()), NodeType::Document);
 
         let div = d.create_element("div");
@@ -331,5 +355,42 @@ mod tests {
             d.query_selector(d.root(), &Selector::try_from("div#panel").unwrap()),
             Some(div)
         );
+    }
+
+    /*
+    #[test]
+    fn inline_style() {
+        use crate::css::{Display, StyleProp, Value};
+
+        let mut d = Document::new();
+        let div = d.create_element("div");
+
+        d.set_attribute(div, "style", "display: block");
+        assert_eq!(
+            d.style(div).props().next().unwrap(),
+            &StyleProp::Display(Value::Specified(Display::Block))
+        );
+
+        // TODO: change style prop
+
+        // TODO: check attr("style")
+
+        d.remove_attribute(div, "style");
+        assert_eq!(d.style(div), &Style::EMPTY);
+    }
+    */
+
+    #[test]
+    fn weak_data() {
+        let mut d = Document::new();
+        let root = d.root();
+
+        assert_eq!(d.weak_data(root), None::<&usize>);
+        d.set_weak_data(root, 1);
+        assert_eq!(d.weak_data(root), Some(&1));
+        *(d.weak_data_mut(root).unwrap()) = 2;
+        assert_eq!(d.weak_data(root), Some(&2));
+        d.remove_weak_data::<usize>(root);
+        assert_eq!(d.weak_data(root), None::<&usize>);
     }
 }

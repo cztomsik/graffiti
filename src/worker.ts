@@ -10,6 +10,7 @@ import { Window } from './window/Window'
 import { DOMParser } from './dom/DOMParser'
 import * as nodes from './nodes/index'
 import { readURL, TODO, UNSUPPORTED } from './util'
+import { getDocId } from './nodes/Document'
 
 // nodejs
 if ('process' in globalThis) {
@@ -65,6 +66,9 @@ async function main({ windowId, url }) {
   Object.setPrototypeOf(globalThis, window)
   Object.assign(window, nodes)
 
+  // start event handling & rendering
+  loop()
+
   // we replace <link> with <style> which works surprisingly well
   // TODO: qsa link[rel="stylesheet"]
   for (const link of document.querySelectorAll('link')) {
@@ -91,4 +95,29 @@ async function main({ windowId, url }) {
   }
 
   window._fire('load')
+
+
+  function loop() {
+    // TODO: dispatch all events for this round
+
+    native.render(windowId, getDocId(document))
+
+    setTimeout(loop, 100)
+  }
+
+  /*
+  // TODO: this will block (is it because it's top-level?)
+  while (true) {
+    for (let ev; ev = native.window_next_event(windowId);) {
+      // TODO: dispatch, optionally find target node with document.elementFromPoint()
+      console.log(ev)
+    }
+
+    // TODO: render
+
+    // TODO: wait for next "round"
+    //       it's ok to block at first but eventually, it should be async
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  */
 }
