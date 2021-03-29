@@ -19,7 +19,7 @@ fn rule<'a>() -> Parser<'a, Rule> {
     rule.map(|(selector, style)| Rule { selector, style })
 }
 
-pub(crate) fn selector<'a>() -> Parser<'a, Selector> {
+pub(super) fn selector<'a>() -> Parser<'a, Selector> {
     let tag = || {
         let ident = || ident().convert(std::str::from_utf8).map(Atom::from);
         let local_name = ident().map(Component::LocalName);
@@ -56,7 +56,7 @@ pub(crate) fn selector<'a>() -> Parser<'a, Selector> {
     })
 }
 
-pub(crate) fn style<'a>() -> Parser<'a, Style> {
+pub(super) fn style<'a>() -> Parser<'a, Style> {
     // TODO: quotes, comments, etc.
     let prop_name = is_a(alpha_dash).repeat(1..).collect();
     let prop_value = none_of(b";{}\"'").repeat(0..).collect();
@@ -68,7 +68,7 @@ pub(crate) fn style<'a>() -> Parser<'a, Style> {
     })
 }
 
-fn parse_style_prop<'a>(prop: &'a [u8], value: &'a [u8]) -> Result<StyleProp, &'a str> {
+pub(super) fn parse_style_prop<'a>(prop: &'a [u8], value: &'a [u8]) -> Result<StyleProp, &'a str> {
     use self::value as v;
 
     let parser = match prop {

@@ -30,6 +30,28 @@ impl Style {
             self.props.push(new_prop);
         }
     }
+
+    pub fn css_text(&self) -> String {
+        println!("TODO: style.css_text()");
+        String::new()
+    }
+
+    pub fn set_css_text(&mut self, css_text: &str) {
+        *self = Self::from(css_text);
+    }
+
+    pub fn set_property(&mut self, prop: &str, value: &str) {
+        if let Ok(prop) = super::parser::parse_style_prop(prop.as_bytes(), value.as_bytes()) {
+            self.add_prop(prop);
+        }
+    }
+
+    pub fn remove_property(&mut self, prop: &str) {
+        // TODO: retain prop.name() != prop
+        if let Ok(prop) = super::parser::parse_style_prop(prop.as_bytes(), b"unset") {
+            self.props.retain(|p| discriminant(p) != discriminant(&prop));
+        }
+    }
 }
 
 // never fails
