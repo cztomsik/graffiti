@@ -3,13 +3,12 @@ import { Node, NodeList } from './index'
 import { ERR } from '../util'
 import { XMLSerializer } from '../dom/XMLSerializer'
 import { GET_THE_PARENT } from '../events/EventTarget'
-import { initElement, removeAttribute, setAttribute } from './Document'
+import { initElement, getAttributeNames, getAttribute, setAttribute, removeAttribute, matches } from './Document'
 
 export abstract class Element extends Node implements globalThis.Element {
   abstract readonly tagName: string
   readonly childNodes = new NodeList<ChildNode>()
   #localName: string
-  #attributes = new Map<string, string>()
 
   constructor(doc = document, localName: string = ERR('new Element() is not supported')) {
     super(doc)
@@ -38,19 +37,19 @@ export abstract class Element extends Node implements globalThis.Element {
     // it would only make everything much more complex with no real benefit
     // if we'll ever need it, it should be lazy-created weak-stored proxy
     // and it should still delegate to el.get/setAttribute()
-    return Array.from(this.#attributes).map(([name, value]) => ({ name, value }))
+    return this.getAttributeNames().map((name) => ({ name, value: this.getAttribute(name) }))
   }
 
   getAttribute(name: string): string | null {
-    return this.#attributes.get(name) ?? null
+    return getAttribute(this.ownerDocument, this, name)
   }
 
   getAttributeNames(): string[] {
-    return [...this.#attributes.keys()]
+    return getAttributeNames(this.ownerDocument, this)
   }
 
   hasAttribute(name: string): boolean {
-    return this.#attributes.has(name)
+    return this.getAttribute(name) !== null
   }
 
   hasAttributes(): boolean {
@@ -60,14 +59,10 @@ export abstract class Element extends Node implements globalThis.Element {
   setAttribute(name: string, value: string) {
     value = (typeof value === 'string' ? value : '' + value).toLowerCase()
 
-    this.#attributes.set(name, value)
-
     setAttribute(this.ownerDocument, this, name, value)
   }
 
   removeAttribute(name: string) {
-    this.#attributes.delete(name)
-
     removeAttribute(this.ownerDocument, this, name)
   }
 
@@ -132,6 +127,11 @@ export abstract class Element extends Node implements globalThis.Element {
     this.replaceWith(parseFragment(this.ownerDocument, html))
   }
 
+  matches(sel: string): boolean {
+    return matches(document, this, sel)
+  }
+
+
   // later
   scrollLeft
   scrollTop
@@ -160,7 +160,6 @@ export abstract class Element extends Node implements globalThis.Element {
   insertAdjacentElement
   insertAdjacentHTML
   insertAdjacentText
-  matches
   msGetRegionContent
   prefix
   releasePointerCapture

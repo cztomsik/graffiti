@@ -3,7 +3,6 @@
 // - submodules define macros and then call export_api!() which is defined here
 
 use crate::backend::{GlBackend, RenderBackend};
-use crate::css::Selector;
 use crate::render::Renderer;
 use crate::util::SlotMap;
 use crate::{App, Document, Event, Rect, WebView, Window};
@@ -11,7 +10,6 @@ use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
-use std::convert::TryFrom;
 use std::rc::Rc;
 
 type Task = Box<dyn FnOnce() + 'static + Send>;
@@ -51,10 +49,6 @@ macro_rules! ctx {
 macro_rules! export_api {
     () => {{
         use super::*;
-
-        fn parse_sel(sel: String) -> Selector {
-            Selector::try_from(sel.as_str()).unwrap()
-        }
 
         export! {
             init: || ctx!().app = Some(unsafe { App::init() }),
@@ -124,12 +118,14 @@ macro_rules! export_api {
             document_create_comment: |doc, text: String| ctx!().documents[doc].create_comment(&text),
             document_set_cdata: |doc, node, text: String| ctx!().documents[doc].set_cdata(node, &text),
             document_create_element: |doc, local_name: String| ctx!().documents[doc].create_element(&local_name),
+            document_attribute: |doc, el, attr: String| ctx!().documents[doc].attribute(el, &attr),
             document_set_attribute: |doc, el, attr: String, text: String| ctx!().documents[doc].set_attribute(el, &attr, &text),
             document_remove_attribute: |doc, el, attr: String| ctx!().documents[doc].remove_attribute(el, &attr),
+            document_attribute_names: |doc, el| ctx!().documents[doc].attribute_names(el),
             document_insert_child: |doc, el, child, index: u32| ctx!().documents[doc].insert_child(el, child, index as _),
             document_remove_child: |doc, el, child| ctx!().documents[doc].remove_child(el, child),
-            document_query_selector: |doc, node, sel| ctx!().documents[doc].query_selector(node, &parse_sel(sel)),
-            document_query_selector_all: |doc, node, sel| ctx!().documents[doc].query_selector_all(node, &parse_sel(sel)),
+            document_query_selector: |doc, node, sel: String| ctx!().documents[doc].query_selector(node, &sel),
+            document_query_selector_all: |doc, node, sel: String| ctx!().documents[doc].query_selector_all(node, &sel),
             document_drop_node: |doc, node| ctx!().documents[doc].drop_node(node),
             document_drop: |doc| drop(ctx!().documents.remove(doc))
         }
