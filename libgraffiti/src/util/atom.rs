@@ -4,12 +4,12 @@
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use std::any::{Any, TypeId};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Atom<T: Eq + Hash + Send + Sync + 'static>(Arc<T>);
+#[derive(Debug, Clone, Eq)]
+pub struct Atom<T: Eq + Hash + 'static>(Arc<T>);
 
 type AtomsOf<T> = DashMap<Arc<T>, ()>;
 
@@ -44,7 +44,7 @@ impl From<&str> for Atom<String> {
     }
 }
 
-impl<T: Eq + Hash + Send + Sync> Deref for Atom<T> {
+impl<T: Eq + Hash> Deref for Atom<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -52,12 +52,24 @@ impl<T: Eq + Hash + Send + Sync> Deref for Atom<T> {
     }
 }
 
-impl<T: 'static + Eq + Hash + Send + Sync> Drop for Atom<T> {
+impl<T: Eq + Hash + 'static> Drop for Atom<T> {
     fn drop(&mut self) {
         let atoms = ATOMS_OF.get(&TypeId::of::<T>()).unwrap();
         let atoms = atoms.downcast_ref::<AtomsOf<T>>().unwrap();
 
         // the one which is dropped + shared dashmap
         atoms.remove_if(&self.0, |k, _| Arc::strong_count(k) == 2);
+    }
+}
+
+impl<T: Eq + Hash> Hash for Atom<T> {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        Arc::as_ptr(&self.0).hash(hasher)
+    }
+}
+
+impl<T: Eq + Hash> PartialEq for Atom<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::as_ptr(&self.0) == Arc::as_ptr(&other.0)
     }
 }
