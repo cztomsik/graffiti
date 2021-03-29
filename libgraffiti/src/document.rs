@@ -8,6 +8,7 @@
 use crate::css::{MatchingContext, Selector, Style};
 use crate::util::{Atom, IdTree, SlotMap};
 use std::any::Any;
+use std::convert::TryFrom;
 
 pub type NodeId = u32;
 
@@ -69,6 +70,7 @@ impl Document {
     pub fn add_listener(&mut self, listener: impl Fn(&Document, &Event) + 'static) {
         self.listeners.push(Box::new(listener));
     }
+
     pub fn root(&self) -> NodeId {
         self.root
     }
@@ -97,17 +99,20 @@ impl Document {
             .filter(move |n| self.node_type(*n) == NodeType::Element)
     }
 
-    pub fn matches(&self, el: NodeId, selector: &Selector) -> bool {
+    pub fn matches(&self, el: NodeId, selector: &str) -> bool {
         todo!()
         //self.matching_context().match_selector(selector, el)
     }
 
-    pub fn query_selector(&self, context_node: NodeId, selector: &Selector) -> Option<NodeId> {
+    pub fn query_selector(&self, context_node: NodeId, selector: &str) -> Option<NodeId> {
         self.query_selector_all(context_node, selector).get(0).copied()
     }
 
-    pub fn query_selector_all(&self, context_node: NodeId, selector: &Selector) -> Vec<NodeId> {
-        //println!("QSA {:?}", (context_node, selector));
+    pub fn query_selector_all(&self, context_node: NodeId, selector: &str) -> Vec<NodeId> {
+        let selector = match Selector::try_from(selector) {
+            Ok(s) => s,
+            _ => return Vec::new(),
+        };
 
         // TODO: helper/macro
         let ctx = MatchingContext {
@@ -332,7 +337,6 @@ struct ElementData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::TryFrom;
 
     #[test]
     fn test() {
@@ -351,10 +355,7 @@ mod tests {
         d.set_attribute(div, "id", "panel");
         assert_eq!(d.attribute(div, "id"), Some("panel"));
 
-        assert_eq!(
-            d.query_selector(d.root(), &Selector::try_from("div#panel").unwrap()),
-            Some(div)
-        );
+        assert_eq!(d.query_selector(d.root(), "div#panel"), Some(div));
     }
 
     /*
