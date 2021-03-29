@@ -106,7 +106,10 @@ macro_rules! export_api {
             window_restore: |w| ctx!().windows[w].restore(),
             window_drop: |w| drop(ctx!().windows.remove(w)),
 
-            webview_new: || ctx!().webviews.insert(WebView::new(ctx!().app.as_ref().unwrap())),
+            webview_new: || {
+                let wv = WebView::new(ctx!().app.as_ref().unwrap());
+                ctx!().webviews.insert(wv)
+            },
             webview_attach: |wv, w| CTX.with(|ctx| {
                 let Ctx { ref mut webviews, ref mut windows, .. } = *ctx.borrow_mut();
                 webviews[wv].attach(&mut windows[w]);
