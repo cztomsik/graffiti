@@ -34,6 +34,7 @@ import { UNSUPPORTED } from '../util'
 
 import { DOMImplementation } from '../dom/DOMImplementation'
 import { GET_THE_PARENT } from '../events/EventTarget'
+import { Event } from '../events/Event'
 
 export class Document extends Node implements globalThis.Document {
   readonly ownerDocument
@@ -196,6 +197,11 @@ export class Document extends Node implements globalThis.Document {
     return this.querySelectorAll(tagName)
   }
 
+  createEvent(type) {
+    // TODO: return appropriate subclass
+    return new Event(type.toLowerCase()) as any
+  }
+
   // intentionally left out (out-of-scope)
   clear = UNSUPPORTED
   close = UNSUPPORTED
@@ -214,7 +220,6 @@ export class Document extends Node implements globalThis.Document {
   contentType
   cookie
   createCDATASection
-  createEvent
   createExpression
   createNodeIterator
   createNSResolver

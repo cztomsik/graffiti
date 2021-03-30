@@ -21,10 +21,12 @@ export class DOMParser implements globalThis.DOMParser {
         // happy-case
         if ((frag.childNodes.length === 1) && (frag.childNodes[0].localName === 'html')) {
           document.appendChild(frag)
-          return document
         } else {
-          return this.parseFromString(`<html><head><title></title></head><body>${html}</body></html>`, 'text/html')
+          document.appendChild(parseFragment(document, '<html><head><title></title></head><body></body></html>'))
+          document.body.appendChild(frag)
         }
+
+        return document
       }
     }
 

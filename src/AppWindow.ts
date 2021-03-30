@@ -51,7 +51,7 @@ export class AppWindow {
     native.window_restore(this.#id)
   }
 
-  async loadURL(url: URL | string) {
+  async loadURL(url: URL | string, options = {}) {
     this.#worker?.terminate()
 
     const Worker = globalThis.Worker ?? (await import('worker_threads')).Worker
@@ -77,14 +77,14 @@ export class AppWindow {
     // setup sequential req/res communication
     // TODO: prefix or isolate entirely, not sure yet
     this.#worker = worker
-    this.#send = async msg => {
-      await current
-      next = null
-      worker.postMessage(msg)
-      return (current = new Promise((resolve, reject) => (next = { resolve, reject })))
-    }
+    this.#send = msg =>
+      (current = current.then(() => {
+        next = null
+        worker.postMessage(msg)
+        return new Promise((resolve, reject) => (next = { resolve, reject }))
+      }))
 
-    await this.#send({ type: 'init', windowId: this.#id, url: '' + url })
+    await this.#send({ type: 'init', windowId: this.#id, url: '' + url, options })
   }
 
   async eval(js: string) {

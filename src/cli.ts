@@ -12,6 +12,8 @@ Arguments:
   <index>  HTML file or URL
 `
 
+const CWD = globalThis.Deno?.cwd() ?? globalThis.process?.cwd()
+
 cli('process' in globalThis ? process.argv.slice(2) : globalThis['Deno'].args)
 
 async function cli(args) {
@@ -24,7 +26,7 @@ async function cli(args) {
     const app = await App.init()
     const w = new AppWindow()
 
-    await w.loadURL(args[1])
+    await w.loadURL(new URL(args[1], new URL(`file://${CWD}/`)))
 
     setInterval(async () => console.log(await w.eval(`JSON.stringify(document.body, ['nodeName', 'data', 'childNodes'], 2)`)), 2000)
 

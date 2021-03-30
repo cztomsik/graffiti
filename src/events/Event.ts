@@ -14,14 +14,19 @@ export class Event implements globalThis.Event {
   target: EventTarget | null = null
   currentTarget: EventTarget | null = null
 
-  constructor(public type: string, eventInit = undefined) {}
+  constructor(public type: string, eventInit = undefined) {
+    Object.assign(this, eventInit)
+  }
 
+  // deprecated, kept for WPT
   initEvent(type: string, bubbles?: boolean, cancelable?: boolean) {
-    Object.assign(this, { type, bubbles, cancelable })
+    Object.assign(this, { type, bubbles, cancelable, cancelBubble: false, defaultPrevented: false })
   }
 
   preventDefault() {
-    this.defaultPrevented = true
+    if (this.cancelable) {
+      this.defaultPrevented = true
+    }
   }
 
   stopPropagation() {
@@ -39,6 +44,12 @@ export class Event implements globalThis.Event {
 
   get returnValue() {
     return !this.cancelBubble
+  }
+
+  set returnValue(v) {
+    if (v === false) {
+      this.preventDefault()
+    }
   }
 
   static readonly NONE = 0

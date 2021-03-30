@@ -8,7 +8,8 @@ export class App {
       this.tick()
 
       // macro-task, we want to let others run too
-      setTimeout(loop, 0)
+      // TODO: should be 0 but this makes WPT run much faster
+      setTimeout(loop, 1)
     }
 
     loop()
