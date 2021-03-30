@@ -1,4 +1,4 @@
-import htm from 'htm'
+import { Parser } from 'htmlparser2'
 import { Node, NodeList } from './index'
 import { ERR } from '../util'
 import { XMLSerializer } from '../dom/XMLSerializer'
@@ -37,7 +37,7 @@ export abstract class Element extends Node implements globalThis.Element {
     // it would only make everything much more complex with no real benefit
     // if we'll ever need it, it should be lazy-created weak-stored proxy
     // and it should still delegate to el.get/setAttribute()
-    return this.getAttributeNames().map((name) => ({ name, value: this.getAttribute(name) }))
+    return this.getAttributeNames().map(name => ({ name, value: this.getAttribute(name) }))
   }
 
   getAttribute(name: string): string | null {
@@ -188,28 +188,22 @@ export abstract class Element extends Node implements globalThis.Element {
 // TODO: real parser
 export const parseFragment = (doc, html) => {
   const fr = doc.createDocumentFragment()
+  let stack = [fr]
 
-  // add `/` for void elements
-  // we don't need to wrap tr/td/... because we don't forbid what can be inserted
-  // (and we don't auto-insert anything which should be fine because most frameworks do that for us)
-  html = html.replace(
-    /<(area|base|br|col|command|embed|hr|img|input|keygen|link|meta|param|source|track|wbr)([^<>]*?)\/?>/gi,
-    '<$1$2/>'
-  )
+  const parser = new Parser({
+    onopentag: (tag, atts) => {
+      let el = doc.createElement(tag)
+      Object.entries(atts ?? {}).forEach(([att, v]) => el.setAttribute(att, v))
+      stack[0].appendChild(el)
+      stack.unshift(el)
+    },
+    onclosetag: _ => stack.shift(),
+    ontext: cdata => stack[0].appendChild(doc.createTextNode(cdata)),
+    oncomment: cdata => stack[0].appendChild(doc.createComment(cdata)),
+  })
 
-  const createElement = (tag, atts, ...childNodes) => {
-    const el = doc.createElement(tag)
-
-    Object.entries(atts ?? {}).forEach(([att, v]) => el.setAttribute(att, v))
-    el.append(...childNodes)
-
-    return el
-  }
-
-  // node, array of nodes or undefined (for empty string)
-  const nodes = htm.bind(createElement)([html]) ?? []
-
-  fr.append(...[].concat(nodes))
+  parser.write(html)
+  parser.end()
 
   return fr
 }
