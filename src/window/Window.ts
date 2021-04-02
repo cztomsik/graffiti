@@ -1,4 +1,4 @@
-import { EventTarget } from '../events/EventTarget'
+import { EventTarget } from '../events/index'
 import { Location } from './Location'
 import { History } from './History'
 import { Storage } from './Storage'

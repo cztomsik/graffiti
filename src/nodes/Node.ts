@@ -1,7 +1,7 @@
 // x follow spec as possible, avoid custom extensions
 //   x it's ok to include mixins (to avoid duplication)
 
-import { EventTarget } from '../events/EventTarget'
+import { EventTarget } from '../events/index'
 import { NodeList } from './index'
 import { insertChild, removeChild, querySelector, querySelectorAll } from './Document'
 import { assert, last, TODO, UNSUPPORTED } from '../util'
