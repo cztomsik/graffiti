@@ -54,7 +54,14 @@ export class AppWindow {
   async loadURL(url: URL | string, options = {}) {
     this.#worker?.terminate()
 
-    const Worker = globalThis.Worker ?? (await import('worker_threads')).Worker
+    const Worker =
+      globalThis.Worker ??
+      class Worker extends (await import('worker_threads')).Worker {
+        addEventListener(ev, listener) {
+          this.on(ev, data => listener({ data }))
+        }
+      }
+
     const worker = new Worker(new URL('worker.js', import.meta.url), {
       type: 'module',
       deno: true,

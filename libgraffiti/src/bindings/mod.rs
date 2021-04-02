@@ -59,6 +59,7 @@ macro_rules! export_api {
 
                 ctx!().app.as_ref().unwrap().wait_events_timeout(0.1);
             },
+            wake_up: || App::wake_up(),
             render: |w: u32, d: u32| {
                 println!("TODO: render {} {}", w, d);
 
@@ -133,5 +134,4 @@ macro_rules! export_api {
 }
 
 mod deno;
-// TODO: Option<T>
-//mod nodejs;
+mod nodejs;

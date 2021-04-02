@@ -1,5 +1,3 @@
-// TODO: Option<T>
-//
 // TODO: impl for all SerJson/DeJson values?
 //       (call JSON.stringify & JSON.parse using napi)
 //       so we could have slower, generic case + fast-path for some types
@@ -142,6 +140,21 @@ impl ToNapi for &str {
     }
 }
 
+// TODO: FromNapi (when needed)
+impl<T: ToNapi + Clone> ToNapi for Option<T> {
+    fn to_napi(&self, env: NapiEnv) -> NapiValue {
+        match self {
+            Some(v) => v.to_napi(env),
+            None => unsafe {
+                let mut v = std::mem::zeroed();
+                check!(napi_get_null(env, &mut v));
+
+                v
+            }
+        }
+    }
+}
+
 impl<T: FromNapi + Clone> FromNapi for Vec<T> {
     fn from_napi(env: NapiEnv, arr: NapiValue) -> Self {
         unsafe {
@@ -276,6 +289,7 @@ mod napi {
             pub fn napi_set_named_property(env: NapiEnv, object: NapiValue, utf8name: *const c_char, value: NapiValue) -> NapiStatus;
 
             pub fn napi_get_undefined(env: NapiEnv, result: *mut NapiValue) -> NapiStatus;
+            pub fn napi_get_null(env: NapiEnv, result: *mut NapiValue) -> NapiStatus;
 
             pub fn napi_get_boolean(env: NapiEnv, value: bool, result: *mut NapiValue) -> NapiStatus;
             pub fn napi_get_value_bool(env: NapiEnv, value: NapiValue, result: *mut bool) -> NapiStatus;

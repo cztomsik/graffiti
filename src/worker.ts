@@ -9,38 +9,45 @@ import { native, loadNativeApi } from './native'
 import { Window } from './window/Window'
 import { DOMParser } from './dom/DOMParser'
 import * as nodes from './nodes/index'
+import * as events from './events/index'
 import { readURL, TODO, UNSUPPORTED } from './util'
 import { getDocId } from './nodes/Document'
 
 // nodejs
 if ('process' in globalThis) {
-  import('worker_threads').then(w => w.parentPort?.on('message', handleMessage))
+  import('worker_threads').then(w => {
+    globalThis.postMessage = (msg, _) => w.parentPort?.postMessage(msg)
+    w.parentPort?.on('message', handleMessage)
+  })
 } else {
   self.addEventListener('message', ev => handleMessage(ev.data))
 }
 
-// TODO: prefix? wrap/unwrap?
 async function handleMessage(msg) {
   try {
     switch (msg.type) {
       case 'init':
-        return postMessage({ type: '__GFT', result: await main(msg) }, '')
+        return send(await main(msg))
       case 'eval':
-        return postMessage({ type: '__GFT', result: eval(msg.js) }, '')
+        return send(eval.call(null, msg.js))
     }
   } catch (e) {
-    postMessage({ type: '__GFT', error: `${e.message}\n${e.stack}` }, '')
+    send(undefined, `${e}\n${e.stack}`)
   }
 }
 
-async function main({ windowId, url }) {
-  //console.log('worker init', windowId, url)
+async function send(result, error?) {
+  postMessage({ type: '__GFT', result, error }, '')
+  native.wake_up()
+}
 
-  // TODO: wpt global (find a way to pass some custom init or something)
-  globalThis.rv = null
+async function main({ windowId, url, options }) {
+  // unfortunately, we need native in worker too - there are many blocking APIs
+  // and those would be impossible to emulate with parent<->worker postMessage()
+  await loadNativeApi()
 
   // cleanup first (deno)
-  for (const k of ['location']) {
+  for (const k of [/*'Event', 'EventTarget',*/ 'location']) {
     delete globalThis[k]
   }
 
@@ -49,10 +56,6 @@ async function main({ windowId, url }) {
     const { default: fetch } = await import('node-fetch')
     globalThis.fetch = fetch
   }
-
-  // unfortunately, we need native in worker too - there are many blocking APIs
-  // and those would be impossible to emulate with parent<->worker postMessage()
-  await loadNativeApi()
 
   // create document
   const html = await readURL(url)
@@ -65,6 +68,7 @@ async function main({ windowId, url }) {
   // setup env
   Object.setPrototypeOf(globalThis, window)
   Object.assign(window, nodes)
+  Object.assign(window, events)
 
   // start event handling & rendering
   loop()
@@ -82,20 +86,18 @@ async function main({ windowId, url }) {
   // run (once) all the scripts
   for (const { src, text } of document.querySelectorAll('script')) {
     if (src) {
-      //console.log('[script]', src)
-      await import('' + new URL(src, url))
+      // WPT is relying on global `var`s
+      if (options.evalSrc) {
+        await evalScript(await readURL('' + new URL(src, url)))
+      } else {
+        await import('' + new URL(src, url))
+      }
     } else {
-      //console.log('[eval]', text)
-      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-      await new AsyncFunction(
-        '__filename',
-        text.replace(/import\s+(".*?")/gi, 'await import(new URL($1, __filename))')
-      )(url)
+      evalScript(text)
     }
   }
 
   window._fire('load')
-
 
   function loop() {
     // TODO: dispatch all events for this round
@@ -105,19 +107,16 @@ async function main({ windowId, url }) {
     setTimeout(loop, 100)
   }
 
-  /*
-  // TODO: this will block (is it because it's top-level?)
-  while (true) {
-    for (let ev; ev = native.window_next_event(windowId);) {
-      // TODO: dispatch, optionally find target node with document.elementFromPoint()
-      console.log(ev)
+  async function evalScript(script) {
+    const module = script.replace(/import\s+(".*?")/gi, 'await import(new URL($1, __filename))')
+
+    // ESM
+    if (module !== script) {
+      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+      return new AsyncFunction('__filename', module)(url)
     }
 
-    // TODO: render
-
-    // TODO: wait for next "round"
-    //       it's ok to block at first but eventually, it should be async
-    await new Promise(resolve => setTimeout(resolve, 100))
+    // legacy, vars & functions are accumulated
+    return eval.call(null, script)
   }
-  */
 }

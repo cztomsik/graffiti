@@ -115,20 +115,18 @@ impl Document {
         };
 
         // TODO: helper/macro
+        // TODO: avoid allocs, try different layouts
         let ctx = MatchingContext {
             has_local_name: &|el, name| **name == self.local_name(el),
-            has_identifier: &|el, id| Some(id.as_str()) == self.attribute(el, "id"),
-            has_class: &|el, cls| {
-                self.attribute(el, "class")
-                    .unwrap_or("")
-                    .split_ascii_whitespace()
-                    .any(|part| part == **cls)
+            has_identifier: &|el, id| Some(id.to_string()) == self.attribute(el, "id"),
+            has_class: &|el, cls| match self.attribute(el, "class") {
+                Some(s) => s.split_ascii_whitespace().any(|part| part == **cls),
+                None => false,
             },
             parent: &|el| self.parent(el),
         };
 
         let els = self.descendant_children(context_node);
-        //println!("els {:?}", &els);
 
         els.into_iter()
             .filter(|el| ctx.match_selector(&selector, *el))
@@ -214,7 +212,7 @@ impl Document {
             local_name: local_name.into(),
             identifier: None,
             class_name: None,
-            //style: Style::EMPTY,
+            style: Style::EMPTY,
             attrs: Vec::new(),
         }));
 
@@ -225,20 +223,19 @@ impl Document {
         &self.el(element).local_name
     }
 
-    // note that document is using the same &'static strs
-    // so that matching should be quick
-    pub fn attribute(&self, element: NodeId, att_name: &str) -> Option<&str> {
+    pub fn attribute(&self, element: NodeId, att_name: &str) -> Option<String> {
         let el_data = self.el(element);
 
-        let opt = match att_name {
-            "id" => el_data.identifier.as_deref(),
-            "class" => el_data.class_name.as_deref(),
-            // TODO: stringify? properties macro?
-            //"style" => todo!(),
-            _ => el_data.attrs.iter().find(|(a, _)| att_name == **a).map(|(_, v)| &**v),
-        };
-
-        opt.map(String::as_str)
+        match att_name {
+            "id" => el_data.identifier.as_deref().cloned(),
+            "class" => el_data.class_name.as_deref().cloned(),
+            "style" => Some(el_data.style.css_text()),
+            _ => el_data
+                .attrs
+                .iter()
+                .find(|(a, _)| att_name == **a)
+                .map(|(_, v)| v.to_string()),
+        }
     }
 
     pub fn set_attribute(&mut self, element: NodeId, att_name: &str, value: &str) {
@@ -247,7 +244,7 @@ impl Document {
         match att_name {
             "id" => el_data.identifier = Some(value.into()),
             "class" => el_data.class_name = Some(value.into()),
-            //"style" => el_data.style = Style::from(value),
+            "style" => el_data.style.set_css_text(value),
             _ => {
                 if let Some(a) = el_data.attrs.iter_mut().find(|(a, _)| att_name == **a) {
                     a.1 = value.into();
@@ -264,9 +261,28 @@ impl Document {
         match att_name {
             "id" => drop(el_data.identifier.take()),
             "class" => drop(el_data.identifier.take()),
-            //"style" => el_data.style = Style::EMPTY,
+            "style" => el_data.style = Style::EMPTY,
             _ => el_data.attrs.retain(|(a, _)| att_name != **a),
         };
+    }
+
+    pub fn attribute_names(&self, element: NodeId) -> Vec<String> {
+        let el_data = self.el(element);
+        let mut names = Vec::new();
+
+        if el_data.identifier.is_some() {
+            names.push("id".to_owned());
+        }
+
+        if el_data.class_name.is_some() {
+            names.push("class".to_owned());
+        }
+
+        for (k, _) in &el_data.attrs {
+            names.push(k.to_string());
+        }
+
+        names
     }
 
     /*
@@ -330,7 +346,7 @@ struct ElementData {
     local_name: Atom<String>,
     identifier: Option<Atom<String>>,
     class_name: Option<Atom<String>>,
-    //style: Style,
+    style: Style,
     attrs: Vec<(Atom<String>, Atom<String>)>,
 }
 
