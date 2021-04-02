@@ -20,7 +20,7 @@ export class Window extends EventTarget implements globalThis.Window {
   navigator: any = {
     userAgent: 'graffiti'
   }
-  // TODO
+  // TODO (vite needs it)
   customElements = { define: NOOP } as any
 
   // provided by deno/nodejs and/or polyfilled in worker.ts

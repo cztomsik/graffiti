@@ -28,6 +28,16 @@ impl LayoutEngine {
         }
     }
 
+    pub fn create_leaf(&mut self) -> LayoutNode {
+        unsafe { LayoutNode(YGNodeNew()) }
+    }
+
+    pub fn set_style(&mut self, node: LayoutNode, style: &LayoutStyle) {
+        unsafe {
+            YGNodeStyleSetDisplay(node.0, style.display);
+        }
+    }
+
     pub fn insert_child(&mut self, parent: LayoutNode, child: LayoutNode, index: usize) {
         unsafe { YGNodeInsertChild(parent.0, child.0, index.try_into().unwrap()) }
     }
@@ -56,7 +66,18 @@ impl LayoutEngine {
     }
 }
 
-#[derive(Clone, Copy)]
+// TODO: (xor)diff props or masks
+pub struct LayoutStyle {
+    display: YGDisplay,
+}
+
+impl LayoutStyle {
+    pub const DEFAULT: Self = Self {
+        display: YGDisplay::Flex
+    };
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct LayoutNode(YGNodeRef);
 
 unsafe impl Send for LayoutNode {}

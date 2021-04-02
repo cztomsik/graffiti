@@ -6,7 +6,7 @@
 //  (another layer on top of this should make sure it never happens)
 
 use crate::css::{MatchingContext, Selector, Style};
-use crate::util::{Atom, IdTree, SlotMap};
+use crate::util::{Atom, SlotMap};
 use std::any::Any;
 use std::convert::TryFrom;
 
@@ -40,13 +40,15 @@ pub enum NodeType {
 }
 
 pub struct Document {
-    tree: IdTree<NodeData>,
+    nodes: SlotMap<NodeId, Node>,
     root: NodeId,
 
     listeners: Vec<Box<dyn Fn(&Document, &Event)>>,
 
     // SlotMap + Vec because node freeing has to be fast
     weak_data: SlotMap<NodeId, Vec<Box<dyn Any>>>,
+
+    free_ids: Vec<NodeId>
 }
 
 // private shorthand
@@ -55,10 +57,11 @@ type Event = DocumentEvent;
 impl Document {
     pub fn new() -> Self {
         let mut doc = Self {
-            tree: IdTree::new(),
+            nodes: SlotMap::new(),
             root: 0,
             listeners: Vec::new(),
             weak_data: SlotMap::new(),
+            free_ids: Vec::new()
         };
 
         let root = doc.create_node(NodeData::Document);
@@ -78,7 +81,7 @@ impl Document {
     // shared for all node types
 
     pub fn node_type(&self, node: NodeId) -> NodeType {
-        match self.tree.data(node) {
+        match self.nodes[node].data {
             NodeData::Element(_) => NodeType::Element,
             NodeData::Text(_) => NodeType::Text,
             NodeData::Comment(_) => NodeType::Comment,
@@ -87,11 +90,27 @@ impl Document {
     }
 
     pub fn parent(&self, node: NodeId) -> Option<NodeId> {
-        self.tree.parent(node)
+        self.nodes[node].parent
+    }
+
+    pub fn first_child(&self, node: NodeId) -> Option<NodeId> {
+        self.nodes[node].first_child
+    }
+
+    pub fn prev_sibling(&self, node: NodeId) -> Option<NodeId> {
+        self.child_nodes(self.parent(node)?)
+            .find(|n| self.nodes[*n].next_sibling == Some(node))
+    }
+
+    pub fn next_sibling(&self, node: NodeId) -> Option<NodeId> {
+        self.nodes[node].next_sibling
     }
 
     pub fn child_nodes(&self, node: NodeId) -> impl Iterator<Item = NodeId> + '_ {
-        self.tree.children(node)
+        ChildNodes {
+            doc: self,
+            next: self.nodes[node].first_child,
+        }
     }
 
     pub fn children(&self, node: NodeId) -> impl Iterator<Item = NodeId> + '_ {
@@ -134,13 +153,36 @@ impl Document {
     }
 
     pub fn insert_child(&mut self, parent: NodeId, child: NodeId, index: usize) {
-        self.tree.insert_child(parent, child, index);
+        debug_assert_eq!(self.nodes[child].parent, None);
+
+        if index == 0 {
+            self.nodes[child].next_sibling = self.first_child(parent);
+            self.nodes[parent].first_child = Some(child);
+        } else {
+            let prev = (1..index)
+                .fold(self.first_child(parent), |n, _| self.next_sibling(n?))
+                .expect("out of bounds");
+
+            self.nodes[child].next_sibling = self.next_sibling(prev);
+            self.nodes[prev].next_sibling = Some(child);
+        }
+
+        self.nodes[child].parent = Some(parent);
 
         self.emit(Event::Insert(parent, child, index));
     }
 
     pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
-        self.tree.remove_child(parent, child);
+        debug_assert_eq!(self.nodes[child].parent, Some(parent));
+
+        if let Some(prev) = self.prev_sibling(child) {
+            self.nodes[prev].next_sibling = self.next_sibling(child);
+        } else {
+            self.nodes[parent].first_child = self.next_sibling(child);
+        }
+
+        self.nodes[child].next_sibling = None;
+        self.nodes[child].parent = None;
 
         self.emit(Event::Remove(parent, child));
     }
@@ -167,8 +209,11 @@ impl Document {
     }
 
     pub fn drop_node(&mut self, node: NodeId) {
-        self.tree.drop_node(node);
+        drop(self.nodes.remove(node));
         self.weak_data.remove(node);
+        self.free_ids.push(node);
+
+        // TODO: emit
     }
 
     // text node
@@ -190,7 +235,7 @@ impl Document {
     // text/comment node
 
     pub fn cdata(&self, cdata_node: NodeId) -> &str {
-        if let NodeData::Text(data) | NodeData::Comment(data) = self.tree.data(cdata_node) {
+        if let NodeData::Text(data) | NodeData::Comment(data) = &self.nodes[cdata_node].data {
             data
         } else {
             panic!("not a cdata node")
@@ -198,7 +243,7 @@ impl Document {
     }
 
     pub fn set_cdata(&mut self, cdata_node: NodeId, cdata: &str) {
-        if let NodeData::Text(data) | NodeData::Comment(data) = self.tree.data_mut(cdata_node) {
+        if let NodeData::Text(data) | NodeData::Comment(data) = &mut self.nodes[cdata_node].data {
             *data = cdata.to_owned();
         } else {
             panic!("not a cdata node")
@@ -294,7 +339,15 @@ impl Document {
     // helpers
 
     fn create_node(&mut self, data: NodeData) -> NodeId {
-        let id = self.tree.create_node(data);
+        // TODO: id reusing
+
+        let id = self.nodes.insert(Node {
+            parent: None,
+            first_child: None,
+            next_sibling: None,
+            data,
+        });
+
         let weak_id = self.weak_data.insert(Vec::new());
 
         debug_assert_eq!(id, weak_id);
@@ -311,7 +364,7 @@ impl Document {
     }
 
     fn el(&self, el: NodeId) -> &ElementData {
-        if let NodeData::Element(data) = self.tree.data(el) {
+        if let NodeData::Element(data) = &self.nodes[el].data {
             data
         } else {
             panic!("not an element")
@@ -319,7 +372,7 @@ impl Document {
     }
 
     fn el_mut(&mut self, el: NodeId) -> &mut ElementData {
-        if let NodeData::Element(data) = self.tree.data_mut(el) {
+        if let NodeData::Element(data) = &mut self.nodes[el].data {
             data
         } else {
             panic!("not an element")
@@ -334,6 +387,13 @@ impl Document {
 }
 
 // private from here
+
+struct Node {
+    parent: Option<NodeId>,
+    first_child: Option<NodeId>,
+    next_sibling: Option<NodeId>,
+    data: NodeData,
+}
 
 enum NodeData {
     Document,
@@ -350,28 +410,88 @@ struct ElementData {
     attrs: Vec<(Atom<String>, Atom<String>)>,
 }
 
+pub struct ChildNodes<'a> {
+    doc: &'a Document,
+    next: Option<NodeId>,
+}
+
+impl<'a> Iterator for ChildNodes<'a> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.next.take() {
+            Some(next) => {
+                self.next = self.doc.nodes[next].next_sibling;
+                Some(next)
+            }
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test() {
-        let mut d = Document::new();
-        assert_eq!(d.node_type(d.root()), NodeType::Document);
+        let mut doc = Document::new();
+        assert_eq!(doc.node_type(doc.root()), NodeType::Document);
 
-        let div = d.create_element("div");
-        assert_eq!(d.local_name(div), "div");
+        let div = doc.create_element("div");
+        assert_eq!(doc.local_name(div), "div");
 
-        let hello = d.create_text_node("hello");
-        assert_eq!(d.cdata(hello), "hello");
+        let hello = doc.create_text_node("hello");
+        assert_eq!(doc.cdata(hello), "hello");
 
-        d.insert_child(d.root(), div, 0);
-        d.insert_child(div, hello, 0);
+        doc.insert_child(doc.root(), div, 0);
+        doc.insert_child(div, hello, 0);
 
-        d.set_attribute(div, "id", "panel");
-        assert_eq!(d.attribute(div, "id"), Some("panel"));
+        doc.set_attribute(div, "id", "panel");
+        assert_eq!(doc.attribute(div, "id").as_deref(), Some("panel"));
 
-        assert_eq!(d.query_selector(d.root(), "div#panel"), Some(div));
+        assert_eq!(doc.query_selector(doc.root(), "div#panel"), Some(div));
+    }
+
+    #[test]
+    fn tree() {
+        let mut doc = Document::new();
+        let root = doc.root();
+        assert_eq!(doc.parent(root), None);
+        assert_eq!(doc.first_child(root), None);
+        assert_eq!(doc.next_sibling(root), None);
+        assert_eq!(doc.prev_sibling(root), None);
+
+        let ch1 = doc.create_text_node("ch1");
+        let ch2 = doc.create_text_node("ch2");
+        let ch3 = doc.create_text_node("ch3");
+
+        doc.insert_child(root, ch1, 0);
+        assert_eq!(doc.first_child(root), Some(ch1));
+        assert_eq!(doc.parent(ch1), Some(root));
+        assert_eq!(doc.next_sibling(ch1), None);
+        assert_eq!(doc.prev_sibling(ch1), None);
+
+        doc.insert_child(root, ch2, 1);
+        assert_eq!(doc.first_child(root), Some(ch1));
+        assert_eq!(doc.next_sibling(ch1), Some(ch2));
+        assert_eq!(doc.prev_sibling(ch2), Some(ch1));
+
+        assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch1, ch2]);
+
+        doc.insert_child(root, ch3, 0);
+
+        assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch3, ch1, ch2]);
+
+        doc.remove_child(root, ch1);
+        doc.remove_child(root, ch2);
+
+        assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch3]);
+
+        doc.insert_child(root, ch2, 0);
+        doc.insert_child(root, ch1, 0);
+
+        assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch1, ch2, ch3]);
     }
 
     /*
