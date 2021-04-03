@@ -15,28 +15,15 @@ pom = "3.2.0"
 #fontdue = "0.4.0"
 fontdb = "0.5.1"
 owned_ttf_parser = "0.9"
-#rustybuzz = "0.3.0"
 graffiti-glfw = { path = "graffiti-glfw" }
 graffiti-yoga = { path = "graffiti-yoga" }
 crossbeam-channel = "0.5.0"
-fnv = "1.0.7"
 dashmap = "4.0.2"
 nanoserde = { git = "https://github.com/not-fl3/nanoserde", rev = "c66efbd" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"
 
-# --features=tiny_skia
-tiny-skia = { git = "https://github.com/RazrFalcon/tiny-skia", rev = "7b5914d", optional = true }
-
-[features]
-default = []
-
 [profile.release]
 # fix --release for raspi https://github.com/rust-lang/rust/issues/62896
 codegen-units = 1
-
-[[example]]
-name = "tiny_skia"
-path = "examples/tiny_skia.rs"
-required-features = ["tiny-skia"]

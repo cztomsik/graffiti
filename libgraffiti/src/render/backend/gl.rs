@@ -53,7 +53,6 @@ impl GlBackend {
             check("a_pos");
 
             let loc = glGetAttribLocation(program, c_str!("a_color")) as _;
-            println!("{}", loc);
             glEnableVertexAttribArray(loc);
             glVertexAttribPointer(loc, 4, GL_UNSIGNED_BYTE, GL_TRUE, STRIDE, offsetof!(Vertex, color));
             check("a_color");

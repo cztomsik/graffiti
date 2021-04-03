@@ -3,12 +3,6 @@ use crate::{Document, NodeId, NodeType, Rect};
 use once_cell::sync::Lazy;
 use owned_ttf_parser::{AsFaceRef, OwnedFace};
 
-// not checked/enforced for now but debug_assert! might be enough
-pub struct AABB {
-    a: (f32, f32),
-    b: (f32, f32),
-}
-
 static SANS_SERIF_FACE: Lazy<Font> = Lazy::new(|| {
     use fontdb::{Database, Family, Query};
 
@@ -84,7 +78,7 @@ impl<'a> RenderContext<'a> {
         }
 
         if self.document.node_type(node) == NodeType::Element {
-            self.render_element(rect, /*self.resolved_styles.lookup(node),*/ self.document.children(node));
+            self.render_element(rect, self.document.child_nodes(node));
         }
 
         if self.document.node_type(node) == NodeType::Text {
@@ -93,13 +87,7 @@ impl<'a> RenderContext<'a> {
     }
 
     fn render_element(&mut self, rect: Rect, /*style: &ResolvedStyle,*/ children: impl Iterator<Item = NodeId>) {
-        //let _s = style;
-
-        self.fill_rect(rect, [255, 63, 63, 100]);
-
-        //if let Some(color) = s.background_color {}
-
-        //if let Some(xxx) = x.xxx {}
+        self.fill_rect(rect, [255, 63, 63, 32]);
 
         for ch in children {
             self.render_node(rect.pos, ch);

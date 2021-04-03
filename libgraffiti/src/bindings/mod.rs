@@ -3,9 +3,8 @@
 // - submodules define macros and then call export_api!() which is defined here
 
 use crate::backend::{GlBackend, RenderBackend};
-use crate::render::Renderer;
 use crate::util::SlotMap;
-use crate::{App, Document, Event, Rect, WebView, Window};
+use crate::{App, Document, Event, Viewport, WebView, Window};
 use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
@@ -24,13 +23,15 @@ thread_local! {
 type WindowId = u32;
 type WebViewId = u32;
 type DocumentId = u32;
+type ViewportId = u32;
 
 #[derive(Default)]
 struct Ctx {
     app: Option<Rc<App>>,
     windows: SlotMap<WindowId, Window>,
     webviews: SlotMap<WebViewId, WebView>,
-    documents: SlotMap<DocumentId, Document>,
+    documents: SlotMap<DocumentId, Rc<RefCell<Document>>>,
+    viewports: SlotMap<ViewportId, Viewport>,
 }
 
 // Rc<> hack shorthand, TLS.with() is PITA and thread_local crate requires Send
@@ -57,13 +58,13 @@ macro_rules! export_api {
                 ctx!().app.as_ref().unwrap().wait_events_timeout(0.1);
             },
             wake_up: || App::wake_up(),
-            render: |w: u32, d: u32| {
-                println!("TODO: render {} {}", w, d);
 
-                // TODO: keep it (in TLS)
-                let mut renderer = Renderer::new();
-
-                let frame = renderer.render(&ctx!().documents[d], &|_| Rect { pos: (0., 0.), size: (100., 100.) });
+            viewport_new: |w: f64, h: f64, doc: u32| {
+                let vp = Viewport::new((w as _, h as _), &ctx!().documents[doc]);
+                ctx!().viewports.insert(vp)
+            },
+            viewport_render: |w, vp| {
+                let frame = ctx!().viewports[vp].render();
 
                 let _ = TASK_CHANNEL.0.send(Box::new(move || {
                     // TODO: keep it somewhere (in main thread?)
@@ -74,6 +75,7 @@ macro_rules! export_api {
                     ctx!().windows[w].swap_buffers();
                 }));
             },
+            viewport_drop: |w| drop(ctx!().viewports.remove(w)),
 
             window_new: |title: String, width, height| {
                 let mut w = Window::new(ctx!().app.as_ref().unwrap(), &title, width, height);
@@ -110,21 +112,21 @@ macro_rules! export_api {
             webview_eval: |wv, js: String| ctx!().webviews[wv].eval(&js),
             webview_drop: |wv| drop(ctx!().webviews.remove(wv)),
 
-            document_new: || ctx!().documents.insert(Document::new()),
-            document_node_type: |doc, node| ctx!().documents[doc].node_type(node) as u32,
-            document_create_text_node: |doc, text: String| ctx!().documents[doc].create_text_node(&text),
-            document_create_comment: |doc, text: String| ctx!().documents[doc].create_comment(&text),
-            document_set_cdata: |doc, node, text: String| ctx!().documents[doc].set_cdata(node, &text),
-            document_create_element: |doc, local_name: String| ctx!().documents[doc].create_element(&local_name),
-            document_attribute: |doc, el, attr: String| ctx!().documents[doc].attribute(el, &attr),
-            document_set_attribute: |doc, el, attr: String, text: String| ctx!().documents[doc].set_attribute(el, &attr, &text),
-            document_remove_attribute: |doc, el, attr: String| ctx!().documents[doc].remove_attribute(el, &attr),
-            document_attribute_names: |doc, el| ctx!().documents[doc].attribute_names(el),
-            document_insert_child: |doc, el, child, index: u32| ctx!().documents[doc].insert_child(el, child, index as _),
-            document_remove_child: |doc, el, child| ctx!().documents[doc].remove_child(el, child),
-            document_query_selector: |doc, node, sel: String| ctx!().documents[doc].query_selector(node, &sel),
-            document_query_selector_all: |doc, node, sel: String| ctx!().documents[doc].query_selector_all(node, &sel),
-            document_drop_node: |doc, node| ctx!().documents[doc].drop_node(node),
+            document_new: || ctx!().documents.insert(Rc::new(RefCell::new(Document::new()))),
+            document_node_type: |doc, node| ctx!().documents[doc].borrow().node_type(node) as u32,
+            document_create_text_node: |doc, text: String| ctx!().documents[doc].borrow_mut().create_text_node(&text),
+            document_create_comment: |doc, text: String| ctx!().documents[doc].borrow_mut().create_comment(&text),
+            document_set_cdata: |doc, node, text: String| ctx!().documents[doc].borrow_mut().set_cdata(node, &text),
+            document_create_element: |doc, local_name: String| ctx!().documents[doc].borrow_mut().create_element(&local_name),
+            document_attribute: |doc, el, attr: String| ctx!().documents[doc].borrow().attribute(el, &attr),
+            document_set_attribute: |doc, el, attr: String, text: String| ctx!().documents[doc].borrow_mut().set_attribute(el, &attr, &text),
+            document_remove_attribute: |doc, el, attr: String| ctx!().documents[doc].borrow_mut().remove_attribute(el, &attr),
+            document_attribute_names: |doc, el| ctx!().documents[doc].borrow().attribute_names(el),
+            document_insert_child: |doc, el, child, index: u32| ctx!().documents[doc].borrow_mut().insert_child(el, child, index as _),
+            document_remove_child: |doc, el, child| ctx!().documents[doc].borrow_mut().remove_child(el, child),
+            document_query_selector: |doc, node, sel: String| ctx!().documents[doc].borrow().query_selector(node, &sel),
+            document_query_selector_all: |doc, node, sel: String| ctx!().documents[doc].borrow().query_selector_all(node, &sel),
+            document_drop_node: |doc, node| ctx!().documents[doc].borrow_mut().drop_node(node),
             document_drop: |doc| drop(ctx!().documents.remove(doc))
         }
     }};
