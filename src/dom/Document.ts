@@ -1,6 +1,8 @@
+// TODO: cyclic
+import { Node } from './Node'
+
 import { native } from '../native'
 import {
-  Node,
   NodeList,
   Text,
   Comment,
@@ -27,12 +29,12 @@ import {
   HTMLTableCellElement,
   HTMLTableHeaderCellElement,
   HTMLTableRowElement,
+  DOMImplementation,
 } from './index'
 
 import { StyleSheetList } from '../css/StyleSheetList'
 import { UNSUPPORTED } from '../util'
 
-import { DOMImplementation } from '../dom/DOMImplementation'
 import { GET_THE_PARENT } from '../events/EventTarget'
 import { Event } from '../events/Event'
 
@@ -179,15 +181,21 @@ export class Document extends Node implements globalThis.Document {
   }
 
   get styleSheets(): StyleSheetList {
-    // TODO: add default style sheet
-    // TODO: get [SHEET_SYMBOL] and create/remove that in adapter
-    return new StyleSheetList(this.querySelectorAll('style').map(s => undefined/*s.sheet*/))
+    return new StyleSheetList(this.getElementsByTagName('style').map(s => s.sheet))
   }
 
-  get forms() { return this.querySelectorAll('form') }
-  get images() { return this.querySelectorAll('img') }
-  get links() { return this.querySelectorAll('link') }
-  get scripts() { return this.querySelectorAll('script') }
+  get forms() {
+    return this.getElementsByTagName('form')
+  }
+  get images() {
+    return this.getElementsByTagName('img')
+  }
+  get links() {
+    return this.getElementsByTagName('link')
+  }
+  get scripts() {
+    return this.getElementsByTagName('script')
+  }
 
   getElementById(id) {
     return this.querySelector(`#${id}`)

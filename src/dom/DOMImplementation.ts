@@ -1,5 +1,5 @@
 import { UNSUPPORTED } from '../util'
-import { DOMParser } from './DOMParser'
+import { DOMParser } from './index'
 
 export class DOMImplementation implements globalThis.DOMImplementation {
   createDocument(namespaceURI: string | null, qualifiedName: string | null, doctype: DocumentType | null): Document {

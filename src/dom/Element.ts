@@ -1,9 +1,8 @@
-import { Parser } from 'htmlparser2'
-import { Node, NodeList } from './index'
+import { Node, NodeList, XMLSerializer } from './index'
 import { ERR } from '../util'
-import { XMLSerializer } from '../dom/XMLSerializer'
 import { GET_THE_PARENT } from '../events/EventTarget'
 import { initElement, getAttributeNames, getAttribute, setAttribute, removeAttribute, matches } from './Document'
+import { parseFragment } from './DOMParser'
 
 export abstract class Element extends Node implements globalThis.Element {
   abstract readonly tagName: string
@@ -182,28 +181,4 @@ export abstract class Element extends Node implements globalThis.Element {
 
   // ignore vendor
   webkitMatchesSelector
-}
-
-// TODO: move to document?
-// TODO: real parser
-export const parseFragment = (doc, html) => {
-  const fr = doc.createDocumentFragment()
-  let stack = [fr]
-
-  const parser = new Parser({
-    onopentag: (tag, atts) => {
-      let el = doc.createElement(tag)
-      Object.entries(atts ?? {}).forEach(([att, v]) => el.setAttribute(att, v))
-      stack[0].appendChild(el)
-      stack.unshift(el)
-    },
-    onclosetag: _ => stack.shift(),
-    ontext: cdata => stack[0].appendChild(doc.createTextNode(cdata)),
-    oncomment: cdata => stack[0].appendChild(doc.createComment(cdata)),
-  })
-
-  parser.write(html)
-  parser.end()
-
-  return fr
 }

@@ -1,27 +1,31 @@
 import { EventTarget } from '../events/index'
+import * as events from '../events/index'
+import * as dom from '../dom/index'
 import { Location } from './Location'
 import { History } from './History'
 import { Storage } from './Storage'
 import { requestAnimationFrame, cancelAnimationFrame } from './raf'
-import { NOOP, TODO } from '../util'
+import { NOOP, TODO, fetch } from '../util'
 
 const G = globalThis
 
 // note all props will leak to global scope
 export class Window extends EventTarget implements globalThis.Window {
+  readonly document = new dom.Document()
   parent = this as any
   window = this.parent
   self = this.window
-  history = new History(this, new URL(this.document.URL))
+  history = new History(this)
   location = new Location(this.history)
   sessionStorage = new Storage()
   localStorage = new Storage()
   // TODO
   navigator: any = {
-    userAgent: 'graffiti'
+    userAgent: 'graffiti',
   }
   // TODO (vite needs it)
   customElements = { define: NOOP } as any
+  fetch = fetch
 
   // provided by deno/nodejs and/or polyfilled in worker.ts
   setInterval = G.setInterval
@@ -29,7 +33,6 @@ export class Window extends EventTarget implements globalThis.Window {
   clearInterval = G.clearInterval
   clearTimeout = G.clearTimeout
   console = G.console
-  fetch = G.fetch
   performance = G.performance
   atob = G.atob
   btoa = G.btoa
@@ -41,14 +44,12 @@ export class Window extends EventTarget implements globalThis.Window {
   requestAnimationFrame = requestAnimationFrame
   cancelAnimationFrame = cancelAnimationFrame
 
-  // react-dom needs both
-  HTMLIFrameElement = class {}
-
-  // wouter needs global Event & it could be referenced via window.* too
-  Event = Event
-
-  constructor(public readonly document: globalThis.Document) {
+  constructor() {
     super()
+
+    // TODO: most classes should be published (Storage, History, Location, ...)
+    Object.assign(this, events)
+    Object.assign(this, dom)
   }
 
   getComputedStyle(elt: Element, pseudoElt?: string | null): CSSStyleDeclaration {
@@ -59,30 +60,29 @@ export class Window extends EventTarget implements globalThis.Window {
     throw new Error('Method not implemented.')
   }
 
+  // TODO (and no-op in <iframe>)
+  blur = TODO
+  focus = TODO
+  moveBy = TODO
+  moveTo = TODO
+  resizeBy = TODO
+  resizeTo = TODO
+
   // TODOs
   alert = TODO
-  blur = TODO
-  captureEvents = TODO
   close = TODO
   confirm = TODO
   createImageBitmap = TODO
-  departFocus = TODO
-  focus = TODO
   getMatchedCSSRules = TODO
   getSelection = TODO
   matchMedia = TODO
-  moveBy = TODO
-  moveTo = TODO
   open = TODO
   print = TODO
   prompt = TODO
-  releaseEvents = TODO
-  resizeBy = TODO
-  resizeTo = TODO
   scroll = TODO
   scrollBy = TODO
   scrollTo = TODO
-  stop = TODO
+  stop = NOOP
 
   get innerHeight() {
     return TODO()
@@ -108,12 +108,17 @@ export class Window extends EventTarget implements globalThis.Window {
     return TODO()
   }
 
+  // deprecated
+  captureEvents
+  releaseEvents
+
   // ?
   applicationCache
   caches
   clientInformation
   closed
   defaultStatus
+  departFocus
   devicePixelRatio
   doNotTrack
   event
@@ -145,8 +150,8 @@ export class Window extends EventTarget implements globalThis.Window {
   styleMedia
   toolbar
   top
-  visualViewport
-  [index: number]: globalThis.Window;
+  visualViewport;
+  [index: number]: globalThis.Window
 
   // ignore vendor
   msContentScript
@@ -155,4 +160,13 @@ export class Window extends EventTarget implements globalThis.Window {
   webkitConvertPointFromNodeToPage
   webkitConvertPointFromPageToNode
   webkitRequestAnimationFrame
+}
+
+export const makeGlobal = (window: Window) => {
+  // cleanup first (deno)
+  for (const k of [/*'Event', 'EventTarget',*/ 'location']) {
+    delete globalThis[k]
+  }
+
+  Object.setPrototypeOf(globalThis, window)
 }

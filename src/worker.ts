@@ -6,19 +6,16 @@
 // - we want location.reload() for development purposes (live-reload, HMR)
 
 import { native, loadNativeApi } from './native'
-import { Window } from './window/Window'
-import { DOMParser } from './dom/DOMParser'
-import * as nodes from './nodes/index'
-import * as events from './events/index'
+import { Window, makeGlobal } from './window/Window'
 import { readURL, TODO, UNSUPPORTED } from './util'
-import { getDocId } from './nodes/Document'
+import { getDocId } from './dom/Document'
+import { parseIntoDocument } from './dom/DOMParser'
 
 // nodejs
 if ('process' in globalThis) {
-  import('worker_threads').then(w => {
-    globalThis.postMessage = (msg, _) => w.parentPort?.postMessage(msg)
-    w.parentPort?.on('message', handleMessage)
-  })
+  const { parentPort } = await import('worker_threads')
+  globalThis.postMessage = (msg, _) => parentPort?.postMessage(msg)
+  parentPort?.on('message', handleMessage)
 } else {
   self.addEventListener('message', ev => handleMessage(ev.data))
 }
@@ -46,29 +43,17 @@ async function main({ windowId, url, options }) {
   // and those would be impossible to emulate with parent<->worker postMessage()
   await loadNativeApi()
 
-  // cleanup first (deno)
-  for (const k of [/*'Event', 'EventTarget',*/ 'location']) {
-    delete globalThis[k]
-  }
-
-  if (!globalThis.fetch) {
-    // @ts-expect-error
-    const { default: fetch } = await import('node-fetch')
-    globalThis.fetch = fetch
-  }
-
-  // create document
-  const html = await readURL(url)
-  const document: any = new DOMParser().parseFromString(html, 'text/html')
-  document.URL = url
-
-  // create window
-  const window = new Window(document)
-
   // setup env
-  Object.setPrototypeOf(globalThis, window)
-  Object.assign(window, nodes)
-  Object.assign(window, events)
+  const { window, document } = new Window()
+  makeGlobal(window)
+
+  // init viewport
+  const viewportId = native.viewport_new(800, 600, getDocId(document))
+  VIEWPORT_REGISTRY.register(window, viewportId)
+
+  // load html
+  parseIntoDocument(document, await readURL(url))
+  Object.assign(document, { defaultView: window, URL: url })
 
   // start event handling & rendering
   loop()
@@ -102,7 +87,8 @@ async function main({ windowId, url, options }) {
   function loop() {
     // TODO: dispatch all events for this round
 
-    native.render(windowId, getDocId(document))
+    // TODO: move all native methods to one big glue hash?
+    native.viewport_render(windowId, viewportId)
 
     setTimeout(loop, 100)
   }
@@ -120,3 +106,5 @@ async function main({ windowId, url, options }) {
     return eval.call(null, script)
   }
 }
+
+const VIEWPORT_REGISTRY = new FinalizationRegistry(id => native.viewport_drop(id))

@@ -2,10 +2,14 @@ import { UNSUPPORTED } from '../util'
 import { History } from './History'
 
 export class Location implements globalThis.Location {
-  constructor(private _history: History) {}
+  #history: History
+
+  constructor(history: History) {
+    this.#history = history
+  }
 
   get _url() {
-    return this._history._current.url
+    return this.#history._current.url
   }
 
   get href() {
@@ -65,11 +69,11 @@ export class Location implements globalThis.Location {
   }
 
   assign(href) {
-    this._history._navigate(href, false)
+    this.#history._navigate(href, false)
   }
 
   replace(href) {
-    this._history._navigate(href, true)
+    this.#history._navigate(href, true)
   }
 
   reload() {

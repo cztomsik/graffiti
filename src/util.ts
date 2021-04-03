@@ -20,6 +20,17 @@ export const camelCase = name => name.replace(/\-[a-zA-Z]/g, match => match.slic
 export const kebabCase = name => name.replace(/[A-Z]/g, match => '-' + match.toLowerCase())
 export const pascalCase = name => ((name = camelCase(name)), name[0].toUpperCase() + name.slice(1))
 
+export const Worker =
+  globalThis.Worker ??
+  class Worker extends (await import('worker_threads')).Worker {
+    addEventListener(ev, listener) {
+      this.on(ev, data => listener({ data }))
+    }
+  }
+
+// @ts-expect-error
+export const fetch = globalThis.fetch ?? (await import('node-fetch')).default
+
 export const readTextFile =
   globalThis.Deno?.readTextFile ??
   (async path => {

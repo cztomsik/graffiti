@@ -1,16 +1,13 @@
-// TODO: move all files to dom/* and export everything from there too
-//       (and use it for imports instead of direct file imports)
-
 // note order is important (cyclic deps)
 
 export { NodeList } from './NodeList'
+export { Document } from './Document'
 export { Node } from './Node'
 export { CharacterData } from './CharacterData'
 export { Comment } from './Comment'
 export { Text } from './Text'
 export { Element } from './Element'
 export { DocumentFragment } from './DocumentFragment'
-export { Document } from './Document'
 
 export { HTMLElement } from './HTMLElement'
 export { HTMLAnchorElement } from './HTMLAnchorElement'
@@ -38,3 +35,7 @@ export { SVGElement } from './SVGElement'
 export { SVGGraphicsElement } from './SVGGraphicsElement'
 export { SVGGElement } from './SVGGElement'
 export { SVGSVGElement } from './SVGSVGElement'
+
+export { DOMParser } from './DOMParser'
+export { DOMImplementation } from './DOMImplementation'
+export { XMLSerializer } from './XMLSerializer'

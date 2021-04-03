@@ -28,8 +28,6 @@ async function cli(args) {
 
     await w.loadURL(new URL(args[1], new URL(`file://${CWD}/`)))
 
-    setInterval(async () => console.log(await w.eval(`JSON.stringify(document.body, ['nodeName', 'data', 'childNodes'], 2)`)), 2000)
-
     app.run()
   } else {
     throw new Error('Unknown cmd')
