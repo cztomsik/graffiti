@@ -16,25 +16,37 @@ impl LayoutEngine {
         Self {}
     }
 
-    pub fn create_node(&mut self) -> LayoutNode {
+    pub fn create_leaf<F: Fn(f32) -> (f32, f32)>(&mut self, measure: F) -> LayoutNode {
         unsafe {
             let node = YGNodeNew();
 
-            YGNodeStyleSetPadding(node, YGEdge::All, 10.);
-            YGNodeStyleSetMinWidth(node, 100.);
-            YGNodeStyleSetMinHeight(node, 20.);
+            YGNodeSetMeasureFunc(node, Some(measure_node::<F>));
+            // TODO: drop
+            YGNodeSetContext(node, Box::into_raw(Box::new(measure)) as _);
 
             LayoutNode(node)
         }
     }
 
-    pub fn create_leaf(&mut self) -> LayoutNode {
-        unsafe { LayoutNode(YGNodeNew()) }
+    pub fn mark_dirty(&mut self, node: LayoutNode) {
+        unsafe { YGNodeMarkDirty(node.0) }
+    }
+
+    pub fn create_node(&mut self, style: &LayoutStyle) -> LayoutNode {
+        let node = LayoutNode(unsafe { YGNodeNew() });
+        self.set_style(node, style);
+
+        node
     }
 
     pub fn set_style(&mut self, node: LayoutNode, style: &LayoutStyle) {
         unsafe {
             YGNodeStyleSetDisplay(node.0, style.display);
+
+            // TODO
+            YGNodeStyleSetPadding(node.0, YGEdge::All, 10.);
+            YGNodeStyleSetMinWidth(node.0, 100.);
+            YGNodeStyleSetMinHeight(node.0, 20.);
         }
     }
 
@@ -73,7 +85,12 @@ pub struct LayoutStyle {
 
 impl LayoutStyle {
     pub const DEFAULT: Self = Self {
-        display: YGDisplay::Flex
+        display: YGDisplay::Flex,
+    };
+
+    pub const HIDDEN: Self = Self {
+        display: YGDisplay::None,
+        ..Self::DEFAULT
     };
 }
 
@@ -82,3 +99,28 @@ pub struct LayoutNode(YGNodeRef);
 
 unsafe impl Send for LayoutNode {}
 unsafe impl Sync for LayoutNode {}
+
+unsafe extern "C" fn measure_node<F: Fn(f32) -> (f32, f32)>(
+    node: YGNodeRef,
+    w: f32,
+    wm: YGMeasureMode,
+    _h: f32,
+    _hm: YGMeasureMode,
+) -> YGSize {
+    let max_width = match wm {
+        YGMeasureMode::Exactly => w,
+        YGMeasureMode::AtMost => w,
+        YGMeasureMode::Undefined => std::f32::MAX,
+    };
+
+    let measure: *mut F = YGNodeGetContext(node) as _;
+    let size = (*measure)(max_width);
+
+    YGSize {
+        width: match wm {
+            YGMeasureMode::Exactly => w,
+            _ => size.0,
+        },
+        height: size.1,
+    }
+}
