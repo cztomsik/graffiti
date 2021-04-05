@@ -2,6 +2,11 @@
 // x outputs (textured) vertices + draw "ops"
 // x easy to integrate, inspired by imgui backend
 
+use super::font::SANS_SERIF_FACE;
+use super::Font;
+use owned_ttf_parser::AsFaceRef;
+use std::sync::Arc;
+
 pub type RGBA8 = [u8; 4];
 
 pub struct Canvas {
@@ -12,7 +17,7 @@ pub struct Canvas {
 impl Canvas {
     pub fn new() -> Self {
         Self {
-            states: vec![State::DEFAULT],
+            states: vec![State::default()],
             frame: Frame::new(),
         }
     }
@@ -30,7 +35,7 @@ impl Canvas {
         if self.states.len() > 1 {
             drop(self.states.pop())
         } else {
-            self.states[0] = State::DEFAULT
+            self.states[0] = State::default()
         }
     }
 
@@ -110,8 +115,23 @@ impl Canvas {
         todo!()
     }
 
-    pub fn fill_text(&mut self, text: &str, x: f32, y: f32) {
-        todo!()
+    pub fn fill_text(&mut self, text: &str, mut x: f32, y: f32) {
+        let scale = SANS_SERIF_FACE.scale;
+        let face = SANS_SERIF_FACE.face.as_face_ref();
+
+        for c in text.chars() {
+            if let Some(glyph_id) = face.glyph_index(c) {
+                if let Some(glyph_rect) = face.glyph_bounding_box(glyph_id) {
+                    self.fill_rect(
+                        x,
+                        y,
+                        glyph_rect.width() as f32 * scale,
+                        glyph_rect.height() as f32 * scale,
+                    );
+                    x += face.glyph_hor_advance(glyph_id).unwrap_or(0) as f32 * scale;
+                }
+            }
+        }
     }
 
     // TODO: stroke_text()
@@ -120,14 +140,18 @@ impl Canvas {
 #[derive(Debug, Clone)]
 struct State {
     fill_color: RGBA8,
+    font: Arc<Font>,
     opacity: f32,
 }
 
-impl State {
-    const DEFAULT: Self = Self {
-        fill_color: [0, 0, 0, 255],
-        opacity: 1.,
-    };
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            fill_color: [0, 0, 0, 255],
+            font: Arc::clone(&SANS_SERIF_FACE),
+            opacity: 1.,
+        }
+    }
 }
 
 pub struct TextMetrics {

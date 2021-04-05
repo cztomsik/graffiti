@@ -1,34 +1,5 @@
 use crate::gfx::{Canvas, Frame};
 use crate::{Document, NodeId, NodeType, Rect};
-use once_cell::sync::Lazy;
-use owned_ttf_parser::{AsFaceRef, OwnedFace};
-
-static SANS_SERIF_FACE: Lazy<Font> = Lazy::new(|| {
-    use fontdb::{Database, Family, Query};
-
-    let mut db = Database::new();
-    db.set_sans_serif_family("Arial");
-    db.load_system_fonts();
-
-    let id = db
-        .query(&Query {
-            families: &[Family::SansSerif],
-            ..Default::default()
-        })
-        .expect("no default font");
-
-    let face = db
-        .with_face_data(id, |data, i| OwnedFace::from_vec(data.to_owned(), i).unwrap())
-        .unwrap();
-    let scale = 16. / face.as_face_ref().units_per_em().unwrap() as f32;
-
-    Font { face, scale }
-});
-
-struct Font {
-    face: OwnedFace,
-    scale: f32,
-}
 
 pub struct Renderer {
     canvas: Canvas,
@@ -96,24 +67,7 @@ impl<'a> RenderContext<'a> {
     }
 
     fn render_text_node(&mut self, rect: Rect, text: &str) {
-        let mut pos = rect.pos;
-
-        let scale = SANS_SERIF_FACE.scale;
-        let face = SANS_SERIF_FACE.face.as_face_ref();
-
-        for c in text.chars() {
-            if let Some(glyph_id) = face.glyph_index(c) {
-                if let Some(glyph_rect) = face.glyph_bounding_box(glyph_id) {
-                    self.canvas.set_fill_color([0, 0, 0, 200]);
-                    self.canvas.fill_rect(
-                        pos.0,
-                        pos.1,
-                        glyph_rect.width() as f32 * scale,
-                        glyph_rect.height() as f32 * scale,
-                    );
-                    pos.0 += face.glyph_hor_advance(glyph_id).unwrap_or(0) as f32 * scale;
-                }
-            }
-        }
+        self.canvas.set_fill_color([0, 0, 0, 200]);
+        self.canvas.fill_text(text, rect.pos.0, rect.pos.1);
     }
 }
