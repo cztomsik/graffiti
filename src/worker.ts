@@ -6,64 +6,57 @@
 // - we want location.reload() for development purposes (live-reload, HMR)
 
 import { native, loadNativeApi } from './native'
-import { Window } from './window/Window'
-import { DOMParser } from './dom/DOMParser'
-import * as nodes from './nodes/index'
+import { Window, makeGlobal } from './window/Window'
 import { readURL, TODO, UNSUPPORTED } from './util'
+import { getDocId } from './dom/Document'
+import { parseIntoDocument } from './dom/DOMParser'
 
 // nodejs
 if ('process' in globalThis) {
-  import('worker_threads').then(w => w.parentPort?.on('message', handleMessage))
+  const { parentPort } = await import('worker_threads')
+  globalThis.postMessage = (msg, _) => parentPort?.postMessage(msg)
+  parentPort?.on('message', handleMessage)
 } else {
   self.addEventListener('message', ev => handleMessage(ev.data))
 }
 
-// TODO: prefix? wrap/unwrap?
 async function handleMessage(msg) {
   try {
     switch (msg.type) {
       case 'init':
-        return postMessage({ type: '__GFT', result: await main(msg) }, '')
+        return send(await main(msg))
       case 'eval':
-        return postMessage({ type: '__GFT', result: eval(msg.js) }, '')
+        return send(eval.call(null, msg.js))
     }
   } catch (e) {
-    postMessage({ type: '__GFT', error: `${e.message}\n${e.stack}` }, '')
+    send(undefined, `${e}\n${e.stack}`)
   }
 }
 
-async function main({ windowId, url }) {
-  //console.log('worker init', windowId, url)
+async function send(result, error?) {
+  postMessage({ type: '__GFT', result, error }, '')
+  native.wake_up()
+}
 
-  // TODO: wpt global (find a way to pass some custom init or something)
-  globalThis.rv = null
-
-  // cleanup first (deno)
-  for (const k of ['location']) {
-    delete globalThis[k]
-  }
-
-  if (!globalThis.fetch) {
-    // @ts-expect-error
-    const { default: fetch } = await import('node-fetch')
-    globalThis.fetch = fetch
-  }
-
+async function main({ windowId, url, options }) {
   // unfortunately, we need native in worker too - there are many blocking APIs
   // and those would be impossible to emulate with parent<->worker postMessage()
   await loadNativeApi()
 
-  // create document
-  const html = await readURL(url)
-  const document: any = new DOMParser().parseFromString(html, 'text/html')
-  document.URL = url
-
-  // create window
-  const window = new Window(document)
-
   // setup env
-  Object.setPrototypeOf(globalThis, window)
-  Object.assign(window, nodes)
+  const { window, document } = new Window()
+  makeGlobal(window)
+
+  // init viewport
+  const viewportId = native.viewport_new(800, 600, getDocId(document))
+  VIEWPORT_REGISTRY.register(window, viewportId)
+
+  // load html
+  parseIntoDocument(document, await readURL(url))
+  Object.assign(document, { defaultView: window, URL: url })
+
+  // start event handling & rendering
+  loop()
 
   // we replace <link> with <style> which works surprisingly well
   // TODO: qsa link[rel="stylesheet"]
@@ -78,17 +71,40 @@ async function main({ windowId, url }) {
   // run (once) all the scripts
   for (const { src, text } of document.querySelectorAll('script')) {
     if (src) {
-      //console.log('[script]', src)
-      await import('' + new URL(src, url))
+      // WPT is relying on global `var`s
+      if (options.evalSrc) {
+        await evalScript(await readURL('' + new URL(src, url)))
+      } else {
+        await import('' + new URL(src, url))
+      }
     } else {
-      //console.log('[eval]', text)
-      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-      await new AsyncFunction(
-        '__filename',
-        text.replace(/import\s+(".*?")/gi, 'await import(new URL($1, __filename))')
-      )(url)
+      evalScript(text)
     }
   }
 
   window._fire('load')
+
+  function loop() {
+    // TODO: dispatch all events for this round
+
+    // TODO: move all native methods to one big glue hash?
+    native.viewport_render(windowId, viewportId)
+
+    setTimeout(loop, 100)
+  }
+
+  async function evalScript(script) {
+    const module = script.replace(/import\s+(".*?")/gi, 'await import(new URL($1, __filename))')
+
+    // ESM
+    if (module !== script) {
+      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+      return new AsyncFunction('__filename', module)(url)
+    }
+
+    // legacy, vars & functions are accumulated
+    return eval.call(null, script)
+  }
 }
+
+const VIEWPORT_REGISTRY = new FinalizationRegistry(id => native.viewport_drop(id))

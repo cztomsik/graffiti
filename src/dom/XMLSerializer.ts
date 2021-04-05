@@ -1,8 +1,6 @@
 // used for inner/outerHTML
 
-import { Node } from '../nodes/Node'
-import { Element } from '../nodes/Element'
-import { Document } from '../nodes/Document'
+import { Document, Node, Element } from './index'
 
 // TODO: consider https://github.com/jsdom/w3c-xmlserializer
 export class XMLSerializer implements globalThis.XMLSerializer {

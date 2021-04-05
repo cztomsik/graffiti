@@ -3,7 +3,9 @@ use crate::util::Atom;
 use pom::char_class::{alpha, alphanum, hex_digit};
 use pom::parser::*;
 
-pub(super) fn sheet<'a>() -> Parser<'a, u8, StyleSheet> {
+type Parser<'a, T> = pom::parser::Parser<'a, u8, T>;
+
+pub(super) fn sheet<'a>() -> Parser<'a, StyleSheet> {
     let comment = seq(b"/*") * (!seq(b"*/") * take(1)).repeat(0..) * seq(b"*/");
 
     ((space() * comment).repeat(0..) * space() * rule())
@@ -11,13 +13,13 @@ pub(super) fn sheet<'a>() -> Parser<'a, u8, StyleSheet> {
         .map(|rules| StyleSheet { rules })
 }
 
-fn rule<'a>() -> Parser<'a, u8, Rule> {
+fn rule<'a>() -> Parser<'a, Rule> {
     let rule = selector() - space() - sym(b'{') - space() + style() - space() - sym(b'}');
 
     rule.map(|(selector, style)| Rule { selector, style })
 }
 
-pub(crate) fn selector<'a>() -> Parser<'a, u8, Selector> {
+pub(super) fn selector<'a>() -> Parser<'a, Selector> {
     let tag = || {
         let ident = || ident().convert(std::str::from_utf8).map(Atom::from);
         let local_name = ident().map(Component::LocalName);
@@ -54,7 +56,7 @@ pub(crate) fn selector<'a>() -> Parser<'a, u8, Selector> {
     })
 }
 
-pub(crate) fn style<'a>() -> Parser<'a, u8, Style> {
+pub(super) fn style<'a>() -> Parser<'a, Style> {
     // TODO: quotes, comments, etc.
     let prop_name = is_a(alpha_dash).repeat(1..).collect();
     let prop_value = none_of(b";{}\"'").repeat(0..).collect();
@@ -66,7 +68,7 @@ pub(crate) fn style<'a>() -> Parser<'a, u8, Style> {
     })
 }
 
-fn parse_style_prop<'a>(prop: &'a [u8], value: &'a [u8]) -> Result<StyleProp, &'a str> {
+pub(super) fn parse_style_prop<'a>(prop: &'a [u8], value: &'a [u8]) -> Result<StyleProp, &'a str> {
     use self::value as v;
 
     let parser = match prop {
@@ -159,7 +161,7 @@ fn parse_style_prop<'a>(prop: &'a [u8], value: &'a [u8]) -> Result<StyleProp, &'
     parser.parse(value).map_err(|_| "invalid style prop")
 }
 
-fn value<'a, T: 'static>(specified: Parser<'a, u8, T>) -> Parser<'a, u8, Value<T>> {
+fn value<'a, T: 'static>(specified: Parser<'a, T>) -> Parser<'a, Value<T>> {
     let inherit = seq(b"inherit").map(|_| Value::Inherit);
     let initial = seq(b"initial").map(|_| Value::Initial);
     let unset = seq(b"unset").map(|_| Value::Unset);
@@ -167,7 +169,7 @@ fn value<'a, T: 'static>(specified: Parser<'a, u8, T>) -> Parser<'a, u8, Value<T
     specified.map(Value::Specified) | inherit | initial | unset
 }
 
-fn dimension<'a>() -> Parser<'a, u8, Dimension> {
+fn dimension<'a>() -> Parser<'a, Dimension> {
     let px = (float() - seq(b"px")).map(Dimension::Px);
     let percent = (float() - sym(b'%')).map(Dimension::Percent);
     let auto = seq(b"auto").map(|_| Dimension::Auto);
@@ -176,7 +178,7 @@ fn dimension<'a>() -> Parser<'a, u8, Dimension> {
     px | percent | auto | zero
 }
 
-fn color<'a>() -> Parser<'a, u8, Color> {
+fn color<'a>() -> Parser<'a, Color> {
     fn hex_val(byte: u8) -> u8 {
         (byte as char).to_digit(16).unwrap() as u8
     }
@@ -211,7 +213,7 @@ fn color<'a>() -> Parser<'a, u8, Color> {
         })
 }
 
-fn align<'a>() -> Parser<'a, u8, Align> {
+fn align<'a>() -> Parser<'a, Align> {
     keyword().convert(|kw| match kw {
         b"auto" => Ok(Align::Auto),
         b"start" => Ok(Align::Start),
@@ -229,7 +231,7 @@ fn align<'a>() -> Parser<'a, u8, Align> {
     })
 }
 
-fn border_style<'a>() -> Parser<'a, u8, BorderStyle> {
+fn border_style<'a>() -> Parser<'a, BorderStyle> {
     keyword().convert(|kw| match kw {
         b"none" => Ok(BorderStyle::None),
         b"hidden" => Ok(BorderStyle::Hidden),
@@ -246,7 +248,7 @@ fn border_style<'a>() -> Parser<'a, u8, BorderStyle> {
     })
 }
 
-fn display<'a>() -> Parser<'a, u8, Display> {
+fn display<'a>() -> Parser<'a, Display> {
     keyword().convert(|kw| match kw {
         b"none" => Ok(Display::None),
         b"block" => Ok(Display::Block),
@@ -257,7 +259,7 @@ fn display<'a>() -> Parser<'a, u8, Display> {
     })
 }
 
-fn flex_direction<'a>() -> Parser<'a, u8, FlexDirection> {
+fn flex_direction<'a>() -> Parser<'a, FlexDirection> {
     keyword().convert(|kw| match kw {
         b"row" => Ok(FlexDirection::Row),
         b"column" => Ok(FlexDirection::Column),
@@ -268,7 +270,7 @@ fn flex_direction<'a>() -> Parser<'a, u8, FlexDirection> {
     })
 }
 
-fn flex_wrap<'a>() -> Parser<'a, u8, FlexWrap> {
+fn flex_wrap<'a>() -> Parser<'a, FlexWrap> {
     keyword().convert(|kw| match kw {
         b"nowrap" => Ok(FlexWrap::NoWrap),
         b"wrap" => Ok(FlexWrap::Wrap),
@@ -278,7 +280,7 @@ fn flex_wrap<'a>() -> Parser<'a, u8, FlexWrap> {
     })
 }
 
-fn overflow<'a>() -> Parser<'a, u8, Overflow> {
+fn overflow<'a>() -> Parser<'a, Overflow> {
     keyword().convert(|kw| match kw {
         b"visible" => Ok(Overflow::Visible),
         b"hidden" => Ok(Overflow::Hidden),
@@ -289,7 +291,7 @@ fn overflow<'a>() -> Parser<'a, u8, Overflow> {
     })
 }
 
-fn position<'a>() -> Parser<'a, u8, Position> {
+fn position<'a>() -> Parser<'a, Position> {
     keyword().convert(|kw| match kw {
         b"static" => Ok(Position::Static),
         b"relative" => Ok(Position::Relative),
@@ -300,7 +302,7 @@ fn position<'a>() -> Parser<'a, u8, Position> {
     })
 }
 
-fn font_family<'a>() -> Parser<'a, u8, Atom<String>> {
+fn font_family<'a>() -> Parser<'a, Atom<String>> {
     // TODO: extend pattern for quoted strings, support commas
     //       but keep it as Atom<String> because that is easy to
     //       map/cache to FontQuery and I'd like to keep CSS unaware of fonts
@@ -311,7 +313,7 @@ fn font_family<'a>() -> Parser<'a, u8, Atom<String>> {
         .map(Atom::from)
 }
 
-fn text_align<'a>() -> Parser<'a, u8, TextAlign> {
+fn text_align<'a>() -> Parser<'a, TextAlign> {
     keyword().convert(|kw| match kw {
         b"left" => Ok(TextAlign::Left),
         b"center" => Ok(TextAlign::Center),
@@ -322,7 +324,7 @@ fn text_align<'a>() -> Parser<'a, u8, TextAlign> {
     })
 }
 
-fn visibility<'a>() -> Parser<'a, u8, Visibility> {
+fn visibility<'a>() -> Parser<'a, Visibility> {
     keyword().convert(|kw| match kw {
         b"visible" => Ok(Visibility::Visible),
         b"hidden" => Ok(Visibility::Hidden),
@@ -332,27 +334,27 @@ fn visibility<'a>() -> Parser<'a, u8, Visibility> {
     })
 }
 
-fn float<'a>() -> Parser<'a, u8, f32> {
+fn float<'a>() -> Parser<'a, f32> {
     num().convert(std::str::from_utf8).convert(str::parse)
 }
 
-fn num<'a>() -> Parser<'a, u8, &'a [u8]> {
+fn num<'a>() -> Parser<'a, &'a [u8]> {
     one_of(b".0123456789").repeat(1..).collect()
 }
 
-fn space<'a>() -> Parser<'a, u8, ()> {
+fn space<'a>() -> Parser<'a, ()> {
     one_of(b" \t\r\n").repeat(0..).discard()
 }
 
-fn ident<'a>() -> Parser<'a, u8, &'a [u8]> {
+fn ident<'a>() -> Parser<'a, &'a [u8]> {
     is_a(alphanum_dash).repeat(1..).collect()
 }
 
-fn keyword<'a>() -> Parser<'a, u8, &'a [u8]> {
+fn keyword<'a>() -> Parser<'a, &'a [u8]> {
     is_a(alpha_dash).repeat(1..).collect()
 }
 
-fn fail<'a, T: 'static>(msg: &'static str) -> Parser<'a, u8, T> {
+fn fail<'a, T: 'static>(msg: &'static str) -> Parser<'a, T> {
     empty().convert(move |_| Err(msg))
 }
 

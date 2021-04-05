@@ -43,14 +43,5 @@ pub use dylib::*;
 mod atom;
 pub use atom::*;
 
-mod id_tree;
-pub use id_tree::*;
-
-mod lookup;
-pub use lookup::*;
-
 mod slotmap;
 pub use slotmap::*;
-
-mod tree;
-pub use tree::*;

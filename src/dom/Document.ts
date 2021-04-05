@@ -1,6 +1,8 @@
+// TODO: cyclic
+import { Node } from './Node'
+
 import { native } from '../native'
 import {
-  Node,
   NodeList,
   Text,
   Comment,
@@ -27,13 +29,14 @@ import {
   HTMLTableCellElement,
   HTMLTableHeaderCellElement,
   HTMLTableRowElement,
+  DOMImplementation,
 } from './index'
 
 import { StyleSheetList } from '../css/StyleSheetList'
 import { UNSUPPORTED } from '../util'
 
-import { DOMImplementation } from '../dom/DOMImplementation'
 import { GET_THE_PARENT } from '../events/EventTarget'
+import { Event } from '../events/Event'
 
 export class Document extends Node implements globalThis.Document {
   readonly ownerDocument
@@ -178,15 +181,21 @@ export class Document extends Node implements globalThis.Document {
   }
 
   get styleSheets(): StyleSheetList {
-    // TODO: add default style sheet
-    // TODO: get [SHEET_SYMBOL] and create/remove that in adapter
-    return new StyleSheetList(this.querySelectorAll('style').map(s => undefined/*s.sheet*/))
+    return new StyleSheetList(this.getElementsByTagName('style').map(s => s.sheet))
   }
 
-  get forms() { return this.querySelectorAll('form') }
-  get images() { return this.querySelectorAll('img') }
-  get links() { return this.querySelectorAll('link') }
-  get scripts() { return this.querySelectorAll('script') }
+  get forms() {
+    return this.getElementsByTagName('form')
+  }
+  get images() {
+    return this.getElementsByTagName('img')
+  }
+  get links() {
+    return this.getElementsByTagName('link')
+  }
+  get scripts() {
+    return this.getElementsByTagName('script')
+  }
 
   getElementById(id) {
     return this.querySelector(`#${id}`)
@@ -194,6 +203,11 @@ export class Document extends Node implements globalThis.Document {
 
   getElementsByTagName(tagName) {
     return this.querySelectorAll(tagName)
+  }
+
+  createEvent(type) {
+    // TODO: return appropriate subclass
+    return new Event(type.toLowerCase()) as any
   }
 
   // intentionally left out (out-of-scope)
@@ -214,7 +228,6 @@ export class Document extends Node implements globalThis.Document {
   contentType
   cookie
   createCDATASection
-  createEvent
   createExpression
   createNodeIterator
   createNSResolver
@@ -288,7 +301,7 @@ const NODE_ID = Symbol()
 const initDocument = (doc) => {
   doc[DOC_ID] = native.document_new()
   doc[REFS] = []
-  doc[NODE_REGISTRY] = new FinalizationRegistry(id => native.document_free_node(doc, id))
+  doc[NODE_REGISTRY] = new FinalizationRegistry(id => native.document_drop_node(doc, id))
   initNode(doc, doc, 0)
 
   DOCUMENT_REGISTRY.register(doc, doc[DOC_ID])
@@ -303,15 +316,20 @@ const initNode = (doc, node, id) => {
 const lookup = (doc, id) => (id && doc[REFS][id]?.deref()) ?? null
 
 // package-private
+export const getDocId = (doc) => doc[DOC_ID]
 export const initTextNode = (doc, node, cdata) => initNode(doc, node, native.document_create_text_node(doc[DOC_ID], cdata))
 export const initComment = (doc, node, cdata) => initNode(doc, node, native.document_create_comment(doc[DOC_ID], cdata))
 export const setCdata = (doc, node, cdata) => native.document_set_cdata(doc[DOC_ID], node[NODE_ID], cdata)
 export const initElement = (doc, el, localName) => initNode(doc, el, native.document_create_element(doc[DOC_ID], localName))
+export const getAttribute = (doc, el, k) => native.document_attribute(doc[DOC_ID], el[NODE_ID], k)
 export const setAttribute = (doc, el, k, v) => native.document_set_attribute(doc[DOC_ID], el[NODE_ID], k, v)
 export const removeAttribute = (doc, el, k) => native.document_remove_attribute(doc[DOC_ID], el[NODE_ID], k)
+export const getAttributeNames = (doc, el) => native.document_attribute_names(doc[DOC_ID], el[NODE_ID])
+export const setElementStyleProp = (doc, el, prop, val) => native.document_set_style_prop(doc[DOC_ID], el[NODE_ID], prop, val)
 export const insertChild = (doc, parent, child, index) => native.document_insert_child(doc[DOC_ID], parent[NODE_ID], child[NODE_ID], index)
 export const removeChild = (doc, parent, child) => native.document_remove_child(doc[DOC_ID], parent[NODE_ID], child[NODE_ID])
+export const matches = (doc, el, sel) => lookup(doc, native.document_matches(doc[DOC_ID], el[NODE_ID], sel))
 export const querySelector = (doc, ctxNode, sel) => lookup(doc, native.document_query_selector(doc[DOC_ID], ctxNode[NODE_ID], sel))
 export const querySelectorAll = (doc, ctxNode, sel) => native.document_query_selector_all(doc[DOC_ID], ctxNode[NODE_ID], sel).map(id => lookup(doc, id))
 
-const DOCUMENT_REGISTRY = new FinalizationRegistry(id => native.document_free(id))
+const DOCUMENT_REGISTRY = new FinalizationRegistry(id => native.document_drop(id))

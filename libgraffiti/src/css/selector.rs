@@ -34,9 +34,9 @@ pub(super) enum Component {
     ClassName(Atom<String>),
     // AttrExists(Atom<String>),
     // AttrEq(Atom<(Atom<String>, Atom<String>)>) // deref first, then compare both atoms
-    // FirstChild // (prev == None)
-    // LastChild // (next == None)
-    // OnlyChild // (prev == None && next == None)
+    // FirstChild // (prev_element_sibling == None)
+    // LastChild // (next_element_sibling == None)
+    // OnlyChild // (prev_element_sibling == None && next_element_sibling == None)
 
     // PseudoClass(Atom<String>) // :root, :hover, :focus, :active, :enabled, :disabled, :valid, :invalid, ...
 }

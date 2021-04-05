@@ -1,8 +1,19 @@
 import { Element } from './index'
 import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
+import { setElementStyleProp } from './Document'
 
 export abstract class HTMLElement extends Element implements globalThis.HTMLElement {
-  readonly style = new CSSStyleDeclaration(null, (prop, value) => console.log('.style change', prop, value))
+  #style
+
+  get style() {
+    if (this.#style === undefined) {
+      this.#style = new CSSStyleDeclaration(null, (prop, value) =>
+        setElementStyleProp(this.ownerDocument, this, prop, value)
+      )
+    }
+
+    return this.#style
+  }
 
   get tagName() {
     return this.localName.toUpperCase()
@@ -19,7 +30,6 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
   setAttribute(name: string, value: string) {
     if (name === 'style') {
       this.style.cssText = value
-      return
     }
 
     super.setAttribute(name, value)
@@ -28,7 +38,6 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
   removeAttribute(name: string) {
     if (name === 'style') {
       this.style.cssText = ''
-      return
     }
 
     super.removeAttribute(name)

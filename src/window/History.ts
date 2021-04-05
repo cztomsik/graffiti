@@ -1,16 +1,20 @@
 import { Event } from '../events/Event'
 
 export class History implements globalThis.History {
+  #window
   #states: any[] = []
   #index = 0
 
-  // TODO: accept callback (decouple from Window)
-  constructor(private _window, url: URL) {
+  constructor(window) {
+    this.#window = window
+
     // initial state
     this.#states.push({
       data: undefined,
       title: '',
-      url
+      get url() {
+        return window.document.URL
+      }
     })
 
     // TODO: set title on load?
@@ -82,12 +86,12 @@ export class History implements globalThis.History {
       return
     }
 
-    this._window.dispatchEvent(
+    this.#window.dispatchEvent(
       Object.assign(new Event('popstate'), { state: to.data })
     )
 
     if ((from.url.href === to.url.href) && (from.url.hash !== to.url.hash)) {
-      this._window.dispatchEvent(
+      this.#window.dispatchEvent(
         Object.assign(new Event('hashchange'), {
           oldURL: from.url.href,
           newURL: to.url.href
@@ -96,7 +100,7 @@ export class History implements globalThis.History {
     }
 
     if (to.title) {
-      this._window.document.title = to.title
+      this.#window.document.title = to.title
     }
   }
 

@@ -18,7 +18,7 @@ pub struct WebView {
 }
 
 impl WebView {
-    pub(crate) fn new(app: Rc<App>) -> Self {
+    pub fn new(app: &Rc<App>) -> Self {
         unsafe {
             let cfg: id = msg_send![class!(WKWebViewConfiguration), new];
             let del: id = msg_send![class!(NSObject), alloc];
@@ -27,7 +27,7 @@ impl WebView {
             let () = msg_send![webview, setUIDelegate: del];
 
             Self {
-                app,
+                app: Rc::clone(app),
                 webview: StrongPtr::retain(webview),
             }
         }

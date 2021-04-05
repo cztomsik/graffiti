@@ -1,25 +1,26 @@
 #![allow(unused, non_snake_case)]
 
-use super::{Frame, Quad, RenderBackend, Vertex};
+use super::{super::Vertex, Frame, RenderBackend};
+use std::marker::PhantomData;
 
 /// Super-simple OpengGL 2.1 backend
 /// - one vbo
 /// - one shader
 /// - drawArrays
 pub struct GlBackend {
+    // !Send, !Sync
+    _marker: PhantomData<*mut ()>,
+
     vao: GLuint,
     vbo: GLuint,
     program: GLuint,
 }
 
 impl GlBackend {
-    pub unsafe fn load_with(load_symbol: impl Fn(&str) -> *mut c_void) {
+    pub unsafe fn load_with(load_symbol: impl FnMut(&str) -> *mut c_void) {
         self::load_with(load_symbol)
     }
 
-    // TODO: do something about context
-    //       maybe make it generic & require trait with is_current(), make_current()?
-    //       or take make_context_current: Fn()
     pub fn new() -> Self {
         let STRIDE = mem::size_of::<Vertex>() as _;
 
@@ -53,12 +54,16 @@ impl GlBackend {
             check("a_pos");
 
             let loc = glGetAttribLocation(program, c_str!("a_color")) as _;
-            println!("{}", loc);
             glEnableVertexAttribArray(loc);
             glVertexAttribPointer(loc, 4, GL_UNSIGNED_BYTE, GL_TRUE, STRIDE, offsetof!(Vertex, color));
             check("a_color");
 
-            Self { vao, vbo, program }
+            Self {
+                _marker: PhantomData,
+                vao,
+                vbo,
+                program,
+            }
         }
     }
 }
@@ -79,21 +84,10 @@ impl RenderBackend for GlBackend {
             // TODO: uniform
             // TODO: glViewport(0, 0, width, height);
 
-            // TODO: use pregenerated, only-growing IBO
-            let vertices: Vec<_> = frame
-                .quads
-                .iter()
-                .flat_map(|q| {
-                    let [a, b, c, d] = q.vertices;
-
-                    vec![a, b, c, b, c, d]
-                })
-                .collect();
-
             glBufferData(
                 GL_ARRAY_BUFFER,
-                mem::size_of_val(&vertices[..]) as _,
-                vertices.as_ptr() as _,
+                mem::size_of_val(&frame.vertices[..]) as _,
+                frame.vertices.as_ptr() as _,
                 GL_DYNAMIC_DRAW,
             );
             check("upload vbo");
@@ -107,10 +101,12 @@ impl RenderBackend for GlBackend {
             //glDepthMask(GL_FALSE);
             //glEnable(GL_BLEND);
 
-            //for dc in frame.draw_calls {
-            // TODO: drawIndexed
-            glDrawArrays(GL_TRIANGLES, 0, vertices.len() as _);
-            //}
+            let mut index: GLint = 0;
+
+            for dc in frame.draw_calls {
+                glDrawArrays(GL_TRIANGLES, index, frame.vertices.len() as _);
+                index += frame.vertices.len() as GLint;
+            }
         }
     }
 }

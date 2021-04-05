@@ -1,8 +1,8 @@
-use graffiti::App;
+use graffiti::{App, Window};
 
 fn main() {
-    let mut app = unsafe { App::init() };
-    let mut w = app.create_window("Hello", 400, 300);
+    let app = unsafe { App::init() };
+    let mut w = Window::new(&app, "Hello", 400, 300);
     assert_eq!(w.resizable(), true);
     assert_eq!(w.size(), (400, 300));
 
@@ -18,7 +18,7 @@ fn main() {
     w.restore();
     assert_eq!(w.minimized(), false);
 
-    let mut w2 = app.create_window("...", 400, 300);
+    let mut w2 = Window::new(&app, "...", 400, 300);
     w2.set_title("Second window");
     w2.set_size((400, 200));
 

@@ -1,15 +1,13 @@
-import htm from 'htm'
-import { Node, NodeList } from './index'
+import { Node, NodeList, XMLSerializer } from './index'
 import { ERR } from '../util'
-import { XMLSerializer } from '../dom/XMLSerializer'
 import { GET_THE_PARENT } from '../events/EventTarget'
-import { initElement, removeAttribute, setAttribute } from './Document'
+import { initElement, getAttributeNames, getAttribute, setAttribute, removeAttribute, matches } from './Document'
+import { parseFragment } from './DOMParser'
 
 export abstract class Element extends Node implements globalThis.Element {
   abstract readonly tagName: string
   readonly childNodes = new NodeList<ChildNode>()
   #localName: string
-  #attributes = new Map<string, string>()
 
   constructor(doc = document, localName: string = ERR('new Element() is not supported')) {
     super(doc)
@@ -38,19 +36,19 @@ export abstract class Element extends Node implements globalThis.Element {
     // it would only make everything much more complex with no real benefit
     // if we'll ever need it, it should be lazy-created weak-stored proxy
     // and it should still delegate to el.get/setAttribute()
-    return Array.from(this.#attributes).map(([name, value]) => ({ name, value }))
+    return this.getAttributeNames().map(name => ({ name, value: this.getAttribute(name) }))
   }
 
   getAttribute(name: string): string | null {
-    return this.#attributes.get(name) ?? null
+    return getAttribute(this.ownerDocument, this, name)
   }
 
   getAttributeNames(): string[] {
-    return [...this.#attributes.keys()]
+    return getAttributeNames(this.ownerDocument, this)
   }
 
   hasAttribute(name: string): boolean {
-    return this.#attributes.has(name)
+    return this.getAttribute(name) !== null
   }
 
   hasAttributes(): boolean {
@@ -60,14 +58,10 @@ export abstract class Element extends Node implements globalThis.Element {
   setAttribute(name: string, value: string) {
     value = (typeof value === 'string' ? value : '' + value).toLowerCase()
 
-    this.#attributes.set(name, value)
-
     setAttribute(this.ownerDocument, this, name, value)
   }
 
   removeAttribute(name: string) {
-    this.#attributes.delete(name)
-
     removeAttribute(this.ownerDocument, this, name)
   }
 
@@ -132,6 +126,11 @@ export abstract class Element extends Node implements globalThis.Element {
     this.replaceWith(parseFragment(this.ownerDocument, html))
   }
 
+  matches(sel: string): boolean {
+    return matches(document, this, sel)
+  }
+
+
   // later
   scrollLeft
   scrollTop
@@ -160,7 +159,6 @@ export abstract class Element extends Node implements globalThis.Element {
   insertAdjacentElement
   insertAdjacentHTML
   insertAdjacentText
-  matches
   msGetRegionContent
   prefix
   releasePointerCapture
@@ -183,34 +181,4 @@ export abstract class Element extends Node implements globalThis.Element {
 
   // ignore vendor
   webkitMatchesSelector
-}
-
-// TODO: move to document?
-// TODO: real parser
-export const parseFragment = (doc, html) => {
-  const fr = doc.createDocumentFragment()
-
-  // add `/` for void elements
-  // we don't need to wrap tr/td/... because we don't forbid what can be inserted
-  // (and we don't auto-insert anything which should be fine because most frameworks do that for us)
-  html = html.replace(
-    /<(area|base|br|col|command|embed|hr|img|input|keygen|link|meta|param|source|track|wbr)([^<>]*?)\/?>/gi,
-    '<$1$2/>'
-  )
-
-  const createElement = (tag, atts, ...childNodes) => {
-    const el = doc.createElement(tag)
-
-    Object.entries(atts ?? {}).forEach(([att, v]) => el.setAttribute(att, v))
-    el.append(...childNodes)
-
-    return el
-  }
-
-  // node, array of nodes or undefined (for empty string)
-  const nodes = htm.bind(createElement)([html]) ?? []
-
-  fr.append(...[].concat(nodes))
-
-  return fr
 }

@@ -25,9 +25,7 @@ export const loadNodejsAddon = async () => {
   process.env.GFT_NODEJS = '1'
 
   // require() would make ncc bundle some unnecessary build artifacts
-  process['dlopen'](module, LIB)
-
-  native = exports
+  process['dlopen']({ exports: native = {} }, LIB)
 }
 
 const loadDenoPlugin = async (Deno = globalThis.Deno) => {

@@ -1,5 +1,5 @@
 import { native } from './native'
-import { ERR } from './util'
+import { ERR, Worker } from './util'
 
 export const ID = Symbol()
 
@@ -11,7 +11,8 @@ export class AppWindow {
   constructor({ title = 'Graffiti', width = 800, height = 600 } = {}) {
     this.#id = native.window_new(title, width, height)
 
-    WINDOW_REGISTRY.register(this, this.#id)
+    // TODO: fires prematurely
+    // WINDOW_REGISTRY.register(this, this.#id)
   }
 
   // TODO: not sure if this is good (but WebView needs it)
@@ -51,10 +52,9 @@ export class AppWindow {
     native.window_restore(this.#id)
   }
 
-  async loadURL(url: URL | string) {
+  async loadURL(url: URL | string, options = {}) {
     this.#worker?.terminate()
 
-    const Worker = globalThis.Worker ?? (await import('worker_threads')).Worker
     const worker = new Worker(new URL('worker.js', import.meta.url), {
       type: 'module',
       deno: true,
@@ -77,14 +77,14 @@ export class AppWindow {
     // setup sequential req/res communication
     // TODO: prefix or isolate entirely, not sure yet
     this.#worker = worker
-    this.#send = async msg => {
-      await current
-      next = null
-      worker.postMessage(msg)
-      return (current = new Promise((resolve, reject) => (next = { resolve, reject })))
-    }
+    this.#send = msg =>
+      (current = current.then(() => {
+        next = null
+        worker.postMessage(msg)
+        return new Promise((resolve, reject) => (next = { resolve, reject }))
+      }))
 
-    await this.#send({ type: 'init', windowId: this.#id, url: '' + url })
+    await this.#send({ type: 'init', windowId: this.#id, url: '' + url, options })
   }
 
   async eval(js: string) {
@@ -92,4 +92,4 @@ export class AppWindow {
   }
 }
 
-const WINDOW_REGISTRY = new FinalizationRegistry(id => native.window_free(id))
+const WINDOW_REGISTRY = new FinalizationRegistry(id => native.window_drop(id))
