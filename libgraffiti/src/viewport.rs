@@ -97,7 +97,7 @@ impl Viewport {
             use DocumentEvent::*;
             match *e {
                 Create(node, NodeType::Element) => nodes.put(node, engine.create_node(&LayoutStyle::DEFAULT)),
-                Create(node, NodeType::Text) => nodes.put(node, engine.create_leaf(|_| (100., 100.))),
+                Create(node, NodeType::Text) => nodes.put(node, engine.create_leaf(|_| (100., 20.))),
                 Create(node, NodeType::Comment) => nodes.put(node, engine.create_node(&LayoutStyle::HIDDEN)),
 
                 Insert(parent, child, index) => engine.insert_child(nodes[parent], nodes[child], index),

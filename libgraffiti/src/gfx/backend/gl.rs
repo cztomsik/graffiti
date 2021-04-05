@@ -101,8 +101,11 @@ impl RenderBackend for GlBackend {
             //glDepthMask(GL_FALSE);
             //glEnable(GL_BLEND);
 
+            let mut index: GLint = 0;
+
             for dc in frame.draw_calls {
-                glDrawArrays(GL_TRIANGLES, 0, frame.vertices.len() as _);
+                glDrawArrays(GL_TRIANGLES, index, frame.vertices.len() as _);
+                index += frame.vertices.len() as GLint;
             }
         }
     }
