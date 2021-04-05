@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use graffiti_glfw::*;
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_int};
@@ -5,7 +6,7 @@ use std::rc::Rc;
 
 pub struct App {
     // !Send, !Sync
-    marker: *mut (),
+    _marker: PhantomData<*mut ()>,
 }
 
 impl App {
@@ -15,7 +16,7 @@ impl App {
         glfwSetErrorCallback(handle_glfw_error);
 
         Rc::new(Self {
-            marker: std::ptr::null_mut(),
+            _marker: PhantomData,
         })
     }
 

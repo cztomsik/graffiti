@@ -11,7 +11,8 @@ export class AppWindow {
   constructor({ title = 'Graffiti', width = 800, height = 600 } = {}) {
     this.#id = native.window_new(title, width, height)
 
-    WINDOW_REGISTRY.register(this, this.#id)
+    // TODO: fires prematurely
+    // WINDOW_REGISTRY.register(this, this.#id)
   }
 
   // TODO: not sure if this is good (but WebView needs it)

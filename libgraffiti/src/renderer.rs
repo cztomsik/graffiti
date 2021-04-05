@@ -1,4 +1,4 @@
-use super::backend::{DrawCall, Frame, Quad, Vertex, RGBA8};
+use crate::gfx::{Canvas, Frame};
 use crate::{Document, NodeId, NodeType, Rect};
 use once_cell::sync::Lazy;
 use owned_ttf_parser::{AsFaceRef, OwnedFace};
@@ -31,36 +31,32 @@ struct Font {
 }
 
 pub struct Renderer {
-    // TODO: fonts, images, caching, ...
+    canvas: Canvas,
 }
 
 impl Renderer {
     pub fn new() -> Self {
-        Self {}
+        Self { canvas: Canvas::new() }
     }
 
-    pub fn render<'a>(
-        &mut self,
-        document: &'a Document,
-        layout_rect: &'a dyn Fn(NodeId) -> Rect,
-    ) -> Frame {
+    pub fn render<'a>(&mut self, document: &'a Document, layout_rect: &'a dyn Fn(NodeId) -> Rect) -> Frame {
         let root = document.root();
 
         let mut ctx = RenderContext {
             document,
-            frame: Frame::new(),
+            canvas: &mut self.canvas,
             layout_rect,
         };
 
         ctx.render_node((0., 0.), root);
-        
-        ctx.frame
+
+        ctx.canvas.flush()
     }
 }
 
 struct RenderContext<'a> {
     document: &'a Document,
-    frame: Frame,
+    canvas: &'a mut Canvas,
     layout_rect: &'a dyn Fn(NodeId) -> Rect,
 }
 
@@ -87,7 +83,12 @@ impl<'a> RenderContext<'a> {
     }
 
     fn render_element(&mut self, rect: Rect, /*style: &ResolvedStyle,*/ children: impl Iterator<Item = NodeId>) {
-        self.fill_rect(rect, [255, 63, 63, 32]);
+        let Rect {
+            pos: (x, y),
+            size: (w, h),
+        } = rect;
+        self.canvas.set_fill_color([255, 63, 63, 32]);
+        self.canvas.fill_rect(x, y, w, h);
 
         for ch in children {
             self.render_node(rect.pos, ch);
@@ -103,50 +104,16 @@ impl<'a> RenderContext<'a> {
         for c in text.chars() {
             if let Some(glyph_id) = face.glyph_index(c) {
                 if let Some(glyph_rect) = face.glyph_bounding_box(glyph_id) {
-                    self.fill_rect(
-                        Rect {
-                            pos,
-                            size: (glyph_rect.width() as f32 * scale, glyph_rect.height() as f32 * scale),
-                        },
-                        [0, 0, 0, 200],
+                    self.canvas.set_fill_color([0, 0, 0, 200]);
+                    self.canvas.fill_rect(
+                        pos.0,
+                        pos.1,
+                        glyph_rect.width() as f32 * scale,
+                        glyph_rect.height() as f32 * scale,
                     );
                     pos.0 += face.glyph_hor_advance(glyph_id).unwrap_or(0) as f32 * scale;
                 }
             }
         }
-    }
-
-    fn fill_rect(&mut self, rect: Rect, color: RGBA8 /*, fill: Fill*/) {
-        let Rect { pos, size } = rect;
-
-        // TODO
-        let z = 1.;
-        let uv = [0., 0.];
-
-        self.frame.quads.push(Quad {
-            vertices: [
-                Vertex {
-                    xyz: [pos.0, pos.1, z],
-                    uv,
-                    color,
-                },
-                Vertex {
-                    xyz: [pos.0 + size.0, pos.1, z],
-                    uv,
-                    color,
-                },
-                Vertex {
-                    xyz: [pos.0, pos.1 + size.1, z],
-                    uv,
-                    color,
-                },
-                Vertex {
-                    xyz: [pos.0 + size.0, pos.1 + size.1, z],
-                    uv,
-                    color,
-                },
-            ],
-        });
-        self.frame.draw_calls.push(DrawCall { len: 1 });
     }
 }

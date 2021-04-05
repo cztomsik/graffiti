@@ -1,7 +1,7 @@
-use crate::backend::Frame;
+use crate::gfx::Frame;
 use crate::css::{Style, StyleProp, Value};
 use crate::layout::{LayoutEngine, LayoutNode, LayoutStyle};
-use crate::render::Renderer;
+use crate::renderer::Renderer;
 use crate::util::SlotMap;
 use crate::Rect;
 use crate::{Document, DocumentEvent, NodeId, NodeType};

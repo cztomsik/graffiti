@@ -2,7 +2,7 @@
 // - thread-local storage, shared fns (this file)
 // - submodules define macros and then call export_api!() which is defined here
 
-use crate::backend::{GlBackend, RenderBackend};
+use crate::gfx::{GlBackend, RenderBackend};
 use crate::util::SlotMap;
 use crate::{App, Document, Event, Viewport, WebView, Window};
 use crossbeam_channel::{unbounded as channel, Receiver, Sender};
@@ -32,6 +32,7 @@ struct Ctx {
     webviews: SlotMap<WebViewId, WebView>,
     documents: SlotMap<DocumentId, Rc<RefCell<Document>>>,
     viewports: SlotMap<ViewportId, Viewport>,
+    backends: SlotMap<ViewportId, GlBackend>,
 }
 
 // Rc<> hack shorthand, TLS.with() is PITA and thread_local crate requires Send
@@ -61,21 +62,29 @@ macro_rules! export_api {
 
             viewport_new: |w: f64, h: f64, doc: u32| {
                 let vp = Viewport::new((w as _, h as _), &ctx!().documents[doc]);
-                ctx!().viewports.insert(vp)
+                let id = ctx!().viewports.insert(vp);
+                TASK_CHANNEL.0.send(Box::new(move || ctx!().backends.put(id, GlBackend::new()))).unwrap();
+
+                id
             },
             viewport_render: |w, vp| {
                 let frame = ctx!().viewports[vp].render();
+                // TODO: wait (this deadlocks somewhere)
+                //let (tx, wait) = channel::<()>();
 
-                let _ = TASK_CHANNEL.0.send(Box::new(move || {
-                    // TODO: keep it somewhere (in main thread?)
-                    let mut backend = GlBackend::new();
-
-                    backend.render_frame(frame);
-
+                TASK_CHANNEL.0.send(Box::new(move || {
+                    ctx!().backends[vp].render_frame(frame);
                     ctx!().windows[w].swap_buffers();
-                }));
+                    //tx.send(()).unwrap();
+                })).unwrap();
+
+                //App::wake_up();
+                //wait.recv().unwrap();
             },
-            viewport_drop: |w| drop(ctx!().viewports.remove(w)),
+            viewport_drop: |vp| {
+                drop(ctx!().viewports.remove(vp));
+                TASK_CHANNEL.0.send(Box::new(move || drop(ctx!().backends.remove(vp)))).unwrap();
+            },
 
             window_new: |title: String, width, height| {
                 let mut w = Window::new(ctx!().app.as_ref().unwrap(), &title, width, height);
