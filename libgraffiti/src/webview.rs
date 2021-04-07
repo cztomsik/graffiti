@@ -13,7 +13,7 @@ use std::rc::Rc;
 type id = *mut Object;
 
 pub struct WebView {
-    app: Rc<App>,
+    _app: Rc<App>,
     webview: StrongPtr,
 }
 
@@ -27,7 +27,7 @@ impl WebView {
             let () = msg_send![webview, setUIDelegate: del];
 
             Self {
-                app: Rc::clone(app),
+                _app: Rc::clone(app),
                 webview: StrongPtr::retain(webview),
             }
         }
