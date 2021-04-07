@@ -1,4 +1,4 @@
-use crate::gfx::{Canvas, Frame};
+use crate::gfx::{Canvas, Frame, Text, TextStyle};
 use crate::{Document, NodeId, NodeType, Rect};
 
 pub struct Renderer {
@@ -54,12 +54,10 @@ impl<'a> RenderContext<'a> {
     }
 
     fn render_element(&mut self, rect: Rect, /*style: &ResolvedStyle,*/ children: impl Iterator<Item = NodeId>) {
-        let Rect {
-            pos: (x, y),
-            size: (w, h),
-        } = rect;
+        let Rect { pos, size } = rect;
+
         self.canvas.set_fill_color([255, 63, 63, 32]);
-        self.canvas.fill_rect(x, y, w, h);
+        self.canvas.fill_rect(pos.into(), size.into());
 
         for ch in children {
             self.render_node(rect.pos, ch);
@@ -67,7 +65,10 @@ impl<'a> RenderContext<'a> {
     }
 
     fn render_text_node(&mut self, rect: Rect, text: &str) {
+        //let text_style = TextStyle::DEFAULT;
+        let text = Text::new(text);
+
         self.canvas.set_fill_color([0, 0, 0, 200]);
-        self.canvas.fill_text(text, rect.pos.0, rect.pos.1);
+        self.canvas.fill_text(&text, rect.pos.into());
     }
 }

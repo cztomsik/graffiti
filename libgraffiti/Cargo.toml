@@ -12,7 +12,7 @@ crate-type = ["rlib", "cdylib"]
 [dependencies]
 once_cell = "1.7.2"
 pom = "3.2.0"
-#fontdue = "0.4.0"
+ab_glyph_rasterizer = "0.1.4"
 fontdb = "0.5.1"
 owned_ttf_parser = "0.9"
 graffiti-glfw = { path = "graffiti-glfw" }
