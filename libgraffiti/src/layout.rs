@@ -44,6 +44,7 @@ impl LayoutEngine {
             YGNodeStyleSetDisplay(node.0, style.display);
 
             // TODO
+            YGNodeStyleSetFlexDirection(node.0, YGFlexDirection::Row);
             YGNodeStyleSetPadding(node.0, YGEdge::All, 10.);
             YGNodeStyleSetMinWidth(node.0, 100.);
             YGNodeStyleSetMinHeight(node.0, 20.);

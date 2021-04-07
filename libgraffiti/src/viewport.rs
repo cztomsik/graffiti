@@ -1,5 +1,5 @@
-use crate::gfx::Frame;
 use crate::css::{Style, StyleProp, Value};
+use crate::gfx::Frame;
 use crate::layout::{LayoutEngine, LayoutNode, LayoutStyle};
 use crate::renderer::Renderer;
 use crate::util::SlotMap;
@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct Viewport {
-    size: (f32, f32),
+    size: (i32, i32),
 
     document: Rc<RefCell<Document>>,
     layout_state: Rc<RefCell<LayoutState>>,
@@ -22,7 +22,7 @@ struct LayoutState {
 }
 
 impl Viewport {
-    pub fn new(size: (f32, f32), document: &Rc<RefCell<Document>>) -> Self {
+    pub fn new(size: (i32, i32), document: &Rc<RefCell<Document>>) -> Self {
         let mut layout_engine = LayoutEngine::new();
         let mut layout_nodes = SlotMap::new();
 
@@ -71,7 +71,7 @@ impl Viewport {
 
     // TODO: scrollTo(), scrollTop, ...
 
-    pub fn resize(&mut self, size: (f32, f32)) {
+    pub fn resize(&mut self, size: (i32, i32)) {
         self.size = size;
         self.update();
     }
@@ -83,9 +83,10 @@ impl Viewport {
     fn update_layout(&self) {
         // TODO: skip if not needed
 
+        let size = (self.size.0 as _, self.size.1 as _);
         let LayoutState { engine, nodes } = &mut *self.layout_state.borrow_mut();
 
-        engine.calculate(nodes[self.document.borrow().root()], self.size);
+        engine.calculate(nodes[self.document.borrow().root()], size);
     }
 
     fn layout_updater(&self) -> impl Fn(&Document, &DocumentEvent) {
