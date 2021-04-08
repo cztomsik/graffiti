@@ -1,84 +1,37 @@
-use super::{Atlas, Vec2, AABB, SANS_SERIF_FONT};
-use ab_glyph_rasterizer::{point as ab_point, Point as AbPoint, Rasterizer};
-use owned_ttf_parser::OutlineBuilder;
-use owned_ttf_parser::{AsFaceRef, GlyphId, Rect};
+use super::{Atlas, Font, Glyph, TexData, Vec2, AABB, SANS_SERIF_FONT};
+
+pub struct CachedGlyph {
+    pub rect: AABB,
+    pub uv: AABB,
+}
 
 pub struct GlyphCache {
-    pub(crate) atlas: Atlas,
-    raster: Rasterizer,
+    // TODO: HashMap<Key, CachedGlyph>
+    atlas: Atlas,
 }
 
 impl GlyphCache {
     pub fn new() -> Self {
-        Self {
-            atlas: Atlas::new(),
-            raster: Rasterizer::new(128, 128),
-        }
+        Self { atlas: Atlas::new() }
     }
 
-    pub fn use_glyph(&mut self, glyph_id: u16) -> AABB {
-        let face = SANS_SERIF_FONT.face.as_face_ref();
-        let scale = 16. / face.units_per_em().unwrap() as f32;
-
+    pub fn use_glyph(&mut self, glyph: Glyph) -> CachedGlyph {
         // TODO: actual caching/atlasing
+        if let Some(g) = SANS_SERIF_FONT.outline_glyph(glyph) {
+            let rect = g.px_bounds();
+            let rect = AABB::new(Vec2::new(rect.min.x, rect.min.y), Vec2::new(rect.max.x, rect.max.y));
 
-        let mut ctx = RasterCtx::new(&mut self.raster);
-        ctx.raster.clear();
-        //face.outline_glyph(GlyphId(glyph_id), &mut ctx);
-        //ctx.raster.for_each_x();
+            return CachedGlyph { rect, uv: AABB::ZERO };
+        }
 
-        match face.glyph_bounding_box(GlyphId(glyph_id)) {
-            Some(Rect {
-                x_min,
-                y_min,
-                x_max,
-                y_max,
-            }) => AABB::new(
-                // TODO: find slot
-                Vec2::new(x_min as f32 * scale, y_min as f32 * scale),
-                Vec2::new(x_max as f32 * scale, y_max as f32 * scale),
-            ),
-            None => AABB::ZERO,
+        // unlikely, layout should skip empty & unknown glyphs
+        CachedGlyph {
+            rect: AABB::ZERO,
+            uv: AABB::ZERO,
         }
     }
-}
 
-struct RasterCtx<'a> {
-    raster: &'a mut Rasterizer,
-    p: AbPoint,
-    p2: AbPoint,
-}
-
-impl RasterCtx<'_> {
-    fn new(raster: &mut Rasterizer) -> RasterCtx {
-        RasterCtx {
-            raster,
-            p: ab_point(0., 0.),
-            p2: ab_point(0., 0.),
-        }
-    }
-}
-
-impl OutlineBuilder for RasterCtx<'_> {
-    fn move_to(&mut self, x: f32, y: f32) {
-        self.p2 = self.p;
-        self.p = ab_point(x, y);
-    }
-
-    fn line_to(&mut self, x: f32, y: f32) {
-        self.raster.draw_line(self.p, ab_point(x, y));
-    }
-
-    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        self.raster.draw_quad(self.p, ab_point(x1, y1), ab_point(x, y));
-    }
-
-    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        self.raster
-            .draw_cubic(self.p, ab_point(x1, x2), ab_point(x2, y2), ab_point(x, y));
-    }
-
-    fn close(&mut self) {
-        self.raster.draw_line(self.p2, self.p);
+    pub fn tex_data(&self) -> &TexData {
+        self.atlas.tex_data()
     }
 }

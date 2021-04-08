@@ -6,7 +6,6 @@ use crate::gfx::{GlBackend, RenderBackend};
 use crate::util::SlotMap;
 use crate::{App, Document, Event, Viewport, WebView, Window};
 use crossbeam_channel::{unbounded as channel, Receiver, Sender};
-use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -14,7 +13,7 @@ use std::rc::Rc;
 type Task = Box<dyn FnOnce() + 'static + Send>;
 static TASK_CHANNEL: Lazy<(Sender<Task>, Receiver<Task>)> = Lazy::new(channel);
 
-static EVENTS: Lazy<DashMap<WindowId, Receiver<Event>>> = Lazy::new(DashMap::new);
+//static EVENTS: Lazy<DashMap<WindowId, Receiver<Event>>> = Lazy::new(DashMap::new);
 
 thread_local! {
     static CTX: Rc<RefCell<Ctx>> = Default::default();
