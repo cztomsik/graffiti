@@ -58,12 +58,11 @@ dependencies = [
 [[package]]
 name = "fontdb"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "428948a0f39fb83fe55991d4423e35a793cdbb0322ebe23853f6024124a330d7"
+source = "git+https://github.com/cztomsik/fontdb?rev=f106359#f106359ac2f567011e34bf159488c0c4de6558ad"
 dependencies = [
  "log",
  "memmap2",
- "ttf-parser 0.9.0",
+ "ttf-parser",
 ]
 
 [[package]]
@@ -168,7 +167,7 @@ version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a3c7a20e3f122223e68eef6ca58e39bc1ea8a1d83418ba4c2c1ba189d2ee355"
 dependencies = [
- "ttf-parser 0.12.0",
+ "ttf-parser",
 ]
 
 [[package]]
@@ -176,12 +175,6 @@ name = "pom"
 version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e2192780e9f8e282049ff9bffcaa28171e1cb0844f49ed5374e518ae6024ec"
-
-[[package]]
-name = "ttf-parser"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62ddb402ac6c2af6f7a2844243887631c4e94b51585b229fcfddb43958cd55ca"
 
 [[package]]
 name = "ttf-parser"

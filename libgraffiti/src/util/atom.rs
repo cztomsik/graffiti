@@ -1,38 +1,56 @@
-// TODO: check how slower RwLock<SlotMap> would be instead of DashMap
 // TODO: NonZeroU32 (so more selector parts could be stored inline)
 
-use dashmap::DashMap;
 use once_cell::sync::Lazy;
-use std::any::{Any, TypeId};
+use std::any::Any;
+use std::cell::RefCell;
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-use std::sync::Arc;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, Eq)]
-pub struct Atom<T: Eq + Hash + 'static>(Arc<T>);
+pub struct Atom<T: Eq + Hash + 'static>(Rc<T>);
 
-type AtomsOf<T> = DashMap<Arc<T>, ()>;
+// TODO: per-type static wouldn't work, rust
+//       accepts the syntax but it's shared for all types (WTF)
+//       https://github.com/rust-lang/rust/issues/22991
+thread_local! {
+    static ATOM_STORES: Lazy<RefCell<Vec<Box<dyn Any>>>> = Default::default();
+}
 
-static ATOMS_OF: Lazy<DashMap<TypeId, Box<dyn Any + Send + Sync>>> = Lazy::new(|| DashMap::new());
+impl<T: Eq + Hash + 'static> Atom<T> {
+    fn with_atoms<F, R>(f: F) -> R
+    where
+        T: 'static,
+        F: FnOnce(&mut HashSet<Rc<T>>) -> R,
+    {
+        ATOM_STORES.with(|stores| {
+            if let Some(atoms) = stores.borrow_mut().iter_mut().find_map(|any| any.downcast_mut()) {
+                return f(atoms);
+            }
+
+            let mut atoms = HashSet::new();
+            let res = f(&mut atoms);
+
+            stores.borrow_mut().push(Box::new(atoms));
+
+            res
+        })
+    }
+}
 
 impl<T: 'static + Eq + Hash + Send + Sync> From<T> for Atom<T> {
     fn from(v: T) -> Self {
-        // TODO: static var per generic type wouldn't work, rust
-        //       accepts the syntax but it's shared for all types (WTF)
-        //       https://github.com/rust-lang/rust/issues/22991
+        Self::with_atoms(|atoms| {
+            if let Some(rc) = atoms.get(&v) {
+                return Self(rc.clone());
+            }
 
-        let type_id = TypeId::of::<T>();
-        let atoms = match ATOMS_OF.get(&type_id) {
-            Some(set) => set,
-            None => ATOMS_OF
-                .entry(type_id)
-                .or_insert_with(|| Box::new(AtomsOf::<T>::new()))
-                .downgrade(),
-        };
+            let rc = Rc::new(v);
+            atoms.insert(Rc::clone(&rc));
 
-        let atoms: &AtomsOf<T> = atoms.value().downcast_ref::<AtomsOf<T>>().unwrap();
-        let entry = atoms.entry(Arc::new(v)).or_insert(());
-        return Self(entry.key().clone());
+            Self(rc)
+        })
     }
 }
 
@@ -54,22 +72,21 @@ impl<T: Eq + Hash> Deref for Atom<T> {
 
 impl<T: Eq + Hash + 'static> Drop for Atom<T> {
     fn drop(&mut self) {
-        let atoms = ATOMS_OF.get(&TypeId::of::<T>()).unwrap();
-        let atoms = atoms.downcast_ref::<AtomsOf<T>>().unwrap();
-
         // the one which is dropped + shared dashmap
-        atoms.remove_if(&self.0, |k, _| Arc::strong_count(k) == 2);
+        if Rc::strong_count(&self.0) == 2 {
+            Self::with_atoms(|atoms| atoms.remove(&self.0));
+        }
     }
 }
 
 impl<T: Eq + Hash> Hash for Atom<T> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
-        Arc::as_ptr(&self.0).hash(hasher)
+        Rc::as_ptr(&self.0).hash(hasher)
     }
 }
 
 impl<T: Eq + Hash> PartialEq for Atom<T> {
     fn eq(&self, other: &Self) -> bool {
-        Arc::as_ptr(&self.0) == Arc::as_ptr(&other.0)
+        Rc::as_ptr(&self.0) == Rc::as_ptr(&other.0)
     }
 }

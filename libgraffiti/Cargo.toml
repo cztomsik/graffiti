@@ -13,7 +13,7 @@ crate-type = ["rlib", "cdylib"]
 once_cell = "1.7.2"
 pom = "3.2.0"
 ab_glyph = "0.2.10"
-fontdb = "0.5.1"
+fontdb = { git = "https://github.com/cztomsik/fontdb", rev = "f106359" }
 graffiti-glfw = { path = "graffiti-glfw" }
 graffiti-yoga = { path = "graffiti-yoga" }
 crossbeam-channel = "0.5.0"
