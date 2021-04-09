@@ -5,14 +5,16 @@ pub struct Text {
     //font: Font
     //lines: Vec<Line>
     glyphs: Vec<GlyphPos>,
+    size: (f32, f32)
 }
 
 impl Text {
     pub fn new(text: &str) -> Self {
-        let scale_font = SANS_SERIF_FONT.as_scaled(32.);
+        let style = &TextStyle::DEFAULT;
+        let scale_font = SANS_SERIF_FONT.as_scaled(style.font_size);
 
         let mut x = 0.;
-        let y = 100.;
+        let y = style.line_height;
 
         let mut glyphs = Vec::new();
 
@@ -29,15 +31,21 @@ impl Text {
             x += advance;
         }
 
-        Self { glyphs }
+        Self { glyphs, size: (x, y) }
     }
 
     pub fn style(&self) -> &TextStyle {
         &TextStyle::DEFAULT
     }
 
+    /*
     pub fn font(&self) -> &FontArc {
         &SANS_SERIF_FONT
+    }
+    */
+
+    pub fn size(&self) -> (f32, f32) {
+        self.size
     }
 
     // TODO: lines/runs + Iterator

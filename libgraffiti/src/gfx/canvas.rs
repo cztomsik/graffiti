@@ -3,6 +3,7 @@
 // x easy to integrate (and to compose)
 
 use super::{CachedGlyph, GlyphCache, GlyphPos, Text, Vec2};
+use std::ops::{Index, IndexMut};
 
 pub type RGBA8 = [u8; 4];
 
@@ -91,15 +92,29 @@ impl Canvas {
         for &GlyphPos { ref glyph, pos: gpos } in text.glyphs() {
             let CachedGlyph { rect, uv } = self.glyph_cache.use_glyph(/* &text.font(),*/ glyph.clone());
 
-            let uv = Vec2::ZERO;
-
             self.frame.vertices.extend_from_slice(&[
-                Vertex::new(pos + gpos + rect.min, uv, color),
-                Vertex::new(pos + gpos + Vec2::new(rect.min.x, rect.max.y), uv, color),
-                Vertex::new(pos + gpos + Vec2::new(rect.max.x, rect.min.y), uv, color),
-                Vertex::new(pos + gpos + Vec2::new(rect.min.x, rect.max.y), uv, color),
-                Vertex::new(pos + gpos + Vec2::new(rect.max.x, rect.min.y), uv, color),
-                Vertex::new(pos + gpos + rect.max, uv, color),
+                Vertex::new(pos + gpos + rect.min, uv.min, color),
+                Vertex::new(
+                    pos + gpos + Vec2::new(rect.min.x, rect.max.y),
+                    Vec2::new(uv.min.x, uv.max.y),
+                    color,
+                ),
+                Vertex::new(
+                    pos + gpos + Vec2::new(rect.max.x, rect.min.y),
+                    Vec2::new(uv.max.x, uv.min.y),
+                    color,
+                ),
+                Vertex::new(
+                    pos + gpos + Vec2::new(rect.min.x, rect.max.y),
+                    Vec2::new(uv.min.x, uv.max.y),
+                    color,
+                ),
+                Vertex::new(
+                    pos + gpos + Vec2::new(rect.max.x, rect.min.y),
+                    Vec2::new(uv.max.x, uv.min.y),
+                    color,
+                ),
+                Vertex::new(pos + gpos + rect.max, uv.max, color),
             ]);
 
             count += 1;
@@ -153,6 +168,20 @@ pub struct TexData {
     pub width: i32,
     pub height: i32,
     pub pixels: Vec<RGBA8>,
+}
+
+impl Index<(usize, usize)> for TexData {
+    type Output = RGBA8;
+
+    fn index(&self, (x, y): (usize, usize)) -> &Self::Output {
+        &self.pixels[y * self.width as usize + x]
+    }
+}
+
+impl IndexMut<(usize, usize)> for TexData {
+    fn index_mut(&mut self, (x, y): (usize, usize)) -> &mut Self::Output {
+        &mut self.pixels[y * self.width as usize + x]
+    }
 }
 
 #[repr(C)]

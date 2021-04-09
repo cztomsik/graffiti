@@ -14,23 +14,35 @@ pub struct GlyphCache {
 
 impl GlyphCache {
     pub fn new() -> Self {
+        let mut atlas = Atlas::new(1024, 1024);
+
+        // temp hack for solid_rects (with uv::ZERO)
+        // TODO: use negative xy or uv or multi-uv or something
+        atlas.push(1, 1, |tex, _, _| tex[(0, 0)] = [255, 255, 255, 255]);
+
         Self {
             glyphs: HashMap::new(),
-            atlas: Atlas::new(),
+            atlas,
         }
     }
 
     pub fn use_glyph(&mut self, glyph: Glyph) -> &CachedGlyph {
-        self.glyphs.entry(CacheKey::new(&glyph)).or_insert_with(move || {
-            // TODO: evicting
-            if let Some(g) = SANS_SERIF_FONT.outline_glyph(glyph) {
-                let rect = g.px_bounds();
-                let rect = AABB::new(Vec2::new(rect.min.x, rect.min.y), Vec2::new(rect.max.x, rect.max.y));
-                let uv = AABB::ZERO;
+        let Self { atlas, glyphs } = self;
 
-                g.draw(|x, y, a| {
-                    println!("TODO: atlas draw {:?}", (x, y, a));
-                });
+        glyphs.entry(CacheKey::new(&glyph)).or_insert_with(|| {
+            // TODO: evicting, rebuilding
+            if let Some(g) = SANS_SERIF_FONT.outline_glyph(glyph) {
+                let pxb = g.px_bounds();
+                let rect = AABB::new(Vec2::new(pxb.min.x, pxb.min.y), Vec2::new(pxb.max.x, pxb.max.y));
+
+                let uv = atlas
+                    .push(pxb.width() as _, pxb.height() as _, |dest, x1, y1| {
+                        g.draw(|x2, y2, a| {
+                            let a = (a * 255.) as _;
+                            dest[(x1 + x2 as usize, y1 + y2 as usize)] = [a, a, a, a];
+                        })
+                    })
+                    .unwrap_or(AABB::ZERO);
 
                 return CachedGlyph { rect, uv };
             }
