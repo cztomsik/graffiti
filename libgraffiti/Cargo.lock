@@ -78,6 +78,7 @@ dependencies = [
  "objc",
  "once_cell",
  "pom",
+ "rect_packer",
 ]
 
 [[package]]
@@ -175,6 +176,12 @@ name = "pom"
 version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e2192780e9f8e282049ff9bffcaa28171e1cb0844f49ed5374e518ae6024ec"
+
+[[package]]
+name = "rect_packer"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8ffb4dfda4b01cc420847665dc480760d596ce186f2772a66ed32fe9acb1c45"
 
 [[package]]
 name = "ttf-parser"
