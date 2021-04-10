@@ -72,8 +72,8 @@ pub struct TextStyle {
 
 impl TextStyle {
     pub const DEFAULT: Self = Self {
-        font_size: 32.,
-        line_height: 40.,
+        font_size: 16.,
+        line_height: 20.,
         align: TextAlign::Left,
     };
 }

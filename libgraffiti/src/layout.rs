@@ -45,9 +45,8 @@ impl LayoutEngine {
 
             // TODO
             YGNodeStyleSetFlexDirection(node.0, YGFlexDirection::Row);
-            YGNodeStyleSetPadding(node.0, YGEdge::All, 10.);
-            YGNodeStyleSetMinWidth(node.0, 100.);
-            YGNodeStyleSetMinHeight(node.0, 20.);
+            YGNodeStyleSetFlexWrap(node.0, YGWrap::Wrap);
+            YGNodeStyleSetPadding(node.0, YGEdge::All, 5.);
         }
     }
 

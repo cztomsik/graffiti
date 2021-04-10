@@ -68,7 +68,7 @@ impl<'a> RenderContext<'a> {
         //let text_style = TextStyle::DEFAULT;
         let text = Text::new(text);
 
-        self.canvas.set_fill_color([0, 0, 0, 200]);
+        self.canvas.set_fill_color([0, 0, 0, 255]);
         self.canvas.fill_text(&text, rect.pos.into());
     }
 }

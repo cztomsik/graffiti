@@ -1,11 +1,13 @@
 #![allow(unused, non_snake_case)]
 
-use super::{super::Vertex, Frame, RenderBackend};
+use super::super::{DrawOp, Frame, TexData, Vertex};
+use super::RenderBackend;
 use std::marker::PhantomData;
 
 /// Super-simple OpengGL 2.1 backend
 /// - one vbo
 /// - one shader
+/// - one texture
 /// - drawArrays
 pub struct GlBackend {
     // !Send, !Sync
@@ -13,6 +15,7 @@ pub struct GlBackend {
 
     vao: GLuint,
     vbo: GLuint,
+    tex: GLuint,
     program: GLuint,
 }
 
@@ -43,25 +46,42 @@ impl GlBackend {
             assert_ne!(vbo, 0);
             check("vbo");
 
+            // one texture
+            let mut tex = 0;
+            glGenTextures(1, &mut tex);
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR as _);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as _);
+            //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE as _);
+            //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE as _);
+            // needed if RGB
+            //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            check("texture");
             // one shader
             let program = create_program(VS, FS);
             glUseProgram(program);
 
             // setup attrs
-            let loc = glGetAttribLocation(program, c_str!("a_pos")) as _;
-            glEnableVertexAttribArray(loc);
-            glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, STRIDE, offsetof!(Vertex, xyz));
+            let a_pos = glGetAttribLocation(program, c_str!("a_pos")) as _;
+            glEnableVertexAttribArray(a_pos);
+            glVertexAttribPointer(a_pos, 2, GL_FLOAT, GL_FALSE, STRIDE, offsetof!(Vertex, xy));
             check("a_pos");
 
-            let loc = glGetAttribLocation(program, c_str!("a_color")) as _;
-            glEnableVertexAttribArray(loc);
-            glVertexAttribPointer(loc, 4, GL_UNSIGNED_BYTE, GL_TRUE, STRIDE, offsetof!(Vertex, color));
+            let a_uv = glGetAttribLocation(program, c_str!("a_uv")) as _;
+            glEnableVertexAttribArray(a_uv);
+            glVertexAttribPointer(a_uv, 2, GL_FLOAT, GL_FALSE, STRIDE, offsetof!(Vertex, uv));
+            check("a_uv");
+
+            let a_color = glGetAttribLocation(program, c_str!("a_color")) as _;
+            glEnableVertexAttribArray(a_color);
+            glVertexAttribPointer(a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, STRIDE, offsetof!(Vertex, color));
             check("a_color");
 
             Self {
                 _marker: PhantomData,
                 vao,
                 vbo,
+                tex,
                 program,
             }
         }
@@ -73,6 +93,7 @@ impl Drop for GlBackend {
         unsafe {
             glDeleteBuffers(1, &mut self.vbo);
             glDeleteVertexArrays(1, &mut self.vao);
+            glDeleteTextures(1, &mut self.tex);
             glDeleteProgram(self.program);
         }
     }
@@ -92,20 +113,34 @@ impl RenderBackend for GlBackend {
             );
             check("upload vbo");
 
-            glClearColor(0.25, 0., 0., 1.);
-            glClear(
-                GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, /* | GL_STENCIL_BUFFER_BIT*/
-            );
-
-            // TODO: pass.opaque/alpha
-            //glDepthMask(GL_FALSE);
-            //glEnable(GL_BLEND);
+            glClearColor(1., 1., 1., 1.);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             let mut index: GLint = 0;
 
-            for dc in frame.draw_calls {
-                glDrawArrays(GL_TRIANGLES, index, frame.vertices.len() as _);
-                index += frame.vertices.len() as GLint;
+            for op in frame.draw_ops {
+                match op {
+                    DrawOp::TexData(TexData { width, height, pixels }) => {
+                        glBindTexture(GL_TEXTURE_2D, self.tex);
+                        glTexImage2D(
+                            GL_TEXTURE_2D,
+                            0,
+                            GL_RGBA as _,
+                            width,
+                            height,
+                            0,
+                            GL_RGBA,
+                            GL_UNSIGNED_BYTE,
+                            pixels.as_ptr() as _,
+                        );
+                        glActiveTexture(GL_TEXTURE0);
+                    }
+
+                    DrawOp::DrawArrays(num) => {
+                        glDrawArrays(GL_TRIANGLES, index, num as _);
+                        index += num as GLint;
+                    }
+                }
             }
         }
     }
@@ -116,7 +151,7 @@ pub const VS: &str = r#"
 
 //uniform mat3 u_projection;
 
-attribute vec3 a_pos;
+attribute vec2 a_pos;
 attribute vec2 a_uv;
 attribute vec4 a_color;
 
@@ -139,11 +174,13 @@ pub const FS: &str = r#"
 
 precision mediump float;
 
+uniform sampler2D tex;
+
 varying vec2 v_uv;
 varying vec4 v_color;
 
 void main() {
-    gl_FragColor = v_color;
+    gl_FragColor = v_color * texture2D(tex, v_uv);
 }
 "#;
 
@@ -305,6 +342,7 @@ dylib! {
         fn glTexParameteri(target: GLenum, pname: GLenum, params: GLint);
         fn glTexImage2D(target: GLenum, level: GLint, format: GLint, width: GLsizei, height: GLsizei, border: GLint, internal_format: GLenum, kind: GLenum, pixels: *const c_void);
         fn glActiveTexture(tex: GLenum);
+        fn glDeleteTextures(n: GLsizei, textures: *mut GLuint);
 
         // rendering
         fn glViewport(x: GLint, y: GLint, w: GLsizei, h: GLsizei);
