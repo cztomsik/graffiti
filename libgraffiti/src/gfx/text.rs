@@ -58,8 +58,8 @@ impl Text {
         // go through the hints, make a break each time it overflows
         if !break_hints.is_empty() {
             for (i, xend) in break_hints {
-                if ((xend * self.style.font_size) - offset) > max_width {
-                    let x = xglyphs[*i].0 * self.style.font_size;
+                if (xend - offset) > max_width {
+                    let x = xglyphs[*i].0;
                     let line_width = x - offset;
 
                     if line_width > width {
@@ -82,18 +82,21 @@ impl Text {
     // TODO: check/refactor (it's old code)
     pub fn for_each_glyph<F: FnMut(GlyphPos)>(&self, rect: AABB /* start_x */, mut f: F) {
         let scale_font = SANS_SERIF_FONT.as_scaled(self.style.font_size);
-        let layout = self.single_line();
+        let single_line = self.single_line();
 
-        let (mut y, mut offset, mut hints, mut next_hint) =
-            (rect.min.y, rect.min.x, layout.break_hints.iter().copied(), (0, 0.));
+        let mut y = rect.min.y + self.style.line_height / 2.;
+        let mut offset = rect.min.x;
+        let mut hints = single_line.break_hints.iter().copied();
+        let mut next_hint = (0, 0.);
 
-        for (i, &(x, glyph_id)) in layout.xglyphs.iter().enumerate() {
-            let x = rect.min.x + x;
+        for (i, &(x, glyph_id)) in single_line.xglyphs.iter().enumerate() {
+            let mut x = rect.min.x + x - offset;
 
             // start of the next word/hint
             if i == next_hint.0 {
                 if ((next_hint.1) - offset) > rect.max.x {
                     offset = x;
+                    x = rect.min.x;
                     y += self.style.line_height;
                 }
 
@@ -136,7 +139,7 @@ impl Text {
                             hint = None;
                         }
                     }
-                } else if ch == '\n' {
+                } else if self.style.pre && ch == '\n' {
                     if let Some(i) = hint {
                         break_hints.push((i, x));
                         hint = None;
@@ -166,6 +169,7 @@ impl Text {
     }
 }
 
+#[derive(Debug)]
 struct SingleLine {
     width: f32,
 
@@ -190,8 +194,8 @@ pub struct TextStyle {
     pub line_height: f32,
     //pub letter_spacing: f32,
     //pub word_spacing: f32,
-    // TODO: white-space
     pub align: TextAlign,
+    pub pre: bool,
 }
 
 impl TextStyle {
@@ -199,6 +203,7 @@ impl TextStyle {
         font_size: 16.,
         line_height: 20.,
         align: TextAlign::Left,
+        pre: false,
     };
 }
 

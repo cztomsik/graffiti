@@ -12,6 +12,7 @@ pub struct Style {
 
 impl Style {
     pub const EMPTY: Self = Self::new();
+    pub const HIDDEN: Self = Self::new();
 
     pub const fn new() -> Self {
         Self { props: Vec::new() }

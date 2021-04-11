@@ -156,6 +156,8 @@ extern "C" {
     pub fn YGNodeGetContext(node: YGNodeRef) -> *mut c_void;
     pub fn YGNodeSetMeasureFunc(node: YGNodeRef, measureFunc: YGMeasureFunc);
 
+    // TODO: getters
+
     pub fn YGNodeStyleSetFlexDirection(node: YGNodeRef, flexDirection: YGFlexDirection);
     pub fn YGNodeStyleSetFlexWrap(node: YGNodeRef, flexWrap: YGWrap);
 
