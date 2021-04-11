@@ -44,12 +44,12 @@ impl Text {
     // TODO: start_x for inline-layout (some el follows on the same line)
     pub fn measure(&self, max_width: f32 /* start_x */) -> (f32, f32) {
         let &SingleLine {
-            width,
             ref xglyphs,
             ref break_hints,
         } = &*self.single_line();
 
-        if width == 0. {
+        // empty or white-space
+        if xglyphs.len() == 0 {
             return (0., 0.);
         }
 
@@ -85,18 +85,15 @@ impl Text {
         let single_line = self.single_line();
 
         let mut y = rect.min.y + self.style.line_height / 2.;
-        let mut offset = rect.min.x;
+        let mut offset = 0.;
         let mut hints = single_line.break_hints.iter().copied();
         let mut next_hint = (0, 0.);
 
-        for (i, &(x, glyph_id)) in single_line.xglyphs.iter().enumerate() {
-            let mut x = rect.min.x + x - offset;
-
-            // start of the next word/hint
-            if i == next_hint.0 {
-                if ((next_hint.1) - offset) > rect.max.x {
+        for &(x, glyph_id) in single_line.xglyphs.iter() {
+            // next word/hint
+            if x > next_hint.1 {
+                if (rect.min.x + next_hint.1 - offset) > rect.max.x {
                     offset = x;
-                    x = rect.min.x;
                     y += self.style.line_height;
                 }
 
@@ -106,7 +103,7 @@ impl Text {
 
             f(GlyphPos {
                 glyph: glyph_id.with_scale(scale_font.scale()),
-                pos: Vec2::new(x, y),
+                pos: Vec2::new(rect.min.x + x - offset, y),
             })
         }
     }
@@ -118,61 +115,60 @@ impl Text {
             let mut xglyphs = Vec::new();
             let mut break_hints = Vec::new();
             let mut x = 0.;
-            let mut found_space = false;
+            let mut in_space = false;
 
             // where the current breakpoint starts
             let mut hint = None;
 
             // TODO: shape
-            for (i, ch) in self.text.chars().enumerate() {
-                let glyph_id = scale_font.glyph_id(ch);
-                xglyphs.push((x, glyph_id));
-
+            for ch in self.text.chars() {
                 // TODO: FSM could be (a bit) more readable
-                // but it's not that hard, it just adds hint after each space
+                // but it's not that bad, it just adds hint after each space
                 // ignoring any adjacent whitespace
-                if ch == ' ' {
-                    if !found_space {
-                        found_space = true;
+                if is_space(ch, self.style.pre) {
+                    if !in_space {
+                        in_space = true;
+                        x += scale_font.h_advance(scale_font.glyph_id(' '));
+
                         if let Some(i) = hint {
                             break_hints.push((i, x));
                             hint = None;
                         }
                     }
-                } else if self.style.pre && ch == '\n' {
-                    if let Some(i) = hint {
-                        break_hints.push((i, x));
-                        hint = None;
+                // only if pre == false
+                } else if ch == '\n' {
+                    break_hints.push((xglyphs.len(), std::f32::MAX));
+                    xglyphs.push((x, scale_font.glyph_id(' ')));
+                    in_space = false;
+                } else {
+                    if in_space {
+                        hint = Some(xglyphs.len());
+                        in_space = false;
                     }
-                    break_hints.push((i, std::f32::MAX));
-                    found_space = false;
-                } else if found_space {
-                    hint = Some(i);
-                    found_space = false;
-                }
 
-                x += scale_font.h_advance(glyph_id);
+                    let glyph_id = scale_font.glyph_id(ch);
+                    xglyphs.push((x, glyph_id));
+                    x += scale_font.h_advance(glyph_id);
+                }
             }
 
             if let Some(i) = hint {
                 break_hints.push((i, x));
             }
 
-            self.single_line.replace(Some(SingleLine {
-                width: x,
-                xglyphs,
-                break_hints,
-            }));
+            self.single_line.replace(Some(SingleLine { xglyphs, break_hints }));
         }
 
         Ref::map(self.single_line.borrow(), |o| o.as_ref().unwrap())
     }
 }
 
+fn is_space(ch: char, preserve: bool) -> bool {
+    ch == ' ' || !preserve && (ch == '\t' || ch == '\n' || ch == '\r')
+}
+
 #[derive(Debug)]
 struct SingleLine {
-    width: f32,
-
     // (x, glyph_id) of each glyph when on single line
     xglyphs: Vec<(f32, GlyphId)>,
 
