@@ -7,8 +7,7 @@ use std::rc::Rc;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
 pub struct Window {
-    // !Send + !Sync
-    app: Rc<App>,
+    _app: Rc<App>,
     title: String,
     glfw_window: GlfwWindow,
     events: Receiver<Event>,
@@ -47,7 +46,7 @@ impl Window {
             glfwSetWindowCloseCallback(glfw_window, handle_glfw_window_close);
 
             Self {
-                app: Rc::clone(app),
+                _app: Rc::clone(app),
                 title: title.to_owned(),
                 glfw_window,
                 events,

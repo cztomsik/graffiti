@@ -8,7 +8,7 @@ export class AppWindow {
   #worker?: Worker
   #send = ERR.bind('no worker')
 
-  constructor({ title = 'Graffiti', width = 800, height = 600 } = {}) {
+  constructor({ title = 'Graffiti', width = 1024, height = 768 } = {}) {
     this.#id = native.window_new(title, width, height)
 
     // TODO: fires prematurely

@@ -1,6 +1,6 @@
 // subset of CSS selectors
 // x to support CSS-in-JS libs
-// x no specificity for now
+// - specificity (TODO, u32-only)
 // x no first/last/nth/siblings
 // x universal
 // x local name
@@ -13,7 +13,6 @@
 // x decoupled from other systems
 
 use crate::util::Atom;
-use std::convert::TryFrom;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Selector {
@@ -70,7 +69,7 @@ impl<E: Copy> MatchingContext<'_, E> {
         }
     }
 
-    pub fn match_selector<'a>(&'a self, selector: &Selector, el: E) -> bool {
+    pub fn match_selector<'a>(&'a self, selector: &Selector, el: E) -> Option<u32> {
         // so we can fast-forward to next OR
         let mut parts_iter = selector.parts.iter();
 
@@ -78,6 +77,7 @@ impl<E: Copy> MatchingContext<'_, E> {
         let mut curr = el;
         let mut parent = false;
         let mut ancestors = false;
+        let mut specificity = 0;
 
         // we are always going forward
         'next_part: while let Some(p) = parts_iter.next() {
@@ -116,7 +116,7 @@ impl<E: Copy> MatchingContext<'_, E> {
                     }
 
                     // or fail otherwise
-                    return false;
+                    return None;
                 }
 
                 // state changes
@@ -127,25 +127,24 @@ impl<E: Copy> MatchingContext<'_, E> {
                 SelectorPart::Combinator(Combinator::Universal) => {}
 
                 // we still have a match, no need to check others
-                SelectorPart::Combinator(Combinator::Or) => return true,
+                SelectorPart::Combinator(Combinator::Or) => break 'next_part,
             }
         }
 
         // everything was fine
-        true
+        Some(specificity)
     }
 }
 
 #[derive(Debug)]
 pub struct InvalidSelector;
 
-impl TryFrom<&str> for Selector {
-    type Error = InvalidSelector;
-
-    fn try_from(selector: &str) -> Result<Self, Self::Error> {
+// never fails
+impl From<&str> for Selector {
+    fn from(selector: &str) -> Self {
         (super::parser::selector() - pom::parser::end())
             .parse(selector.as_bytes())
-            .map_err(|_| InvalidSelector)
+            .unwrap_or(Selector { parts: vec![] })
     }
 }
 
@@ -209,7 +208,10 @@ mod tests {
             parent: &|e| parents[e],
         };
 
-        let match_sel = |s, el| ctx.match_selector(&Selector::try_from(s).unwrap(), el);
+        let match_sel = |s, el| ctx.match_selector(&Selector::from(s), el).is_some();
+
+        // invalid
+        assert!(!match_sel("", 0));
 
         // basic
         assert!(match_sel("*", 0));

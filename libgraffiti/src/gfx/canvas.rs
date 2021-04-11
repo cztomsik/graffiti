@@ -1,29 +1,34 @@
 // super-simple GPU-first 2D graphics
 // x outputs (textured) vertices + draw "ops"
-// x easy to integrate, inspired by imgui backend
+// x easy to integrate (and to compose)
 
-use super::font::SANS_SERIF_FACE;
-use super::Font;
-use owned_ttf_parser::AsFaceRef;
-use std::sync::Arc;
+use super::{CachedGlyph, GlyphCache, GlyphPos, Text, Vec2, AABB};
+use std::ops::{Index, IndexMut};
 
 pub type RGBA8 = [u8; 4];
 
 pub struct Canvas {
     states: Vec<State>,
     frame: Frame,
+    glyph_cache: GlyphCache,
 }
 
 impl Canvas {
     pub fn new() -> Self {
         Self {
-            states: vec![State::default()],
+            states: vec![State::DEFAULT],
             frame: Frame::new(),
+            glyph_cache: GlyphCache::new(),
         }
     }
 
     // TODO: channel?
     pub fn flush(&mut self) -> Frame {
+        // TODO: CoW or something...
+        self.frame
+            .draw_ops
+            .insert(0, DrawOp::TexData(self.glyph_cache.tex_data().clone()));
+
         std::mem::replace(&mut self.frame, Frame::new())
     }
 
@@ -35,7 +40,7 @@ impl Canvas {
         if self.states.len() > 1 {
             drop(self.states.pop())
         } else {
-            self.states[0] = State::default()
+            self.states[0] = State::DEFAULT
         }
     }
 
@@ -63,75 +68,59 @@ impl Canvas {
         self.state_mut().fill_color = fill_color;
     }
 
-    pub fn fill_rect(&mut self, x: f32, y: f32, width: f32, height: f32) {
+    pub fn fill_rect(&mut self, pos: Vec2, size: Vec2) {
         let color = self.state().fill_color;
-
-        // TODO
-        let z = 1.;
-        let uv = [0., 0.];
+        let uv = Vec2::ZERO;
 
         self.frame.vertices.extend_from_slice(&[
-            Vertex {
-                xyz: [x, y, z],
-                uv,
-                color,
-            },
-            Vertex {
-                xyz: [x + width, y, z],
-                uv,
-                color,
-            },
-            Vertex {
-                xyz: [x, y + height, z],
-                uv,
-                color,
-            },
-            Vertex {
-                xyz: [x + width, y, z],
-                uv,
-                color,
-            },
-            Vertex {
-                xyz: [x, y + height, z],
-                uv,
-                color,
-            },
-            Vertex {
-                xyz: [x + width, y + height, z],
-                uv,
-                color,
-            },
+            Vertex::new(pos, uv, color),
+            Vertex::new(Vec2::new(pos.x + size.x, pos.y), uv, color),
+            Vertex::new(Vec2::new(pos.x, pos.y + size.y), uv, color),
+            Vertex::new(Vec2::new(pos.x + size.x, pos.y), uv, color),
+            Vertex::new(Vec2::new(pos.x, pos.y + size.y), uv, color),
+            Vertex::new(pos + size, uv, color),
         ]);
 
         // TODO: join
-        self.frame.draw_calls.push(DrawOp::DrawArrays(6));
+        self.frame.draw_ops.push(DrawOp::DrawArrays(6));
     }
 
-    pub fn set_font(&mut self, font: &str) {
-        todo!()
-    }
+    pub fn fill_text(&mut self, text: &Text, rect: AABB) {
+        let color = self.state().fill_color;
+        let mut count = 0;
 
-    pub fn measure_text(&self, text: &str, max_width: Option<f32>) -> TextMetrics {
-        todo!()
-    }
+        text.for_each_glyph(rect, |GlyphPos { glyph, pos }| {
+            let CachedGlyph { rect, uv } = self.glyph_cache.use_glyph(/* &text.font(),*/ glyph.clone());
 
-    pub fn fill_text(&mut self, text: &str, mut x: f32, y: f32) {
-        let scale = SANS_SERIF_FACE.scale;
-        let face = SANS_SERIF_FACE.face.as_face_ref();
+            self.frame.vertices.extend_from_slice(&[
+                Vertex::new(pos + rect.min, uv.min, color),
+                Vertex::new(
+                    pos + Vec2::new(rect.min.x, rect.max.y),
+                    Vec2::new(uv.min.x, uv.max.y),
+                    color,
+                ),
+                Vertex::new(
+                    pos + Vec2::new(rect.max.x, rect.min.y),
+                    Vec2::new(uv.max.x, uv.min.y),
+                    color,
+                ),
+                Vertex::new(
+                    pos + Vec2::new(rect.min.x, rect.max.y),
+                    Vec2::new(uv.min.x, uv.max.y),
+                    color,
+                ),
+                Vertex::new(
+                    pos + Vec2::new(rect.max.x, rect.min.y),
+                    Vec2::new(uv.max.x, uv.min.y),
+                    color,
+                ),
+                Vertex::new(pos + rect.max, uv.max, color),
+            ]);
 
-        for c in text.chars() {
-            if let Some(glyph_id) = face.glyph_index(c) {
-                if let Some(glyph_rect) = face.glyph_bounding_box(glyph_id) {
-                    self.fill_rect(
-                        x,
-                        y,
-                        glyph_rect.width() as f32 * scale,
-                        glyph_rect.height() as f32 * scale,
-                    );
-                    x += face.glyph_hor_advance(glyph_id).unwrap_or(0) as f32 * scale;
-                }
-            }
-        }
+            count += 1;
+        });
+
+        self.frame.draw_ops.push(DrawOp::DrawArrays(count * 6))
     }
 
     // TODO: stroke_text()
@@ -140,49 +129,71 @@ impl Canvas {
 #[derive(Debug, Clone)]
 struct State {
     fill_color: RGBA8,
-    font: Arc<Font>,
     opacity: f32,
 }
 
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            fill_color: [0, 0, 0, 255],
-            font: Arc::clone(&SANS_SERIF_FACE),
-            opacity: 1.,
-        }
-    }
-}
-
-pub struct TextMetrics {
-    width: f32,
+impl State {
+    const DEFAULT: Self = Self {
+        fill_color: [0, 0, 0, 255],
+        opacity: 1.,
+    };
 }
 
 #[derive(Debug)]
 pub struct Frame {
+    //pub viewport_rect: [i32; 4],
     pub vertices: Vec<Vertex>,
-    pub draw_calls: Vec<DrawOp>,
+    pub draw_ops: Vec<DrawOp>,
 }
 
 impl Frame {
     pub fn new() -> Self {
         Self {
             vertices: Vec::with_capacity(1024),
-            draw_calls: Vec::with_capacity(32),
+            draw_ops: Vec::with_capacity(32),
         }
     }
 }
 
 #[derive(Debug)]
 pub enum DrawOp {
+    TexData(TexData),
+
     // TODO: scissor_rect, texture, ?
-    DrawArrays(usize),
+    DrawArrays(u32),
+}
+
+#[derive(Debug, Clone)]
+pub struct TexData {
+    pub width: i32,
+    pub height: i32,
+    pub pixels: Vec<RGBA8>,
+}
+
+impl Index<(usize, usize)> for TexData {
+    type Output = RGBA8;
+
+    fn index(&self, (x, y): (usize, usize)) -> &Self::Output {
+        &self.pixels[y * self.width as usize + x]
+    }
+}
+
+impl IndexMut<(usize, usize)> for TexData {
+    fn index_mut(&mut self, (x, y): (usize, usize)) -> &mut Self::Output {
+        &mut self.pixels[y * self.width as usize + x]
+    }
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct Vertex {
-    pub xyz: [f32; 3],
-    pub uv: [f32; 2],
+    pub xy: Vec2,
+    pub uv: Vec2,
     pub color: RGBA8,
+}
+
+impl Vertex {
+    pub const fn new(xy: Vec2, uv: Vec2, color: RGBA8) -> Self {
+        Self { xy, uv, color }
+    }
 }
