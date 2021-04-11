@@ -404,7 +404,7 @@ mod tests {
         use super::Component::*;
         use SelectorPart::{Combinator, Component};
 
-        let s = |s| Selector::try_from(s).unwrap().parts;
+        let s = |s| Selector::from(s).parts;
 
         // simple
         assert_eq!(s("*"), &[Combinator(Universal)]);

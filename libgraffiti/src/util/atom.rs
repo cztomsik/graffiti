@@ -39,7 +39,7 @@ impl<T: Eq + Hash + 'static> Atom<T> {
     }
 }
 
-impl<T: 'static + Eq + Hash + Send + Sync> From<T> for Atom<T> {
+impl<T: 'static + Eq + Hash> From<T> for Atom<T> {
     fn from(v: T) -> Self {
         Self::with_atoms(|atoms| {
             if let Some(rc) = atoms.get(&v) {

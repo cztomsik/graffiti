@@ -2,7 +2,7 @@
 // x outputs (textured) vertices + draw "ops"
 // x easy to integrate (and to compose)
 
-use super::{CachedGlyph, GlyphCache, GlyphPos, Text, Vec2};
+use super::{CachedGlyph, GlyphCache, GlyphPos, Text, Vec2, AABB};
 use std::ops::{Index, IndexMut};
 
 pub type RGBA8 = [u8; 4];
@@ -85,40 +85,40 @@ impl Canvas {
         self.frame.draw_ops.push(DrawOp::DrawArrays(6));
     }
 
-    pub fn fill_text(&mut self, text: &Text, pos: Vec2) {
+    pub fn fill_text(&mut self, text: &Text, rect: AABB) {
         let color = self.state().fill_color;
         let mut count = 0;
 
-        for &GlyphPos { ref glyph, pos: gpos } in text.glyphs() {
+        text.for_each_glyph(rect, |GlyphPos { glyph, pos }| {
             let CachedGlyph { rect, uv } = self.glyph_cache.use_glyph(/* &text.font(),*/ glyph.clone());
 
             self.frame.vertices.extend_from_slice(&[
-                Vertex::new(pos + gpos + rect.min, uv.min, color),
+                Vertex::new(pos + rect.min, uv.min, color),
                 Vertex::new(
-                    pos + gpos + Vec2::new(rect.min.x, rect.max.y),
+                    pos + Vec2::new(rect.min.x, rect.max.y),
                     Vec2::new(uv.min.x, uv.max.y),
                     color,
                 ),
                 Vertex::new(
-                    pos + gpos + Vec2::new(rect.max.x, rect.min.y),
+                    pos + Vec2::new(rect.max.x, rect.min.y),
                     Vec2::new(uv.max.x, uv.min.y),
                     color,
                 ),
                 Vertex::new(
-                    pos + gpos + Vec2::new(rect.min.x, rect.max.y),
+                    pos + Vec2::new(rect.min.x, rect.max.y),
                     Vec2::new(uv.min.x, uv.max.y),
                     color,
                 ),
                 Vertex::new(
-                    pos + gpos + Vec2::new(rect.max.x, rect.min.y),
+                    pos + Vec2::new(rect.max.x, rect.min.y),
                     Vec2::new(uv.max.x, uv.min.y),
                     color,
                 ),
-                Vertex::new(pos + gpos + rect.max, uv.max, color),
+                Vertex::new(pos + rect.max, uv.max, color),
             ]);
 
             count += 1;
-        }
+        });
 
         self.frame.draw_ops.push(DrawOp::DrawArrays(count * 6))
     }

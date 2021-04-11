@@ -18,7 +18,7 @@ pub type YGMeasureFunc = Option<
 >;
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum YGMeasureMode {
     Undefined = 0,
     Exactly = 1,
@@ -26,7 +26,7 @@ pub enum YGMeasureMode {
 }
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum YGDirection {
     Inherit = 0,
     LTR = 1,
@@ -36,7 +36,7 @@ pub enum YGDirection {
 pub const YGUndefined: c_float = std::f32::NAN;
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum YGEdge {
     Left = 0,
     Top = 1,
@@ -50,7 +50,7 @@ pub enum YGEdge {
 }
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum YGAlign {
     Auto = 0,
     FlexStart = 1,
@@ -63,7 +63,7 @@ pub enum YGAlign {
 }
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum YGFlexDirection {
     Column = 0,
     ColumnReverse = 1,
@@ -72,7 +72,7 @@ pub enum YGFlexDirection {
 }
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum YGJustify {
     FlexStart = 0,
     Center = 1,
@@ -83,7 +83,7 @@ pub enum YGJustify {
 }
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum YGOverflow {
     Visible = 0,
     Hidden = 1,
@@ -91,21 +91,21 @@ pub enum YGOverflow {
 }
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum YGDisplay {
     Flex = 0,
     None = 1,
 }
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum YGPositionType {
     Relative = 0,
     Absolute = 1,
 }
 
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum YGWrap {
     NoWrap = 0,
     Wrap = 1,
@@ -113,7 +113,7 @@ pub enum YGWrap {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct YGSize {
     pub width: c_float,
     pub height: c_float,
