@@ -6,6 +6,8 @@
 // x bounds relative to their parents
 // x node/leaf type cannot be changed (but you can always create a new one and replace it)
 
+#![allow(unused)]
+
 use graffiti_yoga::*;
 use std::convert::TryInto;
 

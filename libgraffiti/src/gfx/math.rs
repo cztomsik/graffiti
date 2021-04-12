@@ -64,6 +64,7 @@ impl Div<f32> for Vec2 {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AABB {
     pub min: Vec2,

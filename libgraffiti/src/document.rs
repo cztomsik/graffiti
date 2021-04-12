@@ -9,7 +9,6 @@ use crate::css::{MatchingContext, Selector, Style};
 use crate::util::{Atom, SlotMap};
 use std::any::Any;
 use std::borrow::Cow;
-use std::convert::TryFrom;
 
 pub type NodeId = u32;
 

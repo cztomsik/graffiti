@@ -57,7 +57,7 @@ macro_rules! export_api {
                 TASK_CHANNEL.1.try_iter().for_each(|t| t());
                 ctx!().app.as_ref().unwrap().wait_events_timeout(0.1);
             },
-            wake_up: || App::wake_up(),
+            wake_up: App::wake_up,
 
             viewport_new: |w: f64, h: f64, doc: u32| {
                 let vp = Viewport::new((w as _, h as _), &ctx!().documents[doc]);

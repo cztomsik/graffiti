@@ -26,13 +26,6 @@ impl core::ops::Deref for CStringWrap {
     }
 }
 
-macro_rules! offsetof {
-    ($ty:ty, $field:ident $(,)?) => {{
-        let null: &$ty = core::mem::transmute(ptr::null::<$ty>());
-        &null.$field as *const _ as *const std::os::raw::c_void
-    }};
-}
-
 #[macro_use]
 mod init;
 

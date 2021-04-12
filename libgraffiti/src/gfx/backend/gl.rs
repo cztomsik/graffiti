@@ -19,6 +19,14 @@ pub struct GlBackend {
     program: GLuint,
 }
 
+macro_rules! offsetof {
+    ($type:ident . $field:ident $(,)?) => {{
+        // ptr::null() didnt work in --release
+        let uninit = std::mem::MaybeUninit::<$type>::uninit();
+        (&(*uninit.as_ptr()).$field as *const _ as *const c_void).sub(uninit.as_ptr() as _)
+    }};
+}
+
 impl GlBackend {
     pub unsafe fn load_with(load_symbol: impl FnMut(&str) -> *mut c_void) {
         self::load_with(load_symbol)
@@ -57,6 +65,7 @@ impl GlBackend {
             // needed if RGB
             //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             check("texture");
+
             // one shader
             let program = create_program(VS, FS);
             glUseProgram(program);
@@ -64,17 +73,17 @@ impl GlBackend {
             // setup attrs
             let a_pos = glGetAttribLocation(program, c_str!("a_pos")) as _;
             glEnableVertexAttribArray(a_pos);
-            glVertexAttribPointer(a_pos, 2, GL_FLOAT, GL_FALSE, STRIDE, offsetof!(Vertex, xy));
+            glVertexAttribPointer(a_pos, 2, GL_FLOAT, GL_FALSE, STRIDE, offsetof!(Vertex.xy));
             check("a_pos");
 
             let a_uv = glGetAttribLocation(program, c_str!("a_uv")) as _;
             glEnableVertexAttribArray(a_uv);
-            glVertexAttribPointer(a_uv, 2, GL_FLOAT, GL_FALSE, STRIDE, offsetof!(Vertex, uv));
+            glVertexAttribPointer(a_uv, 2, GL_FLOAT, GL_FALSE, STRIDE, offsetof!(Vertex.uv));
             check("a_uv");
 
             let a_color = glGetAttribLocation(program, c_str!("a_color")) as _;
             glEnableVertexAttribArray(a_color);
-            glVertexAttribPointer(a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, STRIDE, offsetof!(Vertex, color));
+            glVertexAttribPointer(a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, STRIDE, offsetof!(Vertex.color));
             check("a_color");
 
             Self {
@@ -206,7 +215,7 @@ unsafe fn create_program(vs: &str, fs: &str) -> GLuint {
     glGetProgramiv(program, GL_LINK_STATUS, &mut success);
 
     if success != GL_TRUE as GLint {
-        panic!(get_program_info_log(program));
+        panic!("{}", get_program_info_log(program));
     }
 
     program
@@ -221,7 +230,7 @@ unsafe fn shader(shader_type: GLuint, source: &str) -> GLuint {
     glGetShaderiv(shader, GL_COMPILE_STATUS, &mut success);
 
     if success != GL_TRUE as GLint {
-        panic!(get_shader_info_log(shader));
+        panic!("{}", get_shader_info_log(shader));
     }
 
     shader
@@ -313,9 +322,9 @@ dylib! {
     extern "C" {
         // err
         fn glGetError() -> GLenum;
-        fn glGetProgramiv(program: GLuint, pname: GLenum, params: *const GLint);
+        fn glGetProgramiv(program: GLuint, pname: GLenum, params: *mut GLint);
         fn glGetProgramInfoLog(program: GLuint, buf_size: GLsizei, len: *mut GLsizei, log: *mut GLchar);
-        fn glGetShaderiv(shader: GLuint, pname: GLenum, params: *const GLint);
+        fn glGetShaderiv(shader: GLuint, pname: GLenum, params: *mut GLint);
         fn glGetShaderInfoLog(shader: GLuint, buf_size: GLsizei, len: *mut GLsizei, log: *mut GLchar);
 
         // vao

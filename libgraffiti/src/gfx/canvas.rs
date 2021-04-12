@@ -5,6 +5,7 @@
 use super::{CachedGlyph, GlyphCache, GlyphPos, Text, Vec2, AABB};
 use std::ops::{Index, IndexMut};
 
+#[allow(clippy::upper_case_acronyms)]
 pub type RGBA8 = [u8; 4];
 
 pub struct Canvas {
@@ -90,7 +91,7 @@ impl Canvas {
         let mut count = 0;
 
         text.for_each_glyph(rect, |GlyphPos { glyph, pos }| {
-            let CachedGlyph { rect, uv } = self.glyph_cache.use_glyph(/* &text.font(),*/ glyph.clone());
+            let CachedGlyph { rect, uv } = self.glyph_cache.use_glyph(/* &text.font(),*/ glyph);
 
             self.frame.vertices.extend_from_slice(&[
                 Vertex::new(pos + rect.min, uv.min, color),
