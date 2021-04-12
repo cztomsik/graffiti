@@ -32,7 +32,7 @@ impl Text {
     }
 
     pub fn style(&self) -> &TextStyle {
-        &self.style()
+        &self.style
     }
 
     pub fn set_style(&mut self, style: &TextStyle) {
@@ -49,7 +49,7 @@ impl Text {
         } = &*self.single_line();
 
         // empty or white-space
-        if xglyphs.len() == 0 {
+        if xglyphs.is_empty() {
             return (0., 0.);
         }
 

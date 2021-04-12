@@ -3,7 +3,7 @@ use once_cell::sync::Lazy;
 
 pub use ab_glyph::{Font, FontArc, Glyph, GlyphId, ScaleFont};
 
-pub const FONT_DB: Lazy<Database> = Lazy::new(|| {
+pub static FONT_DB: Lazy<Database> = Lazy::new(|| {
     let mut db = Database::new();
     db.set_sans_serif_family("Arial");
     db.load_system_fonts();
