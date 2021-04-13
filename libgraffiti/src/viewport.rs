@@ -1,11 +1,8 @@
-use crate::css::{Style, StyleProp, Value};
-use crate::gfx::{Frame, Text, TextStyle};
+use crate::css::{matching_style, CssValue, Style, StyleProp, StyleSheet};
+use crate::gfx::{Frame, Text, TextStyle, AABB};
 use crate::layout::{LayoutEngine, LayoutNode};
-use crate::matching_style;
 use crate::renderer::Renderer;
 use crate::util::SlotMap;
-use crate::Rect;
-use crate::StyleSheet;
 use crate::{Document, DocumentEvent, NodeId, NodeType};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -52,7 +49,6 @@ impl Viewport {
             let LayoutState { engine, nodes } = &mut *layout_state.borrow_mut();
             let mut styles = resolved_styles.borrow_mut();
 
-            use crate::layout::*;
             use DocumentEvent::*;
 
             match *e {
@@ -96,11 +92,10 @@ impl Viewport {
 
         renderer.render(&document.borrow(), &|n| {
             let n = layout_state.nodes[n];
+            let min = layout_state.engine.node_offset(n).into();
+            let max = min + layout_state.engine.node_size(n).into();
 
-            Rect {
-                pos: layout_state.engine.node_offset(n),
-                size: layout_state.engine.node_size(n),
-            }
+            AABB::new(min, max)
         })
     }
 
@@ -123,11 +118,14 @@ impl Viewport {
         let mut styles = self.resolved_styles.borrow_mut();
         let LayoutState { engine, nodes } = &mut *self.layout_state.borrow_mut();
 
-        let sheets: Vec<_> = doc
+        let mut sheets: Vec<_> = doc
             .query_selector_all(doc.root(), "html > head > style")
             .iter()
             .map(|s| StyleSheet::from(&*doc.text_content(*s)))
             .collect();
+
+        sheets.insert(0, StyleSheet::from(include_str!("../resources/ua.css")));
+
         doc.with_matching_context(|ctx| {
             for (el, style) in styles.iter_mut() {
                 *style = matching_style(&ctx, &sheets, el);
@@ -150,23 +148,30 @@ impl Viewport {
 }
 
 fn update_layout_node(e: &mut LayoutEngine, n: LayoutNode, style: &Style) {
-    fn dim(d: &super::css::Dimension) -> super::layout::Dimension {
+    use super::css::*;
+    use super::layout::*;
+
+    fn dim(d: &CssDimension) -> Dimension {
         match d {
-            super::css::Dimension::Px(v) => super::layout::Dimension::Px(*v),
-            _ => super::layout::Dimension::Undefined,
+            CssDimension::Px(v) => Dimension::Px(*v),
+            _ => Dimension::Undefined,
         }
     }
 
     for p in style.props() {
-        use super::layout::*;
+        use CssValue::Specified as S;
         use StyleProp as P;
-        use Value::Specified as S;
 
         match p {
             P::Display(S(v)) => e.set_display(
                 n,
                 match v {
-                    _ => Display::None,
+                    CssDisplay::None => Display::None,
+                    CssDisplay::Flex => Display::Flex,
+                    // TODO
+                    CssDisplay::Block => Display::Flex,
+                    // TODO
+                    _ => Display::Flex,
                 },
             ),
 

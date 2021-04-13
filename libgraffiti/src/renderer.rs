@@ -1,5 +1,5 @@
 use crate::gfx::{Canvas, Frame, Text, TextStyle, Vec2, AABB};
-use crate::{Document, NodeId, NodeType, Rect};
+use crate::{Document, NodeId, NodeType};
 
 pub struct Renderer {
     canvas: Canvas,
@@ -10,16 +10,16 @@ impl Renderer {
         Self { canvas: Canvas::new() }
     }
 
-    pub fn render<'a>(&mut self, document: &'a Document, layout_rect: &'a dyn Fn(NodeId) -> Rect) -> Frame {
+    pub fn render(&mut self, document: &Document, layout_fn: &dyn Fn(NodeId) -> AABB) -> Frame {
         let root = document.root();
 
         let mut ctx = RenderContext {
             document,
             canvas: &mut self.canvas,
-            layout_rect,
+            layout_fn,
         };
 
-        ctx.render_node((0., 0.), root);
+        ctx.render_node(Vec2::ZERO, root);
 
         ctx.canvas.flush()
     }
@@ -28,19 +28,16 @@ impl Renderer {
 struct RenderContext<'a> {
     document: &'a Document,
     canvas: &'a mut Canvas,
-    layout_rect: &'a dyn Fn(NodeId) -> Rect,
+    layout_fn: &'a dyn Fn(NodeId) -> AABB,
 }
 
 impl<'a> RenderContext<'a> {
-    fn render_node(&mut self, offset: (f32, f32), node: NodeId) {
-        let mut rect = (self.layout_rect)(node);
-
-        rect.pos.0 += offset.0;
-        rect.pos.1 += offset.1;
+    fn render_node(&mut self, offset: Vec2, node: NodeId) {
+        let rect = (self.layout_fn)(node) + offset;
 
         if self.document.node_type(node) == NodeType::Document {
             for ch in self.document.children(node) {
-                self.render_node(rect.pos, ch)
+                self.render_node(rect.min, ch)
             }
         }
 
@@ -53,24 +50,19 @@ impl<'a> RenderContext<'a> {
         }
     }
 
-    fn render_element(&mut self, rect: Rect, /*style: &ResolvedStyle,*/ children: impl Iterator<Item = NodeId>) {
-        let Rect { pos, size } = rect;
-
+    fn render_element(&mut self, rect: AABB, /*style: &ResolvedStyle,*/ children: impl Iterator<Item = NodeId>) {
         self.canvas.set_fill_color([255, 63, 63, 32]);
-        self.canvas.fill_rect(pos.into(), size.into());
+        self.canvas.fill_rect(rect);
 
         for ch in children {
-            self.render_node(rect.pos, ch);
+            self.render_node(rect.min, ch);
         }
     }
 
-    fn render_text_node(&mut self, rect: Rect, text: &str) {
+    fn render_text_node(&mut self, rect: AABB, text: &str) {
         let text = Text::new(text, &TextStyle::DEFAULT);
 
         self.canvas.set_fill_color([0, 0, 0, 255]);
-        self.canvas.fill_text(
-            &text,
-            AABB::new(rect.pos.into(), Vec2::from(rect.pos) + rect.size.into()),
-        );
+        self.canvas.fill_text(&text, rect);
     }
 }

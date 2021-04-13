@@ -69,17 +69,18 @@ impl Canvas {
         self.state_mut().fill_color = fill_color;
     }
 
-    pub fn fill_rect(&mut self, pos: Vec2, size: Vec2) {
+    pub fn fill_rect(&mut self, rect: AABB) {
+        let AABB { min, max } = rect;
         let color = self.state().fill_color;
         let uv = Vec2::ZERO;
 
         self.frame.vertices.extend_from_slice(&[
-            Vertex::new(pos, uv, color),
-            Vertex::new(Vec2::new(pos.x + size.x, pos.y), uv, color),
-            Vertex::new(Vec2::new(pos.x, pos.y + size.y), uv, color),
-            Vertex::new(Vec2::new(pos.x + size.x, pos.y), uv, color),
-            Vertex::new(Vec2::new(pos.x, pos.y + size.y), uv, color),
-            Vertex::new(pos + size, uv, color),
+            Vertex::new(min, uv, color),
+            Vertex::new(Vec2::new(max.x, min.y), uv, color),
+            Vertex::new(Vec2::new(min.x, max.y), uv, color),
+            Vertex::new(Vec2::new(max.x, min.y), uv, color),
+            Vertex::new(Vec2::new(min.x, max.y), uv, color),
+            Vertex::new(max, uv, color),
         ]);
 
         // TODO: join
