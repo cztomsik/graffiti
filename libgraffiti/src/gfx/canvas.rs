@@ -61,17 +61,8 @@ impl Canvas {
         self.state_mut().opacity = opacity;
     }
 
-    pub fn fill_color(&self) -> RGBA8 {
-        self.state().fill_color
-    }
-
-    pub fn set_fill_color(&mut self, fill_color: RGBA8) {
-        self.state_mut().fill_color = fill_color;
-    }
-
-    pub fn fill_rect(&mut self, rect: AABB) {
+    pub fn fill_rect(&mut self, rect: AABB, color: RGBA8) {
         let AABB { min, max } = rect;
-        let color = self.state().fill_color;
         let uv = Vec2::ZERO;
 
         self.frame.vertices.extend_from_slice(&[
@@ -87,8 +78,7 @@ impl Canvas {
         self.frame.draw_ops.push(DrawOp::DrawArrays(6));
     }
 
-    pub fn fill_text(&mut self, text: &Text, rect: AABB) {
-        let color = self.state().fill_color;
+    pub fn fill_text(&mut self, text: &Text, rect: AABB, color: RGBA8) {
         let mut count = 0;
 
         text.for_each_glyph(rect, |GlyphPos { glyph, pos }| {
@@ -130,15 +120,11 @@ impl Canvas {
 
 #[derive(Debug, Clone)]
 struct State {
-    fill_color: RGBA8,
     opacity: f32,
 }
 
 impl State {
-    const DEFAULT: Self = Self {
-        fill_color: [0, 0, 0, 255],
-        opacity: 1.,
-    };
+    const DEFAULT: Self = Self { opacity: 1. };
 }
 
 #[derive(Debug)]

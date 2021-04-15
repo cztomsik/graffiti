@@ -60,7 +60,10 @@ impl Div<f32> for Vec2 {
     type Output = Self;
 
     fn div(self, n: f32) -> Self {
-        self * (1. / n)
+        Self {
+            x: self.x / n,
+            y: self.y / n,
+        }
     }
 }
 

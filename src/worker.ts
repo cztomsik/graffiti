@@ -48,7 +48,7 @@ async function main({ windowId, url, options }) {
   makeGlobal(window)
 
   // init viewport
-  const viewportId = native.viewport_new(800, 600, getDocId(document))
+  const viewportId = native.viewport_new(1024, 768, getDocId(document))
   VIEWPORT_REGISTRY.register(window, viewportId)
 
   // load html
