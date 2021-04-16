@@ -254,6 +254,18 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     return querySelectorAll(this.ownerDocument, this, selectors)
   }
 
+  getElementsByTagName(tagName) {
+    return this.getElementsByTagNameNS(tagName, '')
+  }
+
+  getElementsByTagNameNS(tagName, _ns) {
+    return this.querySelectorAll(tagName)
+  }
+
+  getElementsByClassName(className) {
+    return this.querySelectorAll(`.${className}`)
+  }
+
   // ---
   // ChildNode:
 

@@ -151,9 +151,6 @@ export abstract class Element extends Node implements globalThis.Element {
   getAttributeNodeNS
   getAttributeNS
   getClientRects
-  getElementsByTagNameNS
-  getElementsByTagName
-  getElementsByClassName
   hasAttributeNS
   hasPointerCapture
   insertAdjacentElement

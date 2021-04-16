@@ -201,10 +201,6 @@ export class Document extends Node implements globalThis.Document {
     return this.querySelector(`#${id}`)
   }
 
-  getElementsByTagName(tagName) {
-    return this.querySelectorAll(tagName)
-  }
-
   createEvent(type) {
     // TODO: return appropriate subclass
     return new Event(type.toLowerCase()) as any
@@ -251,8 +247,6 @@ export class Document extends Node implements globalThis.Document {
   fullscreenEnabled
   getAnimations
   getElementsByName
-  getElementsByTagNameNS
-  getElementsByClassName
   getSelection
   hidden
   inputEncoding
