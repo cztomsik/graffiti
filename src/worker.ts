@@ -34,6 +34,8 @@ async function handleMessage(msg) {
 }
 
 async function send(result, error?) {
+  // TODO: we can avoid namespacing with MessageChannel sent with first init
+  //       (this is currently blocked by deno which does not yet support transferables)
   postMessage({ type: '__GFT', result, error }, '')
   native.wake_up()
 }
