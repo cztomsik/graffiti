@@ -12,7 +12,6 @@ const app = await App.init()
 app.run()
 
 const runner = new AppWindow()
-runner.hide()
 
 const progress = new AppWindow({ width: 1200, height: 1000 })
 const webview = new WebView()
@@ -46,28 +45,28 @@ const urls = [
   // `${BASE}/dom/events/document-level-wheel-event-listener-passive-by-default.html`,
   `${BASE}/dom/events/Event-cancelBubble.html`,
   `${BASE}/dom/events/Event-constants.html`,
-  `${BASE}/dom/events/Event-constructors.html`,
+  // `${BASE}/dom/events/Event-constructors.html`,
   `${BASE}/dom/events/Event-defaultPrevented-after-dispatch.html`,
   `${BASE}/dom/events/Event-defaultPrevented.html`,
   `${BASE}/dom/events/event-disabled-dynamic.html`,
-  `${BASE}/dom/events/Event-dispatch-bubble-canceled.html`,
+  // `${BASE}/dom/events/Event-dispatch-bubble-canceled.html`,
   `${BASE}/dom/events/Event-dispatch-bubbles-false.html`,
   `${BASE}/dom/events/Event-dispatch-bubbles-true.html`,
   // `${BASE}/dom/events/Event-dispatch-click.html`,
   // `${BASE}/dom/events/Event-dispatch-click.tentative.html`,
   // `${BASE}/dom/events/Event-dispatch-detached-click.html`,
   `${BASE}/dom/events/Event-dispatch-detached-input-and-change.html`,
-  `${BASE}/dom/events/Event-dispatch-handlers-changed.html`,
-  `${BASE}/dom/events/Event-dispatch-multiple-cancelBubble.html`,
-  `${BASE}/dom/events/Event-dispatch-multiple-stopPropagation.html`,
+  // `${BASE}/dom/events/Event-dispatch-handlers-changed.html`,
+  // `${BASE}/dom/events/Event-dispatch-multiple-cancelBubble.html`,
+  // `${BASE}/dom/events/Event-dispatch-multiple-stopPropagation.html`,
   `${BASE}/dom/events/Event-dispatch-omitted-capture.html`,
   `${BASE}/dom/events/Event-dispatch-on-disabled-elements.html`,
   `${BASE}/dom/events/Event-dispatch-order-at-target.html`,
   // `${BASE}/dom/events/Event-dispatch-order.html`,
-  `${BASE}/dom/events/Event-dispatch-other-document.html`,
-  `${BASE}/dom/events/Event-dispatch-propagation-stopped.html`,
+  // `${BASE}/dom/events/Event-dispatch-other-document.html`,
+  // `${BASE}/dom/events/Event-dispatch-propagation-stopped.html`,
   // `${BASE}/dom/events/Event-dispatch-redispatch.html`,
-  `${BASE}/dom/events/Event-dispatch-reenter.html`,
+  // `${BASE}/dom/events/Event-dispatch-reenter.html`,
   `${BASE}/dom/events/Event-dispatch-target-moved.html`,
   `${BASE}/dom/events/Event-dispatch-target-removed.html`,
   `${BASE}/dom/events/Event-dispatch-throwing.html`,
@@ -77,7 +76,7 @@ const urls = [
   `${BASE}/dom/events/Event-propagation.html`,
   `${BASE}/dom/events/Event-returnValue.html`,
   // `${BASE}/dom/events/Event-stopImmediatePropagation.html`,
-  `${BASE}/dom/events/Event-stopPropagation-cancel-bubbling.html`,
+  // `${BASE}/dom/events/Event-stopPropagation-cancel-bubbling.html`,
   `${BASE}/dom/events/Event-subclasses-constructors.html`,
   `${BASE}/dom/events/Event-timestamp-high-resolution.html`,
   `${BASE}/dom/events/Event-timestamp-safe-resolution.html`,
@@ -359,6 +358,7 @@ const urls = [
 for (const url of urls) {
   console.log('running', url)
   await runner.loadURL(url, { evalSrc: true })
+  await new Promise(resolve => setTimeout(resolve, 100))
 
   const summary = await runner.eval(`document.querySelector("#summary").textContent`)
 
