@@ -93,6 +93,13 @@ impl Document {
         self.nodes[node].parent
     }
 
+    pub fn parent_element(&self, node: NodeId) -> Option<NodeId> {
+        match self.parent(node) {
+            Some(p) if self.node_type(p) == NodeType::Element => Some(p),
+            _ => None,
+        }
+    }
+
     pub fn first_child(&self, node: NodeId) -> Option<NodeId> {
         self.nodes[node].first_child
     }
@@ -334,11 +341,9 @@ impl Document {
         names
     }
 
-    /*
     pub fn style(&self, element: NodeId) -> &Style {
         &self.el(element).style
     }
-    */
 
     // helpers
 
@@ -375,7 +380,7 @@ impl Document {
                 Some(s) => s.split_ascii_whitespace().any(|part| part == **cls),
                 None => false,
             },
-            parent: &|el| self.parent(el),
+            parent: &|el| self.parent_element(el),
         })
     }
 
