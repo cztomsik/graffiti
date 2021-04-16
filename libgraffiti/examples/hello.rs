@@ -21,7 +21,7 @@ fn main() {
     drop(doc);
 
     while !win.should_close() {
-        if let Some(e) = win.take_event() {
+        for e in win.events().try_iter() {
             viewport
                 .document()
                 .borrow_mut()

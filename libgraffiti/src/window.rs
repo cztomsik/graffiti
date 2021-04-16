@@ -171,10 +171,10 @@ impl Window {
         unsafe { glfwSetWindowShouldClose(self.glfw_window, value as _) }
     }
 
-    // needs to be processed one by one because each event can cause new changes,
+    // note it needs to be processed one by one because each event can cause new changes,
     // styles, dimensions and so the target might not be valid anymore
-    pub fn take_event(&mut self) -> Option<Event> {
-        self.events.try_recv().ok()
+    pub fn events(&mut self) ->&Receiver<Event> {
+        &self.events
     }
 
     // GL
