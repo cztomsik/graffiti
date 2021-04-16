@@ -1,6 +1,8 @@
 import { Event } from '../events/Event'
 
 export const GET_THE_PARENT = Symbol()
+const GET_LISTENER = Symbol()
+const SET_LISTENER = Symbol()
 
 export class EventTarget implements globalThis.EventTarget {
   // beware collisions, preact is using node._listeners
@@ -73,7 +75,7 @@ export class EventTarget implements globalThis.EventTarget {
 
   [SET_LISTENER](type: string, listener) {
     const listeners = this.#listeners[type]
-    const index = listeners[type].findIndex(l => l instanceof InlineListener)
+    const index = listeners.findIndex(l => l instanceof InlineListener)
 
     listeners[~index ? index : listeners.length] = new InlineListener(listener)
   }
@@ -201,6 +203,7 @@ export class EventTarget implements globalThis.EventTarget {
   }
 
   set onclick(listener) {
+    console.log(this[SET_LISTENER])
     this[SET_LISTENER]('onclick', listener)
   }
 
@@ -1136,9 +1139,6 @@ export class EventTarget implements globalThis.EventTarget {
   // WTF
   [index: number]: Window
 }
-
-const GET_LISTENER = Symbol()
-const SET_LISTENER = Symbol()
 
 class InlineListener {
   constructor(public handleEvent) {}
