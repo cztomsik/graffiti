@@ -9,10 +9,12 @@ remote_theme: pmarsceill/just-the-docs
 markdown: gfm
 
 aux_links:
-  "Discord":
-    - "https://discord.gg/zQwyzFb"
   "GitHub":
     - "//github.com/cztomsik/graffiti"
+  "Forum":
+    - "https://github.com/cztomsik/graffiti/discussions"
+  "Discord":
+    - "https://discord.gg/zQwyzFb"
 
 # actually, it's this + /project_name
 url: //tomsik.cz
