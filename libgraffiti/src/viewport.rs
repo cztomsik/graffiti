@@ -17,11 +17,6 @@ pub struct Viewport {
     renderer: Renderer,
 }
 
-struct LayoutState {
-    engine: LayoutEngine,
-    nodes: SlotMap<NodeId, LayoutNode>,
-}
-
 impl Viewport {
     pub fn new(size: (i32, i32), document: &Rc<RefCell<Document>>) -> Self {
         let mut layout_engine = LayoutEngine::new();
