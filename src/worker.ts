@@ -11,6 +11,11 @@ import { readURL, TODO, UNSUPPORTED } from './util'
 import { getDocId } from './dom/Document'
 import { parseIntoDocument } from './dom/DOMParser'
 
+// event state
+let mousePos = [0, 0]
+let overElement
+let clickedElement
+
 // nodejs
 if ('process' in globalThis) {
   const { parentPort } = await import('worker_threads')
@@ -40,7 +45,7 @@ async function send(result, error?) {
   native.wake_up()
 }
 
-async function main({ windowId, url, options }) {
+async function main({ windowId, width, height, url, options }) {
   // unfortunately, we need native in worker too - there are many blocking APIs
   // and those would be impossible to emulate with parent<->worker postMessage()
   await loadNativeApi()
@@ -50,7 +55,8 @@ async function main({ windowId, url, options }) {
   makeGlobal(window)
 
   // init viewport
-  const viewportId = native.viewport_new(1024, 768, getDocId(document))
+  const viewportId = native.viewport_new(width, height, getDocId(document))
+  document['__VIEWPORT_ID'] = viewportId
   VIEWPORT_REGISTRY.register(window, viewportId)
 
   // load html
@@ -87,9 +93,15 @@ async function main({ windowId, url, options }) {
   window._fire('load')
 
   function loop() {
-    // TODO: dispatch all events for this round
+    // dispatch all events for this round
+    let ev
+    // TODO: windowId or viewportId? or something else?
 
-    // TODO: move all native methods to one big glue hash?
+    // TODO: async...
+    while ((ev = native.window_next_event(windowId))) {
+      handleEvent(ev)
+    }
+
     native.viewport_render(windowId, viewportId)
 
     setTimeout(loop, 100)
@@ -107,6 +119,96 @@ async function main({ windowId, url, options }) {
     // legacy, vars & functions are accumulated
     return eval.call(null, script)
   }
+
+  // TODO: review, this is old code
+  function handleEvent(event: [string, [number, number] | null, number | null]) {
+    const [kind, pos] = event
+
+    // TODO: only for mouse events
+    let target = document.elementFromPoint(mousePos[0], mousePos[1]) ?? document.documentElement
+
+    switch (kind) {
+      case 'mousemove': {
+        mousePos = pos!
+
+        const prevTarget = overElement
+        overElement = target
+
+        target._fire(kind)
+
+        if (target !== prevTarget) {
+          if (prevTarget) {
+            prevTarget._fire('mouseout')
+          }
+
+          target._fire('mouseover')
+        }
+
+        return
+      }
+      case 'mousedown': {
+        clickedElement = target
+        return target._fire(kind)
+      }
+      case 'mouseup': {
+        target._fire(kind)
+
+        // TODO: only els with tabindex should be focusable
+
+        // clicked & released at the same element
+        if (target === clickedElement) {
+          // focus change?
+          if (target !== document.activeElement) {
+            target.focus()
+          }
+
+          target._fire('click', { button: 0 })
+        }
+
+        return
+      }
+
+      // keydown - char is yet not known, keyCode maps to physical os-dependent key, repeats
+      // keypress - char is known, repeats
+      // keydown - key is up, after action, can be prevented
+      // beforeinput - event.data contains new chars, may be empty when removing
+      // input - like input, but after update (not sure if it's possible to do this on this level)
+      case 'keydown': {
+        const target = document.activeElement || document.documentElement
+        const which = event[2]
+        const code = KEY_CODES[which]
+        target._fire(kind, { which, keyCode: which, code })
+        return
+      }
+      case 'keypress': {
+        const target = document.activeElement || document.documentElement
+        const charCode = event[2]
+        const key = String.fromCharCode(charCode)
+
+        target._fire(kind, { charCode, key })
+        return
+      }
+    }
+  }
+
+  // TODO: more mapping
+  // https://w3c.github.io/uievents-code/#keyboard-key-codes
+  // https://keycode.info/
+  //
+  // BTW: it should be fast because it's just array lookup but I'm not sure if it's not holey
+  const KEY_CODES = Object.assign(Array(40).fill(''), {
+    8: 'Backspace',
+    9: 'Tab',
+    13: 'Enter',
+    27: 'Escape',
+    32: 'Space',
+    37: 'ArrowLeft',
+    38: 'ArrowUp',
+    39: 'ArrowRight',
+    40: 'ArrowDown',
+
+    // TODO: more codes
+  })
 }
 
 const VIEWPORT_REGISTRY = new FinalizationRegistry(id => native.viewport_drop(id))
