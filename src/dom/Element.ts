@@ -105,6 +105,14 @@ export abstract class Element extends Node implements globalThis.Element {
     return this.parentElement as any
   }
 
+  get innerText() {
+    return this.textContent!
+  }
+
+  set innerText(innerText) {
+    this.textContent = innerText
+  }
+
   get innerHTML() {
     const s = new XMLSerializer()
 

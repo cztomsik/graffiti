@@ -89,7 +89,6 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
   dir
   draggable
   hidden
-  innerText
   inputMode
   isContentEditable
   lang

@@ -84,7 +84,8 @@ export class AppWindow {
         return new Promise((resolve, reject) => (next = { resolve, reject }))
       }))
 
-    await this.#send({ type: 'init', windowId: this.#id, url: '' + url, options })
+    const [width, height] = native.window_size(this.#id)
+    await this.#send({ type: 'init', windowId: this.#id, width, height, url: '' + url, options })
   }
 
   async eval(js: string) {
