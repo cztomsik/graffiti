@@ -3,6 +3,7 @@
 // - normalize (bold -> 700)
 
 use super::StyleProp;
+use std::fmt::Write;
 use std::mem::discriminant;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -18,6 +19,42 @@ impl Style {
         Self { props: Vec::new() }
     }
 
+    pub fn length(&self) -> usize {
+        self.props.len()
+    }
+
+    pub fn item(&self, index: usize) -> &str {
+        todo!()
+    }
+
+    pub fn property_value(&self, prop: &str) -> String {
+        todo!()
+    }
+
+    pub fn set_property(&mut self, prop: &str, value: &str) {
+        if let Ok(prop) = super::parser::parse_style_prop(prop.as_bytes(), value.as_bytes()) {
+            self.add_prop(prop);
+        }
+    }
+
+    // TODO: should return previous value
+    pub fn remove_property(&mut self, prop: &str) {
+        if let Ok(prop) = super::parser::parse_style_prop(prop.as_bytes(), b"unset") {
+            self.props.retain(|p| discriminant(p) != discriminant(&prop));
+        }
+    }
+
+    pub fn css_text(&self) -> String {
+        self.props().fold(String::new(), |mut s, p| {
+            write!(s, "{}", p);
+            s
+        })
+    }
+
+    pub fn set_css_text(&mut self, css_text: &str) {
+        *self = Self::from(css_text);
+    }
+
     pub fn props(&self) -> impl Iterator<Item = &StyleProp> + '_ {
         self.props.iter()
     }
@@ -29,28 +66,6 @@ impl Style {
             *existing = new_prop;
         } else {
             self.props.push(new_prop);
-        }
-    }
-
-    pub fn css_text(&self) -> String {
-        println!("TODO: style.css_text()");
-        String::new()
-    }
-
-    pub fn set_css_text(&mut self, css_text: &str) {
-        *self = Self::from(css_text);
-    }
-
-    pub fn set_property(&mut self, prop: &str, value: &str) {
-        if let Ok(prop) = super::parser::parse_style_prop(prop.as_bytes(), value.as_bytes()) {
-            self.add_prop(prop);
-        }
-    }
-
-    pub fn remove_property(&mut self, prop: &str) {
-        // TODO: retain prop.name() != prop
-        if let Ok(prop) = super::parser::parse_style_prop(prop.as_bytes(), b"unset") {
-            self.props.retain(|p| discriminant(p) != discriminant(&prop));
         }
     }
 }
@@ -76,19 +91,27 @@ impl ResolvedStyle {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{Value, Display};
+    use super::super::*;
     use super::*;
+
+    #[test]
+    fn css_text() {
+        let mut s = Style::new();
+
+        s.set_css_text("display: block;");
+        assert_eq!(&s.css_text(), "display: block;")
+    }
 
     #[test]
     fn prop_overriding() {
         let mut s = Style::new();
 
-        s.add_prop(StyleProp::Display(Value::Specified(Display::None)));
-        s.add_prop(StyleProp::Display(Value::Specified(Display::Block)));
+        s.add_prop(StyleProp::Display(CssValue::Specified(CssDisplay::None)));
+        s.add_prop(StyleProp::Display(CssValue::Specified(CssDisplay::Block)));
 
         assert!(Iterator::eq(
             s.props(),
-            &vec![StyleProp::Display(Value::Specified(Display::Block))]
+            &vec![StyleProp::Display(CssValue::Specified(CssDisplay::Block))]
         ));
     }
 }
