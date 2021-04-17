@@ -13,10 +13,11 @@ use std::borrow::Cow;
 pub type NodeId = u32;
 
 #[derive(Debug)]
-pub enum DocumentEvent {
+pub enum DocumentEvent<'a> {
     Create(NodeId, NodeType),
     Insert(NodeId, NodeId, usize),
     Remove(NodeId, NodeId),
+    Cdata(NodeId, &'a str),
 
     // TODO: call during Document::Drop, probably in document order (children first)
     Drop(NodeId),
@@ -52,7 +53,7 @@ pub struct Document {
 }
 
 // private shorthand
-type Event = DocumentEvent;
+type Event<'a> = DocumentEvent<'a>;
 
 impl Document {
     pub fn new() -> Self {
@@ -259,6 +260,8 @@ impl Document {
         } else {
             panic!("not a cdata node")
         }
+
+        self.emit(Event::Cdata(cdata_node, cdata));
     }
 
     // element
