@@ -25,15 +25,13 @@ fn main() {
 
         glfwMakeContextCurrent(win);
 
-        GlBackend::load_with(|symbol| {
-            let symbol = std::ffi::CString::new(symbol).unwrap();
-            glfwGetProcAddress(symbol.as_ptr()) as _
-        });
-
         let document = Rc::new(RefCell::new(Document::new()));
         let mut viewport = Viewport::new((width, height), &document);
 
-        let mut backend = GlBackend::new();
+        let mut backend = GlBackend::new(|symbol| {
+            let symbol = std::ffi::CString::new(symbol).unwrap();
+            glfwGetProcAddress(symbol.as_ptr()) as _
+        });
 
         let mut doc = viewport.document().borrow_mut();
         let root = doc.root();
