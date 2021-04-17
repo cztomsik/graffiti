@@ -28,71 +28,67 @@ macro_rules! offsetof {
 }
 
 impl GlBackend {
-    pub unsafe fn load_with(load_symbol: impl FnMut(&str) -> *mut c_void) {
-        self::load_with(load_symbol)
-    }
+    pub unsafe fn new(load_symbol: impl FnMut(&str) -> *mut c_void) -> Self {
+        self::load_with(load_symbol);
 
-    pub fn new() -> Self {
         let STRIDE = mem::size_of::<Vertex>() as _;
 
-        unsafe {
-            // not used but webgl & opengl core profile require it
-            let mut vao = 0;
-            glGenVertexArrays(1, &mut vao);
-            glBindVertexArray(vao);
-            check("vao");
+        // not used but webgl & opengl core profile require it
+        let mut vao = 0;
+        glGenVertexArrays(1, &mut vao);
+        glBindVertexArray(vao);
+        check("vao");
 
-            glDisable(GL_DEPTH_TEST);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glBlendEquation(GL_FUNC_ADD);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendEquation(GL_FUNC_ADD);
 
-            // one vbo
-            let mut vbo = 0;
-            glGenBuffers(1, &mut vbo);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
-            assert_ne!(vbo, 0);
-            check("vbo");
+        // one vbo
+        let mut vbo = 0;
+        glGenBuffers(1, &mut vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        assert_ne!(vbo, 0);
+        check("vbo");
 
-            // one texture
-            let mut tex = 0;
-            glGenTextures(1, &mut tex);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR as _);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as _);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE as _);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE as _);
-            // needed if RGB
-            //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-            check("texture");
+        // one texture
+        let mut tex = 0;
+        glGenTextures(1, &mut tex);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR as _);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as _);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE as _);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE as _);
+        // needed if RGB
+        //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        check("texture");
 
-            // one shader
-            let program = create_program(VS, FS);
-            glUseProgram(program);
+        // one shader
+        let program = create_program(VS, FS);
+        glUseProgram(program);
 
-            // setup attrs
-            let a_pos = glGetAttribLocation(program, c_str!("a_pos")) as _;
-            glEnableVertexAttribArray(a_pos);
-            glVertexAttribPointer(a_pos, 2, GL_FLOAT, GL_FALSE, STRIDE, offsetof!(Vertex.xy));
-            check("a_pos");
+        // setup attrs
+        let a_pos = glGetAttribLocation(program, c_str!("a_pos")) as _;
+        glEnableVertexAttribArray(a_pos);
+        glVertexAttribPointer(a_pos, 2, GL_FLOAT, GL_FALSE, STRIDE, offsetof!(Vertex.xy));
+        check("a_pos");
 
-            let a_uv = glGetAttribLocation(program, c_str!("a_uv")) as _;
-            glEnableVertexAttribArray(a_uv);
-            glVertexAttribPointer(a_uv, 2, GL_FLOAT, GL_FALSE, STRIDE, offsetof!(Vertex.uv));
-            check("a_uv");
+        let a_uv = glGetAttribLocation(program, c_str!("a_uv")) as _;
+        glEnableVertexAttribArray(a_uv);
+        glVertexAttribPointer(a_uv, 2, GL_FLOAT, GL_FALSE, STRIDE, offsetof!(Vertex.uv));
+        check("a_uv");
 
-            let a_color = glGetAttribLocation(program, c_str!("a_color")) as _;
-            glEnableVertexAttribArray(a_color);
-            glVertexAttribPointer(a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, STRIDE, offsetof!(Vertex.color));
-            check("a_color");
+        let a_color = glGetAttribLocation(program, c_str!("a_color")) as _;
+        glEnableVertexAttribArray(a_color);
+        glVertexAttribPointer(a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, STRIDE, offsetof!(Vertex.color));
+        check("a_color");
 
-            Self {
-                _marker: PhantomData,
-                vao,
-                vbo,
-                tex,
-                program,
-            }
+        Self {
+            _marker: PhantomData,
+            vao,
+            vbo,
+            tex,
+            program,
         }
     }
 }
@@ -109,6 +105,7 @@ impl Drop for GlBackend {
 }
 
 impl RenderBackend for GlBackend {
+    // TODO: unsafe because it depends on (right) context being active
     fn render_frame(&mut self, frame: Frame) {
         unsafe {
             // TODO: uniform
