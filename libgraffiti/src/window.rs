@@ -226,7 +226,7 @@ pub enum Event {
     // JS e.which
     KeyUp(u32),
     KeyDown(u32),
-    Char(char),
+    KeyPress(u32),
 
     Resize(i32, i32),
     FramebufferSize(i32, i32),
@@ -267,7 +267,7 @@ unsafe extern "C" fn handle_glfw_key(w: GlfwWindow, key: c_int, _scancode: c_int
 }
 
 unsafe extern "C" fn handle_glfw_char(w: GlfwWindow, char: c_uint) {
-    send_event(w, Event::Char(std::char::from_u32_unchecked(char)));
+    send_event(w, Event::KeyPress(char));
 }
 
 unsafe extern "C" fn handle_glfw_window_size(w: GlfwWindow, width: c_int, height: c_int) {

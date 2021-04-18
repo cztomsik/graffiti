@@ -82,6 +82,7 @@ macro_rules! export_api {
                 //App::wake_up();
                 //wait.recv().unwrap();
             },
+            viewport_resize: |vp, w: f64, h: f64| ctx!().viewports[vp].resize(((w as _, h as _))),
             viewport_element_from_point: |vp, x: f64, y: f64| ctx!().viewports[vp].element_from_point((x as _, y as _)),
             viewport_drop: |vp| drop(ctx!().viewports.remove(vp)),
 
@@ -155,7 +156,15 @@ fn event(ev: Event) -> (String, Option<(f64, f64)>, Option<u32>) {
         Event::CursorPos(x, y) => ("mousemove", Some((x, y)), None),
         Event::MouseDown => ("mousedown", None, None),
         Event::MouseUp => ("mouseup", None, None),
-        _ => ("TODO", None, None),
+        Event::Scroll(x, y) => ("scroll", Some((x, y)), None),
+
+        // JS e.which
+        Event::KeyDown(code) => ("keydown", None, Some(code)),
+        Event::KeyUp(code) => ("keyup", None, Some(code)),
+        Event::KeyPress(ch) => ("keypress", None, Some(ch)),
+        Event::Resize(w, h) => ("resize", Some((w as _, h as _)), None),
+        Event::FramebufferSize(w, h) => ("fbsize", Some((w as _, h as _)), None),
+        Event::Close => ("close", None, None),
     };
 
     // TODO: nanoserde &str

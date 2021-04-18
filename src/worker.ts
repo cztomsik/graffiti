@@ -122,14 +122,14 @@ async function main({ windowId, width, height, url, options }) {
 
   // TODO: review, this is old code
   function handleEvent(event: [string, [number, number] | null, number | null]) {
-    const [kind, pos] = event
+    const [kind, vec2, u32] = event
 
     // TODO: only for mouse events
     let target = document.elementFromPoint(mousePos[0], mousePos[1]) ?? document.documentElement
 
     switch (kind) {
       case 'mousemove': {
-        mousePos = pos!
+        mousePos = vec2!
 
         const prevTarget = overElement
         overElement = target
@@ -146,10 +146,12 @@ async function main({ windowId, width, height, url, options }) {
 
         return
       }
+
       case 'mousedown': {
         clickedElement = target
         return target._fire(kind)
       }
+
       case 'mouseup': {
         target._fire(kind)
 
@@ -170,22 +172,33 @@ async function main({ windowId, width, height, url, options }) {
 
       // keydown - char is yet not known, keyCode maps to physical os-dependent key, repeats
       // keypress - char is known, repeats
-      // keydown - key is up, after action, can be prevented
+      // keyup - key is up, after action, can be prevented
       // beforeinput - event.data contains new chars, may be empty when removing
       // input - like input, but after update (not sure if it's possible to do this on this level)
       case 'keydown': {
         const target = document.activeElement || document.documentElement
-        const which = event[2]
+        const which = u32!
         const code = KEY_CODES[which]
         target._fire(kind, { which, keyCode: which, code })
         return
       }
+
       case 'keypress': {
         const target = document.activeElement || document.documentElement
-        const charCode = event[2]
+        const charCode = u32!
         const key = String.fromCharCode(charCode)
 
         target._fire(kind, { charCode, key })
+        return
+      }
+
+      case 'resize': {
+        native.viewport_resize(viewportId, vec2![0], vec2![1])
+        return
+      }
+
+      case 'close': {
+        console.log('TODO: close worker somehow (or tell main process to do it)')
         return
       }
     }
