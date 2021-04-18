@@ -7,7 +7,7 @@ export abstract class CharacterData extends Node implements globalThis.Character
   // don't call setter first-time
   constructor(data = '', doc = document) {
     super(doc)
-    this.#data = data
+    this.#data = normalize(data)
   }
 
   get data() {
@@ -15,17 +15,7 @@ export abstract class CharacterData extends Node implements globalThis.Character
   }
 
   set data(data) {
-    // spec allows null but not undefined
-    if (data === null) {
-      data = ''
-    }
-
-    // preact passes data as is
-    if (typeof data !== 'string') {
-      data = '' + data
-    }
-
-    this.#data = data
+    this.#data = normalize(data)
 
     setCdata(this.ownerDocument, this, data)
   }
@@ -73,4 +63,18 @@ export abstract class CharacterData extends Node implements globalThis.Character
   replaceData(offset: number, count: number, data: string) {
     this.data = this.data.slice(0, offset) + data + this.data.slice(offset + count)
   }
+}
+
+function normalize(data) {
+  // spec allows null but not undefined
+  if (data === null) {
+    data = ''
+  }
+
+  // preact passes data as is
+  if (typeof data !== 'string') {
+    data = '' + data
+  }
+
+  return data
 }

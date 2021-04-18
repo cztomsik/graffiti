@@ -4,7 +4,9 @@ import { Node, CharacterData } from './index'
 export class Comment extends CharacterData implements globalThis.Comment {
   constructor(data, doc) {
     super(data, doc)
-    initComment(doc, this, data)
+
+    // this.data is already normalized
+    initComment(doc, this, this.data)
   }
 
   get nodeType() {

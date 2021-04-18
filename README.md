@@ -5,6 +5,7 @@ permalink: /
 
 **Work in progress**, [prev version](https://github.com/cztomsik/graffiti/tree/d60a4b75bf0a9fdb67af8fd449f054a411127f38)
 
+- [x] nodejs 15.x, deno 1.8.3 (1.9 is broken)
 - [x] CSS, events, (p)react/vue/svelte support
 - [x] CLI for running `*.html` files
 - [ ] rendering is broken/low-quality, resize is broken

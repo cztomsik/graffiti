@@ -4,7 +4,9 @@ import { Node, CharacterData } from './index'
 export class Text extends CharacterData implements globalThis.Text {
   constructor(data, doc) {
     super(data, doc)
-    initTextNode(doc, this, data)
+
+    // this.data is already normalized
+    initTextNode(doc, this, this.data)
   }
 
   get nodeType() {

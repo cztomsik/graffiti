@@ -52,6 +52,7 @@ async function main({ windowId, width, height, url, options }) {
 
   // setup env
   const { window, document } = new Window()
+  document.URL = url
   makeGlobal(window)
 
   // init viewport

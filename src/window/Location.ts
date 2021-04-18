@@ -9,7 +9,7 @@ export class Location implements globalThis.Location {
   }
 
   get _url() {
-    return this.#history._current.url
+    return new URL(this.#history._current.url)
   }
 
   get href() {
@@ -85,8 +85,12 @@ export class Location implements globalThis.Location {
     return this.href
   }
 
+  // both vite & wmr need this
+  get origin() {
+    return this.href.replace(/\/$/, '')
+  }
+
   // TODO: later
   host
-  origin
   ancestorOrigins
 }

@@ -1,3 +1,5 @@
+// TODO: both History & Location needs review/update (and proper types)
+
 import { Event } from '../events/Event'
 
 export class History implements globalThis.History {

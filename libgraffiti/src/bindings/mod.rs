@@ -140,6 +140,7 @@ macro_rules! export_api {
             document_attribute: |doc, el, attr: String| ctx!().documents[doc].borrow().attribute(el, &attr),
             document_set_attribute: |doc, el, attr: String, text: String| ctx!().documents[doc].borrow_mut().set_attribute(el, &attr, &text),
             document_remove_attribute: |doc, el, attr: String| ctx!().documents[doc].borrow_mut().remove_attribute(el, &attr),
+            document_set_style_prop: |doc: u32, el: u32, prop: String, value: String| println!("TODO: set_style_prop {} {}", prop, value),
             document_attribute_names: |doc, el| ctx!().documents[doc].borrow().attribute_names(el),
             document_insert_child: |doc, el, child, index: u32| ctx!().documents[doc].borrow_mut().insert_child(el, child, index as _),
             document_remove_child: |doc, el, child| ctx!().documents[doc].borrow_mut().remove_child(el, child),
