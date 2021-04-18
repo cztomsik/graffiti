@@ -43,10 +43,15 @@ jobs:
         npm i
         echo build succeeded
 
-    - name: Save artifact 
+    - name: Save .js
       uses: actions/upload-artifact@v1
       with:
         name: "libgraffiti-${{matrix.os}}"
-        # TODO: {dylib,so,dll} does not work, neither multipath + if-no-files-found: ignore
-        #       so I don't know really
+        path: lib/*.js
+
+    - name: Save .so
+      uses: actions/upload-artifact@v1
+      with:
+        name: "libgraffiti-${{matrix.os}}"
         path: libgraffiti/target/debug/libgraffiti.so
+      if: matrix.os == 'ubuntu-latest'
