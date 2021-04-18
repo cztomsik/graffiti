@@ -57,6 +57,9 @@ pub(super) fn selector<'a>() -> Parser<'a, Selector> {
 }
 
 pub(super) fn style<'a>() -> Parser<'a, Style> {
+    // TODO: forgiving parser should probably work a bit differently
+    // TODO: I think we can parse value directly and only fallback to unknown prop + value
+    //       (to correctly skip it)
     // TODO: quotes, comments, etc.
     let prop_name = is_a(alpha_dash).repeat(1..).collect();
     let prop_value = none_of(b";{}\"'").repeat(0..).collect();
