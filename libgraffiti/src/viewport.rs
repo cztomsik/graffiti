@@ -159,6 +159,7 @@ impl Viewport {
         let mut sheets: Vec<_> = doc
             .query_selector_all(doc.root(), "html > head > style")
             .iter()
+            //.inspect(|s| println!("style: {}", doc.text_content(**s)))
             .map(|s| StyleSheet::from(&*doc.text_content(*s)))
             .collect();
 

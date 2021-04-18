@@ -96,92 +96,164 @@ pub enum StyleProp {
     Visibility(V<CssVisibility>),
 }
 
+impl StyleProp {
+    pub fn name(&self) -> &'static str {
+        use StyleProp::*;
+
+        match self {
+            Width(_) => "width",
+            Height(_) => "height",
+            MinWidth(_) => "min-width",
+            MinHeight(_) => "min-height",
+            MaxWidth(_) => "max-width",
+            MaxHeight(_) => "max-height",
+
+            // padding
+            PaddingTop(_) => "padding-top",
+            PaddingRight(_) => "padding-right",
+            PaddingBottom(_) => "padding-bottom",
+            PaddingLeft(_) => "padding-left",
+
+            // margin
+            MarginTop(_) => "margin-top",
+            MarginRight(_) => "margin-right",
+            MarginBottom(_) => "margin-bottom",
+            MarginLeft(_) => "margin-left",
+
+            // background
+            BackgroundColor(_) => "background-color",
+
+            // border-radius
+            BorderTopLeftRadius(_) => "border-top-left-radius",
+            BorderTopRightRadius(_) => "border-top-right-radius",
+            BorderBottomRightRadius(_) => "border-bottom-right-radius",
+            BorderBottomLeftRadius(_) => "border-bottom-left-radius",
+
+            // border
+            BorderTopWidth(_) => "border-top-width",
+            BorderTopStyle(_) => "border-top-style",
+            BorderTopColor(_) => "border-top-color",
+            BorderRightWidth(_) => "border-right-width",
+            BorderRightStyle(_) => "border-right-style",
+            BorderRightColor(_) => "border-right-color",
+            BorderBottomWidth(_) => "border-bottom-width",
+            BorderBottomStyle(_) => "border-bottom-style",
+            BorderBottomColor(_) => "border-bottom-color",
+            BorderLeftWidth(_) => "border-left-width",
+            BorderLeftStyle(_) => "border-left-style",
+            BorderLeftColor(_) => "border-left-color",
+
+            // shadow
+            BoxShadow(_) => "box-shadow",
+
+            // flex
+            FlexBasis(_) => "flex-basis",
+            FlexGrow(_) => "flex-grow",
+            FlexShrink(_) => "flex-shrink",
+            FlexDirection(_) => "flex-direction",
+            FlexWrap(_) => "flex-wrap",
+            AlignContent(_) => "align-content",
+            AlignItems(_) => "align-items",
+            AlignSelf(_) => "align-self",
+            JustifyContent(_) => "justify-content",
+
+            // text
+            FontFamily(_) => "font-family",
+            FontSize(_) => "font-size",
+            LineHeight(_) => "line-height",
+            TextAlign(_) => "text-align",
+            Color(_) => "color",
+
+            // outline
+            OutlineColor(_) => "outline-color",
+            OutlineStyle(_) => "outline-style",
+            OutlineWidth(_) => "outline-width",
+
+            // overflow
+            OverflowX(_) => "overflow-x",
+            OverflowY(_) => "overflow-y",
+
+            // position
+            Position(_) => "position",
+            Top(_) => "top",
+            Right(_) => "right",
+            Bottom(_) => "bottom",
+            Left(_) => "left",
+
+            // other
+            Display(_) => "display",
+            Opacity(_) => "opacity",
+            Visibility(_) => "visibility",
+        }
+    }
+
+    pub fn value(&self) -> String {
+        use StyleProp::*;
+
+        match self {
+            // Dimension
+            Width(v)
+            | Height(v)
+            | MinWidth(v)
+            | MinHeight(v)
+            | MaxWidth(v)
+            | MaxHeight(v)
+            | PaddingTop(v)
+            | PaddingRight(v)
+            | PaddingBottom(v)
+            | PaddingLeft(v)
+            | MarginTop(v)
+            | FontSize(v)
+            | LineHeight(v)
+            | FlexBasis(v)
+            | MarginRight(v)
+            | MarginBottom(v)
+            | MarginLeft(v)
+            | BorderTopLeftRadius(v)
+            | BorderTopRightRadius(v)
+            | BorderBottomRightRadius(v)
+            | BorderBottomLeftRadius(v)
+            | BorderTopWidth(v)
+            | BorderRightWidth(v)
+            | BorderBottomWidth(v)
+            | BorderLeftWidth(v)
+            | OutlineWidth(v)
+            | Top(v)
+            | Right(v)
+            | Bottom(v)
+            | Left(v) => format!("{}", v),
+
+            // Color
+            BackgroundColor(v) | BorderTopColor(v) | BorderRightColor(v) | BorderBottomColor(v)
+            | BorderLeftColor(v) | Color(v) | OutlineColor(v) => format!("{}", v),
+
+            // BorderStyle
+            OutlineStyle(v) | BorderTopStyle(v) | BorderRightStyle(v) | BorderBottomStyle(v) | BorderLeftStyle(v) => {
+                format!("{}", v)
+            }
+
+            // f32
+            Opacity(v) | FlexGrow(v) | FlexShrink(v) => format!("{}", v),
+
+            // Align
+            AlignContent(v) | AlignItems(v) | AlignSelf(v) | JustifyContent(v) => format!("{}", v),
+
+            // Others
+            TextAlign(v) => format!("{}", v),
+            FlexDirection(v) => format!("{}", v),
+            FlexWrap(v) => format!("{}", v),
+            Position(v) => format!("{}", v),
+            Visibility(v) => format!("{}", v),
+            Display(v) => format!("{}", v),
+            BoxShadow(v) => format!("{}", v),
+            FontFamily(v) => format!("{}", v),
+            OverflowX(v) | OverflowY(v) => format!("{}", v),
+        }        
+    }
+}
+
 impl Display for StyleProp {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Self::Width(v) => write!(f, "width: {};", v),
-            Self::Height(v) => write!(f, "height: {};", v),
-            Self::MinWidth(v) => write!(f, "min-width: {};", v),
-            Self::MinHeight(v) => write!(f, "min-height: {};", v),
-            Self::MaxWidth(v) => write!(f, "max-width: {};", v),
-            Self::MaxHeight(v) => write!(f, "max-height: {};", v),
-        
-            // padding
-            Self::PaddingTop(v) => write!(f, "padding-top: {};", v),
-            Self::PaddingRight(v) => write!(f, "padding-right: {};", v),
-            Self::PaddingBottom(v) => write!(f, "padding-bottom: {};", v),
-            Self::PaddingLeft(v) => write!(f, "padding-left: {};", v),
-        
-            // margin
-            Self::MarginTop(v) => write!(f, "margin-top: {};", v),
-            Self::MarginRight(v) => write!(f, "margin-right: {};", v),
-            Self::MarginBottom(v) => write!(f, "margin-bottom: {};", v),
-            Self::MarginLeft(v) => write!(f, "margin-left: {};", v),
-        
-            // background
-            Self::BackgroundColor(v) => write!(f, "background-color: {};", v),
-        
-            // border-radius
-            Self::BorderTopLeftRadius(v) => write!(f, "border-top-left-radius: {};", v),
-            Self::BorderTopRightRadius(v) => write!(f, "border-top-right-radius: {};", v),
-            Self::BorderBottomRightRadius(v) => write!(f, "border-bottom-right-radius: {};", v),
-            Self::BorderBottomLeftRadius(v) => write!(f, "border-bottom-left-radius: {};", v),
-        
-            // border
-            Self::BorderTopWidth(v) => write!(f, "border-top-width: {};", v),
-            Self::BorderTopStyle(v) => write!(f, "border-top-style: {};", v),
-            Self::BorderTopColor(v) => write!(f, "border-top-color: {};", v),
-            Self::BorderRightWidth(v) => write!(f, "border-right-width: {};", v),
-            Self::BorderRightStyle(v) => write!(f, "border-right-style: {};", v),
-            Self::BorderRightColor(v) => write!(f, "border-right-color: {};", v),
-            Self::BorderBottomWidth(v) => write!(f, "border-bottom-width: {};", v),
-            Self::BorderBottomStyle(v) => write!(f, "border-bottom-style: {};", v),
-            Self::BorderBottomColor(v) => write!(f, "border-bottom-color: {};", v),
-            Self::BorderLeftWidth(v) => write!(f, "border-left-width: {};", v),
-            Self::BorderLeftStyle(v) => write!(f, "border-left-style: {};", v),
-            Self::BorderLeftColor(v) => write!(f, "border-left-color: {};", v),
-        
-            // shadow
-            Self::BoxShadow(v) => write!(f, "box-shadow: {};", v),
-        
-            // flex
-            Self::FlexBasis(v) => write!(f, "flex-basis: {};", v),
-            Self::FlexGrow(v) => write!(f, "flex-grow: {};", v),
-            Self::FlexShrink(v) => write!(f, "flex-shrink: {};", v),
-            Self::FlexDirection(v) => write!(f, "flex-direction: {};", v),
-            Self::FlexWrap(v) => write!(f, "flex-wrap: {};", v),
-            Self::AlignContent(v) => write!(f, "align-content: {};", v),
-            Self::AlignItems(v) => write!(f, "align-items: {};", v),
-            Self::AlignSelf(v) => write!(f, "align-self: {};", v),
-            Self::JustifyContent(v) => write!(f, "justify-content: {};", v),
-        
-            // text
-            Self::FontFamily(v) => write!(f, "font-family: {};", v),
-            Self::FontSize(v) => write!(f, "font-size: {};", v),
-            Self::LineHeight(v) => write!(f, "line-height: {};", v),
-            Self::TextAlign(v) => write!(f, "text-align: {};", v),
-            Self::Color(v) => write!(f, "color: {};", v),
-        
-            // outline
-            Self::OutlineColor(v) => write!(f, "outline-color: {};", v),
-            Self::OutlineStyle(v) => write!(f, "outline-style: {};", v),
-            Self::OutlineWidth(v) => write!(f, "outline-width: {};", v),
-        
-            // overflow
-            Self::OverflowX(v) => write!(f, "overflow-x: {};", v),
-            Self::OverflowY(v) => write!(f, "overflow-y: {};", v),
-        
-            // position
-            Self::Position(v) => write!(f, "position: {};", v),
-            Self::Top(v) => write!(f, "top: {};", v),
-            Self::Right(v) => write!(f, "right: {};", v),
-            Self::Bottom(v) => write!(f, "bottom: {};", v),
-            Self::Left(v) => write!(f, "left: {};", v),
-        
-            // other
-            Self::Display(v) => write!(f, "display: {};", v),
-            Self::Opacity(v) => write!(f, "opacity: {};", v),
-            Self::Visibility(v) => write!(f, "visibility: {};", v),            
-        }
+        write!(f, "{}: {};", self.name(), self.value())
     }
 }

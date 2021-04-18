@@ -69,9 +69,14 @@ pub(super) fn style<'a>() -> Parser<'a, Style> {
 }
 
 pub(super) fn parse_style_prop<'a>(prop: &'a [u8], value: &'a [u8]) -> Result<StyleProp, &'a str> {
+    // TODO: better error reporting
+    prop_parser(prop).parse(value).map_err(|_| "invalid style prop")
+}
+
+fn prop_parser<'a>(prop: &'a [u8]) -> Parser<'a, StyleProp> {
     use self::value as v;
 
-    let parser = match prop {
+    match prop {
         // size
         b"width" => v(dimension()).map(StyleProp::Width),
         b"height" => v(dimension()).map(StyleProp::Height),
@@ -155,10 +160,7 @@ pub(super) fn parse_style_prop<'a>(prop: &'a [u8], value: &'a [u8]) -> Result<St
         b"visibility" => v(visibility()).map(StyleProp::Visibility),
 
         _ => fail("unknown style prop"),
-    };
-
-    // TODO: better error reporting
-    parser.parse(value).map_err(|_| "invalid style prop")
+    }
 }
 
 fn value<'a, T: 'static>(specified: Parser<'a, T>) -> Parser<'a, CssValue<T>> {

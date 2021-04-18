@@ -23,12 +23,12 @@ impl Style {
         self.props.len()
     }
 
-    pub fn item(&self, index: usize) -> &str {
-        todo!()
+    pub fn item(&self, index: usize) -> Option<&str> {
+        self.props.get(index).map(StyleProp::name)
     }
 
-    pub fn property_value(&self, prop: &str) -> String {
-        todo!()
+    pub fn property_value(&self, prop: &str) -> Option<String> {
+        self.props.iter().find(|p| p.name() == prop).map(StyleProp::value)
     }
 
     pub fn set_property(&mut self, prop: &str, value: &str) {
@@ -39,9 +39,7 @@ impl Style {
 
     // TODO: should return previous value
     pub fn remove_property(&mut self, prop: &str) {
-        if let Ok(prop) = super::parser::parse_style_prop(prop.as_bytes(), b"unset") {
-            self.props.retain(|p| discriminant(p) != discriminant(&prop));
-        }
+        self.props.retain(|p| p.name() == prop);
     }
 
     pub fn css_text(&self) -> String {
