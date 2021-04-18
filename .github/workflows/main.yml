@@ -49,4 +49,4 @@ jobs:
         name: "libgraffiti-${{matrix.os}}"
         # TODO: {dylib,so,dll} does not work, neither multipath + if-no-files-found: ignore
         #       so I don't know really
-        path: libgraffiti/target/release/libgraffiti.so
+        path: '**/libgraffiti.so'
