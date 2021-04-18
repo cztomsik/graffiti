@@ -43,15 +43,8 @@ jobs:
         npm i
         echo build succeeded
 
-    - name: Save .js
+    - name: Save lib
       uses: actions/upload-artifact@v2
       with:
-        name: "graffiti-${{matrix.os}}"
-        path: lib/*.js
-
-    - name: Save .so
-      uses: actions/upload-artifact@v1
-      with:
         name: "libgraffiti-${{matrix.os}}"
-        path: libgraffiti/target/debug/libgraffiti.so
-      if: matrix.os == 'ubuntu-latest'
+        path: libgraffiti/target/debug/libgraffiti.{dylib,so,dll}
