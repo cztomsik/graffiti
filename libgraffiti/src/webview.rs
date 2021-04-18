@@ -14,11 +14,19 @@ type id = *mut Object;
 
 pub struct WebView {
     _app: Rc<App>,
+    #[cfg(target_os = "macos")]
     webview: StrongPtr,
 }
 
 impl WebView {
     pub fn new(app: &Rc<App>) -> Self {
+        if !cfg!(target_os = "macos") {
+            #[cfg(not(target_os = "macos"))]
+            return Self {
+                _app: Rc::clone(app)
+            }
+        }
+
         unsafe {
             let cfg: id = msg_send![class!(WKWebViewConfiguration), new];
             let del: id = msg_send![class!(NSObject), alloc];
@@ -34,6 +42,7 @@ impl WebView {
     }
 
     pub fn attach(&mut self, window: &mut Window) {
+        #[cfg(target_os = "macos")]
         unsafe {
             let ns_window: id = window.native_handle() as _;
             let () = msg_send![ns_window, setContentView:*self.webview];
@@ -42,6 +51,7 @@ impl WebView {
 
     // TODO: doesn't work when in separate method (it only works as part of new())
     pub fn load_url(&mut self, url: &str) {
+        #[cfg(target_os = "macos")]
         unsafe {
             let url: id = msg_send![class!(NSString), stringWithUTF8String: *c_str!(url)];
             let url: id = msg_send![class!(NSURL), URLWithString: url];
@@ -56,6 +66,7 @@ impl WebView {
         // TODO: get result (might be tricky because of main thread queue & possible deadlocks)
         //let (tx, rx) = channel();
 
+        #[cfg(target_os = "macos")]
         unsafe {
             let js: id = msg_send![class!(NSString), stringWithUTF8String: *c_str!(js)];
 
