@@ -1,0 +1,18 @@
+<html>
+<head>
+  <style>
+    body { padding-top: 20px; padding-right: 20px; padding-bottom: 20px; padding-left: 20px }
+    input { outline-color: #ccc; outline-width: 1px; outline-style: solid }
+  </style>
+</head>
+<body>
+  <h1>Hello</h1>
+  <input>
+
+  <script>
+    document.querySelector('input').onchange = (e) => {
+      document.querySelector('h1').textContent = `Hello ${e.target.value}`
+    }
+  </script>
+</body>
+</html>

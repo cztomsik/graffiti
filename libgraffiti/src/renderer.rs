@@ -98,7 +98,7 @@ impl<'a> RenderContext<'a> {
 
     fn render_element(&mut self, rect: AABB, style: &RenderStyle, children: impl Iterator<Item = NodeId>) {
         if style.hidden {
-            return
+            return;
         }
 
         // TODO: border_radius, clip, scroll, opacity, transform, ...
@@ -141,7 +141,7 @@ impl<'a> RenderContext<'a> {
 
         // bottom
         self.canvas.fill_rect(
-            AABB::new(Vec2::new(min.x - width, max.y + width), max + Vec2::new(width, width)),
+            AABB::new(Vec2::new(min.x - width, max.y), max + Vec2::new(width, width)),
             color,
         );
 
@@ -165,6 +165,20 @@ fn style(style: &Style) -> RenderStyle {
         match p {
             P::Display(S(CssDisplay::None)) => res.hidden = true,
             P::BackgroundColor(S(c)) => res.bg_color = Some([c.r, c.g, c.b, c.a]),
+            P::OutlineColor(S(c)) => {
+                if let Some(o) = &mut res.outline {
+                    o.1 = [c.r, c.g, c.b, c.a];
+                } else {
+                    res.outline = Some((0., [c.r, c.g, c.b, c.a]));
+                }
+            }
+            P::OutlineWidth(S(CssDimension::Px(w))) => {
+                if let Some(o) = &mut res.outline {
+                    o.0 = *w;
+                } else {
+                    res.outline = Some((*w, [0, 0, 0, 0]));
+                }
+            }
             _ => {}
         }
     }
