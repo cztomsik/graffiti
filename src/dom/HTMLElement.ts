@@ -19,30 +19,6 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
     return this.localName.toUpperCase()
   }
 
-  getAttribute(name: string): string | null {
-    if (name === 'style') {
-      return this.style.cssText
-    }
-
-    return super.getAttribute(name)
-  }
-
-  setAttribute(name: string, value: string) {
-    if (name === 'style') {
-      this.style.cssText = value
-    }
-
-    super.setAttribute(name, value)
-  }
-
-  removeAttribute(name: string) {
-    if (name === 'style') {
-      this.style.cssText = ''
-    }
-
-    super.removeAttribute(name)
-  }
-
   click() {
     this._fire('click')
   }
@@ -89,7 +65,6 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
   dir
   draggable
   hidden
-  innerText
   inputMode
   isContentEditable
   lang

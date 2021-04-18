@@ -1,6 +1,8 @@
 import { Event } from '../events/Event'
 
 export const GET_THE_PARENT = Symbol()
+const GET_LISTENER = Symbol()
+const SET_LISTENER = Symbol()
 
 export class EventTarget implements globalThis.EventTarget {
   // beware collisions, preact is using node._listeners
@@ -73,9 +75,13 @@ export class EventTarget implements globalThis.EventTarget {
 
   [SET_LISTENER](type: string, listener) {
     const listeners = this.#listeners[type]
-    const index = listeners[type].findIndex(l => l instanceof InlineListener)
+    const index = listeners.findIndex(l => l instanceof InlineListener)
 
-    listeners[~index ? index : listeners.length] = new InlineListener(listener)
+    if (~index) {
+      this.removeEventListener(type, listeners[index])
+    }
+
+    this.addEventListener(type, new InlineListener(listener))
   }
 
   // on* event handler props
@@ -85,1035 +91,1035 @@ export class EventTarget implements globalThis.EventTarget {
   //   https://github.com/preactjs/preact/blob/013dc382cf7239422e834e74a6ab0b592c5a9c43/src/diff/props.js#L80
 
   get onabort() {
-    return this[GET_LISTENER]('onabort')
+    return this[GET_LISTENER]('abort')
   }
 
   set onabort(listener) {
-    this[SET_LISTENER]('onabort', listener)
+    this[SET_LISTENER]('abort', listener)
   }
 
   get onafterprint() {
-    return this[GET_LISTENER]('onafterprint')
+    return this[GET_LISTENER]('afterprint')
   }
 
   set onafterprint(listener) {
-    this[SET_LISTENER]('onafterprint', listener)
+    this[SET_LISTENER]('afterprint', listener)
   }
 
   get onanimationcancel() {
-    return this[GET_LISTENER]('onanimationcancel')
+    return this[GET_LISTENER]('animationcancel')
   }
 
   set onanimationcancel(listener) {
-    this[SET_LISTENER]('onanimationcancel', listener)
+    this[SET_LISTENER]('animationcancel', listener)
   }
 
   get onanimationend() {
-    return this[GET_LISTENER]('onanimationend')
+    return this[GET_LISTENER]('animationend')
   }
 
   set onanimationend(listener) {
-    this[SET_LISTENER]('onanimationend', listener)
+    this[SET_LISTENER]('animationend', listener)
   }
 
   get onanimationiteration() {
-    return this[GET_LISTENER]('onanimationiteration')
+    return this[GET_LISTENER]('animationiteration')
   }
 
   set onanimationiteration(listener) {
-    this[SET_LISTENER]('onanimationiteration', listener)
+    this[SET_LISTENER]('animationiteration', listener)
   }
 
   get onanimationstart() {
-    return this[GET_LISTENER]('onanimationstart')
+    return this[GET_LISTENER]('animationstart')
   }
 
   set onanimationstart(listener) {
-    this[SET_LISTENER]('onanimationstart', listener)
+    this[SET_LISTENER]('animationstart', listener)
   }
 
   get onauxclick() {
-    return this[GET_LISTENER]('onauxclick')
+    return this[GET_LISTENER]('auxclick')
   }
 
   set onauxclick(listener) {
-    this[SET_LISTENER]('onauxclick', listener)
+    this[SET_LISTENER]('auxclick', listener)
   }
 
   get onbeforeprint() {
-    return this[GET_LISTENER]('onbeforeprint')
+    return this[GET_LISTENER]('beforeprint')
   }
 
   set onbeforeprint(listener) {
-    this[SET_LISTENER]('onbeforeprint', listener)
+    this[SET_LISTENER]('beforeprint', listener)
   }
 
   get onbeforeunload() {
-    return this[GET_LISTENER]('onbeforeunload')
+    return this[GET_LISTENER]('beforeunload')
   }
 
   set onbeforeunload(listener) {
-    this[SET_LISTENER]('onbeforeunload', listener)
+    this[SET_LISTENER]('beforeunload', listener)
   }
 
   get onblur() {
-    return this[GET_LISTENER]('onblur')
+    return this[GET_LISTENER]('blur')
   }
 
   set onblur(listener) {
-    this[SET_LISTENER]('onblur', listener)
+    this[SET_LISTENER]('blur', listener)
   }
 
   get oncancel() {
-    return this[GET_LISTENER]('oncancel')
+    return this[GET_LISTENER]('cancel')
   }
 
   set oncancel(listener) {
-    this[SET_LISTENER]('oncancel', listener)
+    this[SET_LISTENER]('cancel', listener)
   }
 
   get oncanplay() {
-    return this[GET_LISTENER]('oncanplay')
+    return this[GET_LISTENER]('canplay')
   }
 
   set oncanplay(listener) {
-    this[SET_LISTENER]('oncanplay', listener)
+    this[SET_LISTENER]('canplay', listener)
   }
 
   get oncanplaythrough() {
-    return this[GET_LISTENER]('oncanplaythrough')
+    return this[GET_LISTENER]('canplaythrough')
   }
 
   set oncanplaythrough(listener) {
-    this[SET_LISTENER]('oncanplaythrough', listener)
+    this[SET_LISTENER]('canplaythrough', listener)
   }
 
   get onchange() {
-    return this[GET_LISTENER]('onchange')
+    return this[GET_LISTENER]('change')
   }
 
   set onchange(listener) {
-    this[SET_LISTENER]('onchange', listener)
+    this[SET_LISTENER]('change', listener)
   }
 
   get onclick() {
-    return this[GET_LISTENER]('onclick')
+    return this[GET_LISTENER]('click')
   }
 
   set onclick(listener) {
-    this[SET_LISTENER]('onclick', listener)
+    this[SET_LISTENER]('click', listener)
   }
 
   get onclose() {
-    return this[GET_LISTENER]('onclose')
+    return this[GET_LISTENER]('close')
   }
 
   set onclose(listener) {
-    this[SET_LISTENER]('onclose', listener)
+    this[SET_LISTENER]('close', listener)
   }
 
   get oncompassneedscalibration() {
-    return this[GET_LISTENER]('oncompassneedscalibration')
+    return this[GET_LISTENER]('compassneedscalibration')
   }
 
   set oncompassneedscalibration(listener) {
-    this[SET_LISTENER]('oncompassneedscalibration', listener)
+    this[SET_LISTENER]('compassneedscalibration', listener)
   }
 
   get oncontextmenu() {
-    return this[GET_LISTENER]('oncontextmenu')
+    return this[GET_LISTENER]('contextmenu')
   }
 
   set oncontextmenu(listener) {
-    this[SET_LISTENER]('oncontextmenu', listener)
+    this[SET_LISTENER]('contextmenu', listener)
   }
 
   get oncopy() {
-    return this[GET_LISTENER]('oncopy')
+    return this[GET_LISTENER]('copy')
   }
 
   set oncopy(listener) {
-    this[SET_LISTENER]('oncopy', listener)
+    this[SET_LISTENER]('copy', listener)
   }
 
   get oncuechange() {
-    return this[GET_LISTENER]('oncuechange')
+    return this[GET_LISTENER]('cuechange')
   }
 
   set oncuechange(listener) {
-    this[SET_LISTENER]('oncuechange', listener)
+    this[SET_LISTENER]('cuechange', listener)
   }
 
   get oncut() {
-    return this[GET_LISTENER]('oncut')
+    return this[GET_LISTENER]('cut')
   }
 
   set oncut(listener) {
-    this[SET_LISTENER]('oncut', listener)
+    this[SET_LISTENER]('cut', listener)
   }
 
   get ondblclick() {
-    return this[GET_LISTENER]('ondblclick')
+    return this[GET_LISTENER]('dblclick')
   }
 
   set ondblclick(listener) {
-    this[SET_LISTENER]('ondblclick', listener)
+    this[SET_LISTENER]('dblclick', listener)
   }
 
   get ondevicelight() {
-    return this[GET_LISTENER]('ondevicelight')
+    return this[GET_LISTENER]('devicelight')
   }
 
   set ondevicelight(listener) {
-    this[SET_LISTENER]('ondevicelight', listener)
+    this[SET_LISTENER]('devicelight', listener)
   }
 
   get ondevicemotion() {
-    return this[GET_LISTENER]('ondevicemotion')
+    return this[GET_LISTENER]('devicemotion')
   }
 
   set ondevicemotion(listener) {
-    this[SET_LISTENER]('ondevicemotion', listener)
+    this[SET_LISTENER]('devicemotion', listener)
   }
 
   get ondeviceorientation() {
-    return this[GET_LISTENER]('ondeviceorientation')
+    return this[GET_LISTENER]('deviceorientation')
   }
 
   set ondeviceorientation(listener) {
-    this[SET_LISTENER]('ondeviceorientation', listener)
+    this[SET_LISTENER]('deviceorientation', listener)
   }
 
   get ondeviceorientationabsolute() {
-    return this[GET_LISTENER]('ondeviceorientationabsolute')
+    return this[GET_LISTENER]('deviceorientationabsolute')
   }
 
   set ondeviceorientationabsolute(listener) {
-    this[SET_LISTENER]('ondeviceorientationabsolute', listener)
+    this[SET_LISTENER]('deviceorientationabsolute', listener)
   }
 
   get ondrag() {
-    return this[GET_LISTENER]('ondrag')
+    return this[GET_LISTENER]('drag')
   }
 
   set ondrag(listener) {
-    this[SET_LISTENER]('ondrag', listener)
+    this[SET_LISTENER]('drag', listener)
   }
 
   get ondragend() {
-    return this[GET_LISTENER]('ondragend')
+    return this[GET_LISTENER]('dragend')
   }
 
   set ondragend(listener) {
-    this[SET_LISTENER]('ondragend', listener)
+    this[SET_LISTENER]('dragend', listener)
   }
 
   get ondragenter() {
-    return this[GET_LISTENER]('ondragenter')
+    return this[GET_LISTENER]('dragenter')
   }
 
   set ondragenter(listener) {
-    this[SET_LISTENER]('ondragenter', listener)
+    this[SET_LISTENER]('dragenter', listener)
   }
 
   get ondragexit() {
-    return this[GET_LISTENER]('ondragexit')
+    return this[GET_LISTENER]('dragexit')
   }
 
   set ondragexit(listener) {
-    this[SET_LISTENER]('ondragexit', listener)
+    this[SET_LISTENER]('dragexit', listener)
   }
 
   get ondragleave() {
-    return this[GET_LISTENER]('ondragleave')
+    return this[GET_LISTENER]('dragleave')
   }
 
   set ondragleave(listener) {
-    this[SET_LISTENER]('ondragleave', listener)
+    this[SET_LISTENER]('dragleave', listener)
   }
 
   get ondragover() {
-    return this[GET_LISTENER]('ondragover')
+    return this[GET_LISTENER]('dragover')
   }
 
   set ondragover(listener) {
-    this[SET_LISTENER]('ondragover', listener)
+    this[SET_LISTENER]('dragover', listener)
   }
 
   get ondragstart() {
-    return this[GET_LISTENER]('ondragstart')
+    return this[GET_LISTENER]('dragstart')
   }
 
   set ondragstart(listener) {
-    this[SET_LISTENER]('ondragstart', listener)
+    this[SET_LISTENER]('dragstart', listener)
   }
 
   get ondrop() {
-    return this[GET_LISTENER]('ondrop')
+    return this[GET_LISTENER]('drop')
   }
 
   set ondrop(listener) {
-    this[SET_LISTENER]('ondrop', listener)
+    this[SET_LISTENER]('drop', listener)
   }
 
   get ondurationchange() {
-    return this[GET_LISTENER]('ondurationchange')
+    return this[GET_LISTENER]('durationchange')
   }
 
   set ondurationchange(listener) {
-    this[SET_LISTENER]('ondurationchange', listener)
+    this[SET_LISTENER]('durationchange', listener)
   }
 
   get onemptied() {
-    return this[GET_LISTENER]('onemptied')
+    return this[GET_LISTENER]('emptied')
   }
 
   set onemptied(listener) {
-    this[SET_LISTENER]('onemptied', listener)
+    this[SET_LISTENER]('emptied', listener)
   }
 
   get onended() {
-    return this[GET_LISTENER]('onended')
+    return this[GET_LISTENER]('ended')
   }
 
   set onended(listener) {
-    this[SET_LISTENER]('onended', listener)
+    this[SET_LISTENER]('ended', listener)
   }
 
   get onerror() {
-    return this[GET_LISTENER]('onerror')
+    return this[GET_LISTENER]('error')
   }
 
   set onerror(listener) {
-    this[SET_LISTENER]('onerror', listener)
+    this[SET_LISTENER]('error', listener)
   }
 
   get onfocus() {
-    return this[GET_LISTENER]('onfocus')
+    return this[GET_LISTENER]('focus')
   }
 
   set onfocus(listener) {
-    this[SET_LISTENER]('onfocus', listener)
+    this[SET_LISTENER]('focus', listener)
   }
 
   get onfullscreenchange() {
-    return this[GET_LISTENER]('onfullscreenchange')
+    return this[GET_LISTENER]('fullscreenchange')
   }
 
   set onfullscreenchange(listener) {
-    this[SET_LISTENER]('onfullscreenchange', listener)
+    this[SET_LISTENER]('fullscreenchange', listener)
   }
 
   get onfullscreenerror() {
-    return this[GET_LISTENER]('onfullscreenerror')
+    return this[GET_LISTENER]('fullscreenerror')
   }
 
   set onfullscreenerror(listener) {
-    this[SET_LISTENER]('onfullscreenerror', listener)
+    this[SET_LISTENER]('fullscreenerror', listener)
   }
 
   get ongamepadconnected() {
-    return this[GET_LISTENER]('ongamepadconnected')
+    return this[GET_LISTENER]('gamepadconnected')
   }
 
   set ongamepadconnected(listener) {
-    this[SET_LISTENER]('ongamepadconnected', listener)
+    this[SET_LISTENER]('gamepadconnected', listener)
   }
 
   get ongamepaddisconnected() {
-    return this[GET_LISTENER]('ongamepaddisconnected')
+    return this[GET_LISTENER]('gamepaddisconnected')
   }
 
   set ongamepaddisconnected(listener) {
-    this[SET_LISTENER]('ongamepaddisconnected', listener)
+    this[SET_LISTENER]('gamepaddisconnected', listener)
   }
 
   get ongotpointercapture() {
-    return this[GET_LISTENER]('ongotpointercapture')
+    return this[GET_LISTENER]('gotpointercapture')
   }
 
   set ongotpointercapture(listener) {
-    this[SET_LISTENER]('ongotpointercapture', listener)
+    this[SET_LISTENER]('gotpointercapture', listener)
   }
 
   get onhashchange() {
-    return this[GET_LISTENER]('onhashchange')
+    return this[GET_LISTENER]('hashchange')
   }
 
   set onhashchange(listener) {
-    this[SET_LISTENER]('onhashchange', listener)
+    this[SET_LISTENER]('hashchange', listener)
   }
 
   get oninput() {
-    return this[GET_LISTENER]('oninput')
+    return this[GET_LISTENER]('input')
   }
 
   set oninput(listener) {
-    this[SET_LISTENER]('oninput', listener)
+    this[SET_LISTENER]('input', listener)
   }
 
   get oninvalid() {
-    return this[GET_LISTENER]('oninvalid')
+    return this[GET_LISTENER]('invalid')
   }
 
   set oninvalid(listener) {
-    this[SET_LISTENER]('oninvalid', listener)
+    this[SET_LISTENER]('invalid', listener)
   }
 
   get onkeydown() {
-    return this[GET_LISTENER]('onkeydown')
+    return this[GET_LISTENER]('keydown')
   }
 
   set onkeydown(listener) {
-    this[SET_LISTENER]('onkeydown', listener)
+    this[SET_LISTENER]('keydown', listener)
   }
 
   get onkeypress() {
-    return this[GET_LISTENER]('onkeypress')
+    return this[GET_LISTENER]('keypress')
   }
 
   set onkeypress(listener) {
-    this[SET_LISTENER]('onkeypress', listener)
+    this[SET_LISTENER]('keypress', listener)
   }
 
   get onkeyup() {
-    return this[GET_LISTENER]('onkeyup')
+    return this[GET_LISTENER]('keyup')
   }
 
   set onkeyup(listener) {
-    this[SET_LISTENER]('onkeyup', listener)
+    this[SET_LISTENER]('keyup', listener)
   }
 
   get onlanguagechange() {
-    return this[GET_LISTENER]('onlanguagechange')
+    return this[GET_LISTENER]('languagechange')
   }
 
   set onlanguagechange(listener) {
-    this[SET_LISTENER]('onlanguagechange', listener)
+    this[SET_LISTENER]('languagechange', listener)
   }
 
   get onload() {
-    return this[GET_LISTENER]('onload')
+    return this[GET_LISTENER]('load')
   }
 
   set onload(listener) {
-    this[SET_LISTENER]('onload', listener)
+    this[SET_LISTENER]('load', listener)
   }
 
   get onloadeddata() {
-    return this[GET_LISTENER]('onloadeddata')
+    return this[GET_LISTENER]('loadeddata')
   }
 
   set onloadeddata(listener) {
-    this[SET_LISTENER]('onloadeddata', listener)
+    this[SET_LISTENER]('loadeddata', listener)
   }
 
   get onloadedmetadata() {
-    return this[GET_LISTENER]('onloadedmetadata')
+    return this[GET_LISTENER]('loadedmetadata')
   }
 
   set onloadedmetadata(listener) {
-    this[SET_LISTENER]('onloadedmetadata', listener)
+    this[SET_LISTENER]('loadedmetadata', listener)
   }
 
   get onloadstart() {
-    return this[GET_LISTENER]('onloadstart')
+    return this[GET_LISTENER]('loadstart')
   }
 
   set onloadstart(listener) {
-    this[SET_LISTENER]('onloadstart', listener)
+    this[SET_LISTENER]('loadstart', listener)
   }
 
   get onlostpointercapture() {
-    return this[GET_LISTENER]('onlostpointercapture')
+    return this[GET_LISTENER]('lostpointercapture')
   }
 
   set onlostpointercapture(listener) {
-    this[SET_LISTENER]('onlostpointercapture', listener)
+    this[SET_LISTENER]('lostpointercapture', listener)
   }
 
   get onmessage() {
-    return this[GET_LISTENER]('onmessage')
+    return this[GET_LISTENER]('message')
   }
 
   set onmessage(listener) {
-    this[SET_LISTENER]('onmessage', listener)
+    this[SET_LISTENER]('message', listener)
   }
 
   get onmessageerror() {
-    return this[GET_LISTENER]('onmessageerror')
+    return this[GET_LISTENER]('messageerror')
   }
 
   set onmessageerror(listener) {
-    this[SET_LISTENER]('onmessageerror', listener)
+    this[SET_LISTENER]('messageerror', listener)
   }
 
   get onmousedown() {
-    return this[GET_LISTENER]('onmousedown')
+    return this[GET_LISTENER]('mousedown')
   }
 
   set onmousedown(listener) {
-    this[SET_LISTENER]('onmousedown', listener)
+    this[SET_LISTENER]('mousedown', listener)
   }
 
   get onmouseenter() {
-    return this[GET_LISTENER]('onmouseenter')
+    return this[GET_LISTENER]('mouseenter')
   }
 
   set onmouseenter(listener) {
-    this[SET_LISTENER]('onmouseenter', listener)
+    this[SET_LISTENER]('mouseenter', listener)
   }
 
   get onmouseleave() {
-    return this[GET_LISTENER]('onmouseleave')
+    return this[GET_LISTENER]('mouseleave')
   }
 
   set onmouseleave(listener) {
-    this[SET_LISTENER]('onmouseleave', listener)
+    this[SET_LISTENER]('mouseleave', listener)
   }
 
   get onmousemove() {
-    return this[GET_LISTENER]('onmousemove')
+    return this[GET_LISTENER]('mousemove')
   }
 
   set onmousemove(listener) {
-    this[SET_LISTENER]('onmousemove', listener)
+    this[SET_LISTENER]('mousemove', listener)
   }
 
   get onmouseout() {
-    return this[GET_LISTENER]('onmouseout')
+    return this[GET_LISTENER]('mouseout')
   }
 
   set onmouseout(listener) {
-    this[SET_LISTENER]('onmouseout', listener)
+    this[SET_LISTENER]('mouseout', listener)
   }
 
   get onmouseover() {
-    return this[GET_LISTENER]('onmouseover')
+    return this[GET_LISTENER]('mouseover')
   }
 
   set onmouseover(listener) {
-    this[SET_LISTENER]('onmouseover', listener)
+    this[SET_LISTENER]('mouseover', listener)
   }
 
   get onmouseup() {
-    return this[GET_LISTENER]('onmouseup')
+    return this[GET_LISTENER]('mouseup')
   }
 
   set onmouseup(listener) {
-    this[SET_LISTENER]('onmouseup', listener)
+    this[SET_LISTENER]('mouseup', listener)
   }
 
   get onmousewheel() {
-    return this[GET_LISTENER]('onmousewheel')
+    return this[GET_LISTENER]('mousewheel')
   }
 
   set onmousewheel(listener) {
-    this[SET_LISTENER]('onmousewheel', listener)
+    this[SET_LISTENER]('mousewheel', listener)
   }
 
   get onoffline() {
-    return this[GET_LISTENER]('onoffline')
+    return this[GET_LISTENER]('offline')
   }
 
   set onoffline(listener) {
-    this[SET_LISTENER]('onoffline', listener)
+    this[SET_LISTENER]('offline', listener)
   }
 
   get ononline() {
-    return this[GET_LISTENER]('ononline')
+    return this[GET_LISTENER]('online')
   }
 
   set ononline(listener) {
-    this[SET_LISTENER]('ononline', listener)
+    this[SET_LISTENER]('online', listener)
   }
 
   get onorientationchange() {
-    return this[GET_LISTENER]('onorientationchange')
+    return this[GET_LISTENER]('orientationchange')
   }
 
   set onorientationchange(listener) {
-    this[SET_LISTENER]('onorientationchange', listener)
+    this[SET_LISTENER]('orientationchange', listener)
   }
 
   get onpagehide() {
-    return this[GET_LISTENER]('onpagehide')
+    return this[GET_LISTENER]('pagehide')
   }
 
   set onpagehide(listener) {
-    this[SET_LISTENER]('onpagehide', listener)
+    this[SET_LISTENER]('pagehide', listener)
   }
 
   get onpageshow() {
-    return this[GET_LISTENER]('onpageshow')
+    return this[GET_LISTENER]('pageshow')
   }
 
   set onpageshow(listener) {
-    this[SET_LISTENER]('onpageshow', listener)
+    this[SET_LISTENER]('pageshow', listener)
   }
 
   get onpaste() {
-    return this[GET_LISTENER]('onpaste')
+    return this[GET_LISTENER]('paste')
   }
 
   set onpaste(listener) {
-    this[SET_LISTENER]('onpaste', listener)
+    this[SET_LISTENER]('paste', listener)
   }
 
   get onpause() {
-    return this[GET_LISTENER]('onpause')
+    return this[GET_LISTENER]('pause')
   }
 
   set onpause(listener) {
-    this[SET_LISTENER]('onpause', listener)
+    this[SET_LISTENER]('pause', listener)
   }
 
   get onplay() {
-    return this[GET_LISTENER]('onplay')
+    return this[GET_LISTENER]('play')
   }
 
   set onplay(listener) {
-    this[SET_LISTENER]('onplay', listener)
+    this[SET_LISTENER]('play', listener)
   }
 
   get onplaying() {
-    return this[GET_LISTENER]('onplaying')
+    return this[GET_LISTENER]('playing')
   }
 
   set onplaying(listener) {
-    this[SET_LISTENER]('onplaying', listener)
+    this[SET_LISTENER]('playing', listener)
   }
 
   get onpointercancel() {
-    return this[GET_LISTENER]('onpointercancel')
+    return this[GET_LISTENER]('pointercancel')
   }
 
   set onpointercancel(listener) {
-    this[SET_LISTENER]('onpointercancel', listener)
+    this[SET_LISTENER]('pointercancel', listener)
   }
 
   get onpointerdown() {
-    return this[GET_LISTENER]('onpointerdown')
+    return this[GET_LISTENER]('pointerdown')
   }
 
   set onpointerdown(listener) {
-    this[SET_LISTENER]('onpointerdown', listener)
+    this[SET_LISTENER]('pointerdown', listener)
   }
 
   get onpointerenter() {
-    return this[GET_LISTENER]('onpointerenter')
+    return this[GET_LISTENER]('pointerenter')
   }
 
   set onpointerenter(listener) {
-    this[SET_LISTENER]('onpointerenter', listener)
+    this[SET_LISTENER]('pointerenter', listener)
   }
 
   get onpointerleave() {
-    return this[GET_LISTENER]('onpointerleave')
+    return this[GET_LISTENER]('pointerleave')
   }
 
   set onpointerleave(listener) {
-    this[SET_LISTENER]('onpointerleave', listener)
+    this[SET_LISTENER]('pointerleave', listener)
   }
 
   get onpointerlockchange() {
-    return this[GET_LISTENER]('onpointerlockchange')
+    return this[GET_LISTENER]('pointerlockchange')
   }
 
   set onpointerlockchange(listener) {
-    this[SET_LISTENER]('onpointerlockchange', listener)
+    this[SET_LISTENER]('pointerlockchange', listener)
   }
 
   get onpointerlockerror() {
-    return this[GET_LISTENER]('onpointerlockerror')
+    return this[GET_LISTENER]('pointerlockerror')
   }
 
   set onpointerlockerror(listener) {
-    this[SET_LISTENER]('onpointerlockerror', listener)
+    this[SET_LISTENER]('pointerlockerror', listener)
   }
 
   get onpointermove() {
-    return this[GET_LISTENER]('onpointermove')
+    return this[GET_LISTENER]('pointermove')
   }
 
   set onpointermove(listener) {
-    this[SET_LISTENER]('onpointermove', listener)
+    this[SET_LISTENER]('pointermove', listener)
   }
 
   get onpointerout() {
-    return this[GET_LISTENER]('onpointerout')
+    return this[GET_LISTENER]('pointerout')
   }
 
   set onpointerout(listener) {
-    this[SET_LISTENER]('onpointerout', listener)
+    this[SET_LISTENER]('pointerout', listener)
   }
 
   get onpointerover() {
-    return this[GET_LISTENER]('onpointerover')
+    return this[GET_LISTENER]('pointerover')
   }
 
   set onpointerover(listener) {
-    this[SET_LISTENER]('onpointerover', listener)
+    this[SET_LISTENER]('pointerover', listener)
   }
 
   get onpointerup() {
-    return this[GET_LISTENER]('onpointerup')
+    return this[GET_LISTENER]('pointerup')
   }
 
   set onpointerup(listener) {
-    this[SET_LISTENER]('onpointerup', listener)
+    this[SET_LISTENER]('pointerup', listener)
   }
 
   get onpopstate() {
-    return this[GET_LISTENER]('onpopstate')
+    return this[GET_LISTENER]('popstate')
   }
 
   set onpopstate(listener) {
-    this[SET_LISTENER]('onpopstate', listener)
+    this[SET_LISTENER]('popstate', listener)
   }
 
   get onprogress() {
-    return this[GET_LISTENER]('onprogress')
+    return this[GET_LISTENER]('progress')
   }
 
   set onprogress(listener) {
-    this[SET_LISTENER]('onprogress', listener)
+    this[SET_LISTENER]('progress', listener)
   }
 
   get onratechange() {
-    return this[GET_LISTENER]('onratechange')
+    return this[GET_LISTENER]('ratechange')
   }
 
   set onratechange(listener) {
-    this[SET_LISTENER]('onratechange', listener)
+    this[SET_LISTENER]('ratechange', listener)
   }
 
   get onreadystatechange() {
-    return this[GET_LISTENER]('onreadystatechange')
+    return this[GET_LISTENER]('readystatechange')
   }
 
   set onreadystatechange(listener) {
-    this[SET_LISTENER]('onreadystatechange', listener)
+    this[SET_LISTENER]('readystatechange', listener)
   }
 
   get onrejectionhandled() {
-    return this[GET_LISTENER]('onrejectionhandled')
+    return this[GET_LISTENER]('rejectionhandled')
   }
 
   set onrejectionhandled(listener) {
-    this[SET_LISTENER]('onrejectionhandled', listener)
+    this[SET_LISTENER]('rejectionhandled', listener)
   }
 
   get onreset() {
-    return this[GET_LISTENER]('onreset')
+    return this[GET_LISTENER]('reset')
   }
 
   set onreset(listener) {
-    this[SET_LISTENER]('onreset', listener)
+    this[SET_LISTENER]('reset', listener)
   }
 
   get onresize() {
-    return this[GET_LISTENER]('onresize')
+    return this[GET_LISTENER]('resize')
   }
 
   set onresize(listener) {
-    this[SET_LISTENER]('onresize', listener)
+    this[SET_LISTENER]('resize', listener)
   }
 
   get onscroll() {
-    return this[GET_LISTENER]('onscroll')
+    return this[GET_LISTENER]('scroll')
   }
 
   set onscroll(listener) {
-    this[SET_LISTENER]('onscroll', listener)
+    this[SET_LISTENER]('scroll', listener)
   }
 
   get onsecuritypolicyviolation() {
-    return this[GET_LISTENER]('onsecuritypolicyviolation')
+    return this[GET_LISTENER]('securitypolicyviolation')
   }
 
   set onsecuritypolicyviolation(listener) {
-    this[SET_LISTENER]('onsecuritypolicyviolation', listener)
+    this[SET_LISTENER]('securitypolicyviolation', listener)
   }
 
   get onseeked() {
-    return this[GET_LISTENER]('onseeked')
+    return this[GET_LISTENER]('seeked')
   }
 
   set onseeked(listener) {
-    this[SET_LISTENER]('onseeked', listener)
+    this[SET_LISTENER]('seeked', listener)
   }
 
   get onseeking() {
-    return this[GET_LISTENER]('onseeking')
+    return this[GET_LISTENER]('seeking')
   }
 
   set onseeking(listener) {
-    this[SET_LISTENER]('onseeking', listener)
+    this[SET_LISTENER]('seeking', listener)
   }
 
   get onselect() {
-    return this[GET_LISTENER]('onselect')
+    return this[GET_LISTENER]('select')
   }
 
   set onselect(listener) {
-    this[SET_LISTENER]('onselect', listener)
+    this[SET_LISTENER]('select', listener)
   }
 
   get onselectionchange() {
-    return this[GET_LISTENER]('onselectionchange')
+    return this[GET_LISTENER]('selectionchange')
   }
 
   set onselectionchange(listener) {
-    this[SET_LISTENER]('onselectionchange', listener)
+    this[SET_LISTENER]('selectionchange', listener)
   }
 
   get onselectstart() {
-    return this[GET_LISTENER]('onselectstart')
+    return this[GET_LISTENER]('selectstart')
   }
 
   set onselectstart(listener) {
-    this[SET_LISTENER]('onselectstart', listener)
+    this[SET_LISTENER]('selectstart', listener)
   }
 
   get onstalled() {
-    return this[GET_LISTENER]('onstalled')
+    return this[GET_LISTENER]('stalled')
   }
 
   set onstalled(listener) {
-    this[SET_LISTENER]('onstalled', listener)
+    this[SET_LISTENER]('stalled', listener)
   }
 
   get onstorage() {
-    return this[GET_LISTENER]('onstorage')
+    return this[GET_LISTENER]('storage')
   }
 
   set onstorage(listener) {
-    this[SET_LISTENER]('onstorage', listener)
+    this[SET_LISTENER]('storage', listener)
   }
 
   get onsubmit() {
-    return this[GET_LISTENER]('onsubmit')
+    return this[GET_LISTENER]('submit')
   }
 
   set onsubmit(listener) {
-    this[SET_LISTENER]('onsubmit', listener)
+    this[SET_LISTENER]('submit', listener)
   }
 
   get onsuspend() {
-    return this[GET_LISTENER]('onsuspend')
+    return this[GET_LISTENER]('suspend')
   }
 
   set onsuspend(listener) {
-    this[SET_LISTENER]('onsuspend', listener)
+    this[SET_LISTENER]('suspend', listener)
   }
 
   get ontimeupdate() {
-    return this[GET_LISTENER]('ontimeupdate')
+    return this[GET_LISTENER]('timeupdate')
   }
 
   set ontimeupdate(listener) {
-    this[SET_LISTENER]('ontimeupdate', listener)
+    this[SET_LISTENER]('timeupdate', listener)
   }
 
   get ontoggle() {
-    return this[GET_LISTENER]('ontoggle')
+    return this[GET_LISTENER]('toggle')
   }
 
   set ontoggle(listener) {
-    this[SET_LISTENER]('ontoggle', listener)
+    this[SET_LISTENER]('toggle', listener)
   }
 
   get ontouchcancel() {
-    return this[GET_LISTENER]('ontouchcancel')
+    return this[GET_LISTENER]('touchcancel')
   }
 
   set ontouchcancel(listener) {
-    this[SET_LISTENER]('ontouchcancel', listener)
+    this[SET_LISTENER]('touchcancel', listener)
   }
 
   get ontouchend() {
-    return this[GET_LISTENER]('ontouchend')
+    return this[GET_LISTENER]('touchend')
   }
 
   set ontouchend(listener) {
-    this[SET_LISTENER]('ontouchend', listener)
+    this[SET_LISTENER]('touchend', listener)
   }
 
   get ontouchmove() {
-    return this[GET_LISTENER]('ontouchmove')
+    return this[GET_LISTENER]('touchmove')
   }
 
   set ontouchmove(listener) {
-    this[SET_LISTENER]('ontouchmove', listener)
+    this[SET_LISTENER]('touchmove', listener)
   }
 
   get ontouchstart() {
-    return this[GET_LISTENER]('ontouchstart')
+    return this[GET_LISTENER]('touchstart')
   }
 
   set ontouchstart(listener) {
-    this[SET_LISTENER]('ontouchstart', listener)
+    this[SET_LISTENER]('touchstart', listener)
   }
 
   get ontransitioncancel() {
-    return this[GET_LISTENER]('ontransitioncancel')
+    return this[GET_LISTENER]('transitioncancel')
   }
 
   set ontransitioncancel(listener) {
-    this[SET_LISTENER]('ontransitioncancel', listener)
+    this[SET_LISTENER]('transitioncancel', listener)
   }
 
   get ontransitionend() {
-    return this[GET_LISTENER]('ontransitionend')
+    return this[GET_LISTENER]('transitionend')
   }
 
   set ontransitionend(listener) {
-    this[SET_LISTENER]('ontransitionend', listener)
+    this[SET_LISTENER]('transitionend', listener)
   }
 
   get ontransitionrun() {
-    return this[GET_LISTENER]('ontransitionrun')
+    return this[GET_LISTENER]('transitionrun')
   }
 
   set ontransitionrun(listener) {
-    this[SET_LISTENER]('ontransitionrun', listener)
+    this[SET_LISTENER]('transitionrun', listener)
   }
 
   get ontransitionstart() {
-    return this[GET_LISTENER]('ontransitionstart')
+    return this[GET_LISTENER]('transitionstart')
   }
 
   set ontransitionstart(listener) {
-    this[SET_LISTENER]('ontransitionstart', listener)
+    this[SET_LISTENER]('transitionstart', listener)
   }
 
   get onunhandledrejection() {
-    return this[GET_LISTENER]('onunhandledrejection')
+    return this[GET_LISTENER]('unhandledrejection')
   }
 
   set onunhandledrejection(listener) {
-    this[SET_LISTENER]('onunhandledrejection', listener)
+    this[SET_LISTENER]('unhandledrejection', listener)
   }
 
   get onunload() {
-    return this[GET_LISTENER]('onunload')
+    return this[GET_LISTENER]('unload')
   }
 
   set onunload(listener) {
-    this[SET_LISTENER]('onunload', listener)
+    this[SET_LISTENER]('unload', listener)
   }
 
   get onvisibilitychange() {
-    return this[GET_LISTENER]('onvisibilitychange')
+    return this[GET_LISTENER]('visibilitychange')
   }
 
   set onvisibilitychange(listener) {
-    this[SET_LISTENER]('onvisibilitychange', listener)
+    this[SET_LISTENER]('visibilitychange', listener)
   }
 
   get onvolumechange() {
-    return this[GET_LISTENER]('onvolumechange')
+    return this[GET_LISTENER]('volumechange')
   }
 
   set onvolumechange(listener) {
-    this[SET_LISTENER]('onvolumechange', listener)
+    this[SET_LISTENER]('volumechange', listener)
   }
 
   get onvrdisplayactivate() {
-    return this[GET_LISTENER]('onvrdisplayactivate')
+    return this[GET_LISTENER]('vrdisplayactivate')
   }
 
   set onvrdisplayactivate(listener) {
-    this[SET_LISTENER]('onvrdisplayactivate', listener)
+    this[SET_LISTENER]('vrdisplayactivate', listener)
   }
 
   get onvrdisplayblur() {
-    return this[GET_LISTENER]('onvrdisplayblur')
+    return this[GET_LISTENER]('vrdisplayblur')
   }
 
   set onvrdisplayblur(listener) {
-    this[SET_LISTENER]('onvrdisplayblur', listener)
+    this[SET_LISTENER]('vrdisplayblur', listener)
   }
 
   get onvrdisplayconnect() {
-    return this[GET_LISTENER]('onvrdisplayconnect')
+    return this[GET_LISTENER]('vrdisplayconnect')
   }
 
   set onvrdisplayconnect(listener) {
-    this[SET_LISTENER]('onvrdisplayconnect', listener)
+    this[SET_LISTENER]('vrdisplayconnect', listener)
   }
 
   get onvrdisplaydeactivate() {
-    return this[GET_LISTENER]('onvrdisplaydeactivate')
+    return this[GET_LISTENER]('vrdisplaydeactivate')
   }
 
   set onvrdisplaydeactivate(listener) {
-    this[SET_LISTENER]('onvrdisplaydeactivate', listener)
+    this[SET_LISTENER]('vrdisplaydeactivate', listener)
   }
 
   get onvrdisplaydisconnect() {
-    return this[GET_LISTENER]('onvrdisplaydisconnect')
+    return this[GET_LISTENER]('vrdisplaydisconnect')
   }
 
   set onvrdisplaydisconnect(listener) {
-    this[SET_LISTENER]('onvrdisplaydisconnect', listener)
+    this[SET_LISTENER]('vrdisplaydisconnect', listener)
   }
 
   get onvrdisplayfocus() {
-    return this[GET_LISTENER]('onvrdisplayfocus')
+    return this[GET_LISTENER]('vrdisplayfocus')
   }
 
   set onvrdisplayfocus(listener) {
-    this[SET_LISTENER]('onvrdisplayfocus', listener)
+    this[SET_LISTENER]('vrdisplayfocus', listener)
   }
 
   get onvrdisplaypointerrestricted() {
-    return this[GET_LISTENER]('onvrdisplaypointerrestricted')
+    return this[GET_LISTENER]('vrdisplaypointerrestricted')
   }
 
   set onvrdisplaypointerrestricted(listener) {
-    this[SET_LISTENER]('onvrdisplaypointerrestricted', listener)
+    this[SET_LISTENER]('vrdisplaypointerrestricted', listener)
   }
 
   get onvrdisplaypointerunrestricted() {
-    return this[GET_LISTENER]('onvrdisplaypointerunrestricted')
+    return this[GET_LISTENER]('vrdisplaypointerunrestricted')
   }
 
   set onvrdisplaypointerunrestricted(listener) {
-    this[SET_LISTENER]('onvrdisplaypointerunrestricted', listener)
+    this[SET_LISTENER]('vrdisplaypointerunrestricted', listener)
   }
 
   get onvrdisplaypresentchange() {
-    return this[GET_LISTENER]('onvrdisplaypresentchange')
+    return this[GET_LISTENER]('vrdisplaypresentchange')
   }
 
   set onvrdisplaypresentchange(listener) {
-    this[SET_LISTENER]('onvrdisplaypresentchange', listener)
+    this[SET_LISTENER]('vrdisplaypresentchange', listener)
   }
 
   get onwaiting() {
-    return this[GET_LISTENER]('onwaiting')
+    return this[GET_LISTENER]('waiting')
   }
 
   set onwaiting(listener) {
-    this[SET_LISTENER]('onwaiting', listener)
+    this[SET_LISTENER]('waiting', listener)
   }
 
   get onwheel() {
-    return this[GET_LISTENER]('onwheel')
+    return this[GET_LISTENER]('wheel')
   }
 
   set onwheel(listener) {
-    this[SET_LISTENER]('onwheel', listener)
+    this[SET_LISTENER]('wheel', listener)
   }
 
   get onzoom() {
-    return this[GET_LISTENER]('onzoom')
+    return this[GET_LISTENER]('zoom')
   }
 
   set onzoom(listener) {
-    this[SET_LISTENER]('onzoom', listener)
+    this[SET_LISTENER]('zoom', listener)
   }
 
   // ignore vendor
@@ -1136,9 +1142,6 @@ export class EventTarget implements globalThis.EventTarget {
   // WTF
   [index: number]: Window
 }
-
-const GET_LISTENER = Symbol()
-const SET_LISTENER = Symbol()
 
 class InlineListener {
   constructor(public handleEvent) {}

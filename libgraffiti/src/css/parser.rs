@@ -16,7 +16,7 @@ pub(super) fn sheet<'a>() -> Parser<'a, StyleSheet> {
 fn rule<'a>() -> Parser<'a, Rule> {
     let rule = selector() - space() - sym(b'{') - space() + style() - space() - sym(b'}');
 
-    rule.map(|(selector, style)| Rule { selector, style })
+    rule.map(|(selector, style)| Rule::new(selector, style))
 }
 
 pub(super) fn selector<'a>() -> Parser<'a, Selector> {
@@ -161,24 +161,24 @@ pub(super) fn parse_style_prop<'a>(prop: &'a [u8], value: &'a [u8]) -> Result<St
     parser.parse(value).map_err(|_| "invalid style prop")
 }
 
-fn value<'a, T: 'static>(specified: Parser<'a, T>) -> Parser<'a, Value<T>> {
-    let inherit = seq(b"inherit").map(|_| Value::Inherit);
-    let initial = seq(b"initial").map(|_| Value::Initial);
-    let unset = seq(b"unset").map(|_| Value::Unset);
+fn value<'a, T: 'static>(specified: Parser<'a, T>) -> Parser<'a, CssValue<T>> {
+    let inherit = seq(b"inherit").map(|_| CssValue::Inherit);
+    let initial = seq(b"initial").map(|_| CssValue::Initial);
+    let unset = seq(b"unset").map(|_| CssValue::Unset);
 
-    specified.map(Value::Specified) | inherit | initial | unset
+    specified.map(CssValue::Specified) | inherit | initial | unset
 }
 
-fn dimension<'a>() -> Parser<'a, Dimension> {
-    let px = (float() - seq(b"px")).map(Dimension::Px);
-    let percent = (float() - sym(b'%')).map(Dimension::Percent);
-    let auto = seq(b"auto").map(|_| Dimension::Auto);
-    let zero = sym(b'0').map(|_| Dimension::Px(0.));
+fn dimension<'a>() -> Parser<'a, CssDimension> {
+    let px = (float() - seq(b"px")).map(CssDimension::Px);
+    let percent = (float() - sym(b'%')).map(CssDimension::Percent);
+    let auto = seq(b"auto").map(|_| CssDimension::Auto);
+    let zero = sym(b'0').map(|_| CssDimension::Px(0.));
 
     px | percent | auto | zero
 }
 
-fn color<'a>() -> Parser<'a, Color> {
+fn color<'a>() -> Parser<'a, CssColor> {
     fn hex_val(byte: u8) -> u8 {
         (byte as char).to_digit(16).unwrap() as u8
     }
@@ -194,7 +194,7 @@ fn color<'a>() -> Parser<'a, Color> {
                     num = num << 8 | 0xFF;
                 }
 
-                Ok(Color {
+                Ok(CssColor {
                     r: ((num >> 24) & 0xFF) as u8,
                     g: ((num >> 16) & 0xFF) as u8,
                     b: ((num >> 8) & 0xFF) as u8,
@@ -202,7 +202,7 @@ fn color<'a>() -> Parser<'a, Color> {
                 })
             }
 
-            4 | 3 => Ok(Color {
+            4 | 3 => Ok(CssColor {
                 r: hex_val(hex[0]) * 17,
                 g: hex_val(hex[1]) * 17,
                 b: hex_val(hex[2]) * 17,
@@ -213,90 +213,90 @@ fn color<'a>() -> Parser<'a, Color> {
         })
 }
 
-fn align<'a>() -> Parser<'a, Align> {
+fn align<'a>() -> Parser<'a, CssAlign> {
     keyword().convert(|kw| match kw {
-        b"auto" => Ok(Align::Auto),
-        b"start" => Ok(Align::Start),
-        b"flex-start" => Ok(Align::Start),
-        b"center" => Ok(Align::Center),
-        b"end" => Ok(Align::End),
-        b"flex-end" => Ok(Align::End),
-        b"stretch" => Ok(Align::Stretch),
-        b"baseline" => Ok(Align::Baseline),
-        b"space-between" => Ok(Align::SpaceBetween),
-        b"space-around" => Ok(Align::SpaceAround),
-        b"space-evenly" => Ok(Align::SpaceEvenly),
+        b"auto" => Ok(CssAlign::Auto),
+        b"start" => Ok(CssAlign::Start),
+        b"flex-start" => Ok(CssAlign::Start),
+        b"center" => Ok(CssAlign::Center),
+        b"end" => Ok(CssAlign::End),
+        b"flex-end" => Ok(CssAlign::End),
+        b"stretch" => Ok(CssAlign::Stretch),
+        b"baseline" => Ok(CssAlign::Baseline),
+        b"space-between" => Ok(CssAlign::SpaceBetween),
+        b"space-around" => Ok(CssAlign::SpaceAround),
+        b"space-evenly" => Ok(CssAlign::SpaceEvenly),
 
         _ => Err("invalid align"),
     })
 }
 
-fn border_style<'a>() -> Parser<'a, BorderStyle> {
+fn border_style<'a>() -> Parser<'a, CssBorderStyle> {
     keyword().convert(|kw| match kw {
-        b"none" => Ok(BorderStyle::None),
-        b"hidden" => Ok(BorderStyle::Hidden),
-        b"dotted" => Ok(BorderStyle::Dotted),
-        b"dashed" => Ok(BorderStyle::Dashed),
-        b"solid" => Ok(BorderStyle::Solid),
-        b"double" => Ok(BorderStyle::Double),
-        b"groove" => Ok(BorderStyle::Groove),
-        b"ridge" => Ok(BorderStyle::Ridge),
-        b"inset" => Ok(BorderStyle::Inset),
-        b"outset" => Ok(BorderStyle::Outset),
+        b"none" => Ok(CssBorderStyle::None),
+        b"hidden" => Ok(CssBorderStyle::Hidden),
+        b"dotted" => Ok(CssBorderStyle::Dotted),
+        b"dashed" => Ok(CssBorderStyle::Dashed),
+        b"solid" => Ok(CssBorderStyle::Solid),
+        b"double" => Ok(CssBorderStyle::Double),
+        b"groove" => Ok(CssBorderStyle::Groove),
+        b"ridge" => Ok(CssBorderStyle::Ridge),
+        b"inset" => Ok(CssBorderStyle::Inset),
+        b"outset" => Ok(CssBorderStyle::Outset),
 
         _ => Err("invalid border style"),
     })
 }
 
-fn display<'a>() -> Parser<'a, Display> {
+fn display<'a>() -> Parser<'a, CssDisplay> {
     keyword().convert(|kw| match kw {
-        b"none" => Ok(Display::None),
-        b"block" => Ok(Display::Block),
-        b"inline" => Ok(Display::Inline),
-        b"flex" => Ok(Display::Flex),
+        b"none" => Ok(CssDisplay::None),
+        b"block" => Ok(CssDisplay::Block),
+        b"inline" => Ok(CssDisplay::Inline),
+        b"flex" => Ok(CssDisplay::Flex),
 
         _ => Err("invalid display"),
     })
 }
 
-fn flex_direction<'a>() -> Parser<'a, FlexDirection> {
+fn flex_direction<'a>() -> Parser<'a, CssFlexDirection> {
     keyword().convert(|kw| match kw {
-        b"row" => Ok(FlexDirection::Row),
-        b"column" => Ok(FlexDirection::Column),
-        b"row-reverse" => Ok(FlexDirection::RowReverse),
-        b"column-reverse" => Ok(FlexDirection::ColumnReverse),
+        b"row" => Ok(CssFlexDirection::Row),
+        b"column" => Ok(CssFlexDirection::Column),
+        b"row-reverse" => Ok(CssFlexDirection::RowReverse),
+        b"column-reverse" => Ok(CssFlexDirection::ColumnReverse),
 
         _ => Err("invalid flex direction"),
     })
 }
 
-fn flex_wrap<'a>() -> Parser<'a, FlexWrap> {
+fn flex_wrap<'a>() -> Parser<'a, CssFlexWrap> {
     keyword().convert(|kw| match kw {
-        b"nowrap" => Ok(FlexWrap::NoWrap),
-        b"wrap" => Ok(FlexWrap::Wrap),
-        b"wrap-reverse" => Ok(FlexWrap::WrapReverse),
+        b"nowrap" => Ok(CssFlexWrap::NoWrap),
+        b"wrap" => Ok(CssFlexWrap::Wrap),
+        b"wrap-reverse" => Ok(CssFlexWrap::WrapReverse),
 
         _ => Err("invalid flex wrap"),
     })
 }
 
-fn overflow<'a>() -> Parser<'a, Overflow> {
+fn overflow<'a>() -> Parser<'a, CssOverflow> {
     keyword().convert(|kw| match kw {
-        b"visible" => Ok(Overflow::Visible),
-        b"hidden" => Ok(Overflow::Hidden),
-        b"scroll" => Ok(Overflow::Scroll),
-        b"auto" => Ok(Overflow::Auto),
+        b"visible" => Ok(CssOverflow::Visible),
+        b"hidden" => Ok(CssOverflow::Hidden),
+        b"scroll" => Ok(CssOverflow::Scroll),
+        b"auto" => Ok(CssOverflow::Auto),
 
         _ => Err("invalid overflow"),
     })
 }
 
-fn position<'a>() -> Parser<'a, Position> {
+fn position<'a>() -> Parser<'a, CssPosition> {
     keyword().convert(|kw| match kw {
-        b"static" => Ok(Position::Static),
-        b"relative" => Ok(Position::Relative),
-        b"absolute" => Ok(Position::Absolute),
-        b"sticky" => Ok(Position::Sticky),
+        b"static" => Ok(CssPosition::Static),
+        b"relative" => Ok(CssPosition::Relative),
+        b"absolute" => Ok(CssPosition::Absolute),
+        b"sticky" => Ok(CssPosition::Sticky),
 
         _ => Err("invalid position"),
     })
@@ -313,22 +313,22 @@ fn font_family<'a>() -> Parser<'a, Atom<String>> {
         .map(Atom::from)
 }
 
-fn text_align<'a>() -> Parser<'a, TextAlign> {
+fn text_align<'a>() -> Parser<'a, CssTextAlign> {
     keyword().convert(|kw| match kw {
-        b"left" => Ok(TextAlign::Left),
-        b"center" => Ok(TextAlign::Center),
-        b"right" => Ok(TextAlign::Right),
-        b"justify" => Ok(TextAlign::Justify),
+        b"left" => Ok(CssTextAlign::Left),
+        b"center" => Ok(CssTextAlign::Center),
+        b"right" => Ok(CssTextAlign::Right),
+        b"justify" => Ok(CssTextAlign::Justify),
 
         _ => Err("invalid text align"),
     })
 }
 
-fn visibility<'a>() -> Parser<'a, Visibility> {
+fn visibility<'a>() -> Parser<'a, CssVisibility> {
     keyword().convert(|kw| match kw {
-        b"visible" => Ok(Visibility::Visible),
-        b"hidden" => Ok(Visibility::Hidden),
-        b"collapse" => Ok(Visibility::Collapse),
+        b"visible" => Ok(CssVisibility::Visible),
+        b"hidden" => Ok(CssVisibility::Hidden),
+        b"collapse" => Ok(CssVisibility::Collapse),
 
         _ => Err("invalid visibility"),
     })
@@ -378,10 +378,7 @@ mod tests {
         assert_eq!(
             sheet,
             StyleSheet {
-                rules: vec![Rule {
-                    selector: Selector::try_from("div").unwrap(),
-                    style: Style::from("color: #fff")
-                }]
+                rules: vec![Rule::new(Selector::from("div"), Style::from("color: #fff"))]
             }
         );
 
@@ -483,65 +480,68 @@ mod tests {
     fn parse_prop() {
         assert_eq!(
             parse_style_prop(b"text-align", b"inherit"),
-            Ok(StyleProp::TextAlign(Value::Inherit))
+            Ok(StyleProp::TextAlign(CssValue::Inherit))
         );
         assert_eq!(
             parse_style_prop(b"padding-left", b"10px"),
-            Ok(StyleProp::PaddingLeft(Value::Specified(Dimension::Px(10.))))
+            Ok(StyleProp::PaddingLeft(CssValue::Specified(CssDimension::Px(10.))))
         );
         assert_eq!(
             parse_style_prop(b"margin-top", b"5%"),
-            Ok(StyleProp::MarginTop(Value::Specified(Dimension::Percent(5.))))
+            Ok(StyleProp::MarginTop(CssValue::Specified(CssDimension::Percent(5.))))
         );
         assert_eq!(
             parse_style_prop(b"opacity", b"1"),
-            Ok(StyleProp::Opacity(Value::Specified(1.)))
+            Ok(StyleProp::Opacity(CssValue::Specified(1.)))
         );
         assert_eq!(
             parse_style_prop(b"color", b"#000000"),
-            Ok(StyleProp::Color(Value::Specified(Color::BLACK)))
+            Ok(StyleProp::Color(CssValue::Specified(CssColor::BLACK)))
         );
     }
 
     #[test]
     fn parse_align() {
-        assert_eq!(align().parse(b"auto"), Ok(Align::Auto));
-        assert_eq!(align().parse(b"start"), Ok(Align::Start));
-        assert_eq!(align().parse(b"flex-start"), Ok(Align::Start));
-        assert_eq!(align().parse(b"center"), Ok(Align::Center));
-        assert_eq!(align().parse(b"end"), Ok(Align::End));
-        assert_eq!(align().parse(b"flex-end"), Ok(Align::End));
-        assert_eq!(align().parse(b"stretch"), Ok(Align::Stretch));
-        assert_eq!(align().parse(b"baseline"), Ok(Align::Baseline));
-        assert_eq!(align().parse(b"space-between"), Ok(Align::SpaceBetween));
-        assert_eq!(align().parse(b"space-around"), Ok(Align::SpaceAround));
-        assert_eq!(align().parse(b"space-evenly"), Ok(Align::SpaceEvenly));
+        assert_eq!(align().parse(b"auto"), Ok(CssAlign::Auto));
+        assert_eq!(align().parse(b"start"), Ok(CssAlign::Start));
+        assert_eq!(align().parse(b"flex-start"), Ok(CssAlign::Start));
+        assert_eq!(align().parse(b"center"), Ok(CssAlign::Center));
+        assert_eq!(align().parse(b"end"), Ok(CssAlign::End));
+        assert_eq!(align().parse(b"flex-end"), Ok(CssAlign::End));
+        assert_eq!(align().parse(b"stretch"), Ok(CssAlign::Stretch));
+        assert_eq!(align().parse(b"baseline"), Ok(CssAlign::Baseline));
+        assert_eq!(align().parse(b"space-between"), Ok(CssAlign::SpaceBetween));
+        assert_eq!(align().parse(b"space-around"), Ok(CssAlign::SpaceAround));
+        assert_eq!(align().parse(b"space-evenly"), Ok(CssAlign::SpaceEvenly));
     }
 
     #[test]
     fn parse_dimension() {
-        assert_eq!(dimension().parse(b"auto"), Ok(Dimension::Auto));
-        assert_eq!(dimension().parse(b"10px"), Ok(Dimension::Px(10.)));
-        assert_eq!(dimension().parse(b"100%"), Ok(Dimension::Percent(100.)));
-        assert_eq!(dimension().parse(b"0"), Ok(Dimension::Px(0.)));
+        assert_eq!(dimension().parse(b"auto"), Ok(CssDimension::Auto));
+        assert_eq!(dimension().parse(b"10px"), Ok(CssDimension::Px(10.)));
+        assert_eq!(dimension().parse(b"100%"), Ok(CssDimension::Percent(100.)));
+        assert_eq!(dimension().parse(b"0"), Ok(CssDimension::Px(0.)));
     }
 
     #[test]
     fn parse_color() {
-        assert_eq!(color().parse(b"#000000"), Ok(Color::BLACK));
-        assert_eq!(color().parse(b"#ff0000"), Ok(Color::RED));
-        assert_eq!(color().parse(b"#00ff00"), Ok(Color::GREEN));
-        assert_eq!(color().parse(b"#0000ff"), Ok(Color::BLUE));
+        assert_eq!(color().parse(b"#000000"), Ok(CssColor::BLACK));
+        assert_eq!(color().parse(b"#ff0000"), Ok(CssColor::RED));
+        assert_eq!(color().parse(b"#00ff00"), Ok(CssColor::GREEN));
+        assert_eq!(color().parse(b"#0000ff"), Ok(CssColor::BLUE));
 
-        assert_eq!(color().parse(b"#80808080"), Ok(Color::from_rgba8(128, 128, 128, 128)));
-        assert_eq!(color().parse(b"#00000080"), Ok(Color::from_rgba8(0, 0, 0, 128)));
+        assert_eq!(
+            color().parse(b"#80808080"),
+            Ok(CssColor::from_rgba8(128, 128, 128, 128))
+        );
+        assert_eq!(color().parse(b"#00000080"), Ok(CssColor::from_rgba8(0, 0, 0, 128)));
 
-        assert_eq!(color().parse(b"#000"), Ok(Color::BLACK));
-        assert_eq!(color().parse(b"#f00"), Ok(Color::RED));
-        assert_eq!(color().parse(b"#fff"), Ok(Color::WHITE));
+        assert_eq!(color().parse(b"#000"), Ok(CssColor::BLACK));
+        assert_eq!(color().parse(b"#f00"), Ok(CssColor::RED));
+        assert_eq!(color().parse(b"#fff"), Ok(CssColor::WHITE));
 
-        assert_eq!(color().parse(b"#0000"), Ok(Color::TRANSPARENT));
-        assert_eq!(color().parse(b"#f00f"), Ok(Color::RED));
+        assert_eq!(color().parse(b"#0000"), Ok(CssColor::TRANSPARENT));
+        assert_eq!(color().parse(b"#f00f"), Ok(CssColor::RED));
 
         //assert_eq!(color().parse(b"rgb(0, 0, 0)"), Ok(Color { r: 0, g: 0, b: 0, a: 255 }));
         //assert_eq!(color().parse(b"rgba(0, 0, 0, 0)"), Ok(Color { r: 0, g: 0, b: 0, a: 0 }));
@@ -549,72 +549,72 @@ mod tests {
 
     #[test]
     fn parse_border_style() {
-        assert_eq!(border_style().parse(b"none"), Ok(BorderStyle::None));
-        assert_eq!(border_style().parse(b"hidden"), Ok(BorderStyle::Hidden));
-        assert_eq!(border_style().parse(b"dotted"), Ok(BorderStyle::Dotted));
-        assert_eq!(border_style().parse(b"dashed"), Ok(BorderStyle::Dashed));
-        assert_eq!(border_style().parse(b"solid"), Ok(BorderStyle::Solid));
-        assert_eq!(border_style().parse(b"double"), Ok(BorderStyle::Double));
-        assert_eq!(border_style().parse(b"groove"), Ok(BorderStyle::Groove));
-        assert_eq!(border_style().parse(b"ridge"), Ok(BorderStyle::Ridge));
-        assert_eq!(border_style().parse(b"inset"), Ok(BorderStyle::Inset));
-        assert_eq!(border_style().parse(b"outset"), Ok(BorderStyle::Outset));
+        assert_eq!(border_style().parse(b"none"), Ok(CssBorderStyle::None));
+        assert_eq!(border_style().parse(b"hidden"), Ok(CssBorderStyle::Hidden));
+        assert_eq!(border_style().parse(b"dotted"), Ok(CssBorderStyle::Dotted));
+        assert_eq!(border_style().parse(b"dashed"), Ok(CssBorderStyle::Dashed));
+        assert_eq!(border_style().parse(b"solid"), Ok(CssBorderStyle::Solid));
+        assert_eq!(border_style().parse(b"double"), Ok(CssBorderStyle::Double));
+        assert_eq!(border_style().parse(b"groove"), Ok(CssBorderStyle::Groove));
+        assert_eq!(border_style().parse(b"ridge"), Ok(CssBorderStyle::Ridge));
+        assert_eq!(border_style().parse(b"inset"), Ok(CssBorderStyle::Inset));
+        assert_eq!(border_style().parse(b"outset"), Ok(CssBorderStyle::Outset));
     }
 
     #[test]
     fn parse_display() {
-        assert_eq!(display().parse(b"none"), Ok(Display::None));
-        assert_eq!(display().parse(b"block"), Ok(Display::Block));
-        assert_eq!(display().parse(b"inline"), Ok(Display::Inline));
-        assert_eq!(display().parse(b"flex"), Ok(Display::Flex));
+        assert_eq!(display().parse(b"none"), Ok(CssDisplay::None));
+        assert_eq!(display().parse(b"block"), Ok(CssDisplay::Block));
+        assert_eq!(display().parse(b"inline"), Ok(CssDisplay::Inline));
+        assert_eq!(display().parse(b"flex"), Ok(CssDisplay::Flex));
     }
 
     #[test]
     fn parse_flex_direction() {
-        assert_eq!(flex_direction().parse(b"row"), Ok(FlexDirection::Row));
-        assert_eq!(flex_direction().parse(b"column"), Ok(FlexDirection::Column));
-        assert_eq!(flex_direction().parse(b"row-reverse"), Ok(FlexDirection::RowReverse));
+        assert_eq!(flex_direction().parse(b"row"), Ok(CssFlexDirection::Row));
+        assert_eq!(flex_direction().parse(b"column"), Ok(CssFlexDirection::Column));
+        assert_eq!(flex_direction().parse(b"row-reverse"), Ok(CssFlexDirection::RowReverse));
         assert_eq!(
             flex_direction().parse(b"column-reverse"),
-            Ok(FlexDirection::ColumnReverse)
+            Ok(CssFlexDirection::ColumnReverse)
         );
     }
 
     #[test]
     fn parse_flex_wrap() {
-        assert_eq!(flex_wrap().parse(b"nowrap"), Ok(FlexWrap::NoWrap));
-        assert_eq!(flex_wrap().parse(b"wrap"), Ok(FlexWrap::Wrap));
-        assert_eq!(flex_wrap().parse(b"wrap-reverse"), Ok(FlexWrap::WrapReverse));
+        assert_eq!(flex_wrap().parse(b"nowrap"), Ok(CssFlexWrap::NoWrap));
+        assert_eq!(flex_wrap().parse(b"wrap"), Ok(CssFlexWrap::Wrap));
+        assert_eq!(flex_wrap().parse(b"wrap-reverse"), Ok(CssFlexWrap::WrapReverse));
     }
 
     #[test]
     fn parse_overflow() {
-        assert_eq!(overflow().parse(b"visible"), Ok(Overflow::Visible));
-        assert_eq!(overflow().parse(b"hidden"), Ok(Overflow::Hidden));
-        assert_eq!(overflow().parse(b"scroll"), Ok(Overflow::Scroll));
-        assert_eq!(overflow().parse(b"auto"), Ok(Overflow::Auto));
+        assert_eq!(overflow().parse(b"visible"), Ok(CssOverflow::Visible));
+        assert_eq!(overflow().parse(b"hidden"), Ok(CssOverflow::Hidden));
+        assert_eq!(overflow().parse(b"scroll"), Ok(CssOverflow::Scroll));
+        assert_eq!(overflow().parse(b"auto"), Ok(CssOverflow::Auto));
     }
 
     #[test]
     fn parse_position() {
-        assert_eq!(position().parse(b"static"), Ok(Position::Static));
-        assert_eq!(position().parse(b"relative"), Ok(Position::Relative));
-        assert_eq!(position().parse(b"absolute"), Ok(Position::Absolute));
-        assert_eq!(position().parse(b"sticky"), Ok(Position::Sticky));
+        assert_eq!(position().parse(b"static"), Ok(CssPosition::Static));
+        assert_eq!(position().parse(b"relative"), Ok(CssPosition::Relative));
+        assert_eq!(position().parse(b"absolute"), Ok(CssPosition::Absolute));
+        assert_eq!(position().parse(b"sticky"), Ok(CssPosition::Sticky));
     }
 
     #[test]
     fn parse_text_align() {
-        assert_eq!(text_align().parse(b"left"), Ok(TextAlign::Left));
-        assert_eq!(text_align().parse(b"center"), Ok(TextAlign::Center));
-        assert_eq!(text_align().parse(b"right"), Ok(TextAlign::Right));
-        assert_eq!(text_align().parse(b"justify"), Ok(TextAlign::Justify));
+        assert_eq!(text_align().parse(b"left"), Ok(CssTextAlign::Left));
+        assert_eq!(text_align().parse(b"center"), Ok(CssTextAlign::Center));
+        assert_eq!(text_align().parse(b"right"), Ok(CssTextAlign::Right));
+        assert_eq!(text_align().parse(b"justify"), Ok(CssTextAlign::Justify));
     }
 
     #[test]
     fn parse_visibility() {
-        assert_eq!(visibility().parse(b"visible"), Ok(Visibility::Visible));
-        assert_eq!(visibility().parse(b"hidden"), Ok(Visibility::Hidden));
-        assert_eq!(visibility().parse(b"collapse"), Ok(Visibility::Collapse));
+        assert_eq!(visibility().parse(b"visible"), Ok(CssVisibility::Visible));
+        assert_eq!(visibility().parse(b"hidden"), Ok(CssVisibility::Hidden));
+        assert_eq!(visibility().parse(b"collapse"), Ok(CssVisibility::Collapse));
     }
 }

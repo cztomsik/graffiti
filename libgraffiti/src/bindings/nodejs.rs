@@ -1,9 +1,3 @@
-// TODO: impl for all SerJson/DeJson values?
-//       (call JSON.stringify & JSON.parse using napi)
-//       so we could have slower, generic case + fast-path for some types
-//
-//       might be useful for events but maybe [type, opt_a, opt_b, opt_c] will be enough
-
 use crate::util::Dylib;
 use napi::*;
 use std::ptr::{null, null_mut};
@@ -74,6 +68,7 @@ macro_rules! impl_from_to_napi {
         impl FromNapi for $type {
             fn from_napi(env: NapiEnv, napi_value: NapiValue) -> Self {
                 let mut val = Default::default();
+                #[allow(unused_unsafe)]
                 unsafe { check!($from(env, napi_value, &mut val)) }
                 val
             }
@@ -173,22 +168,36 @@ impl<T: FromNapi + Clone> FromNapi for Vec<T> {
     }
 }
 
-impl<T: ToNapi + Clone> ToNapi for Vec<T> {
+impl<A: ToNapi, B: ToNapi> ToNapi for (A, B) {
     fn to_napi(&self, env: NapiEnv) -> NapiValue {
-        self.as_slice().to_napi(env)
+        unsafe {
+            let mut arr = std::mem::zeroed();
+            check!(napi_create_array(env, &mut arr));
+
+            check!(napi_set_element(env, arr, 0, self.0.to_napi(env)));
+            check!(napi_set_element(env, arr, 1, self.1.to_napi(env)));
+
+            arr
+        }
     }
 }
 
-impl<T: ToNapi + Clone> ToNapi for (T, T) {
+impl<A: ToNapi, B: ToNapi, C: ToNapi> ToNapi for (A, B, C) {
     fn to_napi(&self, env: NapiEnv) -> NapiValue {
-        let (a, b) = self.clone();
-        // TODO(array_methods)
-        // [a, b].as_slice().to_napi(env)
-        (&[a, b][..]).to_napi(env)
+        unsafe {
+            let mut arr = std::mem::zeroed();
+            check!(napi_create_array(env, &mut arr));
+
+            check!(napi_set_element(env, arr, 0, self.0.to_napi(env)));
+            check!(napi_set_element(env, arr, 1, self.1.to_napi(env)));
+            check!(napi_set_element(env, arr, 2, self.2.to_napi(env)));
+
+            arr
+        }
     }
 }
 
-impl<T: ToNapi + Clone> ToNapi for &[T] {
+impl<T: ToNapi> ToNapi for Vec<T> {
     fn to_napi(&self, env: NapiEnv) -> NapiValue {
         unsafe {
             let mut arr = std::mem::zeroed();

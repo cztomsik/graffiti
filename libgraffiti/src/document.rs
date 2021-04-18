@@ -9,15 +9,15 @@ use crate::css::{MatchingContext, Selector, Style};
 use crate::util::{Atom, SlotMap};
 use std::any::Any;
 use std::borrow::Cow;
-use std::convert::TryFrom;
 
 pub type NodeId = u32;
 
 #[derive(Debug)]
-pub enum DocumentEvent {
+pub enum DocumentEvent<'a> {
     Create(NodeId, NodeType),
     Insert(NodeId, NodeId, usize),
     Remove(NodeId, NodeId),
+    Cdata(NodeId, &'a str),
 
     // TODO: call during Document::Drop, probably in document order (children first)
     Drop(NodeId),
@@ -53,7 +53,7 @@ pub struct Document {
 }
 
 // private shorthand
-type Event = DocumentEvent;
+type Event<'a> = DocumentEvent<'a>;
 
 impl Document {
     pub fn new() -> Self {
@@ -92,6 +92,13 @@ impl Document {
 
     pub fn parent(&self, node: NodeId) -> Option<NodeId> {
         self.nodes[node].parent
+    }
+
+    pub fn parent_element(&self, node: NodeId) -> Option<NodeId> {
+        match self.parent(node) {
+            Some(p) if self.node_type(p) == NodeType::Element => Some(p),
+            _ => None,
+        }
     }
 
     pub fn first_child(&self, node: NodeId) -> Option<NodeId> {
@@ -253,6 +260,8 @@ impl Document {
         } else {
             panic!("not a cdata node")
         }
+
+        self.emit(Event::Cdata(cdata_node, cdata));
     }
 
     // element
@@ -335,11 +344,9 @@ impl Document {
         names
     }
 
-    /*
     pub fn style(&self, element: NodeId) -> &Style {
         &self.el(element).style
     }
-    */
 
     // helpers
 
@@ -376,7 +383,7 @@ impl Document {
                 Some(s) => s.split_ascii_whitespace().any(|part| part == **cls),
                 None => false,
             },
-            parent: &|el| self.parent(el),
+            parent: &|el| self.parent_element(el),
         })
     }
 

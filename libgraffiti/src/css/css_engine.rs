@@ -1,11 +1,7 @@
 use super::*;
 
 // just a fn for now
-pub(crate) fn matching_style<'a, E: Copy>(
-    ctx: &MatchingContext<'a, E>,
-    sheets: &'a [StyleSheet],
-    el: E
-) -> Style {
+pub(crate) fn matching_style<'a, E: Copy>(ctx: &MatchingContext<'a, E>, sheets: &'a [StyleSheet], el: E) -> Style {
     let mut matching_rules: Vec<_> = sheets
         .iter()
         .flat_map(|s| &s.rules)
@@ -17,6 +13,7 @@ pub(crate) fn matching_style<'a, E: Copy>(
     let mut style = Style::new();
 
     for (_, r) in &matching_rules {
+        // TODO: style.merge?
         for p in &r.style.props {
             style.add_prop(p.clone());
         }
@@ -25,12 +22,16 @@ pub(crate) fn matching_style<'a, E: Copy>(
     style
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct StyleSheet {
     pub(super) rules: Vec<Rule>,
 }
 
 impl StyleSheet {
+    pub fn new() -> Self {
+        Self { rules: vec![] }
+    }
+
     pub fn insert_rule(&mut self, rule: Rule, index: usize) {
         self.rules.insert(index, rule);
     }
@@ -43,14 +44,22 @@ impl StyleSheet {
 // should never fail
 impl From<&str> for StyleSheet {
     fn from(s: &str) -> Self {
-        super::parser::sheet().parse(s.as_bytes()).unwrap_or(Default::default())
+        super::parser::sheet()
+            .parse(s.as_bytes())
+            .unwrap_or_else(|_| Self::new())
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Rule {
-    pub(super) selector: Selector,
-    pub(super) style: Style,
+    selector: Selector,
+    style: Style,
+}
+
+impl Rule {
+    pub fn new(selector: Selector, style: Style) -> Self {
+        Self { selector, style }
+    }
 }
 
 #[cfg(test)]

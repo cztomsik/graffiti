@@ -9,11 +9,10 @@ use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Mutex;
 
 type Task = Box<dyn FnOnce() + 'static + Send>;
 static TASK_CHANNEL: Lazy<(Sender<Task>, Receiver<Task>)> = Lazy::new(channel);
-
-//static EVENTS: Lazy<DashMap<WindowId, Receiver<Event>>> = Lazy::new(DashMap::new);
 
 thread_local! {
     static CTX: Rc<RefCell<Ctx>> = Default::default();
@@ -24,10 +23,14 @@ type WebViewId = u32;
 type DocumentId = u32;
 type ViewportId = u32;
 
+// TODO: avoid mutex
+static EVENTS: Lazy<Mutex<SlotMap<WindowId, Receiver<Event>>>> = Lazy::new(Default::default);
+
 #[derive(Default)]
 struct Ctx {
     app: Option<Rc<App>>,
     windows: SlotMap<WindowId, Window>,
+    events: SlotMap<WindowId, Receiver<Event>>,
     webviews: SlotMap<WebViewId, WebView>,
     documents: SlotMap<DocumentId, Rc<RefCell<Document>>>,
     viewports: SlotMap<ViewportId, Viewport>,
@@ -57,14 +60,11 @@ macro_rules! export_api {
                 TASK_CHANNEL.1.try_iter().for_each(|t| t());
                 ctx!().app.as_ref().unwrap().wait_events_timeout(0.1);
             },
-            wake_up: || App::wake_up(),
+            wake_up: App::wake_up,
 
             viewport_new: |w: f64, h: f64, doc: u32| {
                 let vp = Viewport::new((w as _, h as _), &ctx!().documents[doc]);
-                let id = ctx!().viewports.insert(vp);
-                TASK_CHANNEL.0.send(Box::new(move || ctx!().backends.put(id, GlBackend::new()))).unwrap();
-
-                id
+                ctx!().viewports.insert(vp)
             },
             viewport_render: |w, vp| {
                 let frame = ctx!().viewports[vp].render();
@@ -72,7 +72,9 @@ macro_rules! export_api {
                 //let (tx, wait) = channel::<()>();
 
                 TASK_CHANNEL.0.send(Box::new(move || {
-                    ctx!().backends[vp].render_frame(frame);
+                    unsafe { ctx!().windows[w].make_current() }
+
+                    ctx!().backends[w].render_frame(frame);
                     ctx!().windows[w].swap_buffers();
                     //tx.send(()).unwrap();
                 })).unwrap();
@@ -80,22 +82,26 @@ macro_rules! export_api {
                 //App::wake_up();
                 //wait.recv().unwrap();
             },
-            viewport_drop: |vp| {
-                drop(ctx!().viewports.remove(vp));
-                TASK_CHANNEL.0.send(Box::new(move || drop(ctx!().backends.remove(vp)))).unwrap();
-            },
+            viewport_resize: |vp, w: f64, h: f64| ctx!().viewports[vp].resize(((w as _, h as _))),
+            viewport_element_from_point: |vp, x: f64, y: f64| ctx!().viewports[vp].element_from_point((x as _, y as _)),
+            viewport_drop: |vp| drop(ctx!().viewports.remove(vp)),
 
             window_new: |title: String, width, height| {
                 let mut w = Window::new(ctx!().app.as_ref().unwrap(), &title, width, height);
+                let events = w.events().clone();
 
-                // TODO: make window context current
-                unsafe {
-                    GlBackend::load_with(|s| w.get_proc_address(s) as _);
-                }
+                // backend should be per-window because loadURL() creates new viewport
+                // and GlBackend is stateful, so new() + drop() would mess the pipeline
+                let backend = unsafe { GlBackend::new(|s| w.get_proc_address(s) as _) };
 
-                ctx!().windows.insert(w)
+                let id = ctx!().windows.insert(w);
+                ctx!().backends.put(id, backend);
+
+                EVENTS.lock().unwrap().put(id, events);
+
+                id
             },
-            window_next_event: |_w: u32| None::<String>,
+            window_next_event: |w| EVENTS.lock().unwrap()[w].try_recv().ok().map(event),
             window_title: |w| ctx!().windows[w].title().to_owned(),
             window_set_title: |w, title: String| ctx!().windows[w].set_title(&title),
             window_size: |w| ctx!().windows[w].size(),
@@ -106,7 +112,12 @@ macro_rules! export_api {
             window_minimize: |w| ctx!().windows[w].minimize(),
             window_maximize: |w| ctx!().windows[w].maximize(),
             window_restore: |w| ctx!().windows[w].restore(),
-            window_drop: |w| drop(ctx!().windows.remove(w)),
+            window_drop: |w| {
+                unsafe { ctx!().windows[w].make_current() }
+                drop(ctx!().backends.remove(w));
+
+                drop(ctx!().windows.remove(w))
+            },
 
             webview_new: || {
                 let wv = WebView::new(ctx!().app.as_ref().unwrap());
@@ -138,6 +149,26 @@ macro_rules! export_api {
             document_drop: |doc| drop(ctx!().documents.remove(doc))
         }
     }};
+}
+
+fn event(ev: Event) -> (String, Option<(f64, f64)>, Option<u32>) {
+    let res = match ev {
+        Event::CursorPos(x, y) => ("mousemove", Some((x, y)), None),
+        Event::MouseDown => ("mousedown", None, None),
+        Event::MouseUp => ("mouseup", None, None),
+        Event::Scroll(x, y) => ("scroll", Some((x, y)), None),
+
+        // JS e.which
+        Event::KeyDown(code) => ("keydown", None, Some(code)),
+        Event::KeyUp(code) => ("keyup", None, Some(code)),
+        Event::KeyPress(ch) => ("keypress", None, Some(ch)),
+        Event::Resize(w, h) => ("resize", Some((w as _, h as _)), None),
+        Event::FramebufferSize(w, h) => ("fbsize", Some((w as _, h as _)), None),
+        Event::Close => ("close", None, None),
+    };
+
+    // TODO: nanoserde &str
+    (res.0.to_owned(), res.1, res.2)
 }
 
 mod deno;

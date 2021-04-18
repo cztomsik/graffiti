@@ -167,6 +167,13 @@ export class Document extends Node implements globalThis.Document {
     return new DocumentFragment(this)
   }
 
+  elementFromPoint(x, y): Element | null {
+    // TODO: find a better way to get that id (and to call native)
+    let id = native.viewport_element_from_point(this['__VIEWPORT_ID'], x, y)
+
+    return id && lookup(this, id)
+  }
+
   hasFocus(): boolean {
     // TODO: not sure if it shouldn't also be !== body
     return !!this.activeElement
@@ -199,10 +206,6 @@ export class Document extends Node implements globalThis.Document {
 
   getElementById(id) {
     return this.querySelector(`#${id}`)
-  }
-
-  getElementsByTagName(tagName) {
-    return this.querySelectorAll(tagName)
   }
 
   createEvent(type) {
@@ -240,7 +243,6 @@ export class Document extends Node implements globalThis.Document {
   doctype
   documentURI
   domain
-  elementFromPoint
   elementsFromPoint
   embeds
   evaluate
@@ -251,8 +253,6 @@ export class Document extends Node implements globalThis.Document {
   fullscreenEnabled
   getAnimations
   getElementsByName
-  getElementsByTagNameNS
-  getElementsByClassName
   getSelection
   hidden
   inputEncoding

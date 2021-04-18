@@ -24,5 +24,7 @@ nanoserde = { git = "https://github.com/not-fl3/nanoserde", rev = "c66efbd" }
 objc = "0.2"
 
 [profile.release]
+# panic = 'abort'
+# lto = true
 # fix --release for raspi https://github.com/rust-lang/rust/issues/62896
 codegen-units = 1

@@ -69,7 +69,7 @@ impl<E: Copy> MatchingContext<'_, E> {
         }
     }
 
-    pub fn match_selector<'a>(&'a self, selector: &Selector, el: E) -> Option<u32> {
+    pub fn match_selector(&self, selector: &Selector, el: E) -> Option<u32> {
         // so we can fast-forward to next OR
         let mut parts_iter = selector.parts.iter();
 

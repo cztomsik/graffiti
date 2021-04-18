@@ -7,10 +7,7 @@ fn main() {
     let app = unsafe { App::init() };
     let mut win = Window::new(&app, "Hello", 1024, 768);
     let mut viewport = Viewport::new(win.size(), &Rc::new(RefCell::new(Document::new())));
-
-    unsafe { GlBackend::load_with(|s| win.get_proc_address(s) as _) }
-
-    let mut backend = GlBackend::new();
+    let mut backend = unsafe { GlBackend::new(|s| win.get_proc_address(s) as _) };
 
     let mut doc = viewport.document().borrow_mut();
     let root = doc.root();
@@ -21,7 +18,7 @@ fn main() {
     drop(doc);
 
     while !win.should_close() {
-        if let Some(e) = win.take_event() {
+        for e in win.events().try_iter() {
             viewport
                 .document()
                 .borrow_mut()

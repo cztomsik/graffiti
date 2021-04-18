@@ -1,21 +1,28 @@
 <html>
 <head>
   <style>
+    * { padding-left: 5px; padding-right: 5px; padding-top: 2px; padding-bottom: 1px; }
     h1 { font-size: 20px; }
   </style>
   <style>
-    p { color: #aaaaaa }
+    p { background-color: #f00 }
   </style>
 </head>
 <body>
-  <h1>Hello</h1>
-  <p>Hello world!</p>
+  <h1 style="margin-top: 20px">Hello</h1>
+  <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Repellat laudantium eius earum. Consequuntur, cupiditate ea aspernatur est maxime deserunt maiores nemo nulla, minima nesciunt praesentium. Voluptas, maxime beatae! Veniam, numquam!</p>
 
+  <script>
+    setInterval(() => document.querySelector('h1').textContent += ' hello', 100)
+  </script>
+
+  <!--
   <script>
     var hello = 'hello'
   </script>
   <script>
     console.log(hello)
   </script>
+  -->
 </body>
 </html>

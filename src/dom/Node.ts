@@ -164,20 +164,16 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
   }
 
   // prefresh calls this
-  // TODO: check if it's really ok
   contains(other: G.Node | null): boolean {
-    let n, next = [...this.childNodes]
-
-    while (n = next.shift()) {
-      if (n === other) {
+    // go through other parents and check if one of them is us
+    while (other) {
+      if (other === this) {
         return true
       }
 
-      if (n.nodeType === Node.ELEMENT_NODE) {
-        next.push(...n.childNodes)
-      }
+      other = other.parentNode
     }
-
+  
     return false
   }
 
@@ -252,6 +248,18 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
 
   querySelectorAll(selectors) {
     return querySelectorAll(this.ownerDocument, this, selectors)
+  }
+
+  getElementsByTagName(tagName) {
+    return this.getElementsByTagNameNS(tagName, '')
+  }
+
+  getElementsByTagNameNS(tagName, _ns) {
+    return this.querySelectorAll(tagName)
+  }
+
+  getElementsByClassName(className) {
+    return this.querySelectorAll(`.${className}`)
   }
 
   // ---

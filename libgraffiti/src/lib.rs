@@ -10,13 +10,13 @@ mod viewport;
 mod webview;
 mod window;
 
-pub use self::{app::*, css::*, document::*, viewport::*, webview::*, window::*};
+pub use self::{
+  app::App,
+  document::{Document, DocumentEvent, NodeId, NodeType},
+  viewport::Viewport,
+  webview::WebView,
+  window::{Window, Event},
+};
 pub mod gfx;
-
-#[derive(Debug, Clone, Copy)]
-pub struct Rect {
-    pub pos: (f32, f32),
-    pub size: (f32, f32),
-}
 
 mod bindings;

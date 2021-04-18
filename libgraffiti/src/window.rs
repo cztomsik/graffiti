@@ -4,7 +4,7 @@ use std::ffi::CStr;
 use std::os::raw::{c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
 use std::rc::Rc;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 
 pub struct Window {
     _app: Rc<App>,
@@ -29,9 +29,6 @@ impl Window {
             let glfw_window = glfwCreateWindow(width, height, *c_str!(title), null_mut(), null_mut());
             assert_ne!(glfw_window, null_mut(), "create GLFW window");
             let (events_tx, events) = channel();
-
-            // TODO: window.make_current() or something
-            glfwMakeContextCurrent(glfw_window);
 
             // TODO: drop
             glfwSetWindowUserPointer(glfw_window, Box::into_raw(Box::new(events_tx)) as *mut _);
@@ -171,16 +168,23 @@ impl Window {
         unsafe { glfwSetWindowShouldClose(self.glfw_window, value as _) }
     }
 
-    // needs to be processed one by one because each event can cause new changes,
+    // note it needs to be processed one by one because each event can cause new changes,
     // styles, dimensions and so the target might not be valid anymore
-    pub fn take_event(&mut self) -> Option<Event> {
-        self.events.try_recv().ok()
+    pub fn events(&mut self) ->&Receiver<Event> {
+        &self.events
     }
 
     // GL
 
-    pub fn get_proc_address(&mut self, symbol: &str) -> *const c_void {
-        unsafe { glfwGetProcAddress(*c_str!(symbol)) }
+    pub unsafe fn make_current(&mut self) {
+        glfwMakeContextCurrent(self.glfw_window);
+    }
+
+    pub unsafe fn get_proc_address(&mut self, symbol: &str) -> *const c_void {
+        // TODO: this is magic we should rather panic if not current
+        self.make_current();
+
+        glfwGetProcAddress(*c_str!(symbol))
     }
 
     // GLFW says it's possible to call this from any thread but
@@ -222,7 +226,7 @@ pub enum Event {
     // JS e.which
     KeyUp(u32),
     KeyDown(u32),
-    Char(char),
+    KeyPress(u32),
 
     Resize(i32, i32),
     FramebufferSize(i32, i32),
@@ -263,7 +267,7 @@ unsafe extern "C" fn handle_glfw_key(w: GlfwWindow, key: c_int, _scancode: c_int
 }
 
 unsafe extern "C" fn handle_glfw_char(w: GlfwWindow, char: c_uint) {
-    send_event(w, Event::Char(std::char::from_u32_unchecked(char)));
+    send_event(w, Event::KeyPress(char));
 }
 
 unsafe extern "C" fn handle_glfw_window_size(w: GlfwWindow, width: c_int, height: c_int) {

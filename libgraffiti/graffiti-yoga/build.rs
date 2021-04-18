@@ -24,16 +24,10 @@ fn main() {
         .flag("-fno-omit-frame-pointer")
         .flag("-fexceptions")
         .flag("-std=c++1y")
-        .flag("-fPIC")
 
-        // https://clang.llvm.org/docs/UsersManual.html#id14
-        //.flag("-Wall")
-        //.flag("-Werror")
-        // no warns
+        // no warns, optim
         .flag("-w")
-
-        // optim
-        .flag("-O3")
+        .opt_level(3)
 
         // so that #include <yoga/*> works
         .include("yoga")

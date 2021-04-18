@@ -16,7 +16,7 @@ fn main() {
 
     // no warns, optim
     build.flag("-w");
-    build.flag("-O3");
+    build.opt_level(3);
 
     // platform
     #[cfg(target_os = "macos")]

@@ -17,7 +17,7 @@ export class DOMParser implements globalThis.DOMParser {
 
 export const parseIntoDocument = (document, html: string) => {
   // strip <!DOCTYPE & other garbage
-  html = html.replace(/[\s\S]*?(<\w+[\s\S]*)/i, '$1')
+  html = html.replace(/[\s\S]*?(<\w+[\s\S]*)/i, '$1').trim()
 
   const frag = parseFragment(document, html)
 

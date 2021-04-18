@@ -5,6 +5,7 @@
 use super::{CachedGlyph, GlyphCache, GlyphPos, Text, Vec2, AABB};
 use std::ops::{Index, IndexMut};
 
+#[allow(clippy::upper_case_acronyms)]
 pub type RGBA8 = [u8; 4];
 
 pub struct Canvas {
@@ -60,37 +61,28 @@ impl Canvas {
         self.state_mut().opacity = opacity;
     }
 
-    pub fn fill_color(&self) -> RGBA8 {
-        self.state().fill_color
-    }
-
-    pub fn set_fill_color(&mut self, fill_color: RGBA8) {
-        self.state_mut().fill_color = fill_color;
-    }
-
-    pub fn fill_rect(&mut self, pos: Vec2, size: Vec2) {
-        let color = self.state().fill_color;
+    pub fn fill_rect(&mut self, rect: AABB, color: RGBA8) {
+        let AABB { min, max } = rect;
         let uv = Vec2::ZERO;
 
         self.frame.vertices.extend_from_slice(&[
-            Vertex::new(pos, uv, color),
-            Vertex::new(Vec2::new(pos.x + size.x, pos.y), uv, color),
-            Vertex::new(Vec2::new(pos.x, pos.y + size.y), uv, color),
-            Vertex::new(Vec2::new(pos.x + size.x, pos.y), uv, color),
-            Vertex::new(Vec2::new(pos.x, pos.y + size.y), uv, color),
-            Vertex::new(pos + size, uv, color),
+            Vertex::new(min, uv, color),
+            Vertex::new(Vec2::new(max.x, min.y), uv, color),
+            Vertex::new(Vec2::new(min.x, max.y), uv, color),
+            Vertex::new(Vec2::new(max.x, min.y), uv, color),
+            Vertex::new(Vec2::new(min.x, max.y), uv, color),
+            Vertex::new(max, uv, color),
         ]);
 
         // TODO: join
         self.frame.draw_ops.push(DrawOp::DrawArrays(6));
     }
 
-    pub fn fill_text(&mut self, text: &Text, rect: AABB) {
-        let color = self.state().fill_color;
+    pub fn fill_text(&mut self, text: &Text, rect: AABB, color: RGBA8) {
         let mut count = 0;
 
         text.for_each_glyph(rect, |GlyphPos { glyph, pos }| {
-            let CachedGlyph { rect, uv } = self.glyph_cache.use_glyph(/* &text.font(),*/ glyph.clone());
+            let CachedGlyph { rect, uv } = self.glyph_cache.use_glyph(/* &text.font(),*/ glyph);
 
             self.frame.vertices.extend_from_slice(&[
                 Vertex::new(pos + rect.min, uv.min, color),
@@ -128,15 +120,11 @@ impl Canvas {
 
 #[derive(Debug, Clone)]
 struct State {
-    fill_color: RGBA8,
     opacity: f32,
 }
 
 impl State {
-    const DEFAULT: Self = Self {
-        fill_color: [0, 0, 0, 255],
-        opacity: 1.,
-    };
+    const DEFAULT: Self = Self { opacity: 1. };
 }
 
 #[derive(Debug)]
