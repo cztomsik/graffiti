@@ -20,6 +20,8 @@ export const camelCase = name => name.replace(/\-[a-zA-Z]/g, match => match.slic
 export const kebabCase = name => name.replace(/[A-Z]/g, match => '-' + match.toLowerCase())
 export const pascalCase = name => ((name = camelCase(name)), name[0].toUpperCase() + name.slice(1))
 
+export const PLATFORM = globalThis.Deno?.build.os ?? (await import('os')).platform().replace(/win32/, 'windows')
+
 export const Worker =
   globalThis.Worker ??
   class Worker extends (await import('worker_threads')).Worker {

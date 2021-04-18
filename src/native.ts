@@ -1,10 +1,11 @@
 import { version as VERSION } from '../package.json'
-import { ERR } from './util'
+import { ERR, PLATFORM } from './util'
 
 export let native: any = new Proxy({}, { get: ERR.bind(null, 'not loaded, init first') })
 
-// TODO: PREBUILT, .dll/so/dylib
-const LIB = new URL('../libgraffiti/target/debug/libgraffiti.dylib', import.meta.url).pathname
+// TODO: PREBUILT
+const SUFFIX = PLATFORM === 'darwin' ? 'dylib' : PLATFORM === 'windows' ? 'dll' : 'so'
+const LIB = new URL(`../libgraffiti/target/debug/libgraffiti.${SUFFIX}`, import.meta.url).pathname
 //const PREBUILT_URL = `https://github.com/cztomsik/graffiti/releases/download/${VERSION}`
 
 // export async fn, nothing should be done at import time (testing)
