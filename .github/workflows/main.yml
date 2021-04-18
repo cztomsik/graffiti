@@ -14,7 +14,8 @@ jobs:
   build:
     strategy:
       matrix:
-        os:       [ubuntu-latest, windows-2019, macos]
+        #os:       [ubuntu-latest, windows-2019, macos-latest]
+        os:       [ubuntu-latest]
         # platform: [x32, x64]
     
     runs-on: ${{ matrix.os }}
@@ -25,18 +26,27 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Setup Node.js for use with actions
-      uses: actions/setup-node@v1.1.0
+      uses: actions/setup-node@v1
       with:
         # Version Spec of the version to use.  Examples: 10.x, 10.15.1, >=10.15.0, lts
-        version: 12.x
-  
+        node-version: 14.x
+
+    - name: xorg-dev headers
+      run: |
+        sudo apt update
+        sudo apt-get install xorg-dev
+      if: matrix.os == 'ubuntu-latest'
+
     # Runs a set of commands using the runners shell
     - name: Run a multi-line script
       run: |
         npm i
         echo build succeeded
+
     - name: Save artifact 
       uses: actions/upload-artifact@v1
       with:
         name: "libgraffiti-${{matrix.os}}"
-        path: libgraffiti/target/libgraffiti.{dylib,so,dll}
+        # TODO: {dylib,so,dll} does not work, neither multipath + if-no-files-found: ignore
+        #       so I don't know really
+        path: libgraffiti/target/release/libgraffiti.so
