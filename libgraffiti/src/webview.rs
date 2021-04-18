@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 #[cfg(target_os = "macos")]
 use objc::{class, msg_send, rc::StrongPtr, runtime::Object, sel, sel_impl};
-
+#[cfg(target_os = "macos")]
 #[allow(non_camel_case_types)]
 type id = *mut Object;
 
