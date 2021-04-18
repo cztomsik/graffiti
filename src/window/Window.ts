@@ -61,16 +61,16 @@ export class Window extends EventTarget implements globalThis.Window {
   }
 
   // TODO (and no-op in <iframe>)
-  blur = TODO
-  focus = TODO
-  moveBy = TODO
-  moveTo = TODO
-  resizeBy = TODO
-  resizeTo = TODO
+  blur = () => console.log('TODO: window.blur()')
+  focus = () => console.log('TODO: window.focus()')
+  moveBy = () => console.log('TODO: window.moveBy()')
+  moveTo = () => console.log('TODO: window.moveTo()')
+  resizeBy = () => console.log('TODO: window.resizeBy()')
+  resizeTo = () => console.log('TODO: window.resizeTo()')
 
   // TODOs
-  alert = TODO
-  close = TODO
+  alert = () => console.log('TODO: window.alert()')
+  close = () => console.log('TODO: window.close()')
   confirm = TODO
   createImageBitmap = TODO
   getMatchedCSSRules = TODO
@@ -79,9 +79,9 @@ export class Window extends EventTarget implements globalThis.Window {
   open = TODO
   print = TODO
   prompt = TODO
-  scroll = TODO
-  scrollBy = TODO
-  scrollTo = TODO
+  scroll = () => console.log('TODO: window.scroll()')
+  scrollBy = () => console.log('TODO: window.scrollBy()')
+  scrollTo = () => console.log('TODO: window.scrollTo()')
   stop = NOOP
 
   get innerHeight() {
