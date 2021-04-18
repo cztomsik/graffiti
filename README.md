@@ -15,6 +15,7 @@ permalink: /
 Follow me on my [twitter](https://twitter.com/cztomsik) for updates.
 
 [Discord](https://discord.gg/zQwyzFb)
+[Quickstart repo](https://github.com/cztomsik/hello-graffiti/)
 
 ---
 
@@ -23,8 +24,18 @@ Follow me on my [twitter](https://twitter.com/cztomsik) for updates.
 HTML/CSS engine for node.js and deno. No electron, no webkit, no servo, all from scratch.
 
 ```
-# it takes forever BTW
-npx github:cztomsik/graffiti run https://developit.github.io/hn_minimal/
+# one-shot (takes forever, remote URLs are deno-only)
+npx github:cztomsik/graffiti run <file.html>
+
+# or install locally
+npm i github:cztomsik/graffiti
+npx graffiti run <file.html>
+
+# or with deno
+git clone https://github.com/cztomsik/graffiti
+cd graffiti
+npm i
+deno run -Ar --unstable --no-check lib/cli.js run http://...
 ```
 
 ## Features and limitations
