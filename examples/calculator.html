@@ -1,11 +1,25 @@
 <html>
   <head>
     <style>
-      .display {
+      html {
         background-color: #000;
         color: #fff;
-        padding-top: 10px;
-        padding-bottom: 10px;
+      }
+      
+      body {
+        background-color: #446;
+        max-width: 400px;
+      }
+
+      .display {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        height: 70px;
+        padding-left: 10px;
+        padding-right: 10px;
+        background-color: #668;
+        font-size: 20px;
       }
 
       .buttons {
@@ -15,17 +29,14 @@
       }
 
       .buttons > button {
-        background-color: #ccf;
-        color: #fff;
+        background-color: #2196F3;
         flex-grow: 1;
         min-width: 25%;
       }
     </style>
   </head>
   <body>
-    <div class="display">
-      0
-    </div>
+    <div class="display">0</div>
 
     <div class="buttons">
       <button>7</button>
@@ -48,5 +59,12 @@
       <button>/</button>
       <button>=</button>
     </div>
+
+    <script>
+      const display = document.querySelector('.display')
+      for (const btn of document.querySelectorAll('.buttons button')) {
+        btn.onclick = () => display.textContent += btn.textContent
+      }
+    </script>
   </body>
 </html>

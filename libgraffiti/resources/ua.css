@@ -91,13 +91,12 @@ textarea {
 }
 
 button {
-  background-color: #2196F3;
+  background-color: #b8b9f4;
   padding-left: 10px;
   padding-right: 10px;
   border-radius: 2px;
   font-size: 14px;
   line-height: 32px;
-  color: #ffffff;
   text-align: center;
   justify-content: space-around;
 }
