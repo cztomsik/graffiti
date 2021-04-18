@@ -38,7 +38,7 @@ impl WebView {
         }
 
         #[cfg(not(target_os = "macos"))]
-        Self { _app: Rc::clone(app) };
+        Self { _app: Rc::clone(app) }
     }
 
     pub fn attach(&mut self, window: &mut Window) {
