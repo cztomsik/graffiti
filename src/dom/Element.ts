@@ -116,7 +116,7 @@ export abstract class Element extends Node implements globalThis.Element {
   get innerHTML() {
     const s = new XMLSerializer()
 
-    return this.childNodes.map(n => s.serializeToString(n)).join()
+    return this.childNodes.map(n => s.serializeToString(n)).join('')
   }
 
   set innerHTML(html) {
