@@ -42,7 +42,7 @@ npx gft run https://developit.github.io/hn_minimal/
 
 ## Dev setup
 - git clone
-- have nodejs 14.x
+- have nodejs 15.x
 - have [rust](https://rustup.rs/) in `PATH`
 - (linux-only) have X11 headers `apt install xorg-dev`
 - `npm i`

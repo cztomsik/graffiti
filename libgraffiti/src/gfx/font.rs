@@ -5,8 +5,20 @@ pub use ab_glyph::{Font, FontArc, Glyph, GlyphId, ScaleFont};
 
 pub static FONT_DB: Lazy<Database> = Lazy::new(|| {
     let mut db = Database::new();
-    db.set_sans_serif_family("Arial");
     db.load_system_fonts();
+
+    let id = db
+        .query(&Query {
+            families: &[
+                Family::Name("Helvetica"),
+                Family::Name("FreeSans"),
+                Family::Name("Arial"),
+            ],
+            ..Default::default()
+        })
+        .expect("no sans-serif found");
+
+    db.set_sans_serif_family(db.face(id).unwrap().family.clone());
 
     db
 });
@@ -17,7 +29,7 @@ pub(crate) static SANS_SERIF_FONT: Lazy<FontArc> = Lazy::new(|| {
             families: &[Family::SansSerif],
             ..Default::default()
         })
-        .expect("no default font");
+        .unwrap();
 
     FONT_DB
         .with_face_data(id, |data, _| FontArc::try_from_vec(data.to_owned()).unwrap())
