@@ -8,12 +8,12 @@ use std::process::Command;
 // - https://github.com/facebook/yoga/blob/master/tools/build_defs/oss/yoga_defs.bzl
 fn main() {
     Command::new("git")
-        .args(&["submodule", "init"])
+        .args(&["submodule", "init", "yoga"])
         .status()
         .expect("git submodule init");
 
     Command::new("git")
-        .args(&["submodule", "update"])
+        .args(&["submodule", "update", "yoga"])
         .status()
         .expect("git submodule update");
 
