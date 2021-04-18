@@ -44,9 +44,9 @@ jobs:
         echo build succeeded
 
     - name: Save .js
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v2
       with:
-        name: "libgraffiti-${{matrix.os}}"
+        name: "graffiti-${{matrix.os}}"
         path: lib/*.js
 
     - name: Save .so
