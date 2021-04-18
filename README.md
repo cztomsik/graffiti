@@ -23,8 +23,8 @@ Follow me on my [twitter](https://twitter.com/cztomsik) for updates.
 HTML/CSS engine for node.js and deno. No electron, no webkit, no servo, all from scratch.
 
 ```
-# this doesnt work yet
-npx gft run https://developit.github.io/hn_minimal/
+# it takes forever BTW
+npx github:cztomsik/graffiti run https://developit.github.io/hn_minimal/
 ```
 
 ## Features and limitations
