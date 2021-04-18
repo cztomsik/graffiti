@@ -4,7 +4,7 @@ use std::ffi::CStr;
 use std::os::raw::{c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
 use std::rc::Rc;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 
 pub struct Window {
     _app: Rc<App>,
@@ -29,9 +29,6 @@ impl Window {
             let glfw_window = glfwCreateWindow(width, height, *c_str!(title), null_mut(), null_mut());
             assert_ne!(glfw_window, null_mut(), "create GLFW window");
             let (events_tx, events) = channel();
-
-            // TODO: window.make_current() or something
-            glfwMakeContextCurrent(glfw_window);
 
             // TODO: drop
             glfwSetWindowUserPointer(glfw_window, Box::into_raw(Box::new(events_tx)) as *mut _);
@@ -179,8 +176,15 @@ impl Window {
 
     // GL
 
-    pub fn get_proc_address(&mut self, symbol: &str) -> *const c_void {
-        unsafe { glfwGetProcAddress(*c_str!(symbol)) }
+    pub unsafe fn make_current(&mut self) {
+        glfwMakeContextCurrent(self.glfw_window);
+    }
+
+    pub unsafe fn get_proc_address(&mut self, symbol: &str) -> *const c_void {
+        // TODO: this is magic we should rather panic if not current
+        self.make_current();
+
+        glfwGetProcAddress(*c_str!(symbol))
     }
 
     // GLFW says it's possible to call this from any thread but
