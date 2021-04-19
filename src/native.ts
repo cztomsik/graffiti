@@ -5,7 +5,8 @@ export let native: any = new Proxy({}, { get: ERR.bind(null, 'not loaded, init f
 
 // TODO: PREBUILT
 const SUFFIX = PLATFORM === 'darwin' ? 'dylib' : PLATFORM === 'windows' ? 'dll' : 'so'
-const LIB = new URL(`../libgraffiti/target/debug/libgraffiti.${SUFFIX}`, import.meta.url).pathname
+let LIB = new URL(`../libgraffiti/target/debug/graffiti.${SUFFIX}`, import.meta.url).pathname
+if (PLATFORM === 'windows') LIB = LIB.slice(1) // Windows dirty fix
 //const PREBUILT_URL = `https://github.com/cztomsik/graffiti/releases/download/${VERSION}`
 
 // export async fn, nothing should be done at import time (testing)
