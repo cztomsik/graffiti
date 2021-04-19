@@ -48,7 +48,8 @@ export async function readURL(url) {
   }
 
   if (url.protocol === 'file:') {
-    return readTextFile(url.pathname)
+    const { fileURLToPath } = await import('url')
+    return readTextFile(fileURLToPath(url))
   }
 
   if (url.protocol.match(/^https?:$/)) {
