@@ -48,8 +48,10 @@ export async function readURL(url) {
   }
 
   if (url.protocol === 'file:') {
-    const { fileURLToPath } = await import('url')
-    return readTextFile(fileURLToPath(url))
+    let path: string
+    if (PLATFORM === 'windows') path = url.href.replace('file:///', '') // ~~Windows dirty fix~~ Maybe better
+    else path = url.pathname
+    return readTextFile(path)
   }
 
   if (url.protocol.match(/^https?:$/)) {
