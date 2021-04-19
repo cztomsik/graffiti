@@ -71,9 +71,8 @@ pub(super) fn style<'a>() -> Parser<'a, Style> {
     })
 }
 
-pub(super) fn parse_style_prop<'a>(prop: &'a [u8], value: &'a [u8]) -> Result<StyleProp, &'a str> {
-    // TODO: better error reporting
-    prop_parser(prop).parse(value).map_err(|_| "invalid style prop")
+pub(super) fn parse_style_prop<'a>(prop: &'a [u8], value: &'a [u8]) -> pom::Result<StyleProp> {
+    prop_parser(prop).parse(value)
 }
 
 fn prop_parser<'a>(prop: &'a [u8]) -> Parser<'a, StyleProp> {
@@ -191,119 +190,135 @@ fn color<'a>() -> Parser<'a, CssColor> {
     // TODO: rgb/rgba()
 
     sym(b'#')
-        * is_a(hex_digit).repeat(3..9).collect().convert(|hex| match hex.len() {
-            8 | 6 => {
-                let mut num = u32::from_str_radix(std::str::from_utf8(hex).unwrap(), 16).unwrap();
+        * is_a(hex_digit).repeat(3..9).collect().convert(|hex| {
+            Ok(match hex.len() {
+                8 | 6 => {
+                    let mut num = u32::from_str_radix(std::str::from_utf8(hex).unwrap(), 16).unwrap();
 
-                if hex.len() == 6 {
-                    num = num << 8 | 0xFF;
+                    if hex.len() == 6 {
+                        num = num << 8 | 0xFF;
+                    }
+
+                    CssColor {
+                        r: ((num >> 24) & 0xFF) as u8,
+                        g: ((num >> 16) & 0xFF) as u8,
+                        b: ((num >> 8) & 0xFF) as u8,
+                        a: (num & 0xFF) as u8,
+                    }
                 }
 
-                Ok(CssColor {
-                    r: ((num >> 24) & 0xFF) as u8,
-                    g: ((num >> 16) & 0xFF) as u8,
-                    b: ((num >> 8) & 0xFF) as u8,
-                    a: (num & 0xFF) as u8,
-                })
-            }
+                4 | 3 => CssColor {
+                    r: hex_val(hex[0]) * 17,
+                    g: hex_val(hex[1]) * 17,
+                    b: hex_val(hex[2]) * 17,
+                    a: hex.get(3).map(|&v| hex_val(v) * 17).unwrap_or(255),
+                },
 
-            4 | 3 => Ok(CssColor {
-                r: hex_val(hex[0]) * 17,
-                g: hex_val(hex[1]) * 17,
-                b: hex_val(hex[2]) * 17,
-                a: hex.get(3).map(|&v| hex_val(v) * 17).unwrap_or(255),
-            }),
-
-            _ => Err("invalid color"),
+                _ => return Err("invalid color"),
+            })
         })
 }
 
 fn align<'a>() -> Parser<'a, CssAlign> {
-    keyword().convert(|kw| match kw {
-        b"auto" => Ok(CssAlign::Auto),
-        b"start" => Ok(CssAlign::Start),
-        b"flex-start" => Ok(CssAlign::Start),
-        b"center" => Ok(CssAlign::Center),
-        b"end" => Ok(CssAlign::End),
-        b"flex-end" => Ok(CssAlign::End),
-        b"stretch" => Ok(CssAlign::Stretch),
-        b"baseline" => Ok(CssAlign::Baseline),
-        b"space-between" => Ok(CssAlign::SpaceBetween),
-        b"space-around" => Ok(CssAlign::SpaceAround),
-        b"space-evenly" => Ok(CssAlign::SpaceEvenly),
+    ident().convert(|ident| {
+        Ok(match ident {
+            b"auto" => CssAlign::Auto,
+            b"start" => CssAlign::Start,
+            b"flex-start" => CssAlign::Start,
+            b"center" => CssAlign::Center,
+            b"end" => CssAlign::End,
+            b"flex-end" => CssAlign::End,
+            b"stretch" => CssAlign::Stretch,
+            b"baseline" => CssAlign::Baseline,
+            b"space-between" => CssAlign::SpaceBetween,
+            b"space-around" => CssAlign::SpaceAround,
+            b"space-evenly" => CssAlign::SpaceEvenly,
 
-        _ => Err("invalid align"),
+            _ => return Err("invalid align"),
+        })
     })
 }
 
 fn border_style<'a>() -> Parser<'a, CssBorderStyle> {
-    keyword().convert(|kw| match kw {
-        b"none" => Ok(CssBorderStyle::None),
-        b"hidden" => Ok(CssBorderStyle::Hidden),
-        b"dotted" => Ok(CssBorderStyle::Dotted),
-        b"dashed" => Ok(CssBorderStyle::Dashed),
-        b"solid" => Ok(CssBorderStyle::Solid),
-        b"double" => Ok(CssBorderStyle::Double),
-        b"groove" => Ok(CssBorderStyle::Groove),
-        b"ridge" => Ok(CssBorderStyle::Ridge),
-        b"inset" => Ok(CssBorderStyle::Inset),
-        b"outset" => Ok(CssBorderStyle::Outset),
+    ident().convert(|ident| {
+        Ok(match ident {
+            b"none" => CssBorderStyle::None,
+            b"hidden" => CssBorderStyle::Hidden,
+            b"dotted" => CssBorderStyle::Dotted,
+            b"dashed" => CssBorderStyle::Dashed,
+            b"solid" => CssBorderStyle::Solid,
+            b"double" => CssBorderStyle::Double,
+            b"groove" => CssBorderStyle::Groove,
+            b"ridge" => CssBorderStyle::Ridge,
+            b"inset" => CssBorderStyle::Inset,
+            b"outset" => CssBorderStyle::Outset,
 
-        _ => Err("invalid border style"),
+            _ => return Err("invalid border style"),
+        })
     })
 }
 
 fn display<'a>() -> Parser<'a, CssDisplay> {
-    keyword().convert(|kw| match kw {
-        b"none" => Ok(CssDisplay::None),
-        b"block" => Ok(CssDisplay::Block),
-        b"inline" => Ok(CssDisplay::Inline),
-        b"flex" => Ok(CssDisplay::Flex),
+    ident().convert(|ident| {
+        Ok(match ident {
+            b"none" => CssDisplay::None,
+            b"block" => CssDisplay::Block,
+            b"inline" => CssDisplay::Inline,
+            b"flex" => CssDisplay::Flex,
 
-        _ => Err("invalid display"),
+            _ => return Err("invalid display"),
+        })
     })
 }
 
 fn flex_direction<'a>() -> Parser<'a, CssFlexDirection> {
-    keyword().convert(|kw| match kw {
-        b"row" => Ok(CssFlexDirection::Row),
-        b"column" => Ok(CssFlexDirection::Column),
-        b"row-reverse" => Ok(CssFlexDirection::RowReverse),
-        b"column-reverse" => Ok(CssFlexDirection::ColumnReverse),
+    ident().convert(|ident| {
+        Ok(match ident {
+            b"row" => CssFlexDirection::Row,
+            b"column" => CssFlexDirection::Column,
+            b"row-reverse" => CssFlexDirection::RowReverse,
+            b"column-reverse" => CssFlexDirection::ColumnReverse,
 
-        _ => Err("invalid flex direction"),
+            _ => return Err("invalid flex direction"),
+        })
     })
 }
 
 fn flex_wrap<'a>() -> Parser<'a, CssFlexWrap> {
-    keyword().convert(|kw| match kw {
-        b"nowrap" => Ok(CssFlexWrap::NoWrap),
-        b"wrap" => Ok(CssFlexWrap::Wrap),
-        b"wrap-reverse" => Ok(CssFlexWrap::WrapReverse),
+    ident().convert(|ident| {
+        Ok(match ident {
+            b"nowrap" => CssFlexWrap::NoWrap,
+            b"wrap" => CssFlexWrap::Wrap,
+            b"wrap-reverse" => CssFlexWrap::WrapReverse,
 
-        _ => Err("invalid flex wrap"),
+            _ => return Err("invalid flex wrap"),
+        })
     })
 }
 
 fn overflow<'a>() -> Parser<'a, CssOverflow> {
-    keyword().convert(|kw| match kw {
-        b"visible" => Ok(CssOverflow::Visible),
-        b"hidden" => Ok(CssOverflow::Hidden),
-        b"scroll" => Ok(CssOverflow::Scroll),
-        b"auto" => Ok(CssOverflow::Auto),
+    ident().convert(|ident| {
+        Ok(match ident {
+            b"visible" => CssOverflow::Visible,
+            b"hidden" => CssOverflow::Hidden,
+            b"scroll" => CssOverflow::Scroll,
+            b"auto" => CssOverflow::Auto,
 
-        _ => Err("invalid overflow"),
+            _ => return Err("invalid overflow"),
+        })
     })
 }
 
 fn position<'a>() -> Parser<'a, CssPosition> {
-    keyword().convert(|kw| match kw {
-        b"static" => Ok(CssPosition::Static),
-        b"relative" => Ok(CssPosition::Relative),
-        b"absolute" => Ok(CssPosition::Absolute),
-        b"sticky" => Ok(CssPosition::Sticky),
+    ident().convert(|ident| {
+        Ok(match ident {
+            b"static" => CssPosition::Static,
+            b"relative" => CssPosition::Relative,
+            b"absolute" => CssPosition::Absolute,
+            b"sticky" => CssPosition::Sticky,
 
-        _ => Err("invalid position"),
+            _ => return Err("invalid position"),
+        })
     })
 }
 
@@ -319,23 +334,27 @@ fn font_family<'a>() -> Parser<'a, Atom<String>> {
 }
 
 fn text_align<'a>() -> Parser<'a, CssTextAlign> {
-    keyword().convert(|kw| match kw {
-        b"left" => Ok(CssTextAlign::Left),
-        b"center" => Ok(CssTextAlign::Center),
-        b"right" => Ok(CssTextAlign::Right),
-        b"justify" => Ok(CssTextAlign::Justify),
+    ident().convert(|ident| {
+        Ok(match ident {
+            b"left" => CssTextAlign::Left,
+            b"center" => CssTextAlign::Center,
+            b"right" => CssTextAlign::Right,
+            b"justify" => CssTextAlign::Justify,
 
-        _ => Err("invalid text align"),
+            _ => return Err("invalid text align"),
+        })
     })
 }
 
 fn visibility<'a>() -> Parser<'a, CssVisibility> {
-    keyword().convert(|kw| match kw {
-        b"visible" => Ok(CssVisibility::Visible),
-        b"hidden" => Ok(CssVisibility::Hidden),
-        b"collapse" => Ok(CssVisibility::Collapse),
+    ident().convert(|ident| {
+        Ok(match ident {
+            b"visible" => CssVisibility::Visible,
+            b"hidden" => CssVisibility::Hidden,
+            b"collapse" => CssVisibility::Collapse,
 
-        _ => Err("invalid visibility"),
+            _ => return Err("invalid visibility"),
+        })
     })
 }
 
@@ -353,10 +372,6 @@ fn space<'a>() -> Parser<'a, ()> {
 
 fn ident<'a>() -> Parser<'a, &'a [u8]> {
     is_a(alphanum_dash).repeat(1..).collect()
-}
-
-fn keyword<'a>() -> Parser<'a, &'a [u8]> {
-    is_a(alpha_dash).repeat(1..).collect()
 }
 
 fn fail<'a, T: 'static>(msg: &'static str) -> Parser<'a, T> {
