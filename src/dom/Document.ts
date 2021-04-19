@@ -301,7 +301,7 @@ const NODE_ID = Symbol()
 const initDocument = (doc) => {
   doc[DOC_ID] = native.document_new()
   doc[REFS] = []
-  doc[NODE_REGISTRY] = new FinalizationRegistry(id => native.document_drop_node(doc, id))
+  doc[NODE_REGISTRY] = new FinalizationRegistry(id => native.document_drop_node(doc[DOC_ID], id))
   initNode(doc, doc, 0)
 
   DOCUMENT_REGISTRY.register(doc, doc[DOC_ID])
