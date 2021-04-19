@@ -50,16 +50,16 @@ fn main() {
     #[cfg(target_os = "linux")]
     build
       // TODO: wayland
-      .file("glfw/src/x11_init.c")
-      .file("glfw/src/x11_monitor.c")
-      .file("glfw/src/x11_window.c")
-      .file("glfw/src/xkb_unicode.c")
-      .file("glfw/src/posix_time.c")
-      .file("glfw/src/posix_thread.c")
-      .file("glfw/src/glx_context.c")
-      .file("glfw/src/egl_context.c")
-      .file("glfw/src/osmesa_context.c")
-      .file("glfw/src/linux_joystick.c");
+        .file("glfw/src/x11_init.c")
+        .file("glfw/src/x11_monitor.c")
+        .file("glfw/src/x11_window.c")
+        .file("glfw/src/xkb_unicode.c")
+        .file("glfw/src/posix_time.c")
+        .file("glfw/src/posix_thread.c")
+        .file("glfw/src/glx_context.c")
+        .file("glfw/src/egl_context.c")
+        .file("glfw/src/osmesa_context.c")
+        .file("glfw/src/linux_joystick.c");
 
     #[cfg(target_os = "windows")]
     build
@@ -69,6 +69,7 @@ fn main() {
         .file("glfw/src/win32_time.c")
         .file("glfw/src/win32_thread.c")
         .file("glfw/src/wgl_context.c")
+        .file("glfw/src/egl_context.c")
         .file("glfw/src/osmesa_context.c")
         .file("glfw/src/win32_joystick.c");
 
