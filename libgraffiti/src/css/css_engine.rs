@@ -43,10 +43,12 @@ impl StyleSheet {
 
 // should never fail
 impl From<&str> for StyleSheet {
-    fn from(s: &str) -> Self {
-        super::parser::sheet()
-            .parse(s.as_bytes())
-            .unwrap_or_else(|_| Self::new())
+    fn from(sheet: &str) -> Self {
+        let tokens = super::parser::tokenize(sheet.as_bytes());
+        println!("tokens: {:?}", &tokens[0..40]);
+        let parser = super::parser::sheet();
+
+        parser.parse(&tokens).unwrap_or_else(|_| Self::new())
     }
 }
 
@@ -59,6 +61,10 @@ pub struct Rule {
 impl Rule {
     pub fn new(selector: Selector, style: Style) -> Self {
         Self { selector, style }
+    }
+
+    pub fn style(&self) -> &Style {
+        &self.style
     }
 }
 

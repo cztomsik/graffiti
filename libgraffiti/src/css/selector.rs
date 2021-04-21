@@ -142,9 +142,10 @@ pub struct InvalidSelector;
 // never fails
 impl From<&str> for Selector {
     fn from(selector: &str) -> Self {
-        (super::parser::selector() - pom::parser::end())
-            .parse(selector.as_bytes())
-            .unwrap_or(Selector { parts: vec![] })
+        let tokens = super::parser::tokenize(selector.as_bytes());
+        let parser = super::parser::selector();
+
+        parser.parse(&tokens).unwrap_or(Selector { parts: vec![] })
     }
 }
 
