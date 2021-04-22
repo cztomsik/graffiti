@@ -73,7 +73,7 @@ impl Text {
         }
 
         if breaks == 0 {
-            return (width * self.style.font_size, self.style.line_height);
+            return (xglyphs.last().unwrap().0 * self.style.font_size, self.style.line_height);
         }
 
         (width, (breaks + 1) as f32 * self.style.line_height)

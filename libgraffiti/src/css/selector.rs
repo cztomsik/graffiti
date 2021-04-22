@@ -31,6 +31,8 @@ pub(super) enum Component {
     LocalName(Atom<String>),
     Identifier(Atom<String>),
     ClassName(Atom<String>),
+
+    Unsupported,
     // AttrExists(Atom<String>),
     // AttrEq(Atom<(Atom<String>, Atom<String>)>) // deref first, then compare both atoms
     // FirstChild // (prev_element_sibling == None)
@@ -66,6 +68,7 @@ impl<E: Copy> MatchingContext<'_, E> {
             LocalName(name) => (self.has_local_name)(el, name),
             Identifier(id) => (self.has_identifier)(el, id),
             ClassName(cls) => (self.has_class)(el, cls),
+            Unsupported => false,
         }
     }
 
@@ -143,9 +146,11 @@ pub struct InvalidSelector;
 impl From<&str> for Selector {
     fn from(selector: &str) -> Self {
         let tokens = super::parser::tokenize(selector.as_bytes());
-        let parser = super::parser::selector();
+        let parser = super::parser::selector() - pom::parser::end();
 
-        parser.parse(&tokens).unwrap_or(Selector { parts: vec![] })
+        parser.parse(&tokens).unwrap_or(Selector {
+            parts: vec![SelectorPart::Component(Component::Unsupported)],
+        })
     }
 }
 

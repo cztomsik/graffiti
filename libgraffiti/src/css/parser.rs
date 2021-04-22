@@ -1,3 +1,12 @@
+// notes:
+// - we are using parser-combinators (for both tokenizing & parsing)
+//   - see https://github.com/J-F-Liu/pom for reference
+//   - tokens are just &str, there no other token types
+//   - it's probably a bit inefficient but easy to read (~350 lines)
+// - repeat() for skip/discard() should be alloc-free because of zero-sized types
+// - collect() creates slice from start to end regardless of the results "inside"
+//   (which means (a + b).collect() only takes "super-slice" of both matches)
+
 use super::*;
 use crate::util::Atom;
 use pom::char_class::{alphanum, digit, hex_digit};

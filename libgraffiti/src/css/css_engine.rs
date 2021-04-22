@@ -45,7 +45,6 @@ impl StyleSheet {
 impl From<&str> for StyleSheet {
     fn from(sheet: &str) -> Self {
         let tokens = super::parser::tokenize(sheet.as_bytes());
-        println!("tokens: {:?}", &tokens[0..40]);
         let parser = super::parser::sheet();
 
         parser.parse(&tokens).unwrap_or_else(|_| Self::new())

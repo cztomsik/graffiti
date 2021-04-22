@@ -136,7 +136,7 @@ impl Viewport {
     // TODO: caretPositionFromPoint
 
     // TODO: getClientRect, offsetLeft, offsetTop, offsetWidth, offsetHeight
-    
+
     // TODO: scrollTo(), scrollTop, ...
 
     // TODO: computed_style?
@@ -262,6 +262,12 @@ fn update_layout_node(ln: &mut LayoutNode, style: &Style) {
                 CssFlexWrap::NoWrap => FlexWrap::NoWrap,
                 CssFlexWrap::Wrap => FlexWrap::Wrap,
                 CssFlexWrap::WrapReverse => FlexWrap::WrapReverse,
+            }),
+            P::FlexDirection(S(v)) => ln.set_flex_direction(match v {
+                CssFlexDirection::Row => FlexDirection::Row,
+                CssFlexDirection::Column => FlexDirection::Column,
+                CssFlexDirection::RowReverse => FlexDirection::RowReverse,
+                CssFlexDirection::ColumnReverse => FlexDirection::ColumnReverse,
             }),
 
             _ => {}

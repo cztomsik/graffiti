@@ -107,16 +107,18 @@ button {
 table {
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 thead {
   display: flex;
-  flex-direction: column;
+  width: 100%;
 }
 
 tbody {
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 tr {
@@ -125,10 +127,15 @@ tr {
 }
 
 th {
-  flex: 1;
+  flex-grow: 1;
   color: #666;
 }
 
 td {
-  flex: 1;
+  flex-grow: 1;
+}
+
+center {
+  display: block;
+  align-items: center;
 }
