@@ -1,8 +1,8 @@
 <html>
 <head>
   <style>
-    body > div { background-color: #eee; margin-bottom: 20px }
-    body > div > div { background-color: #f008; height: 20px }
+    body > * { background-color: #eee; margin-bottom: 20px }
+    body > div > div { background-color: #f008; min-height: 20px }
   </style>
 </head>
 <body>
@@ -16,6 +16,27 @@
   <div style="position: relative; height: 20px">
     <div style="width: 50%">A</div>
     <div style="position: absolute; top: 0; left: 25%; width: 50%">B</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Col</th>
+        <th>Col</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Cell</td>
+        <td>Cell</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="display: flex">
+    <div style="line-height: 10px; margin-right: 10px;">XXX</div>
+    <div style="line-height: 20px; margin-right: 10px;">XXX</div>
+    <div style="line-height: 30px">XXX</div>
   </div>
 </body>
 </html>
