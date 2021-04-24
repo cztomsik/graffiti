@@ -18,7 +18,6 @@ export class HTMLTableElement extends HTMLElement implements globalThis.HTMLTabl
 
   // deprecated
   align
-  bgColor
   border
   cellPadding
   cellSpacing
@@ -26,4 +25,13 @@ export class HTMLTableElement extends HTMLElement implements globalThis.HTMLTabl
   rules
   summary
   width
+
+  // deprecated too but nice to have
+  get bgColor() {
+    return this.style.getPropertyValue('background-color')
+  }
+
+  set bgColor(v) {
+    this.style.setPropertyValue('background-color', '' + v)
+  }
 }
