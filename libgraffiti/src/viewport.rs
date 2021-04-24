@@ -136,7 +136,7 @@ impl Viewport {
     // TODO: caretPositionFromPoint
 
     // TODO: getClientRect, offsetLeft, offsetTop, offsetWidth, offsetHeight
-    
+
     // TODO: scrollTo(), scrollTop, ...
 
     // TODO: computed_style?
@@ -171,7 +171,7 @@ impl Viewport {
 
                 // add inline style
                 // TODO: style.merge?
-                for p in doc.style(el).props() {
+                for p in doc.element_style(el).props() {
                     style.add_prop(p.clone());
                 }
 
@@ -200,7 +200,7 @@ fn update_layout_node(ln: &mut LayoutNode, style: &Style) {
             CssDimension::Px(v) => Dimension::Px(*v),
             CssDimension::Percent(v) => Dimension::Percent(*v),
             CssDimension::Auto => Dimension::Auto,
-            _ => Dimension::Undefined,
+            //_ => Dimension::Undefined,
         }
     }
 
@@ -262,6 +262,12 @@ fn update_layout_node(ln: &mut LayoutNode, style: &Style) {
                 CssFlexWrap::NoWrap => FlexWrap::NoWrap,
                 CssFlexWrap::Wrap => FlexWrap::Wrap,
                 CssFlexWrap::WrapReverse => FlexWrap::WrapReverse,
+            }),
+            P::FlexDirection(S(v)) => ln.set_flex_direction(match v {
+                CssFlexDirection::Row => FlexDirection::Row,
+                CssFlexDirection::Column => FlexDirection::Column,
+                CssFlexDirection::RowReverse => FlexDirection::RowReverse,
+                CssFlexDirection::ColumnReverse => FlexDirection::ColumnReverse,
             }),
 
             _ => {}

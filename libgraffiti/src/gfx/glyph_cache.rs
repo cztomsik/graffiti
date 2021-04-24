@@ -16,8 +16,8 @@ impl GlyphCache {
     pub fn new() -> Self {
         let mut atlas = Atlas::new(1024, 1024);
 
-        // temp hack for solid_rects (with uv::ZERO)
-        // TODO: use negative xy or uv or multi-uv or something
+        // temp hack for solid_rects (which have uv::ZERO)
+        // TODO: use negative xy or uv or multi-uv or something better
         atlas.push(1, 1, |tex, _, _| tex[(0, 0)] = [255, 255, 255, 255]);
 
         Self {

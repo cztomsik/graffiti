@@ -73,7 +73,7 @@ impl Text {
         }
 
         if breaks == 0 {
-            return (width * self.style.font_size, self.style.line_height);
+            return (xglyphs.last().unwrap().0 * self.style.font_size, self.style.line_height);
         }
 
         (width, (breaks + 1) as f32 * self.style.line_height)
@@ -83,8 +83,9 @@ impl Text {
     pub fn for_each_glyph<F: FnMut(GlyphPos)>(&self, rect: AABB /* start_x */, mut f: F) {
         let scale_font = SANS_SERIF_FONT.as_scaled(self.style.font_size);
         let single_line = self.single_line();
+        let baseline = scale_font.height() + scale_font.descent();
 
-        let mut y = rect.min.y + self.style.line_height / 2.;
+        let mut y = rect.min.y + self.style.line_height - (self.style.line_height - baseline) / 2.;
         let mut offset = 0.;
         let mut hints = single_line.break_hints.iter().copied();
         let mut next_hint = (0, 0.);

@@ -1,9 +1,12 @@
 /* default styles */
 
-/* TODO: comments are not yet supported inside rules and it will stop parsing further */
+/* not supported yet, it's here just to stress parsing */
+:root {
+  --x: 0
+}
 
-/* should be serif but everybody sets it to sans-serif anyway */
 html {
+  /* should be serif but everybody sets it to sans-serif anyway */
   font-family: sans-serif;
   display: block;
   width: 100%;
@@ -14,8 +17,8 @@ head, meta, title, link, style, script {
   display: none;
 }
 
-/* TODO: margin: 10px */
 body {
+  /* TODO: margin: 10px */
   display: block;
   width: 100%;
   min-height: 100%;
@@ -104,16 +107,18 @@ button {
 table {
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 thead {
   display: flex;
-  flex-direction: column;
+  width: 100%;
 }
 
 tbody {
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 tr {
@@ -122,10 +127,15 @@ tr {
 }
 
 th {
-  flex: 1;
+  flex-grow: 1;
   color: #666;
 }
 
 td {
-  flex: 1;
+  flex-grow: 1;
+}
+
+center {
+  display: block;
+  align-items: center;
 }

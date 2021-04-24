@@ -1,27 +1,31 @@
 ---
 title: Home
+nav_order: 1
 permalink: /
+---
+
+# graffiti
+
+HTML/CSS engine for node.js and deno. No electron, no webkit, no servo, all from scratch.
+
+[Discord](https://discord.gg/zQwyzFb)
+| [Quickstart repo](https://github.com/cztomsik/hello-graffiti/)
+
 ---
 
 **Work in progress**, [prev version](https://github.com/cztomsik/graffiti/tree/d60a4b75bf0a9fdb67af8fd449f054a411127f38)
 
-- [x] nodejs 15.x, deno 1.8.3 (1.9 is broken)
-- [x] CSS, events, (p)react/vue/svelte support
-- [x] CLI for running `*.html` files
-- [ ] rendering is broken/low-quality, resize is broken
-- [ ] `WebView` is mac only (for now)
-- [ ] prebuilt binaries, publish on npm
+- nodejs 15.x, deno 1.8.3 (1.9 is broken)
+- CSS, events, (p)react/vue/svelte support
+- CLI for running `*.html` files
+- rendering is broken/low-quality, resize is broken
+- `WebView` is macos only (for now)
 
 Follow me on my [twitter](https://twitter.com/cztomsik) for updates.
 
-[Discord](https://discord.gg/zQwyzFb)
-[Quickstart repo](https://github.com/cztomsik/hello-graffiti/)
-
 ---
 
-# graffiti 
-
-HTML/CSS engine for node.js and deno. No electron, no webkit, no servo, all from scratch.
+## Usage
 
 ```
 # one-shot (takes forever, remote URLs are deno-only)

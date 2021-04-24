@@ -32,7 +32,9 @@ impl Style {
     }
 
     pub fn set_property(&mut self, prop: &str, value: &str) {
-        if let Ok(prop) = super::parser::parse_style_prop(prop.as_bytes(), value.as_bytes()) {
+        let tokens = super::parser::tokenize(value.as_bytes());
+
+        if let Ok(prop) = super::parser::parse_style_prop(prop, &tokens) {
             self.add_prop(prop);
         }
     }
@@ -71,7 +73,10 @@ impl Style {
 // never fails
 impl From<&str> for Style {
     fn from(style: &str) -> Style {
-        super::parser::style().parse(style.as_bytes()).unwrap()
+        let tokens = super::parser::tokenize(style.as_bytes());
+        let parser = super::parser::style();
+
+        parser.parse(&tokens).unwrap()
     }
 }
 

@@ -1,6 +1,8 @@
 use super::{TexData, Vec2, AABB};
 use rect_packer::Packer;
 
+const PAD: i32 = 1;
+
 pub struct Atlas {
     packer: Packer,
     tex_data: TexData,
@@ -12,8 +14,8 @@ impl Atlas {
             packer: Packer::new(rect_packer::Config {
                 width,
                 height,
-                border_padding: 1,
-                rectangle_padding: 1,
+                border_padding: PAD,
+                rectangle_padding: PAD,
             }),
             tex_data: TexData {
                 width,
@@ -28,7 +30,7 @@ impl Atlas {
     }
 
     pub fn push(&mut self, width: i32, height: i32, f: impl FnOnce(&mut TexData, usize, usize)) -> Option<AABB> {
-        let rect = self.packer.pack(width, height, false)?;
+        let rect = self.packer.pack(width + PAD, height + PAD, false)?;
 
         f(&mut self.tex_data, rect.x as _, rect.y as _);
 
