@@ -171,7 +171,7 @@ impl Viewport {
 
                 // add inline style
                 // TODO: style.merge?
-                for p in doc.style(el).props() {
+                for p in doc.element_style(el).props() {
                     style.add_prop(p.clone());
                 }
 

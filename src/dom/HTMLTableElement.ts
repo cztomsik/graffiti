@@ -26,12 +26,22 @@ export class HTMLTableElement extends HTMLElement implements globalThis.HTMLTabl
   summary
   width
 
-  // deprecated too but nice to have
+  // deprecated but nice to have
   get bgColor() {
-    return this.style.getPropertyValue('background-color')
+    return this.getAttribute('bgcolor') ?? ''
   }
 
   set bgColor(v) {
-    this.style.setPropertyValue('background-color', '' + v)
+    this.setAttribute('bgcolor', v)
+  }
+
+  setAttribute(att, value) {
+    super.setAttribute(att, value)
+
+    if (att === 'bgcolor') {
+      this.style.setProperty('background-color', '' + value)
+    }
+
+    // TODO: removeAttribute
   }
 }

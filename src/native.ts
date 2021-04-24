@@ -1,5 +1,6 @@
-import { version as VERSION } from '../package.json'
 import { ERR, PLATFORM } from './util'
+// @ts-expect-error
+import { version as VERSION } from '../package.json'
 
 export let native: any = new Proxy({}, { get: ERR.bind(null, 'not loaded, init first') })
 

@@ -344,8 +344,16 @@ impl Document {
         names
     }
 
-    pub fn style(&self, element: NodeId) -> &Style {
+    pub fn element_style(&self, element: NodeId) -> &Style {
         &self.el(element).style
+    }
+
+    pub fn element_style_property_value(&self, element: NodeId, prop: &str) -> Option<String> {
+        self.el(element).style.property_value(prop)
+    }
+
+    pub fn set_element_style_property(&mut self, element: NodeId, prop: &str, value: &str) {
+        self.el_mut(element).style.set_property(prop, value);
     }
 
     // helpers
