@@ -1,4 +1,4 @@
-import { TODO, UNSUPPORTED } from '../util'
+import { UNSUPPORTED } from '../util'
 
 // minimal impl just to get something working
 // (many props are missing)
