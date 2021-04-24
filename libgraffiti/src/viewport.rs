@@ -200,7 +200,7 @@ fn update_layout_node(ln: &mut LayoutNode, style: &Style) {
             CssDimension::Px(v) => Dimension::Px(*v),
             CssDimension::Percent(v) => Dimension::Percent(*v),
             CssDimension::Auto => Dimension::Auto,
-            _ => Dimension::Undefined,
+            //_ => Dimension::Undefined,
         }
     }
 

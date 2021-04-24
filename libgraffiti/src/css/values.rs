@@ -1,5 +1,6 @@
 // CSS value types
 
+use std::convert::TryFrom;
 use std::fmt::{Display, Error, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,32 +23,123 @@ impl<T: Display> Display for CssValue<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CssAlign {
-    Auto,
-    Start,
-    Center,
-    End,
-    Stretch,
-    Baseline,
-    SpaceBetween,
-    SpaceAround,
-    SpaceEvenly,
+macro_rules! css_enums {
+    ($(
+        #[$($meta:meta),*]
+        $pub:vis enum $name:ident {
+            $($variant:ident = $value:literal,)*
+        }
+    )*) => {
+        $(
+            #[$($meta),*]
+            $pub enum $name {
+                $($variant),*
+            }
+
+            impl Display for $name {
+                fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+                    match self {
+                        $(Self::$variant => write!(f, $value),)*
+                    }
+                }
+            }
+
+            impl <'a> TryFrom<&'a str> for $name {
+                type Error = &'static str;
+
+                fn try_from(v: &str) -> Result<Self, Self::Error> {
+                    Ok(match v {
+                        $($value => Self::$variant,)*
+                        _ => return Err("invalid input")
+                    })
+                }
+            }
+        )*
+    };
 }
 
-impl Display for CssAlign {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Self::Auto => write!(f, "auto"),
-            Self::Start => write!(f, "start"),
-            Self::Center => write!(f, "center"),
-            Self::End => write!(f, "end"),
-            Self::Stretch => write!(f, "stretch"),
-            Self::Baseline => write!(f, "baseline"),
-            Self::SpaceBetween => write!(f, "space-between"),
-            Self::SpaceAround => write!(f, "space-around"),
-            Self::SpaceEvenly => write!(f, "space-evenly"),
-        }
+css_enums! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CssAlign {
+        Auto = "auto",
+        Start = "start",
+        FlexStart = "flex-start",
+        Center = "center",
+        End = "end",
+        FlexEnd = "flex-end",
+        Stretch = "stretch",
+        Baseline = "baseline",
+        SpaceBetween = "space-between",
+        SpaceAround = "space-around",
+        SpaceEvenly = "space-evenly",
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CssBorderStyle {
+        None = "none",
+        Hidden = "hidden",
+        Dotted = "dotted",
+        Dashed = "dashed",
+        Solid = "solid",
+        Double = "double",
+        Groove = "groove",
+        Ridge = "ridge",
+        Inset = "inset",
+        Outset = "outset",
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CssDisplay {
+        None = "none",
+        Block = "block",
+        Inline = "inline",
+        Flex = "flex",
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CssFlexDirection {
+        Column = "column",
+        ColumnReverse = "column-reverse",
+        Row = "row",
+        RowReverse = "row-reverse",
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CssFlexWrap {
+        NoWrap = "nowrap",
+        Wrap = "wrap",
+        WrapReverse = "wrap-reverse",
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CssOverflow {
+        Visible = "visible",
+        Hidden = "hidden",
+        Scroll = "scroll",
+        Auto = "auto",
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CssPosition {
+        Static = "static",
+        Relative = "relative",
+        Absolute = "absolute",
+        Sticky = "sticky",
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CssTextAlign {
+        Left = "left",
+        Right = "right",
+        Center = "center",
+        Justify = "justify",
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CssVisibility {
+        Visible = "visible",
+        Hidden = "hidden",
+        Collapse = "collapse",
     }
 }
 
@@ -101,37 +193,6 @@ impl Display for CssDimension {
 
 // TODO: Border (border-spacing/collapse is shared for all sides so it can't be array)
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CssBorderStyle {
-    None,
-    Hidden,
-    Dotted,
-    Dashed,
-    Solid,
-    Double,
-    Groove,
-    Ridge,
-    Inset,
-    Outset,
-}
-
-impl Display for CssBorderStyle {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Self::None => write!(f, "none"),
-            Self::Hidden => write!(f, "hidden"),
-            Self::Dotted => write!(f, "dotted"),
-            Self::Dashed => write!(f, "dashed"),
-            Self::Solid => write!(f, "solid"),
-            Self::Double => write!(f, "double"),
-            Self::Groove => write!(f, "groove"),
-            Self::Ridge => write!(f, "ridge"),
-            Self::Inset => write!(f, "inset"),
-            Self::Outset => write!(f, "outset"),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CssBoxShadow {
     // TODO: Dimension
@@ -148,138 +209,5 @@ impl Display for CssBoxShadow {
             "{}px {}px {}px {}px {}",
             self.offset.0, self.offset.1, self.blur, self.spread, self.color
         )
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CssDisplay {
-    None,
-    Block,
-    Inline,
-    Flex,
-    // Grid, Table, TableRow, TableCell, ...
-}
-
-impl Display for CssDisplay {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Self::None => write!(f, "none"),
-            Self::Block => write!(f, "block"),
-            Self::Inline => write!(f, "inline"),
-            Self::Flex => write!(f, "flex"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CssFlexDirection {
-    Column,
-    ColumnReverse,
-    Row,
-    RowReverse,
-}
-
-impl Display for CssFlexDirection {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Self::Column => write!(f, "column"),
-            Self::ColumnReverse => write!(f, "row-reverse"),
-            Self::Row => write!(f, "row"),
-            Self::RowReverse => write!(f, "row-reverse"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CssFlexWrap {
-    NoWrap,
-    Wrap,
-    WrapReverse,
-}
-
-impl Display for CssFlexWrap {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Self::NoWrap => write!(f, "nowrap"),
-            Self::Wrap => write!(f, "wrap"),
-            Self::WrapReverse => write!(f, "wrap-reverse"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CssOverflow {
-    Visible,
-    Hidden,
-    Scroll,
-    Auto,
-}
-
-impl Display for CssOverflow {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Self::Visible => write!(f, "visible"),
-            Self::Hidden => write!(f, "hidden"),
-            Self::Scroll => write!(f, "scroll"),
-            Self::Auto => write!(f, "auto"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CssPosition {
-    Static,
-    Relative,
-    Absolute,
-    Sticky,
-}
-
-impl Display for CssPosition {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Self::Static => write!(f, "static"),
-            Self::Relative => write!(f, "relative"),
-            Self::Absolute => write!(f, "absolute"),
-            Self::Sticky => write!(f, "sticky"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CssTextAlign {
-    Left,
-    Right,
-    Center,
-    Justify,
-}
-
-impl Display for CssTextAlign {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Self::Left => write!(f, "left"),
-            Self::Right => write!(f, "right"),
-            Self::Center => write!(f, "center"),
-            Self::Justify => write!(f, "justify"),
-        }
-    }
-}
-
-// TODO, enum?
-//pub struct CssTransform { ? }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CssVisibility {
-    Visible,
-    Hidden,
-    Collapse,
-}
-
-impl Display for CssVisibility {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            Self::Visible => write!(f, "visible"),
-            Self::Hidden => write!(f, "hidden"),
-            Self::Collapse => write!(f, "collapse"),
-        }
     }
 }
