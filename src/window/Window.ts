@@ -71,41 +71,47 @@ export class Window extends EventTarget implements globalThis.Window {
   // TODOs
   alert = () => console.log('TODO: window.alert()')
   close = () => console.log('TODO: window.close()')
-  confirm = TODO
-  createImageBitmap = TODO
-  getMatchedCSSRules = TODO
-  getSelection = TODO
-  matchMedia = TODO
-  open = TODO
-  print = TODO
-  prompt = TODO
+  confirm = () => TODO()
+  createImageBitmap = () => TODO()
+  getMatchedCSSRules = () => TODO()
+  getSelection = () => TODO()
+  matchMedia = () => ({ matches: false } as any)
+  open = () => TODO()
+  print = () => TODO()
+  prompt = () => TODO()
   scroll = () => console.log('TODO: window.scroll()')
   scrollBy = () => console.log('TODO: window.scrollBy()')
   scrollTo = () => console.log('TODO: window.scrollTo()')
   stop = NOOP
 
   get innerHeight() {
-    return TODO()
+    console.log('TODO: window.innerHeight')
+    return 768
   }
 
   get innerWidth() {
-    return TODO()
+    console.log('TODO: window.innerWidth')
+    return 1024
   }
 
   get outerHeight() {
-    return TODO()
+    console.log('TODO: window.outerHeight')
+    return 768
   }
 
   get outerWidth() {
-    return TODO()
+    console.log('TODO: window.outerWidth')
+    return 1024
   }
 
   get scrollX() {
-    return TODO()
+    console.log('TODO: window.scrollX')
+    return 0
   }
 
   get scrollY() {
-    return TODO()
+    console.log('TODO: window.scrollY')
+    return 0
   }
 
   // deprecated

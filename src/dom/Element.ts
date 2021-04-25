@@ -8,6 +8,7 @@ export abstract class Element extends Node implements globalThis.Element {
   abstract readonly tagName: string
   readonly childNodes = new NodeList<ChildNode>()
   #localName: string
+  #classList
 
   constructor(doc = document, localName: string = ERR('new Element() is not supported')) {
     super(doc)
@@ -138,6 +139,13 @@ export abstract class Element extends Node implements globalThis.Element {
     return matches(document, this, sel)
   }
 
+  get classList() {
+    if (this.#classList === undefined) {
+      this.#classList = createClassList(this)
+    }
+
+    return this.#classList
+  }
 
   // later
   scrollLeft
@@ -148,7 +156,6 @@ export abstract class Element extends Node implements globalThis.Element {
   animate
   assignedSlot
   attachShadow
-  classList
   clientHeight
   clientLeft
   clientTop
@@ -186,4 +193,35 @@ export abstract class Element extends Node implements globalThis.Element {
 
   // ignore vendor
   webkitMatchesSelector
+}
+
+function createClassList(el): DOMTokenList {
+  const getTokens = () => el.className.split(/\s+/g)
+  const setTokens = tokens => (el.className = tokens.join(' '))
+
+  const classList = {
+    supports: token => true,
+    item: i => getTokens()[i],
+    contains: token => getTokens().includes(token),
+    forEach: (cb, thisArg) => getTokens().forEach(cb, thisArg),
+
+    add: (...tokens) => setTokens([...new Set([...getTokens(), ...tokens])]),
+    remove: (...tokens) => setTokens(getTokens().filter(t => !tokens.includes(t))),
+    replace: (token, newToken) => setTokens(getTokens().map(t => (t === token ? newToken : t))),
+    toggle: (token, force = getTokens().includes(token)) => classList[force ? 'add' : 'remove'](token),
+
+    get value() {
+      return el.className
+    },
+
+    set value(v) {
+      el.className = v
+    },
+
+    get length() {
+      return getTokens().length
+    },
+  }
+
+  return classList
 }

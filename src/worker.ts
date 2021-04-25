@@ -7,7 +7,7 @@
 
 import { native, loadNativeApi } from './native'
 import { Window, makeGlobal } from './window/Window'
-import { readURL, TODO, UNSUPPORTED } from './util'
+import { readURL } from './util'
 import { getDocId } from './dom/Document'
 import { parseIntoDocument } from './dom/DOMParser'
 

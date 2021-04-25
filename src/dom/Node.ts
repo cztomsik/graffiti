@@ -4,7 +4,7 @@
 import { EventTarget } from '../events/index'
 import { NodeList } from './index'
 import { insertChild, removeChild, querySelector, querySelectorAll } from './Document'
-import { assert, last, TODO, UNSUPPORTED } from '../util'
+import { assert, last, UNSUPPORTED } from '../util'
 
 export abstract class Node extends EventTarget implements G.Node, G.ParentNode, G.ChildNode, G.NonDocumentTypeChildNode, G.Slottable {
   abstract readonly nodeType: number
