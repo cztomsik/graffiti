@@ -28,7 +28,10 @@ impl Style {
     }
 
     pub fn property_value(&self, prop: &str) -> Option<String> {
-        self.props.iter().find(|p| p.name() == prop).map(StyleProp::value)
+        self.props
+            .iter()
+            .find(|p| p.name() == prop)
+            .map(StyleProp::value_as_string)
     }
 
     pub fn set_property(&mut self, prop: &str, value: &str) {

@@ -8,252 +8,124 @@ use crate::util::Atom;
 // type shorthand
 type V<T> = CssValue<T>;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum StyleProp {
-    // size
-    Width(V<CssDimension>),
-    Height(V<CssDimension>),
-    MinWidth(V<CssDimension>),
-    MinHeight(V<CssDimension>),
-    MaxWidth(V<CssDimension>),
-    MaxHeight(V<CssDimension>),
-
-    // padding
-    PaddingTop(V<CssDimension>),
-    PaddingRight(V<CssDimension>),
-    PaddingBottom(V<CssDimension>),
-    PaddingLeft(V<CssDimension>),
-
-    // margin
-    MarginTop(V<CssDimension>),
-    MarginRight(V<CssDimension>),
-    MarginBottom(V<CssDimension>),
-    MarginLeft(V<CssDimension>),
-
-    // background
-    BackgroundColor(V<CssColor>),
-
-    // border-radius
-    BorderTopLeftRadius(V<CssDimension>),
-    BorderTopRightRadius(V<CssDimension>),
-    BorderBottomRightRadius(V<CssDimension>),
-    BorderBottomLeftRadius(V<CssDimension>),
-
-    // border
-    BorderTopWidth(V<CssDimension>),
-    BorderTopStyle(V<CssBorderStyle>),
-    BorderTopColor(V<CssColor>),
-    BorderRightWidth(V<CssDimension>),
-    BorderRightStyle(V<CssBorderStyle>),
-    BorderRightColor(V<CssColor>),
-    BorderBottomWidth(V<CssDimension>),
-    BorderBottomStyle(V<CssBorderStyle>),
-    BorderBottomColor(V<CssColor>),
-    BorderLeftWidth(V<CssDimension>),
-    BorderLeftStyle(V<CssBorderStyle>),
-    BorderLeftColor(V<CssColor>),
-
-    // shadow
-    BoxShadow(V<CssBoxShadow>),
-
-    // flex
-    FlexBasis(V<CssDimension>),
-    FlexGrow(V<f32>),
-    FlexShrink(V<f32>),
-    FlexDirection(V<CssFlexDirection>),
-    FlexWrap(V<CssFlexWrap>),
-    AlignContent(V<CssAlign>),
-    AlignItems(V<CssAlign>),
-    AlignSelf(V<CssAlign>),
-    JustifyContent(V<CssAlign>),
-
-    // text
-    FontFamily(V<Atom<String>>),
-    FontSize(V<CssDimension>),
-    LineHeight(V<CssDimension>),
-    TextAlign(V<CssTextAlign>),
-    Color(V<CssColor>),
-
-    // outline
-    OutlineColor(V<CssColor>),
-    OutlineStyle(V<CssBorderStyle>),
-    OutlineWidth(V<CssDimension>),
-
-    // overflow
-    OverflowX(V<CssOverflow>),
-    OverflowY(V<CssOverflow>),
-
-    // position
-    Position(V<CssPosition>),
-    Top(V<CssDimension>),
-    Right(V<CssDimension>),
-    Bottom(V<CssDimension>),
-    Left(V<CssDimension>),
-
-    // other
-    Display(V<CssDisplay>),
-    Opacity(V<f32>),
-    Visibility(V<CssVisibility>),
-}
-
-impl StyleProp {
-    pub fn name(&self) -> &'static str {
-        use StyleProp::*;
-
-        match self {
-            Width(_) => "width",
-            Height(_) => "height",
-            MinWidth(_) => "min-width",
-            MinHeight(_) => "min-height",
-            MaxWidth(_) => "max-width",
-            MaxHeight(_) => "max-height",
-
-            // padding
-            PaddingTop(_) => "padding-top",
-            PaddingRight(_) => "padding-right",
-            PaddingBottom(_) => "padding-bottom",
-            PaddingLeft(_) => "padding-left",
-
-            // margin
-            MarginTop(_) => "margin-top",
-            MarginRight(_) => "margin-right",
-            MarginBottom(_) => "margin-bottom",
-            MarginLeft(_) => "margin-left",
-
-            // background
-            BackgroundColor(_) => "background-color",
-
-            // border-radius
-            BorderTopLeftRadius(_) => "border-top-left-radius",
-            BorderTopRightRadius(_) => "border-top-right-radius",
-            BorderBottomRightRadius(_) => "border-bottom-right-radius",
-            BorderBottomLeftRadius(_) => "border-bottom-left-radius",
-
-            // border
-            BorderTopWidth(_) => "border-top-width",
-            BorderTopStyle(_) => "border-top-style",
-            BorderTopColor(_) => "border-top-color",
-            BorderRightWidth(_) => "border-right-width",
-            BorderRightStyle(_) => "border-right-style",
-            BorderRightColor(_) => "border-right-color",
-            BorderBottomWidth(_) => "border-bottom-width",
-            BorderBottomStyle(_) => "border-bottom-style",
-            BorderBottomColor(_) => "border-bottom-color",
-            BorderLeftWidth(_) => "border-left-width",
-            BorderLeftStyle(_) => "border-left-style",
-            BorderLeftColor(_) => "border-left-color",
-
-            // shadow
-            BoxShadow(_) => "box-shadow",
-
-            // flex
-            FlexBasis(_) => "flex-basis",
-            FlexGrow(_) => "flex-grow",
-            FlexShrink(_) => "flex-shrink",
-            FlexDirection(_) => "flex-direction",
-            FlexWrap(_) => "flex-wrap",
-            AlignContent(_) => "align-content",
-            AlignItems(_) => "align-items",
-            AlignSelf(_) => "align-self",
-            JustifyContent(_) => "justify-content",
-
-            // text
-            FontFamily(_) => "font-family",
-            FontSize(_) => "font-size",
-            LineHeight(_) => "line-height",
-            TextAlign(_) => "text-align",
-            Color(_) => "color",
-
-            // outline
-            OutlineColor(_) => "outline-color",
-            OutlineStyle(_) => "outline-style",
-            OutlineWidth(_) => "outline-width",
-
-            // overflow
-            OverflowX(_) => "overflow-x",
-            OverflowY(_) => "overflow-y",
-
-            // position
-            Position(_) => "position",
-            Top(_) => "top",
-            Right(_) => "right",
-            Bottom(_) => "bottom",
-            Left(_) => "left",
-
-            // other
-            Display(_) => "display",
-            Opacity(_) => "opacity",
-            Visibility(_) => "visibility",
+macro_rules! css_properties {
+    ($($variant:ident($value:ty) = $name:literal,)*) => {
+        #[derive(Debug, Clone, PartialEq)]
+        pub enum StyleProp {
+            $($variant(V<$value>),)*
         }
-    }
 
-    pub fn value(&self) -> String {
-        use StyleProp::*;
+        impl StyleProp {
+            pub fn name(&self) -> &'static str {
+                use StyleProp::*;
 
-        match self {
-            // Dimension
-            Width(v)
-            | Height(v)
-            | MinWidth(v)
-            | MinHeight(v)
-            | MaxWidth(v)
-            | MaxHeight(v)
-            | PaddingTop(v)
-            | PaddingRight(v)
-            | PaddingBottom(v)
-            | PaddingLeft(v)
-            | MarginTop(v)
-            | FontSize(v)
-            | LineHeight(v)
-            | FlexBasis(v)
-            | MarginRight(v)
-            | MarginBottom(v)
-            | MarginLeft(v)
-            | BorderTopLeftRadius(v)
-            | BorderTopRightRadius(v)
-            | BorderBottomRightRadius(v)
-            | BorderBottomLeftRadius(v)
-            | BorderTopWidth(v)
-            | BorderRightWidth(v)
-            | BorderBottomWidth(v)
-            | BorderLeftWidth(v)
-            | OutlineWidth(v)
-            | Top(v)
-            | Right(v)
-            | Bottom(v)
-            | Left(v) => format!("{}", v),
-
-            // Color
-            BackgroundColor(v) | BorderTopColor(v) | BorderRightColor(v) | BorderBottomColor(v)
-            | BorderLeftColor(v) | Color(v) | OutlineColor(v) => format!("{}", v),
-
-            // BorderStyle
-            OutlineStyle(v) | BorderTopStyle(v) | BorderRightStyle(v) | BorderBottomStyle(v) | BorderLeftStyle(v) => {
-                format!("{}", v)
+                match self {
+                    $($variant(_) => $name,)*
+                }
             }
 
-            // f32
-            Opacity(v) | FlexGrow(v) | FlexShrink(v) => format!("{}", v),
+            pub(super) fn value_as_string(&self) -> String {
+                use StyleProp::*;
 
-            // Align
-            AlignContent(v) | AlignItems(v) | AlignSelf(v) | JustifyContent(v) => format!("{}", v),
+                let v: &dyn std::fmt::Display = match self {
+                    $($variant(ref v) => v),*
+                };
 
-            // Others
-            TextAlign(v) => format!("{}", v),
-            FlexDirection(v) => format!("{}", v),
-            FlexWrap(v) => format!("{}", v),
-            Position(v) => format!("{}", v),
-            Visibility(v) => format!("{}", v),
-            Display(v) => format!("{}", v),
-            BoxShadow(v) => format!("{}", v),
-            FontFamily(v) => format!("{}", v),
-            OverflowX(v) | OverflowY(v) => format!("{}", v),
-        }        
+                format!("{}", v)
+            }
+        }
     }
+}
+
+css_properties! {
+    // size
+    Width(CssDimension) = "width",
+    Height(CssDimension) = "height",
+    MinWidth(CssDimension) = "min-width",
+    MinHeight(CssDimension) = "min-height",
+    MaxWidth(CssDimension) = "max-width",
+    MaxHeight(CssDimension) = "max-height",
+
+    // padding
+    PaddingTop(CssDimension) = "padding-top",
+    PaddingRight(CssDimension) = "padding-right",
+    PaddingBottom(CssDimension) = "padding-bottom",
+    PaddingLeft(CssDimension) = "padding-left",
+
+    // margin
+    MarginTop(CssDimension) = "margin-top",
+    MarginRight(CssDimension) = "margin-right",
+    MarginBottom(CssDimension) = "margin-bottom",
+    MarginLeft(CssDimension) = "margin-left",
+
+    // background
+    BackgroundColor(CssColor) = "background-color",
+
+    // border-radius
+    BorderTopLeftRadius(CssDimension) = "border-top-left-radius",
+    BorderTopRightRadius(CssDimension) = "border-top-right-radius",
+    BorderBottomRightRadius(CssDimension) = "border-bottom-right-radius",
+    BorderBottomLeftRadius(CssDimension) = "border-bottom-left-radius",
+
+    // border
+    BorderTopWidth(CssDimension) = "border-top-width",
+    BorderTopStyle(CssBorderStyle) = "border-top-style",
+    BorderTopColor(CssColor) = "border-top-color",
+    BorderRightWidth(CssDimension) = "border-right-width",
+    BorderRightStyle(CssBorderStyle) = "border-right-style",
+    BorderRightColor(CssColor) = "border-right-color",
+    BorderBottomWidth(CssDimension) = "border-bottom-width",
+    BorderBottomStyle(CssBorderStyle) = "border-bottom-style",
+    BorderBottomColor(CssColor) = "border-bottom-color",
+    BorderLeftWidth(CssDimension) = "border-left-width",
+    BorderLeftStyle(CssBorderStyle) = "border-left-style",
+    BorderLeftColor(CssColor) = "border-left-color",
+
+    // shadow
+    BoxShadow(CssBoxShadow) = "box-shadow",
+
+    // flex
+    FlexBasis(CssDimension) = "flex-basis",
+    FlexGrow(f32) = "flex-grow",
+    FlexShrink(f32) = "flex-shrink",
+    FlexDirection(CssFlexDirection) = "flex-direction",
+    FlexWrap(CssFlexWrap) = "flex-wrap",
+    AlignContent(CssAlign) = "align-content",
+    AlignItems(CssAlign) = "align-items",
+    AlignSelf(CssAlign) = "align-self",
+    JustifyContent(CssAlign) = "justify-content",
+
+    // text
+    FontFamily(Atom<String>) = "font-family",
+    FontSize(CssDimension) = "font-size",
+    LineHeight(CssDimension) = "line-height",
+    TextAlign(CssTextAlign) = "text-align",
+    Color(CssColor) = "color",
+
+    // outline
+    OutlineColor(CssColor) = "outline-color",
+    OutlineStyle(CssBorderStyle) = "outline-style",
+    OutlineWidth(CssDimension) = "outline-width",
+
+    // overflow
+    OverflowX(CssOverflow) = "overflow-x",
+    OverflowY(CssOverflow) = "overflow-y",
+
+    // position
+    Position(CssPosition) = "position",
+    Top(CssDimension) = "top",
+    Right(CssDimension) = "right",
+    Bottom(CssDimension) = "bottom",
+    Left(CssDimension) = "left",
+
+    // other
+    Display(CssDisplay) = "display",
+    Opacity(f32) = "opacity",
+    Visibility(CssVisibility) = "visibility",
 }
 
 impl Display for StyleProp {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f, "{}: {};", self.name(), self.value())
+        write!(f, "{}: {};", self.name(), self.value_as_string())
     }
 }
