@@ -181,6 +181,10 @@ pub enum CssDimension {
     //Vh(f32)
 }
 
+impl CssDimension {
+    pub const ZERO: Self = Self::Px(0.);
+}
+
 impl Display for CssDimension {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {

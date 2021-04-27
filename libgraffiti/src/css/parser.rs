@@ -10,7 +10,7 @@
 use super::*;
 use crate::util::Atom;
 use pom::char_class::{alphanum, digit};
-use pom::parser::*;
+use pom::parser::{any, empty, is_a, none_of, one_of, seq, skip, sym};
 use std::convert::TryFrom;
 use std::fmt::Debug;
 
@@ -203,7 +203,7 @@ fn dimension<'a>() -> Parser<'a, CssDimension> {
     let px = (float() - sym("px")).map(CssDimension::Px);
     let percent = (float() - sym("%")).map(CssDimension::Percent);
     let auto = sym("auto").map(|_| CssDimension::Auto);
-    let zero = sym("0").map(|_| CssDimension::Px(0.));
+    let zero = sym("0").map(|_| CssDimension::ZERO);
 
     px | percent | auto | zero
 }
@@ -288,8 +288,6 @@ pub fn prev<'a, I: Clone>(n: usize) -> pom::parser::Parser<'a, I, ()> {
 // different from https://drafts.csswg.org/css-syntax/#tokenization
 // (main purpose here is to strip comments and to keep strings together)
 pub(super) fn tokenize(input: &[u8]) -> Vec<Token> {
-    use pom::parser::*;
-
     let comment = seq(b"/*") * (!seq(b"*/") * skip(1)).repeat(0..) - seq(b"*/");
     let space = one_of(b" \t\r\n").discard().repeat(1..).map(|_| &b" "[..]);
     let hex_or_id = prev(1) * sym(b'#') * is_a(alphanum).repeat(1..).collect();
