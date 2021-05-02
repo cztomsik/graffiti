@@ -1,4 +1,4 @@
-use crate::css::{matching_style, CssValue, Style, StyleProp, StyleSheet};
+use crate::css::{matching_style, Style, StyleProp, StyleSheet};
 use crate::gfx::{Frame, Text, TextStyle, Vec2, AABB};
 use crate::layout::LayoutNode;
 use crate::renderer::Renderer;
@@ -204,46 +204,65 @@ fn update_layout_node(ln: &mut LayoutNode, style: &Style) {
         }
     }
 
+    fn align(d: &CssAlign) -> Align {
+        match d {
+            CssAlign::Auto => Align::Auto,
+            CssAlign::Start => Align::FlexStart,
+            CssAlign::FlexStart => Align::FlexStart,
+            CssAlign::Center => Align::Center,
+            CssAlign::End => Align::FlexEnd,
+            CssAlign::FlexEnd => Align::FlexEnd,
+            CssAlign::Stretch => Align::Stretch,
+            CssAlign::Baseline => Align::Baseline,
+            CssAlign::SpaceBetween => Align::SpaceBetween,
+            CssAlign::SpaceAround => Align::SpaceAround,
+
+            // TODO: add Justify enum?
+            CssAlign::SpaceEvenly => {
+                println!("TODO: justify enum?");
+                Align::FlexStart
+            }
+        }
+    }
+
     for p in style.props() {
-        use CssValue::Specified as S;
         use StyleProp as P;
 
         match p {
-            P::Width(S(v)) => ln.set_width(dim(v)),
-            P::Height(S(v)) => ln.set_height(dim(v)),
-            P::MinWidth(S(v)) => ln.set_min_width(dim(v)),
-            P::MinHeight(S(v)) => ln.set_min_height(dim(v)),
-            P::MaxWidth(S(v)) => ln.set_max_width(dim(v)),
-            P::MaxHeight(S(v)) => ln.set_max_height(dim(v)),
+            P::Width(v) => ln.set_width(dim(v)),
+            P::Height(v) => ln.set_height(dim(v)),
+            P::MinWidth(v) => ln.set_min_width(dim(v)),
+            P::MinHeight(v) => ln.set_min_height(dim(v)),
+            P::MaxWidth(v) => ln.set_max_width(dim(v)),
+            P::MaxHeight(v) => ln.set_max_height(dim(v)),
 
-            P::PaddingTop(S(v)) => ln.set_padding_top(dim(v)),
-            P::PaddingRight(S(v)) => ln.set_padding_right(dim(v)),
-            P::PaddingBottom(S(v)) => ln.set_padding_bottom(dim(v)),
-            P::PaddingLeft(S(v)) => ln.set_padding_left(dim(v)),
+            P::PaddingTop(v) => ln.set_padding_top(dim(v)),
+            P::PaddingRight(v) => ln.set_padding_right(dim(v)),
+            P::PaddingBottom(v) => ln.set_padding_bottom(dim(v)),
+            P::PaddingLeft(v) => ln.set_padding_left(dim(v)),
 
-            P::MarginTop(S(v)) => ln.set_margin_top(dim(v)),
-            P::MarginRight(S(v)) => ln.set_margin_right(dim(v)),
-            P::MarginBottom(S(v)) => ln.set_margin_bottom(dim(v)),
-            P::MarginLeft(S(v)) => ln.set_margin_left(dim(v)),
+            P::MarginTop(v) => ln.set_margin_top(dim(v)),
+            P::MarginRight(v) => ln.set_margin_right(dim(v)),
+            P::MarginBottom(v) => ln.set_margin_bottom(dim(v)),
+            P::MarginLeft(v) => ln.set_margin_left(dim(v)),
 
-            P::Position(S(v)) => ln.set_position(match v {
+            P::Position(v) => ln.set_position(match v {
                 CssPosition::Absolute => Position::Absolute,
                 _ => Position::Relative,
             }),
-            P::Top(S(v)) => ln.set_top(dim(v)),
-            P::Right(S(v)) => ln.set_right(dim(v)),
-            P::Bottom(S(v)) => ln.set_bottom(dim(v)),
-            P::Left(S(v)) => ln.set_left(dim(v)),
+            P::Top(v) => ln.set_top(dim(v)),
+            P::Right(v) => ln.set_right(dim(v)),
+            P::Bottom(v) => ln.set_bottom(dim(v)),
+            P::Left(v) => ln.set_left(dim(v)),
 
-            P::Display(S(v)) => ln.set_display(match v {
+            P::Display(v) => ln.set_display(match v {
                 CssDisplay::None => Display::None,
                 CssDisplay::Flex => Display::Flex,
                 // TODO
                 CssDisplay::Block => {
-                    // wouldn't work when inside flex (<Row>) because it would
-                    // take whole row and push rest to the side
-                    // (but that align-items: stretch should be enough in most cases)
-                    //ln.set_width(element, Dimension::Percent(100.));
+                    // weird but correct, what's missing is that all inlines should
+                    // be wrapped in anonymous box/line, then it should work fine
+                    // (but that "line" is not just flex-wrap: wrap)
                     ln.set_flex_direction(FlexDirection::Column);
                     ln.set_align_items(Align::Stretch);
                     Display::Flex
@@ -255,20 +274,24 @@ fn update_layout_node(ln: &mut LayoutNode, style: &Style) {
                     Display::Flex
                 }
             }),
-            P::FlexGrow(S(v)) => ln.set_flex_grow(*v),
-            P::FlexShrink(S(v)) => ln.set_flex_shrink(*v),
-            P::FlexBasis(S(v)) => ln.set_flex_basis(dim(v)),
-            P::FlexWrap(S(v)) => ln.set_flex_wrap(match v {
+            P::FlexGrow(v) => ln.set_flex_grow(*v),
+            P::FlexShrink(v) => ln.set_flex_shrink(*v),
+            P::FlexBasis(v) => ln.set_flex_basis(dim(v)),
+            P::FlexWrap(v) => ln.set_flex_wrap(match v {
                 CssFlexWrap::NoWrap => FlexWrap::NoWrap,
                 CssFlexWrap::Wrap => FlexWrap::Wrap,
                 CssFlexWrap::WrapReverse => FlexWrap::WrapReverse,
             }),
-            P::FlexDirection(S(v)) => ln.set_flex_direction(match v {
+            P::FlexDirection(v) => ln.set_flex_direction(match v {
                 CssFlexDirection::Row => FlexDirection::Row,
                 CssFlexDirection::Column => FlexDirection::Column,
                 CssFlexDirection::RowReverse => FlexDirection::RowReverse,
                 CssFlexDirection::ColumnReverse => FlexDirection::ColumnReverse,
             }),
+            P::AlignContent(v) => ln.set_align_content(align(v)),
+            P::AlignItems(v) => ln.set_align_items(align(v)),
+            P::AlignSelf(v) => ln.set_align_self(align(v)),
+            //P::JustifyContent(v) => ln.set_justify_content(align(v)),
 
             _ => {}
         }

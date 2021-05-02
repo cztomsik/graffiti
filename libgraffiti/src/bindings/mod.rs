@@ -9,7 +9,7 @@ use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 type Task = Box<dyn FnOnce() + 'static + Send>;
 static TASK_CHANNEL: Lazy<(Sender<Task>, Receiver<Task>)> = Lazy::new(channel);
@@ -23,14 +23,13 @@ type WebViewId = u32;
 type DocumentId = u32;
 type ViewportId = u32;
 
-// TODO: avoid mutex
-static EVENTS: Lazy<Mutex<SlotMap<WindowId, Receiver<Event>>>> = Lazy::new(Default::default);
+// shouldn't block unless when a window is created/destroyed
+static EVENTS: Lazy<RwLock<SlotMap<WindowId, Receiver<Event>>>> = Lazy::new(Default::default);
 
 #[derive(Default)]
 struct Ctx {
     app: Option<Rc<App>>,
     windows: SlotMap<WindowId, Window>,
-    events: SlotMap<WindowId, Receiver<Event>>,
     webviews: SlotMap<WebViewId, WebView>,
     documents: SlotMap<DocumentId, Rc<RefCell<Document>>>,
     viewports: SlotMap<ViewportId, Viewport>,
@@ -97,11 +96,11 @@ macro_rules! export_api {
                 let id = ctx!().windows.insert(w);
                 ctx!().backends.put(id, backend);
 
-                EVENTS.lock().unwrap().put(id, events);
+                EVENTS.write().unwrap().put(id, events);
 
                 id
             },
-            window_next_event: |w| EVENTS.lock().unwrap()[w].try_recv().ok().map(event),
+            window_next_event: |w| EVENTS.read().unwrap()[w].try_recv().ok().map(event),
             window_title: |w| ctx!().windows[w].title().to_owned(),
             window_set_title: |w, title: String| ctx!().windows[w].set_title(&title),
             window_size: |w| ctx!().windows[w].size(),

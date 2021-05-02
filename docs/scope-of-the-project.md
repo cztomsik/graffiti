@@ -29,9 +29,11 @@ The table below provides some info about what's left out. Some of those might be
 | custom elements, shadow DOM | N/A |
 | (i)frames                   | N/A |
 
-| CSS                     |                       |
-|-------------------------|-----------------------|
-| layout                  | flex, block           |
-| transitions             | later                 |
-| CSSOM                   | minimal for CSS-in-JS |
-| media queries           | use JS                |
+| CSS                     |                              |
+|-------------------------|------------------------------|
+| values                  | specified-only, no `inherit` |
+| colors                  | hex, rgb(a), lowercase names |
+| layout                  | `flex`, `block` emulation    |
+| transitions             | later                        |
+| CSSOM                   | minimal for CSS-in-JS        |
+| media queries           | use JS                       |

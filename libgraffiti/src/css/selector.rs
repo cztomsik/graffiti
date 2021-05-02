@@ -22,6 +22,7 @@ pub struct Selector {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum SelectorPart {
     // TODO: I think inner discriminant could be squashed but it's not
+    //       maybe part.is_component() + inline these?
     Component(Component),
     Combinator(Combinator),
 }
@@ -138,9 +139,6 @@ impl<E: Copy> MatchingContext<'_, E> {
         Some(specificity)
     }
 }
-
-#[derive(Debug)]
-pub struct InvalidSelector;
 
 // never fails
 impl From<&str> for Selector {

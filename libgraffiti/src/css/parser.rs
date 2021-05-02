@@ -7,18 +7,22 @@
 // - collect() creates slice from start to end regardless of the results "inside"
 //   (which means (a + b).collect() only takes "super-slice" of both matches)
 
-use super::*;
+use super::{
+    prop_parser, Combinator, Component, CssBoxShadow, CssColor, CssDimension, Rule, Selector, SelectorPart, Style,
+    StyleProp, StyleSheet,
+};
 use crate::util::Atom;
-use pom::char_class::{alphanum, digit};
-use pom::parser::*;
+use pom::char_class::alphanum;
+use pom::parser::{any, empty, is_a, none_of, one_of, seq, skip, sym};
 use std::convert::TryFrom;
 use std::fmt::Debug;
 
-type Parser<'a, T> = pom::parser::Parser<'a, Token<'a>, T>;
+pub(super) type Parser<'a, T> = pom::parser::Parser<'a, Token<'a>, T>;
 type Token<'a> = &'a str;
+pub type ParseError = pom::Error;
 
 pub(super) fn sheet<'a>() -> Parser<'a, StyleSheet> {
-    // anything until next "}}" (empty media is matched as unknown)
+    // anything until next "}}" (empty media is matched with unknown)
     let media = sym("@") * sym("media") * (!seq(&["}", "}"]) * skip(1)).repeat(1..).map(|_| None) - sym("}") - sym("}");
     // anything until next "}"
     let unknown = (!sym("}") * skip(1)).repeat(1..).map(|_| None) - sym("}").opt();
@@ -87,135 +91,32 @@ pub(super) fn style<'a>() -> Parser<'a, Style> {
     })
 }
 
-pub(super) fn parse_style_prop<'a>(prop: Token, value: &[Token]) -> pom::Result<StyleProp> {
+pub(super) fn parse_style_prop<'a>(prop: Token, value: &[Token]) -> Result<StyleProp, ParseError> {
     prop_parser(prop).parse(value)
 }
 
-fn prop_parser<'a>(prop: &str) -> Parser<'a, StyleProp> {
-    use self::value as v;
-
-    // TODO: css_value().map(StyleProp::Xx) should be enough
-    // TODO: dyn might be better in this case
-    match prop {
-        // size
-        "width" => v(dimension()).map(StyleProp::Width),
-        "height" => v(dimension()).map(StyleProp::Height),
-        "min-width" => v(dimension()).map(StyleProp::MinWidth),
-        "min-height" => v(dimension()).map(StyleProp::MinHeight),
-        "max-width" => v(dimension()).map(StyleProp::MaxWidth),
-        "max-height" => v(dimension()).map(StyleProp::MaxHeight),
-
-        // padding
-        "padding-top" => v(dimension()).map(StyleProp::PaddingTop),
-        "padding-right" => v(dimension()).map(StyleProp::PaddingRight),
-        "padding-bottom" => v(dimension()).map(StyleProp::PaddingBottom),
-        "padding-left" => v(dimension()).map(StyleProp::PaddingLeft),
-
-        // margin
-        "margin-top" => v(dimension()).map(StyleProp::MarginTop),
-        "margin-right" => v(dimension()).map(StyleProp::MarginRight),
-        "margin-bottom" => v(dimension()).map(StyleProp::MarginBottom),
-        "margin-left" => v(dimension()).map(StyleProp::MarginLeft),
-
-        // background
-        "background-color" => v(color()).map(StyleProp::BackgroundColor),
-
-        // border-radius
-        "border-top-left-radius" => v(dimension()).map(StyleProp::BorderTopLeftRadius),
-        "border-top-right-radius" => v(dimension()).map(StyleProp::BorderTopRightRadius),
-        "border-bottom-right-radius" => v(dimension()).map(StyleProp::BorderBottomRightRadius),
-        "border-bottom-left-radius" => v(dimension()).map(StyleProp::BorderBottomLeftRadius),
-
-        // border
-        "border-top-width" => v(dimension()).map(StyleProp::BorderTopWidth),
-        "border-top-style" => v(css_enum()).map(StyleProp::BorderTopStyle),
-        "border-top-color" => v(color()).map(StyleProp::BorderTopColor),
-        "border-right-width" => v(dimension()).map(StyleProp::BorderRightWidth),
-        "border-right-style" => v(css_enum()).map(StyleProp::BorderRightStyle),
-        "border-right-color" => v(color()).map(StyleProp::BorderRightColor),
-        "border-bottom-width" => v(dimension()).map(StyleProp::BorderBottomWidth),
-        "border-bottom-style" => v(css_enum()).map(StyleProp::BorderBottomStyle),
-        "border-bottom-color" => v(color()).map(StyleProp::BorderBottomColor),
-        "border-left-width" => v(dimension()).map(StyleProp::BorderLeftWidth),
-        "border-left-style" => v(css_enum()).map(StyleProp::BorderLeftStyle),
-        "border-left-color" => v(color()).map(StyleProp::BorderLeftColor),
-
-        // flex
-        "flex-basis" => v(dimension()).map(StyleProp::FlexBasis),
-        "flex-grow" => v(float()).map(StyleProp::FlexGrow),
-        "flex-shrink" => v(float()).map(StyleProp::FlexShrink),
-        "flex-direction" => v(css_enum()).map(StyleProp::FlexDirection),
-        "flex-wrap" => v(css_enum()).map(StyleProp::FlexWrap),
-        "align-content" => v(css_enum()).map(StyleProp::AlignContent),
-        "align-items" => v(css_enum()).map(StyleProp::AlignItems),
-        "align-self" => v(css_enum()).map(StyleProp::AlignSelf),
-        "justify-content" => v(css_enum()).map(StyleProp::JustifyContent),
-
-        // text
-        "font-family" => v(font_family()).map(StyleProp::FontFamily),
-        "font-size" => v(dimension()).map(StyleProp::FontSize),
-        "line-height" => v(dimension()).map(StyleProp::LineHeight),
-        "text-align" => v(css_enum()).map(StyleProp::TextAlign),
-        "color" => v(color()).map(StyleProp::Color),
-
-        // outline
-        "outline-color" => v(color()).map(StyleProp::OutlineColor),
-        "outline-style" => v(css_enum()).map(StyleProp::OutlineStyle),
-        "outline-width" => v(dimension()).map(StyleProp::OutlineWidth),
-
-        // overflow
-        "overflow-x" => v(css_enum()).map(StyleProp::OverflowX),
-        "overflow-y" => v(css_enum()).map(StyleProp::OverflowY),
-
-        // position
-        "position" => v(css_enum()).map(StyleProp::Position),
-        "top" => v(dimension()).map(StyleProp::Top),
-        "right" => v(dimension()).map(StyleProp::Right),
-        "bottom" => v(dimension()).map(StyleProp::Bottom),
-        "left" => v(dimension()).map(StyleProp::Left),
-
-        // other
-        "display" => v(css_enum()).map(StyleProp::Display),
-        "opacity" => v(float()).map(StyleProp::Opacity),
-        "visibility" => v(css_enum()).map(StyleProp::Visibility),
-
-        _ => fail("unknown style prop"),
-    }
-}
-
-fn value<'a, T: 'static>(specified: Parser<'a, T>) -> Parser<'a, CssValue<T>> {
-    let inherit = sym("inherit").map(|_| CssValue::Inherit);
-    let initial = sym("initial").map(|_| CssValue::Initial);
-    let unset = sym("unset").map(|_| CssValue::Unset);
-
-    specified.map(CssValue::Specified) | inherit | initial | unset
-}
-
-fn css_enum<'a, T: 'static + TryFrom<&'a str>>() -> Parser<'a, T>
+pub(super) fn try_from<'a, T: 'static + TryFrom<&'a str>>() -> Parser<'a, T>
 where
     T::Error: Debug,
 {
-    // implemented with macro
     ident().convert(T::try_from)
 }
 
-fn dimension<'a>() -> Parser<'a, CssDimension> {
+pub(super) fn dimension<'a>() -> Parser<'a, CssDimension> {
     let px = (float() - sym("px")).map(CssDimension::Px);
     let percent = (float() - sym("%")).map(CssDimension::Percent);
     let auto = sym("auto").map(|_| CssDimension::Auto);
-    let zero = sym("0").map(|_| CssDimension::Px(0.));
+    let zero = sym("0").map(|_| CssDimension::ZERO);
 
     px | percent | auto | zero
 }
 
-fn color<'a>() -> Parser<'a, CssColor> {
+pub(super) fn color<'a>() -> Parser<'a, CssColor> {
     fn hex_val(byte: u8) -> u8 {
         (byte as char).to_digit(16).unwrap() as u8
     }
 
-    // TODO: rgb/rgba()
-
-    sym("#")
+    let hex_color = sym("#")
         * any().convert(|hex: &str| {
             let hex = hex.as_bytes();
 
@@ -242,27 +143,50 @@ fn color<'a>() -> Parser<'a, CssColor> {
                     a: hex.get(3).map(|&v| hex_val(v) * 17).unwrap_or(255),
                 },
 
-                _ => return Err("invalid color"),
+                _ => return Err("invalid hex color"),
             })
-        })
+        });
+
+    let rgb = sym("rgb")
+        * sym("(")
+        * (u8() - sym(",") + u8() - sym(",") + u8()).map(|((r, g), b)| CssColor::from_rgb8(r, g, b))
+        - sym(")");
+
+    let rgba = sym("rgba")
+        * sym("(")
+        * (u8() - sym(",") + u8() - sym(",") + u8() - sym(",") + float())
+            .map(|(((r, g), b), a)| CssColor::from_rgba8(r, g, b, (255. * a) as _))
+        - sym(")");
+
+    let named_color = ident().convert(|name| CssColor::NAMED_COLORS.get(name).copied().ok_or("unknown named color"));
+
+    hex_color | rgb | rgba | named_color
 }
 
-fn font_family<'a>() -> Parser<'a, Atom<String>> {
+pub(super) fn font_family<'a>() -> Parser<'a, Atom<String>> {
     // TODO: multiple, strings
     //       but keep it as Atom<String> because that is easy to
     //       map/cache to FontQuery and I'd like to keep CSS unaware of fonts
     is_a(|t: &str| alphanum_dash(t.as_bytes()[0])).map(Atom::from)
 }
 
-fn float<'a>() -> Parser<'a, f32> {
-    is_a(|t: &str| digit(t.as_bytes()[0])).convert(str::parse)
+pub(super) fn box_shadow<'a>() -> Parser<'a, CssBoxShadow> {
+    fail("TODO: parse box-shadow")
+}
+
+pub(super) fn float<'a>() -> Parser<'a, f32> {
+    any().convert(str::parse)
+}
+
+fn u8<'a>() -> Parser<'a, u8> {
+    any().convert(str::parse)
 }
 
 fn ident<'a>() -> Parser<'a, &'a str> {
     is_a(|t: &str| alphanum_dash(t.as_bytes()[0]))
 }
 
-fn fail<'a, T: 'static>(msg: &'static str) -> Parser<'a, T> {
+pub(super) fn fail<'a, T: 'static>(msg: &'static str) -> Parser<'a, T> {
     empty().convert(move |_| Err(msg))
 }
 
@@ -288,8 +212,6 @@ pub fn prev<'a, I: Clone>(n: usize) -> pom::parser::Parser<'a, I, ()> {
 // different from https://drafts.csswg.org/css-syntax/#tokenization
 // (main purpose here is to strip comments and to keep strings together)
 pub(super) fn tokenize(input: &[u8]) -> Vec<Token> {
-    use pom::parser::*;
-
     let comment = seq(b"/*") * (!seq(b"*/") * skip(1)).repeat(0..) - seq(b"*/");
     let space = one_of(b" \t\r\n").discard().repeat(1..).map(|_| &b" "[..]);
     let hex_or_id = prev(1) * sym(b'#') * is_a(alphanum).repeat(1..).collect();
@@ -303,7 +225,7 @@ pub(super) fn tokenize(input: &[u8]) -> Vec<Token> {
     let token = comment.opt() * (space | hex_or_id | num | ident | string1 | string2 | special);
     let tokens = token.convert(std::str::from_utf8).repeat(0..).parse(input).unwrap();
 
-    // keep space for selectors & multi-values
+    // strip whitespace except for selectors & multi-values
     // TODO: this was easier than combinators
     let (mut res, mut keep_space) = (Vec::new(), false);
     for (i, &t) in tokens.iter().enumerate() {
@@ -328,6 +250,7 @@ pub(super) fn tokenize(input: &[u8]) -> Vec<Token> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::*;
     use super::*;
 
     #[test]
@@ -387,6 +310,47 @@ mod tests {
         assert_eq!(StyleSheet::from(":root {} a { v: 0 }").rules.len(), 2);
         assert_eq!(StyleSheet::from("a {} @media { a { v: 0 } } b {}").rules.len(), 2);
         assert_eq!(StyleSheet::from("@media { a { v: 0 } } a {} b {}").rules.len(), 2);
+    }
+
+    #[test]
+    fn shorthands() {
+        use StyleProp::*;
+
+        assert_eq!(
+            &Style::from("padding: 0").props,
+            &[
+                PaddingTop(CssDimension::ZERO),
+                PaddingRight(CssDimension::ZERO),
+                PaddingBottom(CssDimension::ZERO),
+                PaddingLeft(CssDimension::ZERO)
+            ]
+        );
+
+        assert_eq!(
+            &Style::from("padding: 10px 20px").props,
+            &[
+                PaddingTop(CssDimension::Px(10.)),
+                PaddingRight(CssDimension::Px(20.)),
+                PaddingBottom(CssDimension::Px(10.)),
+                PaddingLeft(CssDimension::Px(20.))
+            ]
+        );
+
+        assert_eq!(&Style::from("background: none").props, &[]);
+        assert_eq!(
+            &Style::from("background: #000").props,
+            &[StyleProp::BackgroundColor(CssColor::BLACK)]
+        );
+
+        // override
+        let mut s = Style::from("background-color: #fff");
+        s.set_property("background", "#000");
+        assert_eq!(s.props, &[StyleProp::BackgroundColor(CssColor::BLACK)]);
+
+        // remove
+        let mut s = Style::from("background-color: #fff");
+        s.set_property("background", "none");
+        assert_eq!(s, Style::EMPTY);
     }
 
     #[test]
@@ -499,40 +463,33 @@ mod tests {
     #[test]
     fn parse_prop() {
         assert_eq!(
-            parse_style_prop("text-align", &["inherit"]),
-            Ok(StyleProp::TextAlign(CssValue::Inherit))
-        );
-        assert_eq!(
             parse_style_prop("padding-left", &["10", "px"]),
-            Ok(StyleProp::PaddingLeft(CssValue::Specified(CssDimension::Px(10.))))
+            Ok(StyleProp::PaddingLeft(CssDimension::Px(10.)))
         );
         assert_eq!(
             parse_style_prop("margin-top", &["5", "%"]),
-            Ok(StyleProp::MarginTop(CssValue::Specified(CssDimension::Percent(5.))))
+            Ok(StyleProp::MarginTop(CssDimension::Percent(5.)))
         );
-        assert_eq!(
-            parse_style_prop("opacity", &["1"]),
-            Ok(StyleProp::Opacity(CssValue::Specified(1.)))
-        );
+        assert_eq!(parse_style_prop("opacity", &["1"]), Ok(StyleProp::Opacity(1.)));
         assert_eq!(
             parse_style_prop("color", &["#", "000000"]),
-            Ok(StyleProp::Color(CssValue::Specified(CssColor::BLACK)))
+            Ok(StyleProp::Color(CssColor::BLACK))
         );
     }
 
     #[test]
     fn parse_align() {
-        assert_eq!(css_enum().parse(&["auto"]), Ok(CssAlign::Auto));
-        assert_eq!(css_enum().parse(&["start"]), Ok(CssAlign::Start));
-        assert_eq!(css_enum().parse(&["flex-start"]), Ok(CssAlign::FlexStart));
-        assert_eq!(css_enum().parse(&["center"]), Ok(CssAlign::Center));
-        assert_eq!(css_enum().parse(&["end"]), Ok(CssAlign::End));
-        assert_eq!(css_enum().parse(&["flex-end"]), Ok(CssAlign::FlexEnd));
-        assert_eq!(css_enum().parse(&["stretch"]), Ok(CssAlign::Stretch));
-        assert_eq!(css_enum().parse(&["baseline"]), Ok(CssAlign::Baseline));
-        assert_eq!(css_enum().parse(&["space-between"]), Ok(CssAlign::SpaceBetween));
-        assert_eq!(css_enum().parse(&["space-around"]), Ok(CssAlign::SpaceAround));
-        assert_eq!(css_enum().parse(&["space-evenly"]), Ok(CssAlign::SpaceEvenly));
+        assert_eq!(try_from().parse(&["auto"]), Ok(CssAlign::Auto));
+        assert_eq!(try_from().parse(&["start"]), Ok(CssAlign::Start));
+        assert_eq!(try_from().parse(&["flex-start"]), Ok(CssAlign::FlexStart));
+        assert_eq!(try_from().parse(&["center"]), Ok(CssAlign::Center));
+        assert_eq!(try_from().parse(&["end"]), Ok(CssAlign::End));
+        assert_eq!(try_from().parse(&["flex-end"]), Ok(CssAlign::FlexEnd));
+        assert_eq!(try_from().parse(&["stretch"]), Ok(CssAlign::Stretch));
+        assert_eq!(try_from().parse(&["baseline"]), Ok(CssAlign::Baseline));
+        assert_eq!(try_from().parse(&["space-between"]), Ok(CssAlign::SpaceBetween));
+        assert_eq!(try_from().parse(&["space-around"]), Ok(CssAlign::SpaceAround));
+        assert_eq!(try_from().parse(&["space-evenly"]), Ok(CssAlign::SpaceEvenly));
     }
 
     #[test]
@@ -566,78 +523,84 @@ mod tests {
         assert_eq!(color().parse(&["#", "0000"]), Ok(CssColor::TRANSPARENT));
         assert_eq!(color().parse(&["#", "f00f"]), Ok(CssColor::RED));
 
-        //assert_eq!(color().parse(b"rgb(0, 0, 0)"), Ok(Color { r: 0, g: 0, b: 0, a: 255 }));
-        //assert_eq!(color().parse(b"rgba(0, 0, 0, 0)"), Ok(Color { r: 0, g: 0, b: 0, a: 0 }));
+        let toks = tokenize(b"rgb(0, 0, 0)");
+        assert_eq!(color().parse(&toks), Ok(CssColor::BLACK));
+
+        let toks = tokenize(b"rgba(0, 0, 0, 0)");
+        assert_eq!(color().parse(&toks), Ok(CssColor::TRANSPARENT));
+
+        assert_eq!(color().parse(&["transparent"]), Ok(CssColor::TRANSPARENT));
+        assert_eq!(color().parse(&["black"]), Ok(CssColor::BLACK));
     }
 
     #[test]
     fn parse_border_style() {
-        assert_eq!(css_enum().parse(&["none"]), Ok(CssBorderStyle::None));
-        assert_eq!(css_enum().parse(&["hidden"]), Ok(CssBorderStyle::Hidden));
-        assert_eq!(css_enum().parse(&["dotted"]), Ok(CssBorderStyle::Dotted));
-        assert_eq!(css_enum().parse(&["dashed"]), Ok(CssBorderStyle::Dashed));
-        assert_eq!(css_enum().parse(&["solid"]), Ok(CssBorderStyle::Solid));
-        assert_eq!(css_enum().parse(&["double"]), Ok(CssBorderStyle::Double));
-        assert_eq!(css_enum().parse(&["groove"]), Ok(CssBorderStyle::Groove));
-        assert_eq!(css_enum().parse(&["ridge"]), Ok(CssBorderStyle::Ridge));
-        assert_eq!(css_enum().parse(&["inset"]), Ok(CssBorderStyle::Inset));
-        assert_eq!(css_enum().parse(&["outset"]), Ok(CssBorderStyle::Outset));
+        assert_eq!(try_from().parse(&["none"]), Ok(CssBorderStyle::None));
+        assert_eq!(try_from().parse(&["hidden"]), Ok(CssBorderStyle::Hidden));
+        assert_eq!(try_from().parse(&["dotted"]), Ok(CssBorderStyle::Dotted));
+        assert_eq!(try_from().parse(&["dashed"]), Ok(CssBorderStyle::Dashed));
+        assert_eq!(try_from().parse(&["solid"]), Ok(CssBorderStyle::Solid));
+        assert_eq!(try_from().parse(&["double"]), Ok(CssBorderStyle::Double));
+        assert_eq!(try_from().parse(&["groove"]), Ok(CssBorderStyle::Groove));
+        assert_eq!(try_from().parse(&["ridge"]), Ok(CssBorderStyle::Ridge));
+        assert_eq!(try_from().parse(&["inset"]), Ok(CssBorderStyle::Inset));
+        assert_eq!(try_from().parse(&["outset"]), Ok(CssBorderStyle::Outset));
     }
 
     #[test]
     fn parse_display() {
-        assert_eq!(css_enum().parse(&["none"]), Ok(CssDisplay::None));
-        assert_eq!(css_enum().parse(&["block"]), Ok(CssDisplay::Block));
-        assert_eq!(css_enum().parse(&["inline"]), Ok(CssDisplay::Inline));
-        assert_eq!(css_enum().parse(&["flex"]), Ok(CssDisplay::Flex));
+        assert_eq!(try_from().parse(&["none"]), Ok(CssDisplay::None));
+        assert_eq!(try_from().parse(&["block"]), Ok(CssDisplay::Block));
+        assert_eq!(try_from().parse(&["inline"]), Ok(CssDisplay::Inline));
+        assert_eq!(try_from().parse(&["flex"]), Ok(CssDisplay::Flex));
     }
 
     #[test]
     fn parse_flex_direction() {
-        assert_eq!(css_enum().parse(&["row"]), Ok(CssFlexDirection::Row));
-        assert_eq!(css_enum().parse(&["column"]), Ok(CssFlexDirection::Column));
-        assert_eq!(css_enum().parse(&["row-reverse"]), Ok(CssFlexDirection::RowReverse));
+        assert_eq!(try_from().parse(&["row"]), Ok(CssFlexDirection::Row));
+        assert_eq!(try_from().parse(&["column"]), Ok(CssFlexDirection::Column));
+        assert_eq!(try_from().parse(&["row-reverse"]), Ok(CssFlexDirection::RowReverse));
         assert_eq!(
-            css_enum().parse(&["column-reverse"]),
+            try_from().parse(&["column-reverse"]),
             Ok(CssFlexDirection::ColumnReverse)
         );
     }
 
     #[test]
     fn parse_flex_wrap() {
-        assert_eq!(css_enum().parse(&["nowrap"]), Ok(CssFlexWrap::NoWrap));
-        assert_eq!(css_enum().parse(&["wrap"]), Ok(CssFlexWrap::Wrap));
-        assert_eq!(css_enum().parse(&["wrap-reverse"]), Ok(CssFlexWrap::WrapReverse));
+        assert_eq!(try_from().parse(&["nowrap"]), Ok(CssFlexWrap::NoWrap));
+        assert_eq!(try_from().parse(&["wrap"]), Ok(CssFlexWrap::Wrap));
+        assert_eq!(try_from().parse(&["wrap-reverse"]), Ok(CssFlexWrap::WrapReverse));
     }
 
     #[test]
     fn parse_overflow() {
-        assert_eq!(css_enum().parse(&["visible"]), Ok(CssOverflow::Visible));
-        assert_eq!(css_enum().parse(&["hidden"]), Ok(CssOverflow::Hidden));
-        assert_eq!(css_enum().parse(&["scroll"]), Ok(CssOverflow::Scroll));
-        assert_eq!(css_enum().parse(&["auto"]), Ok(CssOverflow::Auto));
+        assert_eq!(try_from().parse(&["visible"]), Ok(CssOverflow::Visible));
+        assert_eq!(try_from().parse(&["hidden"]), Ok(CssOverflow::Hidden));
+        assert_eq!(try_from().parse(&["scroll"]), Ok(CssOverflow::Scroll));
+        assert_eq!(try_from().parse(&["auto"]), Ok(CssOverflow::Auto));
     }
 
     #[test]
     fn parse_position() {
-        assert_eq!(css_enum().parse(&["static"]), Ok(CssPosition::Static));
-        assert_eq!(css_enum().parse(&["relative"]), Ok(CssPosition::Relative));
-        assert_eq!(css_enum().parse(&["absolute"]), Ok(CssPosition::Absolute));
-        assert_eq!(css_enum().parse(&["sticky"]), Ok(CssPosition::Sticky));
+        assert_eq!(try_from().parse(&["static"]), Ok(CssPosition::Static));
+        assert_eq!(try_from().parse(&["relative"]), Ok(CssPosition::Relative));
+        assert_eq!(try_from().parse(&["absolute"]), Ok(CssPosition::Absolute));
+        assert_eq!(try_from().parse(&["sticky"]), Ok(CssPosition::Sticky));
     }
 
     #[test]
     fn parse_text_align() {
-        assert_eq!(css_enum().parse(&["left"]), Ok(CssTextAlign::Left));
-        assert_eq!(css_enum().parse(&["center"]), Ok(CssTextAlign::Center));
-        assert_eq!(css_enum().parse(&["right"]), Ok(CssTextAlign::Right));
-        assert_eq!(css_enum().parse(&["justify"]), Ok(CssTextAlign::Justify));
+        assert_eq!(try_from().parse(&["left"]), Ok(CssTextAlign::Left));
+        assert_eq!(try_from().parse(&["center"]), Ok(CssTextAlign::Center));
+        assert_eq!(try_from().parse(&["right"]), Ok(CssTextAlign::Right));
+        assert_eq!(try_from().parse(&["justify"]), Ok(CssTextAlign::Justify));
     }
 
     #[test]
     fn parse_visibility() {
-        assert_eq!(css_enum().parse(&["visible"]), Ok(CssVisibility::Visible));
-        assert_eq!(css_enum().parse(&["hidden"]), Ok(CssVisibility::Hidden));
-        assert_eq!(css_enum().parse(&["collapse"]), Ok(CssVisibility::Collapse));
+        assert_eq!(try_from().parse(&["visible"]), Ok(CssVisibility::Visible));
+        assert_eq!(try_from().parse(&["hidden"]), Ok(CssVisibility::Hidden));
+        assert_eq!(try_from().parse(&["collapse"]), Ok(CssVisibility::Collapse));
     }
 }

@@ -3,6 +3,7 @@
 // - normalize (bold -> 700)
 
 use super::StyleProp;
+use once_cell::sync::Lazy;
 use std::fmt::Write;
 use std::mem::discriminant;
 
@@ -13,12 +14,49 @@ pub struct Style {
 
 impl Style {
     pub const EMPTY: Self = Self::new();
-    pub const HIDDEN: Self = Self::new();
+
+    pub const HIDDEN: Lazy<Self> = Lazy::new(|| Self::from("display: none"));
+
+    pub const INITIAL: Lazy<Self> = Lazy::new(|| {
+        Self::from(
+            "
+                width: auto;
+                height: auto;
+                padding: 0;
+                margin: 0;
+                background: rgba(0, 0, 0, 0);
+                border: 0 none rgba(0, 0, 0, 0);
+                border-radius: 0;
+                flex: 0 1 auto;
+                flex-wrap: nowrap;
+                flex-direction: row;
+                align-content: stretch;
+                align-items: stretch;
+                align-self: auto;
+                justify-content: flex-start;
+                font: normal normal 400 16px/20px sans-serif;
+                text-align: left;
+                color: #000;
+                outline: 3px none #000;
+                overflow: visible;
+                position: static;
+                top: auto;
+                right: auto;
+                bottom: auto;
+                left: auto;
+                display: inline;
+                opacity: 1;
+                visibility: visible;
+            ",
+        )
+    });
 
     pub const fn new() -> Self {
         Self { props: Vec::new() }
     }
 
+    // jsdom squashes longhands into one shorthand (if all are present)
+    // but chrome doesn't so I think we don't have to either
     pub fn length(&self) -> usize {
         self.props.len()
     }
@@ -28,17 +66,19 @@ impl Style {
     }
 
     pub fn property_value(&self, prop: &str) -> Option<String> {
-        self.props
-            .iter()
-            .find(|p| p.name() == prop)
-            .map(StyleProp::value_as_string)
+        self.find_prop_by_name(prop).map(StyleProp::value_as_string)
     }
 
+    pub(super) fn find_prop_by_name(&self, prop: &str) -> Option<&StyleProp> {
+        self.props.iter().find(|p| p.name() == prop)
+    }
+
+    // TODO: priority
     pub fn set_property(&mut self, prop: &str, value: &str) {
         let tokens = super::parser::tokenize(value.as_bytes());
 
         if let Ok(prop) = super::parser::parse_style_prop(prop, &tokens) {
-            self.add_prop(prop);
+            self.add_prop(prop)
         }
     }
 
@@ -49,7 +89,7 @@ impl Style {
 
     pub fn css_text(&self) -> String {
         self.props().fold(String::new(), |mut s, p| {
-            write!(s, "{}", p);
+            write!(s, "{}: {};", p.name(), p.value_as_string());
             s
         })
     }
@@ -83,18 +123,6 @@ impl From<&str> for Style {
     }
 }
 
-// TODO: I thought it would be useful to keep resolved styles but
-//       it looks like changes are not that frequent and we can
-//       apply props immediately to layout, etc.
-//
-//       if anything, it will be array of refs to styles or something like that
-#[derive(Debug, Clone, PartialEq)]
-pub struct ResolvedStyle {}
-
-impl ResolvedStyle {
-    pub const INITIAL: Self = Self {};
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::*;
@@ -112,12 +140,9 @@ mod tests {
     fn prop_overriding() {
         let mut s = Style::new();
 
-        s.add_prop(StyleProp::Display(CssValue::Specified(CssDisplay::None)));
-        s.add_prop(StyleProp::Display(CssValue::Specified(CssDisplay::Block)));
+        s.add_prop(StyleProp::Display(CssDisplay::None));
+        s.add_prop(StyleProp::Display(CssDisplay::Block));
 
-        assert!(Iterator::eq(
-            s.props(),
-            &vec![StyleProp::Display(CssValue::Specified(CssDisplay::Block))]
-        ));
+        assert!(Iterator::eq(s.props(), &vec![StyleProp::Display(CssDisplay::Block)]));
     }
 }
