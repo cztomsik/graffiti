@@ -159,20 +159,19 @@ fn style(style: &Style) -> RenderStyle {
     let mut res = RenderStyle::DEFAULT;
 
     for p in style.props() {
-        use CssValue::Specified as S;
         use StyleProp as P;
 
         match p {
-            P::Display(S(CssDisplay::None)) => res.hidden = true,
-            P::BackgroundColor(S(c)) => res.bg_color = Some([c.r, c.g, c.b, c.a]),
-            P::OutlineColor(S(c)) => {
+            P::Display(CssDisplay::None) => res.hidden = true,
+            P::BackgroundColor(c) => res.bg_color = Some([c.r, c.g, c.b, c.a]),
+            P::OutlineColor(c) => {
                 if let Some(o) = &mut res.outline {
                     o.1 = [c.r, c.g, c.b, c.a];
                 } else {
                     res.outline = Some((0., [c.r, c.g, c.b, c.a]));
                 }
             }
-            P::OutlineWidth(S(CssDimension::Px(w))) => {
+            P::OutlineWidth(CssDimension::Px(w)) => {
                 if let Some(o) = &mut res.outline {
                     o.0 = *w;
                 } else {

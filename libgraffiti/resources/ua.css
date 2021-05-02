@@ -95,8 +95,7 @@ textarea {
 
 button {
   background-color: #b8b9f4;
-  padding-left: 10px;
-  padding-right: 10px;
+  padding: 0 20px;
   border-radius: 2px;
   font-size: 14px;
   line-height: 32px;
@@ -126,16 +125,21 @@ tr {
   width: 100%;
 }
 
-th {
+td, th {
   flex-grow: 1;
-  color: #666;
-}
+  flex-shrink: 1;
 
-td {
-  flex-grow: 1;
+  /* TODO: we need real table layout */ 
+  --flex-basis: 200px;
 }
 
 center {
   display: block;
   align-items: center;
+}
+
+/* TODO: display: inline (which should be default for all elements) */
+span, a, b, i, em, sub, sup {
+  display: flex;
+  flex-wrap: wrap;
 }

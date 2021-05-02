@@ -3,10 +3,10 @@ mod parser;
 mod properties;
 mod selector;
 mod style;
-mod values;
+mod value_types;
 
 pub use css_engine::*;
 pub use properties::*;
 pub use selector::*;
 pub use style::*;
-pub use values::*;
+pub use value_types::*;

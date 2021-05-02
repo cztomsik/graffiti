@@ -59,10 +59,13 @@ impl LayoutNode {
         // TODO: default should be "inline"
 
         // set web defaults
+        // TODO: set from Style::INITIAL?
+        node.set_flex_grow(0.);
+        node.set_flex_shrink(1.);
+        node.set_flex_basis(Dimension::Auto);
         node.set_flex_direction(FlexDirection::Row);
         node.set_align_content(Align::Stretch);
-        //node.set_flex_basis(Dimension::Auto);
-        //node.set_flex_shrink(1.);
+        node.set_align_items(Align::Stretch);
 
         node
     }
