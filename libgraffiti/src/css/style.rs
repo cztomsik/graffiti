@@ -17,40 +17,6 @@ impl Style {
 
     pub const HIDDEN: Lazy<Self> = Lazy::new(|| Self::from("display: none"));
 
-    pub const INITIAL: Lazy<Self> = Lazy::new(|| {
-        Self::from(
-            "
-                width: auto;
-                height: auto;
-                padding: 0;
-                margin: 0;
-                background: rgba(0, 0, 0, 0);
-                border: 0 none rgba(0, 0, 0, 0);
-                border-radius: 0;
-                flex: 0 1 auto;
-                flex-wrap: nowrap;
-                flex-direction: row;
-                align-content: stretch;
-                align-items: stretch;
-                align-self: auto;
-                justify-content: flex-start;
-                font: normal normal 400 16px/20px sans-serif;
-                text-align: left;
-                color: #000;
-                outline: 3px none #000;
-                overflow: visible;
-                position: static;
-                top: auto;
-                right: auto;
-                bottom: auto;
-                left: auto;
-                display: inline;
-                opacity: 1;
-                visibility: visible;
-            ",
-        )
-    });
-
     pub const fn new() -> Self {
         Self { props: Vec::new() }
     }
@@ -66,7 +32,11 @@ impl Style {
     }
 
     pub fn property_value(&self, prop: &str) -> Option<String> {
-        self.find_prop_by_name(prop).map(StyleProp::value_as_string)
+        if let Some(prop) = self.find_prop_by_name(prop) {
+            return Some(prop.value_as_string())
+        }
+
+        self.shorthand_value(prop)
     }
 
     pub(super) fn find_prop_by_name(&self, prop: &str) -> Option<&StyleProp> {

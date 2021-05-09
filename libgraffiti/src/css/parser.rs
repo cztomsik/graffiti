@@ -6,14 +6,16 @@
 // - repeat() for skip/discard() should be alloc-free because of zero-sized types
 // - collect() creates slice from start to end regardless of the results "inside"
 //   (which means (a + b).collect() only takes "super-slice" of both matches)
+// - we are only parsing known/valid props, which means tokenizer can be simpler
+//   and we also get correct overriding for free (only valid prop should override prev one)
 
 use super::{
-    prop_parser, Combinator, Component, CssBoxShadow, CssColor, CssDimension, Rule, Selector, SelectorPart, Style,
-    StyleProp, StyleSheet,
+    prop_parser, Combinator, Component, CssBoxShadow, CssColor, CssDimension, CssOverflow, Rule, Selector,
+    SelectorPart, Style, StyleProp, StyleSheet,
 };
 use crate::util::Atom;
 use pom::char_class::alphanum;
-use pom::parser::{any, empty, is_a, none_of, one_of, seq, skip, sym};
+use pom::parser::{any, empty, is_a, list, none_of, one_of, seq, skip, sym};
 use std::convert::TryFrom;
 use std::fmt::Debug;
 
@@ -111,6 +113,31 @@ pub(super) fn dimension<'a>() -> Parser<'a, CssDimension> {
     px | percent | auto | zero
 }
 
+pub(super) fn sides_of<'a, V: Copy + 'a>(parser: Parser<'a, V>) -> Parser<'a, (V, V, V, V)> {
+    list(parser, sym(" ")).convert(|sides| {
+        Ok(match &sides[..] {
+            &[a, b, c, d] => (a, b, c, d),
+            &[a, b, c] => (a, b, c, b),
+            &[a, b] => (a, b, a, b),
+            &[a] => (a, a, a, a),
+            _ => return Err("expected 1-4 values"),
+        })
+    })
+}
+
+pub(super) fn flex<'a>() -> Parser<'a, (f32, f32, CssDimension)> {
+    (float() + (sym(" ") * float()).opt() + (sym(" ") * dimension()).opt())
+        .map(|((grow, shrink), basis)| (grow, shrink.unwrap_or(1.), basis.unwrap_or(CssDimension::Auto)))
+}
+
+pub(super) fn overflow<'a>() -> Parser<'a, (CssOverflow, CssOverflow)> {
+    (try_from() + (sym(" ") * try_from()).opt()).map(|(x, y)| (x, y.unwrap_or(x)))
+}
+
+pub(super) fn background<'a>() -> Parser<'a, CssColor> {
+    sym("none").map(|_| CssColor::TRANSPARENT) | color()
+}
+
 pub(super) fn color<'a>() -> Parser<'a, CssColor> {
     fn hex_val(byte: u8) -> u8 {
         (byte as char).to_digit(16).unwrap() as u8
@@ -170,7 +197,7 @@ pub(super) fn font_family<'a>() -> Parser<'a, Atom<String>> {
     is_a(|t: &str| alphanum_dash(t.as_bytes()[0])).map(Atom::from)
 }
 
-pub(super) fn box_shadow<'a>() -> Parser<'a, CssBoxShadow> {
+pub(super) fn box_shadow<'a>() -> Parser<'a, Box<CssBoxShadow>> {
     fail("TODO: parse box-shadow")
 }
 
@@ -317,6 +344,26 @@ mod tests {
         use StyleProp::*;
 
         assert_eq!(
+            &Style::from("overflow: hidden").props,
+            &[OverflowX(CssOverflow::Hidden), OverflowY(CssOverflow::Hidden)]
+        );
+
+        assert_eq!(
+            &Style::from("overflow: visible hidden").props,
+            &[OverflowX(CssOverflow::Visible), OverflowY(CssOverflow::Hidden)]
+        );
+
+        assert_eq!(
+            &Style::from("flex: 1").props,
+            &[FlexGrow(1.), FlexShrink(1.), FlexBasis(CssDimension::Auto)]
+        );
+
+        assert_eq!(
+            &Style::from("flex: 2 3 10px").props,
+            &[FlexGrow(2.), FlexShrink(3.), FlexBasis(CssDimension::Px(10.))]
+        );
+
+        assert_eq!(
             &Style::from("padding: 0").props,
             &[
                 PaddingTop(CssDimension::ZERO),
@@ -336,7 +383,10 @@ mod tests {
             ]
         );
 
-        assert_eq!(&Style::from("background: none").props, &[]);
+        assert_eq!(
+            &Style::from("background: none").props,
+            &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]
+        );
         assert_eq!(
             &Style::from("background: #000").props,
             &[StyleProp::BackgroundColor(CssColor::BLACK)]
@@ -350,7 +400,7 @@ mod tests {
         // remove
         let mut s = Style::from("background-color: #fff");
         s.set_property("background", "none");
-        assert_eq!(s, Style::EMPTY);
+        assert_eq!(s.props, &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]);
     }
 
     #[test]

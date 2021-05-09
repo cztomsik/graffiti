@@ -1,25 +1,16 @@
 use super::*;
 
 // just a fn for now
-pub(crate) fn matching_style<'a, E: Copy>(ctx: &MatchingContext<'a, E>, sheets: &'a [StyleSheet], el: E) -> Style {
-    let mut matching_rules: Vec<_> = sheets
+pub(crate) fn matching_rules<'a, E: Copy>(ctx: &MatchingContext<'a, E>, sheets: &'a [StyleSheet], el: E) -> impl Iterator<Item = &'a Rule> + 'a {
+    let mut rules: Vec<_> = sheets
         .iter()
         .flat_map(|s| &s.rules)
         .filter_map(|r| ctx.match_selector(&r.selector, el).map(move |spec| (spec, r)))
         .collect();
 
-    matching_rules.sort_by(|(a, _), (b, _)| a.cmp(b));
+    rules.sort_by(|(a, _), (b, _)| a.cmp(b));
 
-    let mut style = Style::new();
-
-    for (_, r) in &matching_rules {
-        // TODO: style.merge?
-        for p in &r.style.props {
-            style.add_prop(p.clone());
-        }
-    }
-
-    style
+    rules.into_iter().map(|(_, r)| r)
 }
 
 #[derive(Debug, PartialEq)]
