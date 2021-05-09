@@ -43,16 +43,27 @@ macro_rules! css_enums {
 }
 
 css_enums! {
+    // https://drafts.csswg.org/css-flexbox-1/#align-items-property
+    // + yoga also has space-between & space-around
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum CssAlign {
         Auto = "auto",
-        Start = "start",
         FlexStart = "flex-start",
         Center = "center",
-        End = "end",
         FlexEnd = "flex-end",
         Stretch = "stretch",
         Baseline = "baseline",
+        SpaceBetween = "space-between",
+        SpaceAround = "space-around",
+    }
+
+    // https://drafts.csswg.org/css-flexbox-1/#justify-content-property
+    // + yoga also has evenly
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CssJustify {
+        FlexStart = "flex-start",
+        Center = "center",
+        FlexEnd = "flex-end",
         SpaceBetween = "space-between",
         SpaceAround = "space-around",
         SpaceEvenly = "space-evenly",
@@ -135,7 +146,6 @@ pub struct CssColor {
     pub a: u8,
 }
 
-#[allow(unused)]
 impl CssColor {
     // just a few for easier testing
     pub const TRANSPARENT: Self = Self::from_rgba8(0, 0, 0, 0);
@@ -145,7 +155,7 @@ impl CssColor {
     pub const GREEN: Self = Self::from_rgb8(0, 255, 0);
     pub const BLUE: Self = Self::from_rgb8(0, 0, 255);
 
-    pub const NAMED_COLORS: Lazy<HashMap<&'static str, Self>> = Lazy::new(|| {
+    pub(super) const NAMED_COLORS: Lazy<HashMap<&'static str, Self>> = Lazy::new(|| {
         HashMap::from_iter(IntoIter::new([
             ("transparent", Self::from_rgba8(0, 0, 0, 0)),
             // https://drafts.csswg.org/css-color/#named-colors

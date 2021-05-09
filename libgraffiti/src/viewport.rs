@@ -1,4 +1,4 @@
-use crate::css::{matching_style, Style, StyleProp, StyleSheet};
+use crate::css::{matching_rules, Style, StyleProp, StyleSheet};
 use crate::gfx::{Frame, Text, TextStyle, Vec2, AABB};
 use crate::layout::LayoutNode;
 use crate::renderer::Renderer;
@@ -166,18 +166,25 @@ impl Viewport {
         sheets.insert(0, StyleSheet::from(include_str!("../resources/ua.css")));
 
         doc.with_matching_context(|ctx| {
-            for (el, style) in styles.iter_mut() {
-                *style = matching_style(&ctx, &sheets, el);
+            for (el, out) in styles.iter_mut() {
+                // TODO: just iterate props, no need to merge anymore
+                let mut style = Style::new();
+
+                for r in matching_rules(&ctx, &sheets, el) {
+                    for p in r.style().props() {
+                        style.add_prop(p.clone());
+                    }
+                }
 
                 // add inline style
-                // TODO: style.merge?
                 for p in doc.element_style(el).props() {
                     style.add_prop(p.clone());
                 }
 
-                // TODO: resolve inherit/initial/unset
+                update_layout_node(&mut layout_nodes[el], &style);
 
-                update_layout_node(&mut layout_nodes[el], style);
+                // TODO: keep just renderstyle
+                *out = style;
             }
         });
     }
@@ -207,21 +214,24 @@ fn update_layout_node(ln: &mut LayoutNode, style: &Style) {
     fn align(d: &CssAlign) -> Align {
         match d {
             CssAlign::Auto => Align::Auto,
-            CssAlign::Start => Align::FlexStart,
             CssAlign::FlexStart => Align::FlexStart,
             CssAlign::Center => Align::Center,
-            CssAlign::End => Align::FlexEnd,
             CssAlign::FlexEnd => Align::FlexEnd,
             CssAlign::Stretch => Align::Stretch,
             CssAlign::Baseline => Align::Baseline,
             CssAlign::SpaceBetween => Align::SpaceBetween,
             CssAlign::SpaceAround => Align::SpaceAround,
+        }
+    }
 
-            // TODO: add Justify enum?
-            CssAlign::SpaceEvenly => {
-                println!("TODO: justify enum?");
-                Align::FlexStart
-            }
+    fn justify(d: &CssJustify) -> Justify {
+        match d {
+            CssJustify::FlexStart => Justify::FlexStart,
+            CssJustify::Center => Justify::Center,
+            CssJustify::FlexEnd => Justify::FlexEnd,
+            CssJustify::SpaceBetween => Justify::SpaceBetween,
+            CssJustify::SpaceAround => Justify::SpaceAround,
+            CssJustify::SpaceEvenly => Justify::SpaceEvenly,
         }
     }
 
@@ -291,8 +301,7 @@ fn update_layout_node(ln: &mut LayoutNode, style: &Style) {
             P::AlignContent(v) => ln.set_align_content(align(v)),
             P::AlignItems(v) => ln.set_align_items(align(v)),
             P::AlignSelf(v) => ln.set_align_self(align(v)),
-            //P::JustifyContent(v) => ln.set_justify_content(align(v)),
-
+            P::JustifyContent(v) => ln.set_justify_content(justify(v)),
             _ => {}
         }
     }

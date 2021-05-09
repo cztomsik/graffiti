@@ -6,14 +6,16 @@
 // - repeat() for skip/discard() should be alloc-free because of zero-sized types
 // - collect() creates slice from start to end regardless of the results "inside"
 //   (which means (a + b).collect() only takes "super-slice" of both matches)
+// - we are only parsing known/valid props, which means tokenizer can be simpler
+//   and we also get correct overriding for free (only valid prop should override prev one)
 
 use super::{
-    prop_parser, Combinator, Component, CssBoxShadow, CssColor, CssDimension, Rule, Selector, SelectorPart, Style,
-    StyleProp, StyleSheet,
+    prop_parser, Combinator, Component, CssBoxShadow, CssColor, CssDimension, CssOverflow, Rule, Selector,
+    SelectorPart, Style, StyleProp, StyleSheet,
 };
 use crate::util::Atom;
 use pom::char_class::alphanum;
-use pom::parser::{any, empty, is_a, none_of, one_of, seq, skip, sym};
+use pom::parser::{any, empty, is_a, list, none_of, one_of, seq, skip, sym};
 use std::convert::TryFrom;
 use std::fmt::Debug;
 
@@ -85,14 +87,26 @@ pub(super) fn style<'a>() -> Parser<'a, Style> {
     let prop_value = (!sym(";") * !sym("}") * skip(1)).repeat(1..).collect();
     let prop = any() - sym(":") + prop_value - sym(";").discard().repeat(0..);
 
-    prop.repeat(0..).map(|props| Style {
-        // skip unknown
-        props: props.iter().filter_map(|(p, v)| parse_style_prop(p, v).ok()).collect(),
+    prop.repeat(0..).map(|props| {
+        let mut style = Style::new();
+
+        for (p, v) in props {
+            // skip unknown
+            parse_prop_into(p, v, &mut style);
+        }
+
+        style
     })
 }
 
-pub(super) fn parse_style_prop<'a>(prop: Token, value: &[Token]) -> Result<StyleProp, ParseError> {
-    prop_parser(prop).parse(value)
+pub(super) fn parse_prop_into<'a>(prop: &str, value: &[&str], style: &mut Style) {
+    if let Ok(p) = super::prop_parser(prop).parse(value) {
+        style.add_prop(p);
+    } else if let Ok(props) = super::shorthand_parser(prop).parse(value) {
+        for p in props {
+            style.add_prop(p);
+        }
+    }
 }
 
 pub(super) fn try_from<'a, T: 'static + TryFrom<&'a str>>() -> Parser<'a, T>
@@ -109,6 +123,31 @@ pub(super) fn dimension<'a>() -> Parser<'a, CssDimension> {
     let zero = sym("0").map(|_| CssDimension::ZERO);
 
     px | percent | auto | zero
+}
+
+pub(super) fn sides_of<'a, V: Copy + 'a>(parser: Parser<'a, V>) -> Parser<'a, (V, V, V, V)> {
+    list(parser, sym(" ")).convert(|sides| {
+        Ok(match &sides[..] {
+            &[a, b, c, d] => (a, b, c, d),
+            &[a, b, c] => (a, b, c, b),
+            &[a, b] => (a, b, a, b),
+            &[a] => (a, a, a, a),
+            _ => return Err("expected 1-4 values"),
+        })
+    })
+}
+
+pub(super) fn flex<'a>() -> Parser<'a, (f32, f32, CssDimension)> {
+    (float() + (sym(" ") * float()).opt() + (sym(" ") * dimension()).opt())
+        .map(|((grow, shrink), basis)| (grow, shrink.unwrap_or(1.), basis.unwrap_or(CssDimension::Auto)))
+}
+
+pub(super) fn overflow<'a>() -> Parser<'a, (CssOverflow, CssOverflow)> {
+    (try_from() + (sym(" ") * try_from()).opt()).map(|(x, y)| (x, y.unwrap_or(x)))
+}
+
+pub(super) fn background<'a>() -> Parser<'a, CssColor> {
+    sym("none").map(|_| CssColor::TRANSPARENT) | color()
 }
 
 pub(super) fn color<'a>() -> Parser<'a, CssColor> {
@@ -170,7 +209,7 @@ pub(super) fn font_family<'a>() -> Parser<'a, Atom<String>> {
     is_a(|t: &str| alphanum_dash(t.as_bytes()[0])).map(Atom::from)
 }
 
-pub(super) fn box_shadow<'a>() -> Parser<'a, CssBoxShadow> {
+pub(super) fn box_shadow<'a>() -> Parser<'a, Box<CssBoxShadow>> {
     fail("TODO: parse box-shadow")
 }
 
@@ -317,6 +356,26 @@ mod tests {
         use StyleProp::*;
 
         assert_eq!(
+            &Style::from("overflow: hidden").props,
+            &[OverflowX(CssOverflow::Hidden), OverflowY(CssOverflow::Hidden)]
+        );
+
+        assert_eq!(
+            &Style::from("overflow: visible hidden").props,
+            &[OverflowX(CssOverflow::Visible), OverflowY(CssOverflow::Hidden)]
+        );
+
+        assert_eq!(
+            &Style::from("flex: 1").props,
+            &[FlexGrow(1.), FlexShrink(1.), FlexBasis(CssDimension::Auto)]
+        );
+
+        assert_eq!(
+            &Style::from("flex: 2 3 10px").props,
+            &[FlexGrow(2.), FlexShrink(3.), FlexBasis(CssDimension::Px(10.))]
+        );
+
+        assert_eq!(
             &Style::from("padding: 0").props,
             &[
                 PaddingTop(CssDimension::ZERO),
@@ -336,7 +395,10 @@ mod tests {
             ]
         );
 
-        assert_eq!(&Style::from("background: none").props, &[]);
+        assert_eq!(
+            &Style::from("background: none").props,
+            &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]
+        );
         assert_eq!(
             &Style::from("background: #000").props,
             &[StyleProp::BackgroundColor(CssColor::BLACK)]
@@ -350,7 +412,7 @@ mod tests {
         // remove
         let mut s = Style::from("background-color: #fff");
         s.set_property("background", "none");
-        assert_eq!(s, Style::EMPTY);
+        assert_eq!(s.props, &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]);
     }
 
     #[test]
@@ -463,16 +525,16 @@ mod tests {
     #[test]
     fn parse_prop() {
         assert_eq!(
-            parse_style_prop("padding-left", &["10", "px"]),
+            prop_parser("padding-left").parse(&["10", "px"]),
             Ok(StyleProp::PaddingLeft(CssDimension::Px(10.)))
         );
         assert_eq!(
-            parse_style_prop("margin-top", &["5", "%"]),
+            prop_parser("margin-top").parse(&["5", "%"]),
             Ok(StyleProp::MarginTop(CssDimension::Percent(5.)))
         );
-        assert_eq!(parse_style_prop("opacity", &["1"]), Ok(StyleProp::Opacity(1.)));
+        assert_eq!(prop_parser("opacity").parse(&["1"]), Ok(StyleProp::Opacity(1.)));
         assert_eq!(
-            parse_style_prop("color", &["#", "000000"]),
+            prop_parser("color").parse(&["#", "000000"]),
             Ok(StyleProp::Color(CssColor::BLACK))
         );
     }
@@ -480,16 +542,28 @@ mod tests {
     #[test]
     fn parse_align() {
         assert_eq!(try_from().parse(&["auto"]), Ok(CssAlign::Auto));
-        assert_eq!(try_from().parse(&["start"]), Ok(CssAlign::Start));
+        //assert_eq!(try_from().parse(&["start"]), Ok(CssAlign::Start));
         assert_eq!(try_from().parse(&["flex-start"]), Ok(CssAlign::FlexStart));
         assert_eq!(try_from().parse(&["center"]), Ok(CssAlign::Center));
-        assert_eq!(try_from().parse(&["end"]), Ok(CssAlign::End));
+        //assert_eq!(try_from().parse(&["end"]), Ok(CssAlign::End));
         assert_eq!(try_from().parse(&["flex-end"]), Ok(CssAlign::FlexEnd));
         assert_eq!(try_from().parse(&["stretch"]), Ok(CssAlign::Stretch));
         assert_eq!(try_from().parse(&["baseline"]), Ok(CssAlign::Baseline));
         assert_eq!(try_from().parse(&["space-between"]), Ok(CssAlign::SpaceBetween));
         assert_eq!(try_from().parse(&["space-around"]), Ok(CssAlign::SpaceAround));
-        assert_eq!(try_from().parse(&["space-evenly"]), Ok(CssAlign::SpaceEvenly));
+        //assert_eq!(try_from().parse(&["space-evenly"]), Ok(CssAlign::SpaceEvenly));
+    }
+
+    #[test]
+    fn parse_justify() {
+        //assert_eq!(try_from().parse(&["start"]), Ok(CssJustify::Start));
+        assert_eq!(try_from().parse(&["flex-start"]), Ok(CssJustify::FlexStart));
+        assert_eq!(try_from().parse(&["center"]), Ok(CssJustify::Center));
+        //assert_eq!(try_from().parse(&["end"]), Ok(CssJustify::End));
+        assert_eq!(try_from().parse(&["flex-end"]), Ok(CssJustify::FlexEnd));
+        assert_eq!(try_from().parse(&["space-between"]), Ok(CssJustify::SpaceBetween));
+        assert_eq!(try_from().parse(&["space-around"]), Ok(CssJustify::SpaceAround));
+        assert_eq!(try_from().parse(&["space-evenly"]), Ok(CssJustify::SpaceEvenly));
     }
 
     #[test]
