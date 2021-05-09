@@ -33,7 +33,7 @@ impl Style {
 
     pub fn property_value(&self, prop: &str) -> Option<String> {
         if let Some(prop) = self.find_prop_by_name(prop) {
-            return Some(prop.value_as_string())
+            return Some(prop.value_as_string());
         }
 
         self.shorthand_value(prop)
@@ -47,9 +47,7 @@ impl Style {
     pub fn set_property(&mut self, prop: &str, value: &str) {
         let tokens = super::parser::tokenize(value.as_bytes());
 
-        if let Ok(prop) = super::parser::parse_style_prop(prop, &tokens) {
-            self.add_prop(prop)
-        }
+        super::parser::parse_prop_into(prop, &tokens, self);
     }
 
     // TODO: should return previous value

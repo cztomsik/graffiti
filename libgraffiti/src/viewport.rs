@@ -214,21 +214,24 @@ fn update_layout_node(ln: &mut LayoutNode, style: &Style) {
     fn align(d: &CssAlign) -> Align {
         match d {
             CssAlign::Auto => Align::Auto,
-            CssAlign::Start => Align::FlexStart,
             CssAlign::FlexStart => Align::FlexStart,
             CssAlign::Center => Align::Center,
-            CssAlign::End => Align::FlexEnd,
             CssAlign::FlexEnd => Align::FlexEnd,
             CssAlign::Stretch => Align::Stretch,
             CssAlign::Baseline => Align::Baseline,
             CssAlign::SpaceBetween => Align::SpaceBetween,
             CssAlign::SpaceAround => Align::SpaceAround,
+        }
+    }
 
-            // TODO: add Justify enum?
-            CssAlign::SpaceEvenly => {
-                println!("TODO: justify enum?");
-                Align::FlexStart
-            }
+    fn justify(d: &CssJustify) -> Justify {
+        match d {
+            CssJustify::FlexStart => Justify::FlexStart,
+            CssJustify::Center => Justify::Center,
+            CssJustify::FlexEnd => Justify::FlexEnd,
+            CssJustify::SpaceBetween => Justify::SpaceBetween,
+            CssJustify::SpaceAround => Justify::SpaceAround,
+            CssJustify::SpaceEvenly => Justify::SpaceEvenly,
         }
     }
 
@@ -298,8 +301,7 @@ fn update_layout_node(ln: &mut LayoutNode, style: &Style) {
             P::AlignContent(v) => ln.set_align_content(align(v)),
             P::AlignItems(v) => ln.set_align_items(align(v)),
             P::AlignSelf(v) => ln.set_align_self(align(v)),
-            //P::JustifyContent(v) => ln.set_justify_content(align(v)),
-
+            P::JustifyContent(v) => ln.set_justify_content(justify(v)),
             _ => {}
         }
     }

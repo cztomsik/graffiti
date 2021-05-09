@@ -3,7 +3,7 @@
 use super::parser::{background, box_shadow, color, dimension, flex, float, font_family, overflow, sides_of, try_from};
 use super::{
     CssAlign, CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap,
-    CssOverflow, CssPosition, CssTextAlign, CssVisibility,
+    CssJustify, CssOverflow, CssPosition, CssTextAlign, CssVisibility,
 };
 use crate::util::Atom;
 
@@ -108,7 +108,7 @@ css_properties! {
     ("align-content", try_from()) => AlignContent(CssAlign),
     ("align-items", try_from()) => AlignItems(CssAlign),
     ("align-self", try_from()) => AlignSelf(CssAlign),
-    ("justify-content", try_from()) => JustifyContent(CssAlign),
+    ("justify-content", try_from()) => JustifyContent(CssJustify),
 
     // text
     ("font-family", font_family()) => FontFamily(Atom<String>),

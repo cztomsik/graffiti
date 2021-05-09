@@ -43,16 +43,27 @@ macro_rules! css_enums {
 }
 
 css_enums! {
+    // https://drafts.csswg.org/css-flexbox-1/#align-items-property
+    // + yoga also has space-between & space-around
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum CssAlign {
         Auto = "auto",
-        Start = "start",
         FlexStart = "flex-start",
         Center = "center",
-        End = "end",
         FlexEnd = "flex-end",
         Stretch = "stretch",
         Baseline = "baseline",
+        SpaceBetween = "space-between",
+        SpaceAround = "space-around",
+    }
+
+    // https://drafts.csswg.org/css-flexbox-1/#justify-content-property
+    // + yoga also has evenly
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum CssJustify {
+        FlexStart = "flex-start",
+        Center = "center",
+        FlexEnd = "flex-end",
         SpaceBetween = "space-between",
         SpaceAround = "space-around",
         SpaceEvenly = "space-evenly",
