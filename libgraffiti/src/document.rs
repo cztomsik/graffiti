@@ -225,7 +225,7 @@ impl Document {
         self.weak_data.remove(node);
         self.free_ids.push(node);
 
-        // TODO: emit
+        self.emit(Event::Drop(node));
     }
 
     // text node
