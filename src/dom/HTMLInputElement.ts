@@ -1,4 +1,5 @@
 import { HTMLElement } from './HTMLElement'
+import { Event, InputEvent } from '../events/index'
 
 // note that in react, `onChange` happens during typing too but
 // in preact it does not (unless you also import `preact/compat`)
@@ -31,7 +32,7 @@ export class HTMLInputElement extends HTMLElement implements globalThis.HTMLInpu
         this._value = this._value.slice(0, -1)
         this._updateText()
 
-        this._fire('input', { data: e.key, inputType: 'deleteContentBackward' })
+        this.dispatchEvent(new InputEvent('input', { data: e.key, inputType: 'deleteContentBackward' }))
       }
     })
 
@@ -47,17 +48,17 @@ export class HTMLInputElement extends HTMLElement implements globalThis.HTMLInpu
       this._value += e.key
       this._updateText()
 
-      this._fire('input', { data: e.key, inputType: 'insertText' })
+      this.dispatchEvent(new InputEvent('input', { data: e.key, inputType: 'insertText' }))
     })
 
     // scope-private
     let prevValue = ''
 
-    this.addEventListener('focus', () => prevValue = this.value)
+    this.addEventListener('focus', () => (prevValue = this.value))
 
     this.addEventListener('blur', e => {
       if (prevValue !== this.value) {
-        this._fire('change')
+        this.dispatchEvent(new Event('change'))
       }
     })
   }

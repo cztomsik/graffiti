@@ -1,25 +1,33 @@
-export class Event implements globalThis.Event {
+import { isDeno } from '../util'
+
+export const CANCEL_BUBBLE_IMMEDIATELY = Symbol()
+
+// note that we are using provided Event if possible (deno)
+class Event implements globalThis.Event {
+  readonly type: string
   readonly timeStamp = Date.now()
-  readonly bubbles = true
-  readonly cancelable = true
-  readonly composed = false
-  isTrusted = true
+  readonly bubbles: boolean
+  readonly cancelable: boolean
+  readonly composed: boolean
+  isTrusted: boolean = true
 
   // TODO: phasing
   eventPhase = 0
   cancelBubble = false
-  cancelBubbleImmediately = false
   defaultPrevented = false
 
   target: EventTarget | null = null
   currentTarget: EventTarget | null = null
 
-  constructor(public type: string, eventInit = undefined) {
-    Object.assign(this, eventInit)
+  constructor(type: string, eventInit?: EventInit) {
+    this.type = type
+    this.bubbles = eventInit?.bubbles ?? true
+    this.cancelable = eventInit?.cancelable ?? true
+    this.composed = eventInit?.composed ?? false
   }
 
   // deprecated, kept for WPT
-  initEvent(type: string, bubbles?: boolean, cancelable?: boolean) {
+  initEvent(type: string, bubbles = true, cancelable = true) {
     Object.assign(this, { type, bubbles, cancelable, cancelBubble: false, defaultPrevented: false })
   }
 
@@ -34,7 +42,7 @@ export class Event implements globalThis.Event {
   }
 
   stopImmediatePropagation() {
-    this.cancelBubbleImmediately = true
+    this[CANCEL_BUBBLE_IMMEDIATELY] = true
     this.stopPropagation()
   }
 
@@ -60,8 +68,11 @@ export class Event implements globalThis.Event {
   // later
   composedPath
 
-  NONE
-  CAPTURING_PHASE
-  AT_TARGET
-  BUBBLING_PHASE
+  NONE = Event.NONE
+  CAPTURING_PHASE = Event.CAPTURING_PHASE
+  AT_TARGET = Event.AT_TARGET
+  BUBBLING_PHASE = Event.BUBBLING_PHASE
 }
+
+const exported: typeof Event = isDeno ?globalThis.Event as any :Event
+export { exported as Event }

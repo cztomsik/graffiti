@@ -1,0 +1,27 @@
+<html>
+<head>
+  <style>
+    body {
+      padding: 20px
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    {{ message }}
+
+    <button v-on:click="count++">Count: {{ count }}</button>
+  </div>
+
+  <script src="https://unpkg.com/vue@2.6.12/dist/vue.js"></script>
+  <script>
+    new Vue({
+      el: '#app',
+      data: {
+        message: 'Hello',
+        count: 0
+      }
+    })
+  </script>
+</body>
+</html>

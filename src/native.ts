@@ -1,4 +1,4 @@
-import { ERR, PLATFORM } from './util'
+import { ERR, isDeno, isNodeJS, PLATFORM } from './util'
 // @ts-expect-error
 import { version as VERSION } from '../package.json'
 
@@ -15,11 +15,11 @@ else LIB = LIB_URL.pathname
 
 // export async fn, nothing should be done at import time (testing)
 export const loadNativeApi = async () => {
-  if ('Deno' in globalThis) {
+  if (isDeno) {
     return await loadDenoPlugin()
   }
 
-  if ('process' in globalThis) {
+  if (isNodeJS) {
     return await loadNodejsAddon()
   }
 

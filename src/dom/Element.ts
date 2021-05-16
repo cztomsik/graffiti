@@ -1,6 +1,5 @@
 import { Node, NodeList, XMLSerializer } from './index'
 import { ERR } from '../util'
-import { GET_THE_PARENT } from '../events/EventTarget'
 import { initElement, getAttributeNames, getAttribute, setAttribute, removeAttribute, matches } from './Document'
 import { parseFragment } from './DOMParser'
 
@@ -98,12 +97,6 @@ export abstract class Element extends Node implements globalThis.Element {
 
   set className(className: string) {
     this.setAttribute('class', className)
-  }
-
-  // so the events can bubble
-  // @see EventTarget
-  [GET_THE_PARENT]() {
-    return this.parentElement as any
   }
 
   get innerText() {

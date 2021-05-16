@@ -4,8 +4,8 @@ console.log(`
   Note that this example requires some setup first:
   https://web-platform-tests.org/running-tests/from-local-system.html
 
-  and it's currently only supported in deno
-  (and it seems deno is leaking memory ATM)
+  - runs fine in deno 1.8.3 but it leaks memory ATM
+  - randomly fails in nodejs
 `)
 
 const app = await App.init()
@@ -357,12 +357,12 @@ const urls = [
 
 for (const url of urls) {
   console.log('running', url)
-  await runner.loadURL(url, { evalSrc: true })
+  await runner.loadURL(url)
   await new Promise(resolve => setTimeout(resolve, 100))
 
-  const summary = await runner.eval(`document.querySelector("#summary").textContent`)
+  const summary = await runner.eval(`document.querySelector("#summary")?.textContent`)
 
-  if (summary.match(/Fail/)) {
+  if (summary?.match(/Fail/)) {
     console.log('failed, waiting')
     //await new Promise(resolve => setTimeout(resolve, 5000))
   }

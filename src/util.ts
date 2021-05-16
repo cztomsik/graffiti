@@ -1,3 +1,6 @@
+export const isDeno = 'Deno' in globalThis
+export const isNodeJS = 'process' in globalThis
+
 export const assert = (value, msg) => value || ERR(msg)
 
 export const NOOP = () => {}

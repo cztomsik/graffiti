@@ -1,6 +1,6 @@
 // TODO: both History & Location needs review/update (and proper types)
 
-import { Event } from '../events/Event'
+import { PopStateEvent, HashChangeEvent } from '../events/index'
 
 export class History implements globalThis.History {
   #window
@@ -89,12 +89,12 @@ export class History implements globalThis.History {
     }
 
     this.#window.dispatchEvent(
-      Object.assign(new Event('popstate'), { state: to.data })
+      new PopStateEvent('popstate', { state: to.data })
     )
 
     if ((from.url.href === to.url.href) && (from.url.hash !== to.url.hash)) {
       this.#window.dispatchEvent(
-        Object.assign(new Event('hashchange'), {
+        new HashChangeEvent('hashchange', {
           oldURL: from.url.href,
           newURL: to.url.href
         })

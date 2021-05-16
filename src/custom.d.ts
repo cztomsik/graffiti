@@ -10,6 +10,11 @@ declare class WeakRef<T> {
   deref(): T | undefined
 }
 
+// TODO: current TS should know this
+interface NodeListOf<TNode extends Node> extends NodeList {
+  [Symbol.iterator](): Iterator<TNode>
+}
+
 interface Object {
   fromEntries
 }

@@ -10,6 +10,8 @@ import { Window, makeGlobal } from './window/Window'
 import { readURL } from './util'
 import { getDocId } from './dom/Document'
 import { parseIntoDocument } from './dom/DOMParser'
+import { loadStyles } from './dom/HTMLLinkElement'
+import { runScripts } from './dom/HTMLScriptElement'
 
 // event state
 let mousePos = [0, 0]
@@ -67,31 +69,13 @@ async function main({ windowId, width, height, url, options }) {
   // start event handling & rendering
   loop()
 
-  // we replace <link> with <style> which works surprisingly well
-  // TODO: qsa link[rel="stylesheet"]
-  for (const link of document.querySelectorAll('link')) {
-    if (link.rel === 'stylesheet' && link.href) {
-      const style = document.createElement('style')
-      style.textContent = await readURL('' + new URL(link.getAttribute('href'), url))
-      link.replaceWith(style)
-    }
-  }
+  // load (once) remote styles
+  await loadStyles()
 
   // run (once) all the scripts
-  for (const { src, text } of document.querySelectorAll('script')) {
-    if (src) {
-      // WPT is relying on global `var`s
-      if (options.evalSrc) {
-        await evalScript(await readURL('' + new URL(src, url)))
-      } else {
-        await import('' + new URL(src, url))
-      }
-    } else {
-      evalScript(text)
-    }
-  }
+  await runScripts()
 
-  window._fire('load')
+  window.dispatchEvent(new Event('load'))
 
   function loop() {
     // dispatch all events for this round
@@ -108,19 +92,6 @@ async function main({ windowId, width, height, url, options }) {
     setTimeout(loop, 100)
   }
 
-  async function evalScript(script) {
-    const module = script.replace(/import\s+(".*?")/gi, 'await import(new URL($1, __filename))')
-
-    // ESM
-    if (module !== script) {
-      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-      return new AsyncFunction('__filename', module)(url)
-    }
-
-    // legacy, vars & functions are accumulated
-    return eval.call(null, script)
-  }
-
   // TODO: review, this is old code
   function handleEvent(event: [string, [number, number] | null, number | null]) {
     const [kind, vec2, u32] = event
@@ -135,14 +106,14 @@ async function main({ windowId, width, height, url, options }) {
         const prevTarget = overElement
         overElement = target
 
-        target._fire(kind)
+        target.dispatchEvent(new MouseEvent(kind))
 
         if (target !== prevTarget) {
           if (prevTarget) {
-            prevTarget._fire('mouseout')
+            prevTarget.dispatchEvent(new MouseEvent('mouseout'))
           }
 
-          target._fire('mouseover')
+          target.dispatchEvent(new MouseEvent('mouseover'))
         }
 
         return
@@ -150,11 +121,13 @@ async function main({ windowId, width, height, url, options }) {
 
       case 'mousedown': {
         clickedElement = target
-        return target._fire(kind)
+        target.dispatchEvent(new MouseEvent(kind))
+
+        return
       }
 
       case 'mouseup': {
-        target._fire(kind)
+        target.dispatchEvent(new MouseEvent(kind))
 
         // TODO: only els with tabindex should be focusable
 
@@ -165,7 +138,7 @@ async function main({ windowId, width, height, url, options }) {
             target.focus()
           }
 
-          target._fire('click', { button: 0 })
+          target.dispatchEvent(new MouseEvent('click', { button: 0 }))
         }
 
         return
@@ -178,9 +151,8 @@ async function main({ windowId, width, height, url, options }) {
       // input - like input, but after update (not sure if it's possible to do this on this level)
       case 'keydown': {
         const target = document.activeElement || document.documentElement
-        const which = u32!
-        const code = KEY_CODES[which]
-        target._fire(kind, { which, keyCode: which, code })
+        const keyCode = u32!
+        target.dispatchEvent(new KeyboardEvent(kind, { keyCode }))
         return
       }
 
@@ -189,7 +161,7 @@ async function main({ windowId, width, height, url, options }) {
         const charCode = u32!
         const key = String.fromCharCode(charCode)
 
-        target._fire(kind, { charCode, key })
+        target.dispatchEvent(new KeyboardEvent(kind, { charCode, key }))
         return
       }
 
@@ -204,25 +176,6 @@ async function main({ windowId, width, height, url, options }) {
       }
     }
   }
-
-  // TODO: more mapping
-  // https://w3c.github.io/uievents-code/#keyboard-key-codes
-  // https://keycode.info/
-  //
-  // BTW: it should be fast because it's just array lookup but I'm not sure if it's not holey
-  const KEY_CODES = Object.assign(Array(40).fill(''), {
-    8: 'Backspace',
-    9: 'Tab',
-    13: 'Enter',
-    27: 'Escape',
-    32: 'Space',
-    37: 'ArrowLeft',
-    38: 'ArrowUp',
-    39: 'ArrowRight',
-    40: 'ArrowDown',
-
-    // TODO: more codes
-  })
 }
 
 const VIEWPORT_REGISTRY = new FinalizationRegistry(id => native.viewport_drop(id))

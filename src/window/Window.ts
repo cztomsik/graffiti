@@ -1,6 +1,6 @@
+import * as globals from './globals'
 import { EventTarget } from '../events/index'
-import * as events from '../events/index'
-import * as dom from '../dom/index'
+import { Document } from '../dom/index'
 import { Location } from './Location'
 import { History } from './History'
 import { Storage } from './Storage'
@@ -11,7 +11,7 @@ const G = globalThis
 
 // note all props will leak to global scope
 export class Window extends EventTarget implements globalThis.Window {
-  readonly document = new dom.Document()
+  readonly document = new Document()
   parent = this as any
   window = this.parent
   self = this.window
@@ -27,7 +27,11 @@ export class Window extends EventTarget implements globalThis.Window {
   customElements = { define: NOOP } as any
   fetch = fetch
 
-  // provided by deno/nodejs and/or polyfilled in worker.ts
+  // TODO (wpt, autobind global fns?)
+  addEventListener = this.addEventListener.bind(this)
+  removeEventListener = this.removeEventListener.bind(this)
+
+  // provided by deno/nodejs
   setInterval = G.setInterval
   setTimeout = G.setTimeout
   clearInterval = G.clearInterval
@@ -47,9 +51,7 @@ export class Window extends EventTarget implements globalThis.Window {
   constructor() {
     super()
 
-    // TODO: most classes should be published (Storage, History, Location, ...)
-    Object.assign(this, events)
-    Object.assign(this, dom)
+    Object.assign(this, globals)
   }
 
   getComputedStyle(elt: Element, pseudoElt?: string | null): CSSStyleDeclaration {
@@ -168,11 +170,15 @@ export class Window extends EventTarget implements globalThis.Window {
   webkitRequestAnimationFrame
 }
 
-export const makeGlobal = (window: Window) => {
-  // cleanup first (deno)
-  for (const k of [/*'Event', 'EventTarget',*/ 'location']) {
-    delete globalThis[k]
+export const makeGlobal = window => {
+  // cleanup
+  for (const k of Object.keys(window)) {
+    if (!Reflect.deleteProperty(globalThis, k)) {
+      //console.log(`couldnt delete global ${k}`)
+    }
   }
 
+  // TODO: this is probably not enough
+  // we could use VM context for node but I don't know what to use for deno
   Object.setPrototypeOf(globalThis, window)
 }

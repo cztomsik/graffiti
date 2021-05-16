@@ -1,3 +1,4 @@
+import { FocusEvent, MouseEvent } from '../events/index'
 import { Element } from './index'
 import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
 import { setElementStyleProp } from './Document'
@@ -20,7 +21,7 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
   }
 
   click() {
-    this._fire('click')
+    this.dispatchEvent(new MouseEvent('click'))
   }
 
   blur() {
@@ -28,7 +29,7 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
       return
     }
 
-    this._fire('blur')
+    this.dispatchEvent(new FocusEvent('blur'))
     // TODO: should be in Document
     ;(this.ownerDocument as any).activeElement = null
   }
@@ -44,7 +45,7 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
 
     // TODO: should be in Document
     ;(this.ownerDocument as any).activeElement = this
-    this._fire('focus')
+    this.dispatchEvent(new FocusEvent('focus'))
   }
 
   // TODO

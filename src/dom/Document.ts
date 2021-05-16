@@ -35,7 +35,6 @@ import {
 import { StyleSheetList } from '../css/StyleSheetList'
 import { UNSUPPORTED } from '../util'
 
-import { GET_THE_PARENT } from '../events/EventTarget'
 import { Event } from '../events/Event'
 
 export class Document extends Node implements globalThis.Document {
@@ -181,10 +180,6 @@ export class Document extends Node implements globalThis.Document {
 
   get isConnected(): boolean {
     return true
-  }
-
-  [GET_THE_PARENT]() {
-    return this.defaultView as any
   }
 
   get styleSheets(): StyleSheetList {
