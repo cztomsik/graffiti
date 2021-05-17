@@ -13,7 +13,7 @@ html {
   min-height: 100%;
 }
 
-head, meta, title, link, style, script {
+head, meta, title, link, style, script, noscript {
   display: none;
 }
 
