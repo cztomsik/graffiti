@@ -1,6 +1,8 @@
 // supported CSS props
 
-use super::parser::{background, box_shadow, color, dimension, flex, float, font_family, overflow, sides_of, try_from};
+use super::parser::{
+    background, box_shadow, color, dimension, flex, float, font_family, outline, overflow, sides_of, try_from,
+};
 use super::{
     CssAlign, CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap,
     CssJustify, CssOverflow, CssPosition, CssTextAlign, CssVisibility,
@@ -182,7 +184,7 @@ css_shorthands! {
     ("border-radius", sides_of(dimension())) => (BorderTopLeftRadius, BorderTopRightRadius, BorderBottomLeftRadius, BorderBottomRightRadius),
 
     ("overflow", overflow()) => (OverflowX, OverflowY),
-    //"outline" => ["outline-color", "outline-style", "outline-width"],
+    ("outline", outline()) => (OutlineWidth, OutlineStyle, OutlineColor),
     //"text-decoration" => ["text-decoration-color", "text-decoration-style", "text-decoration-line", "text-decoration-thickness"]
 }
 

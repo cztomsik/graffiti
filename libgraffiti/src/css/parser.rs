@@ -10,8 +10,8 @@
 //   and we also get correct overriding for free (only valid prop should override prev one)
 
 use super::{
-    prop_parser, Combinator, Component, CssBoxShadow, CssColor, CssDimension, CssOverflow, Rule, Selector,
-    SelectorPart, Style, StyleProp, StyleSheet,
+    prop_parser, Combinator, Component, CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssOverflow, Rule,
+    Selector, SelectorPart, Style, StyleProp, StyleSheet,
 };
 use crate::util::Atom;
 use pom::char_class::alphanum;
@@ -144,6 +144,10 @@ pub(super) fn flex<'a>() -> Parser<'a, (f32, f32, CssDimension)> {
 
 pub(super) fn overflow<'a>() -> Parser<'a, (CssOverflow, CssOverflow)> {
     (try_from() + (sym(" ") * try_from()).opt()).map(|(x, y)| (x, y.unwrap_or(x)))
+}
+
+pub(super) fn outline<'a>() -> Parser<'a, (CssDimension, CssBorderStyle, CssColor)> {
+    (dimension() + (sym(" ") * try_from()) + (sym(" ") * color())).map(|((dim, style), color)| (dim, style, color))
 }
 
 pub(super) fn background<'a>() -> Parser<'a, CssColor> {
