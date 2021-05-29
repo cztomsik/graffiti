@@ -63,7 +63,7 @@ export async function runScripts() {
       const url = script.src ? '' + new URL(script.src, document.URL) : createDataUrl(script.text)
 
       await import(url)
-    } else {
+    } else if (script.type.match(/^$|(text|application)\/(java|ecma)script/)) {
       const url = script.src ? '' + new URL(script.src, document.URL) : document.URL
 
       evalScript(script.src ? await readURL(url) : script.text, url)
