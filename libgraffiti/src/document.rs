@@ -20,7 +20,7 @@ pub enum DocumentEvent<'a> {
     Cdata(NodeId, &'a str),
 
     // TODO: call during Document::Drop, probably in document order (children first)
-    Drop(NodeId),
+    Drop(NodeId, NodeType),
 }
 
 #[repr(u32)]
@@ -221,11 +221,12 @@ impl Document {
     }
 
     pub fn drop_node(&mut self, node: NodeId) {
+        let node_type = self.node_type(node);
         drop(self.nodes.remove(node));
         self.weak_data.remove(node);
         self.free_ids.push(node);
 
-        self.emit(Event::Drop(node));
+        self.emit(Event::Drop(node, node_type));
     }
 
     // text node
@@ -359,14 +360,20 @@ impl Document {
     // helpers
 
     fn create_node(&mut self, data: NodeData) -> NodeId {
-        // TODO: id reusing
-
-        let id = self.nodes.insert(Node {
+        let node = Node {
             parent: None,
             first_child: None,
             next_sibling: None,
             data,
-        });
+        };
+
+        if let Some(id) = self.free_ids.pop() {
+            self.nodes.put(id, node);
+            self.weak_data.put(id, Vec::new());
+            return id
+        }
+
+        let id = self.nodes.insert(node);
 
         let weak_id = self.weak_data.insert(Vec::new());
 

@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use crate::css::{matching_rules, Style, StyleProp, StyleSheet};
 use crate::gfx::{Frame, Text, TextStyle, Vec2, AABB};
 use crate::layout::LayoutNode;
@@ -11,6 +12,8 @@ pub struct Viewport {
     size: (i32, i32),
 
     document: Rc<RefCell<Document>>,
+    // TODO: something like hibitset?
+    dirty_nodes: Rc<RefCell<BTreeSet<NodeId>>>,
     styles: Rc<RefCell<SlotMap<NodeId, Style>>>,
     layout_nodes: Rc<RefCell<SlotMap<NodeId, LayoutNode>>>,
     texts: Rc<RefCell<SlotMap<NodeId, Text>>>,
@@ -20,6 +23,7 @@ pub struct Viewport {
 impl Viewport {
     pub fn new(size: (i32, i32), document: &Rc<RefCell<Document>>) -> Self {
         let styles = Rc::new(RefCell::new(SlotMap::new()));
+        let dirty_nodes = Rc::new(RefCell::new(BTreeSet::new()));
         let layout_nodes = Rc::new(RefCell::new(SlotMap::new()));
         let texts = Rc::new(RefCell::new(SlotMap::new()));
         let renderer = Renderer::new(document, &layout_nodes, &styles, &texts);
@@ -36,6 +40,7 @@ impl Viewport {
         let viewport = Self {
             size,
             document: Rc::clone(&document),
+            dirty_nodes: Rc::clone(&dirty_nodes),
             layout_nodes: Rc::clone(&layout_nodes),
             styles: Rc::clone(&styles),
             texts: Rc::clone(&texts),
@@ -74,9 +79,13 @@ impl Viewport {
                     layout_nodes.borrow()[node].mark_dirty();
                 }
 
-                Drop(node) => {
+                Drop(node, node_type) => {
+                    dirty_nodes.borrow_mut().remove(&node);
                     layout_nodes.borrow_mut().remove(node);
-                    styles.borrow_mut().remove(node);
+
+                    if node_type == NodeType::Element {
+                        styles.borrow_mut().remove(node);
+                    }
                 }
 
                 _ => {}
