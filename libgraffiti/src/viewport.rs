@@ -1,11 +1,14 @@
-use std::collections::BTreeSet;
-use crate::css::{matching_rules, Style, StyleProp, StyleSheet};
+use crate::css::{
+    matching_rules, CssAlign, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap, CssJustify, CssPosition, Style,
+    StyleProp, StyleSheet,
+};
 use crate::gfx::{Frame, Text, TextStyle, Vec2, AABB};
-use crate::layout::LayoutNode;
+use crate::layout::{Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutNode, LayoutStyle, Position};
 use crate::renderer::Renderer;
 use crate::util::SlotMap;
 use crate::{Document, DocumentEvent, NodeId, NodeType};
 use std::cell::RefCell;
+use std::collections::BTreeSet;
 use std::rc::Rc;
 
 pub struct Viewport {
@@ -32,10 +35,7 @@ impl Viewport {
         layout_nodes
             .borrow_mut()
             .put(document.borrow().root(), LayoutNode::new());
-        update_layout_node(
-            &mut layout_nodes.borrow_mut()[0],
-            &Style::from("display: block; width: 100%; height: 100%"),
-        );
+        layout_nodes.borrow_mut()[0].set_style(Style::from("display: block; width: 100%; height: 100%").props().into());
 
         let viewport = Self {
             size,
@@ -66,7 +66,7 @@ impl Viewport {
                 }
                 Create(node, NodeType::Comment) => {
                     layout_nodes.borrow_mut().put(node, LayoutNode::new());
-                    update_layout_node(&mut layout_nodes.borrow_mut()[node], &Style::HIDDEN);
+                    layout_nodes.borrow_mut()[node].set_style(Style::HIDDEN.props().into());
                 }
 
                 Insert(parent, child, index) => {
@@ -163,7 +163,7 @@ impl Viewport {
     fn update_styles(&self) {
         let doc = self.document.borrow();
         let mut styles = self.styles.borrow_mut();
-        let mut layout_nodes = self.layout_nodes.borrow_mut();
+        let layout_nodes = self.layout_nodes.borrow_mut();
 
         let mut sheets: Vec<_> = doc
             .query_selector_all(doc.root(), "html > head > style")
@@ -190,7 +190,7 @@ impl Viewport {
                     style.add_prop(p.clone());
                 }
 
-                update_layout_node(&mut layout_nodes[el], &style);
+                layout_nodes[el].set_style(style.props().into());
 
                 // TODO: keep just renderstyle
                 *out = style;
@@ -205,113 +205,150 @@ impl Viewport {
     }
 }
 
-fn update_layout_node(ln: &mut LayoutNode, style: &Style) {
-    //println!("{}", style.css_text());
+impl<'a, I: Iterator<Item = &'a StyleProp>> From<I> for LayoutStyle {
+    fn from(props: I) -> Self {
+        let mut res = LayoutStyle::default();
 
-    use super::css::*;
-    use super::layout::*;
+        for p in props {
+            use StyleProp as P;
 
-    fn dim(d: &CssDimension) -> Dimension {
-        match d {
-            CssDimension::Px(v) => Dimension::Px(*v),
-            CssDimension::Percent(v) => Dimension::Percent(*v),
-            CssDimension::Auto => Dimension::Auto,
-            //_ => Dimension::Undefined,
-        }
-    }
+            match *p {
+                // size
+                P::Width(v) => res.width = v.into(),
+                P::Height(v) => res.height = v.into(),
+                P::MinWidth(v) => res.min_width = v.into(),
+                P::MinHeight(v) => res.min_height = v.into(),
+                P::MaxWidth(v) => res.max_width = v.into(),
+                P::MaxHeight(v) => res.max_height = v.into(),
 
-    fn align(d: &CssAlign) -> Align {
-        match d {
-            CssAlign::Auto => Align::Auto,
-            CssAlign::FlexStart => Align::FlexStart,
-            CssAlign::Center => Align::Center,
-            CssAlign::FlexEnd => Align::FlexEnd,
-            CssAlign::Stretch => Align::Stretch,
-            CssAlign::Baseline => Align::Baseline,
-            CssAlign::SpaceBetween => Align::SpaceBetween,
-            CssAlign::SpaceAround => Align::SpaceAround,
-        }
-    }
+                // padding
+                P::PaddingTop(v) => res.padding_top = v.into(),
+                P::PaddingRight(v) => res.padding_right = v.into(),
+                P::PaddingBottom(v) => res.padding_bottom = v.into(),
+                P::PaddingLeft(v) => res.padding_left = v.into(),
 
-    fn justify(d: &CssJustify) -> Justify {
-        match d {
-            CssJustify::FlexStart => Justify::FlexStart,
-            CssJustify::Center => Justify::Center,
-            CssJustify::FlexEnd => Justify::FlexEnd,
-            CssJustify::SpaceBetween => Justify::SpaceBetween,
-            CssJustify::SpaceAround => Justify::SpaceAround,
-            CssJustify::SpaceEvenly => Justify::SpaceEvenly,
-        }
-    }
+                // margin
+                P::MarginTop(v) => res.margin_top = v.into(),
+                P::MarginRight(v) => res.margin_right = v.into(),
+                P::MarginBottom(v) => res.margin_bottom = v.into(),
+                P::MarginLeft(v) => res.margin_left = v.into(),
 
-    for p in style.props() {
-        use StyleProp as P;
+                // position
+                P::Position(v) => res.position = v.into(),
+                P::Top(v) => res.top = v.into(),
+                P::Right(v) => res.right = v.into(),
+                P::Bottom(v) => res.bottom = v.into(),
+                P::Left(v) => res.left = v.into(),
 
-        match p {
-            P::Width(v) => ln.set_width(dim(v)),
-            P::Height(v) => ln.set_height(dim(v)),
-            P::MinWidth(v) => ln.set_min_width(dim(v)),
-            P::MinHeight(v) => ln.set_min_height(dim(v)),
-            P::MaxWidth(v) => ln.set_max_width(dim(v)),
-            P::MaxHeight(v) => ln.set_max_height(dim(v)),
+                // flex
+                P::FlexGrow(v) => res.flex_grow = v,
+                P::FlexShrink(v) => res.flex_shrink = v,
+                P::FlexBasis(v) => res.flex_basis = v.into(),
+                P::FlexWrap(v) => res.flex_wrap = v.into(),
+                P::FlexDirection(v) => res.flex_direction = v.into(),
+                P::AlignContent(v) => res.align_content = v.into(),
+                P::AlignItems(v) => res.align_items = v.into(),
+                P::AlignSelf(v) => res.align_self = v.into(),
+                P::JustifyContent(v) => res.justify_content = v.into(),
 
-            P::PaddingTop(v) => ln.set_padding_top(dim(v)),
-            P::PaddingRight(v) => ln.set_padding_right(dim(v)),
-            P::PaddingBottom(v) => ln.set_padding_bottom(dim(v)),
-            P::PaddingLeft(v) => ln.set_padding_left(dim(v)),
-
-            P::MarginTop(v) => ln.set_margin_top(dim(v)),
-            P::MarginRight(v) => ln.set_margin_right(dim(v)),
-            P::MarginBottom(v) => ln.set_margin_bottom(dim(v)),
-            P::MarginLeft(v) => ln.set_margin_left(dim(v)),
-
-            P::Position(v) => ln.set_position(match v {
-                CssPosition::Absolute => Position::Absolute,
-                _ => Position::Relative,
-            }),
-            P::Top(v) => ln.set_top(dim(v)),
-            P::Right(v) => ln.set_right(dim(v)),
-            P::Bottom(v) => ln.set_bottom(dim(v)),
-            P::Left(v) => ln.set_left(dim(v)),
-
-            P::Display(v) => ln.set_display(match v {
-                CssDisplay::None => Display::None,
-                CssDisplay::Flex => Display::Flex,
-                // TODO
-                CssDisplay::Block => {
-                    // weird but correct, what's missing is that all inlines should
-                    // be wrapped in anonymous box/line, then it should work fine
-                    // (but that "line" is not just flex-wrap: wrap)
-                    ln.set_flex_direction(FlexDirection::Column);
-                    ln.set_align_items(Align::Stretch);
-                    Display::Flex
+                // other
+                P::Display(v) => {
+                    res.display = match v {
+                        CssDisplay::None => Display::None,
+                        CssDisplay::Flex => Display::Flex,
+                        // TODO
+                        CssDisplay::Block => {
+                            // weird but correct, what's missing is that all inlines should
+                            // be wrapped in anonymous box/line, then it should work fine
+                            // (but that "line" is not just flex-wrap: wrap)
+                            res.flex_direction = FlexDirection::Column;
+                            res.align_items = Align::Stretch;
+                            Display::Flex
+                        }
+                        // TODO
+                        CssDisplay::Inline => {
+                            //res.flex_direction = FlexDirection::Row;
+                            //res.flex_wrap = FlexWrap::Wrap;
+                            Display::Flex
+                        }
+                    }
                 }
-                // TODO
-                CssDisplay::Inline => {
-                    //ln.set_flex_direction(FlexDirection::Row);
-                    //ln.set_flex_wrap(FlexWrap::Wrap);
-                    Display::Flex
-                }
-            }),
-            P::FlexGrow(v) => ln.set_flex_grow(*v),
-            P::FlexShrink(v) => ln.set_flex_shrink(*v),
-            P::FlexBasis(v) => ln.set_flex_basis(dim(v)),
-            P::FlexWrap(v) => ln.set_flex_wrap(match v {
-                CssFlexWrap::NoWrap => FlexWrap::NoWrap,
-                CssFlexWrap::Wrap => FlexWrap::Wrap,
-                CssFlexWrap::WrapReverse => FlexWrap::WrapReverse,
-            }),
-            P::FlexDirection(v) => ln.set_flex_direction(match v {
-                CssFlexDirection::Row => FlexDirection::Row,
-                CssFlexDirection::Column => FlexDirection::Column,
-                CssFlexDirection::RowReverse => FlexDirection::RowReverse,
-                CssFlexDirection::ColumnReverse => FlexDirection::ColumnReverse,
-            }),
-            P::AlignContent(v) => ln.set_align_content(align(v)),
-            P::AlignItems(v) => ln.set_align_items(align(v)),
-            P::AlignSelf(v) => ln.set_align_self(align(v)),
-            P::JustifyContent(v) => ln.set_justify_content(justify(v)),
-            _ => {}
+
+                // TODO: remove
+                _ => {}
+            }
+        }
+
+        res
+    }
+}
+
+impl From<CssDimension> for Dimension {
+    fn from(v: CssDimension) -> Self {
+        match v {
+            CssDimension::Px(v) => Self::Px(v),
+            CssDimension::Percent(v) => Self::Percent(v),
+            CssDimension::Auto => Self::Auto,
+            // ? => Self::Undefined,
+        }
+    }
+}
+
+impl From<CssAlign> for Align {
+    fn from(v: CssAlign) -> Align {
+        match v {
+            CssAlign::Auto => Self::Auto,
+            CssAlign::FlexStart => Self::FlexStart,
+            CssAlign::Center => Self::Center,
+            CssAlign::FlexEnd => Self::FlexEnd,
+            CssAlign::Stretch => Self::Stretch,
+            CssAlign::Baseline => Self::Baseline,
+            CssAlign::SpaceBetween => Self::SpaceBetween,
+            CssAlign::SpaceAround => Self::SpaceAround,
+        }
+    }
+}
+
+impl From<CssJustify> for Justify {
+    fn from(v: CssJustify) -> Justify {
+        match v {
+            CssJustify::FlexStart => Self::FlexStart,
+            CssJustify::Center => Self::Center,
+            CssJustify::FlexEnd => Self::FlexEnd,
+            CssJustify::SpaceBetween => Self::SpaceBetween,
+            CssJustify::SpaceAround => Self::SpaceAround,
+            CssJustify::SpaceEvenly => Self::SpaceEvenly,
+        }
+    }
+}
+
+impl From<CssFlexWrap> for FlexWrap {
+    fn from(v: CssFlexWrap) -> Self {
+        match v {
+            CssFlexWrap::NoWrap => Self::NoWrap,
+            CssFlexWrap::Wrap => Self::Wrap,
+            CssFlexWrap::WrapReverse => Self::WrapReverse,
+        }
+    }
+}
+
+impl From<CssPosition> for Position {
+    fn from(v: CssPosition) -> Self {
+        match v {
+            CssPosition::Absolute => Self::Absolute,
+            // TODO
+            _ => Self::Relative,
+        }
+    }
+}
+
+impl From<CssFlexDirection> for FlexDirection {
+    fn from(v: CssFlexDirection) -> Self {
+        match v {
+            CssFlexDirection::Row => Self::Row,
+            CssFlexDirection::Column => Self::Column,
+            CssFlexDirection::RowReverse => Self::RowReverse,
+            CssFlexDirection::ColumnReverse => Self::ColumnReverse,
         }
     }
 }

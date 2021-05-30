@@ -102,9 +102,9 @@ css_properties! {
     ("box-shadow", box_shadow()) => BoxShadow(Box<CssBoxShadow>),
 
     // flex
-    ("flex-basis", dimension()) => FlexBasis(CssDimension),
     ("flex-grow", float()) => FlexGrow(f32),
     ("flex-shrink", float()) => FlexShrink(f32),
+    ("flex-basis", dimension()) => FlexBasis(CssDimension),
     ("flex-direction", try_from()) => FlexDirection(CssFlexDirection),
     ("flex-wrap", try_from()) => FlexWrap(CssFlexWrap),
     ("align-content", try_from()) => AlignContent(CssAlign),
