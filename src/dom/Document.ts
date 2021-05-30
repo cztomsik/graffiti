@@ -203,8 +203,10 @@ export class Document extends Node implements globalThis.Document {
     return this.querySelector(`#${id}`)
   }
 
+  // deprecated
   createEvent(type) {
     // TODO: return appropriate subclass
+    // TODO: bubbles/cancelable
     return new Event(type.toLowerCase()) as any
   }
 

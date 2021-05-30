@@ -32,7 +32,9 @@ export class HTMLInputElement extends HTMLElement implements globalThis.HTMLInpu
         this._value = this._value.slice(0, -1)
         this._updateText()
 
-        this.dispatchEvent(new InputEvent('input', { data: e.key, inputType: 'deleteContentBackward' }))
+        this.dispatchEvent(
+          new InputEvent('input', { bubbles: true, cancelable: true, data: e.key, inputType: 'deleteContentBackward' })
+        )
       }
     })
 
@@ -48,7 +50,9 @@ export class HTMLInputElement extends HTMLElement implements globalThis.HTMLInpu
       this._value += e.key
       this._updateText()
 
-      this.dispatchEvent(new InputEvent('input', { data: e.key, inputType: 'insertText' }))
+      this.dispatchEvent(
+        new InputEvent('input', { bubbles: true, cancelable: true, data: e.key, inputType: 'insertText' })
+      )
     })
 
     // scope-private

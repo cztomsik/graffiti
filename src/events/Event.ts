@@ -21,14 +21,19 @@ class Event implements globalThis.Event {
 
   constructor(type: string, eventInit?: EventInit) {
     this.type = type
-    this.bubbles = eventInit?.bubbles ?? true
-    this.cancelable = eventInit?.cancelable ?? true
+    this.bubbles = eventInit?.bubbles ?? false
+    this.cancelable = eventInit?.cancelable ?? false
     this.composed = eventInit?.composed ?? false
   }
 
-  // deprecated, kept for WPT
-  initEvent(type: string, bubbles = true, cancelable = true) {
-    Object.assign(this, { type, bubbles, cancelable, cancelBubble: false, defaultPrevented: false })
+  // deprecated but needed for WPT & react (during init)
+  initEvent(type: string, bubbles = false, cancelable = false) {
+    // this hack works for deno too (symbols are enumerable by default)
+    const data = Object.assign({}, new Event(type, { bubbles, cancelable }))
+    // @ts-expect-error
+    delete data.isTrusted
+
+    Object.assign(this, data)
   }
 
   preventDefault() {
@@ -74,5 +79,10 @@ class Event implements globalThis.Event {
   BUBBLING_PHASE = Event.BUBBLING_PHASE
 }
 
-const exported: typeof Event = isDeno ?globalThis.Event as any :Event
-export { exported as Event }
+const ExportedEvent: typeof Event = isDeno ?globalThis.Event as any :Event
+export { ExportedEvent as Event }
+
+// monkey-patch for deno
+if (!ExportedEvent.prototype.initEvent) {
+  ExportedEvent.prototype.initEvent = Event.prototype.initEvent
+}

@@ -106,14 +106,14 @@ async function main({ windowId, width, height, url, options }) {
         const prevTarget = overElement
         overElement = target
 
-        target.dispatchEvent(new MouseEvent(kind))
+        target.dispatchEvent(new MouseEvent(kind, { bubbles: true, cancelable: true }))
 
         if (target !== prevTarget) {
           if (prevTarget) {
-            prevTarget.dispatchEvent(new MouseEvent('mouseout'))
+            prevTarget.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, cancelable: true }))
           }
 
-          target.dispatchEvent(new MouseEvent('mouseover'))
+          target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }))
         }
 
         return
@@ -121,13 +121,13 @@ async function main({ windowId, width, height, url, options }) {
 
       case 'mousedown': {
         clickedElement = target
-        target.dispatchEvent(new MouseEvent(kind))
+        target.dispatchEvent(new MouseEvent(kind, { bubbles: true, cancelable: true }))
 
         return
       }
 
       case 'mouseup': {
-        target.dispatchEvent(new MouseEvent(kind))
+        target.dispatchEvent(new MouseEvent(kind, { bubbles: true, cancelable: true }))
 
         // TODO: only els with tabindex should be focusable
 
@@ -138,7 +138,7 @@ async function main({ windowId, width, height, url, options }) {
             target.focus()
           }
 
-          target.dispatchEvent(new MouseEvent('click', { button: 0 }))
+          target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }))
         }
 
         return
@@ -152,7 +152,7 @@ async function main({ windowId, width, height, url, options }) {
       case 'keydown': {
         const target = document.activeElement || document.documentElement
         const keyCode = u32!
-        target.dispatchEvent(new KeyboardEvent(kind, { keyCode }))
+        target.dispatchEvent(new KeyboardEvent(kind, { bubbles: true, cancelable: true, keyCode }))
         return
       }
 
@@ -161,7 +161,7 @@ async function main({ windowId, width, height, url, options }) {
         const charCode = u32!
         const key = String.fromCharCode(charCode)
 
-        target.dispatchEvent(new KeyboardEvent(kind, { charCode, key }))
+        target.dispatchEvent(new KeyboardEvent(kind, { bubbles: true, cancelable: true, charCode, key }))
         return
       }
 

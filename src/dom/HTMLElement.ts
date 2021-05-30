@@ -21,7 +21,7 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
   }
 
   click() {
-    this.dispatchEvent(new MouseEvent('click'))
+    this.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
   }
 
   blur() {
