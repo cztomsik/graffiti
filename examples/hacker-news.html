@@ -1,0 +1,37 @@
+<html>
+<head>
+  <style>
+    body { padding: 20px }
+  </style>
+</head>
+<body>
+  <script src="https://unpkg.com/vue@2.6.12/dist/vue.js"></script>
+  <script>
+    new Vue({
+      el: document.body.appendChild(document.createElement('div')),
+      template: `
+        <div>
+          <h1>HN front page</h1>
+
+          <div v-if="items">
+            <div v-for="it in items">
+              <h3>{{ it.title }}</h3>
+            </div>
+          </div>
+          <div v-else>Loading...</div>
+        </div>
+      `,
+      data() {
+        return { items: null }
+      },
+      async created() {
+        const res = await fetch('https://hn.algolia.com/api/v1/search?tags=front_page')
+        const data = await res.json()
+
+        //console.log(data)
+        this.items = data.hits
+      }
+    })
+  </script>
+</body>
+</html>
