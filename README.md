@@ -28,7 +28,7 @@ Follow me on my [twitter](https://twitter.com/cztomsik) for updates.
 ## Usage
 
 ```
-# one-shot (takes forever, remote URLs are deno-only)
+# one-shot (takes forever)
 npx github:cztomsik/graffiti run <file.html>
 
 # or install locally
