@@ -1,6 +1,8 @@
-use std::marker::PhantomData;
+#![allow(clippy::missing_safety_doc)]
+
 use graffiti_glfw::*;
 use std::ffi::CStr;
+use std::marker::PhantomData;
 use std::os::raw::{c_char, c_int};
 use std::rc::Rc;
 
@@ -15,9 +17,7 @@ impl App {
 
         glfwSetErrorCallback(handle_glfw_error);
 
-        Rc::new(Self {
-            _marker: PhantomData,
-        })
+        Rc::new(Self { _marker: PhantomData })
     }
 
     pub fn poll_events(&self) {

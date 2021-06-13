@@ -49,7 +49,6 @@ impl WebView {
         }
     }
 
-    // TODO: doesn't work when in separate method (it only works as part of new())
     pub fn load_url(&mut self, url: &str) {
         #[cfg(target_os = "macos")]
         unsafe {

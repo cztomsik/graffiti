@@ -10,8 +10,8 @@
 //   and we also get correct overriding for free (only valid prop should override prev one)
 
 use super::{
-    prop_parser, Combinator, Component, CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssOverflow, Rule,
-    Selector, SelectorPart, Style, StyleProp, StyleSheet,
+    Combinator, Component, CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssOverflow, Rule, Selector,
+    SelectorPart, Style, StyleSheet,
 };
 use crate::util::Atom;
 use pom::char_class::alphanum;
@@ -21,7 +21,7 @@ use std::fmt::Debug;
 
 pub(super) type Parser<'a, T> = pom::parser::Parser<'a, Token<'a>, T>;
 type Token<'a> = &'a str;
-pub type ParseError = pom::Error;
+// pub type ParseError = pom::Error;
 
 pub(super) fn sheet<'a>() -> Parser<'a, StyleSheet> {
     // anything until next "}}" (empty media is matched with unknown)
@@ -127,6 +127,7 @@ pub(super) fn dimension<'a>() -> Parser<'a, CssDimension> {
 
 pub(super) fn sides_of<'a, V: Copy + 'a>(parser: Parser<'a, V>) -> Parser<'a, (V, V, V, V)> {
     list(parser, sym(" ")).convert(|sides| {
+        #[allow(clippy::match_ref_pats)]
         Ok(match &sides[..] {
             &[a, b, c, d] => (a, b, c, d),
             &[a, b, c] => (a, b, c, b),

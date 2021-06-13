@@ -1,10 +1,12 @@
+#![allow(clippy::missing_safety_doc)]
+
 use super::App;
+use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use graffiti_glfw::*;
 use std::ffi::CStr;
 use std::os::raw::{c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
 use std::rc::Rc;
-use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 
 pub struct Window {
     _app: Rc<App>,
@@ -170,7 +172,7 @@ impl Window {
 
     // note it needs to be processed one by one because each event can cause new changes,
     // styles, dimensions and so the target might not be valid anymore
-    pub fn events(&mut self) ->&Receiver<Event> {
+    pub fn events(&mut self) -> &Receiver<Event> {
         &self.events
     }
 
