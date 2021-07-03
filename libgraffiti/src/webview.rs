@@ -23,10 +23,10 @@ pub struct WebView {
 
 impl WebView {
     pub fn new() -> Self {
+        let _app = App::current().expect("no App");
+
         #[cfg(target_os = "macos")]
         unsafe {
-            let _app = App::current().expect("no App");
-
             let cfg: id = msg_send![class!(WKWebViewConfiguration), new];
             let del: id = msg_send![class!(NSObject), alloc];
             let webview: id = msg_send![class!(WKWebView), alloc];
@@ -40,7 +40,7 @@ impl WebView {
         }
 
         #[cfg(not(target_os = "macos"))]
-        Self { _app: Rc::clone(app) }
+        Self { _app }
     }
 
     pub fn attach(&self, window: &Window) {
