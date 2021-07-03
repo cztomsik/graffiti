@@ -22,9 +22,11 @@ pub struct WebView {
 }
 
 impl WebView {
-    pub fn new(app: &Rc<App>) -> Self {
+    pub fn new() -> Self {
         #[cfg(target_os = "macos")]
         unsafe {
+            let _app = App::current().expect("no App");
+
             let cfg: id = msg_send![class!(WKWebViewConfiguration), new];
             let del: id = msg_send![class!(NSObject), alloc];
             let webview: id = msg_send![class!(WKWebView), alloc];
@@ -32,7 +34,7 @@ impl WebView {
             let () = msg_send![webview, setUIDelegate: del];
 
             return Self {
-                _app: Rc::clone(app),
+                _app,
                 webview: StrongPtr::retain(webview),
             };
         }
@@ -41,7 +43,7 @@ impl WebView {
         Self { _app: Rc::clone(app) }
     }
 
-    pub fn attach(&mut self, window: &mut Window) {
+    pub fn attach(&self, window: &Window) {
         #[cfg(target_os = "macos")]
         unsafe {
             let ns_window: id = window.native_handle() as _;
@@ -49,7 +51,7 @@ impl WebView {
         }
     }
 
-    pub fn load_url(&mut self, url: &str) {
+    pub fn load_url(&self, url: &str) {
         #[cfg(target_os = "macos")]
         unsafe {
             let url: id = msg_send![class!(NSString), stringWithUTF8String: *c_str!(url)];
@@ -59,7 +61,7 @@ impl WebView {
         }
     }
 
-    pub fn eval(&mut self, js: &str) {
+    pub fn eval(&self, js: &str) {
         println!("eval: {:?}", js);
 
         // TODO: get result (might be tricky because of main thread queue & possible deadlocks)

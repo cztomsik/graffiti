@@ -6,17 +6,20 @@ use graffiti_glfw::*;
 use std::ffi::CStr;
 use std::os::raw::{c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
-use std::rc::Rc;
+use std::rc::{Rc};
+use std::cell::{RefCell, Ref};
 
 pub struct Window {
     _app: Rc<App>,
-    title: String,
+    title: RefCell<String>,
     glfw_window: GlfwWindow,
     events: Receiver<Event>,
 }
 
 impl Window {
-    pub fn new(app: &Rc<App>, title: &str, width: i32, height: i32) -> Self {
+    pub fn new(title: &str, width: i32, height: i32) -> Self {
+        let _app = App::current().expect("no App");
+
         unsafe {
             glfwDefaultWindowHints();
 
@@ -45,8 +48,8 @@ impl Window {
             glfwSetWindowCloseCallback(glfw_window, handle_glfw_window_close);
 
             Self {
-                _app: Rc::clone(app),
-                title: title.to_owned(),
+                _app,
+                title: title.to_owned().into(),
                 glfw_window,
                 events,
             }
@@ -54,25 +57,25 @@ impl Window {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn native_handle(&mut self) -> *mut c_void {
+    pub fn native_handle(&self) -> *mut c_void {
         unsafe { glfwGetCocoaWindow(self.glfw_window) as _ }
     }
 
-    pub fn title(&self) -> &str {
-        &self.title
+    pub fn title(&self) -> Ref<String> {
+        self.title.borrow()
     }
 
-    pub fn set_title(&mut self, title: &str) {
+    pub fn set_title(&self, title: &str) {
         unsafe { glfwSetWindowTitle(self.glfw_window, *c_str!(title)) }
 
-        self.title = title.to_owned();
+        self.title.replace(title.to_owned());
     }
 
     pub fn resizable(&self) -> bool {
         unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_RESIZABLE) == GLFW_TRUE }
     }
 
-    pub fn set_resizable(&mut self, resizable: bool) {
+    pub fn set_resizable(&self, resizable: bool) {
         unsafe { glfwSetWindowAttrib(self.glfw_window, GLFW_RESIZABLE, resizable as _) }
     }
 
@@ -84,7 +87,7 @@ impl Window {
         size
     }
 
-    pub fn set_size(&mut self, (width, height): (i32, i32)) {
+    pub fn set_size(&self, (width, height): (i32, i32)) {
         unsafe { glfwSetWindowSize(self.glfw_window, width as _, height as _) }
     }
 
@@ -112,7 +115,7 @@ impl Window {
         unsafe { glfwGetWindowOpacity(self.glfw_window) }
     }
 
-    pub fn set_opacity(&mut self, opacity: f32) {
+    pub fn set_opacity(&self, opacity: f32) {
         unsafe { glfwSetWindowOpacity(self.glfw_window, opacity) }
     }
 
@@ -120,11 +123,11 @@ impl Window {
         unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_VISIBLE) == GLFW_TRUE }
     }
 
-    pub fn show(&mut self) {
+    pub fn show(&self) {
         unsafe { glfwShowWindow(self.glfw_window) }
     }
 
-    pub fn hide(&mut self) {
+    pub fn hide(&self) {
         unsafe { glfwHideWindow(self.glfw_window) }
     }
 
@@ -132,7 +135,7 @@ impl Window {
         unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_FOCUSED) == GLFW_TRUE }
     }
 
-    pub fn focus(&mut self) {
+    pub fn focus(&self) {
         unsafe { glfwFocusWindow(self.glfw_window) }
     }
 
@@ -140,7 +143,7 @@ impl Window {
         unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_ICONIFIED) == GLFW_TRUE }
     }
 
-    pub fn minimize(&mut self) {
+    pub fn minimize(&self) {
         unsafe { glfwIconifyWindow(self.glfw_window) }
     }
 
@@ -148,15 +151,15 @@ impl Window {
         unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_MAXIMIZED) == GLFW_TRUE }
     }
 
-    pub fn maximize(&mut self) {
+    pub fn maximize(&self) {
         unsafe { glfwMaximizeWindow(self.glfw_window) }
     }
 
-    pub fn restore(&mut self) {
+    pub fn restore(&self) {
         unsafe { glfwRestoreWindow(self.glfw_window) }
     }
 
-    pub fn request_attention(&mut self) {
+    pub fn request_attention(&self) {
         unsafe { glfwRequestWindowAttention(self.glfw_window) }
     }
 
@@ -166,23 +169,23 @@ impl Window {
         unsafe { glfwWindowShouldClose(self.glfw_window) == GLFW_TRUE }
     }
 
-    pub fn set_should_close(&mut self, value: bool) {
+    pub fn set_should_close(&self, value: bool) {
         unsafe { glfwSetWindowShouldClose(self.glfw_window, value as _) }
     }
 
     // note it needs to be processed one by one because each event can cause new changes,
     // styles, dimensions and so the target might not be valid anymore
-    pub fn events(&mut self) -> &Receiver<Event> {
+    pub fn events(&self) -> &Receiver<Event> {
         &self.events
     }
 
     // GL
 
-    pub unsafe fn make_current(&mut self) {
+    pub unsafe fn make_current(&self) {
         glfwMakeContextCurrent(self.glfw_window);
     }
 
-    pub unsafe fn get_proc_address(&mut self, symbol: &str) -> *const c_void {
+    pub unsafe fn get_proc_address(&self, symbol: &str) -> *const c_void {
         // TODO: this is magic we should rather panic if not current
         self.make_current();
 
@@ -192,7 +195,7 @@ impl Window {
     // GLFW says it's possible to call this from any thread but
     // some people say everything related to HDC is tied to the original thread
     // and drivers are free to depend on this
-    pub fn swap_buffers(&mut self) {
+    pub fn swap_buffers(&self) {
         unsafe { glfwSwapBuffers(self.glfw_window) }
     }
 
@@ -200,7 +203,7 @@ impl Window {
         unsafe { CStr::from_ptr(glfwGetClipboardString(self.glfw_window)).to_str().ok() }
     }
 
-    pub fn set_clipboard_string(&mut self, string: &str) {
+    pub fn set_clipboard_string(&self, string: &str) {
         unsafe { glfwSetClipboardString(self.glfw_window, *c_str!(string)) }
     }
 }

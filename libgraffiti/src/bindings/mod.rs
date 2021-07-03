@@ -86,7 +86,7 @@ macro_rules! export_api {
             viewport_drop: |vp| drop(ctx!().viewports.remove(vp)),
 
             window_new: |title: String, width, height| {
-                let mut w = Window::new(ctx!().app.as_ref().unwrap(), &title, width, height);
+                let w = Window::new(&title, width, height);
                 let events = w.events().clone();
 
                 // backend should be per-window because loadURL() creates new viewport
@@ -118,10 +118,7 @@ macro_rules! export_api {
                 drop(ctx!().windows.remove(w))
             },
 
-            webview_new: || {
-                let wv = WebView::new(ctx!().app.as_ref().unwrap());
-                ctx!().webviews.insert(wv)
-            },
+            webview_new: || ctx!().webviews.insert(WebView::new()),
             webview_attach: |wv, w| CTX.with(|ctx| {
                 let Ctx { ref mut webviews, ref mut windows, .. } = *ctx.borrow_mut();
                 webviews[wv].attach(&mut windows[w]);

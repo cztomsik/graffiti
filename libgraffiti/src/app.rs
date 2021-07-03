@@ -4,7 +4,12 @@ use graffiti_glfw::*;
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_int};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
+use std::cell::RefCell;
+
+thread_local! {
+    static APP: RefCell<Weak<App>> = Default::default();
+}
 
 pub struct App {
     // !Send, !Sync
@@ -13,11 +18,19 @@ pub struct App {
 
 impl App {
     pub unsafe fn init() -> Rc<Self> {
+        // TODO: check main thread
         assert_eq!(glfwInit(), GLFW_TRUE);
-
         glfwSetErrorCallback(handle_glfw_error);
 
-        Rc::new(Self { _marker: PhantomData })
+        let rc = Rc::new(Self { _marker: PhantomData });
+
+        APP.with(|weak| weak.replace(Rc::downgrade(&rc)));
+
+        rc
+    }
+
+    pub fn current() -> Option<Rc<Self>> {
+        APP.with(|weak| Weak::upgrade(&weak.borrow()))
     }
 
     pub fn poll_events(&self) {
@@ -40,6 +53,8 @@ impl App {
 impl Drop for App {
     fn drop(&mut self) {
         unsafe { glfwTerminate() }
+
+        APP.with(|weak| weak.take());
     }
 }
 

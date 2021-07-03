@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 fn main() {
     let app = unsafe { App::init() };
-    let mut win = Window::new(&app, "Hello", 1024, 768);
+    let win = Window::new("Hello", 1024, 768);
     let mut viewport = Viewport::new(win.size(), &Rc::new(RefCell::new(Document::new())));
     let mut backend = unsafe { GlBackend::new(|s| win.get_proc_address(s) as _) };
 

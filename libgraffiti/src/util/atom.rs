@@ -136,6 +136,6 @@ mod tests {
         let _: Atom<String> = Atom::from("foo");
 
         let foo = Atom::from("foo");
-        assert!(std::any::Any::is::<Atom<String>>(&foo));
+        assert!(<dyn std::any::Any>::is::<Atom<String>>(&foo));
     }
 }
