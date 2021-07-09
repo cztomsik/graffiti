@@ -5,7 +5,7 @@
 //   - Deno doesn't have runInContext and it might not be enough anyway)
 // - we want location.reload() for development purposes (live-reload, HMR)
 
-import { native, loadNativeApi } from './native'
+import { native, loadNativeApi, register } from './native'
 import { Window, makeGlobal } from './window/Window'
 import { readURL } from './util'
 import { getDocId } from './dom/Document'
@@ -59,8 +59,7 @@ async function main({ windowId, width, height, url, options }) {
 
   // init viewport
   const viewportId = native.viewport_new(width, height, getDocId(document))
-  document['__VIEWPORT_ID'] = viewportId
-  VIEWPORT_REGISTRY.register(window, viewportId)
+  register(window, viewportId)
 
   // load html
   parseIntoDocument(document, await readURL(url))
@@ -177,5 +176,3 @@ async function main({ windowId, width, height, url, options }) {
     }
   }
 }
-
-const VIEWPORT_REGISTRY = new FinalizationRegistry(id => native.viewport_drop(id))

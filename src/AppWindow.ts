@@ -1,55 +1,44 @@
-import { native } from './native'
+import { native, register, getNativeId } from './native'
 import { ERR, Worker } from './util'
 
-export const ID = Symbol()
-
 export class AppWindow {
-  #id: number
   #worker?: Worker
   #send = ERR.bind('no worker')
 
   constructor({ title = 'Graffiti', width = 1024, height = 768 } = {}) {
-    this.#id = native.window_new(title, width, height)
-
-    // TODO: fires prematurely
-    // WINDOW_REGISTRY.register(this, this.#id)
-  }
-
-  // TODO: not sure if this is good (but WebView needs it)
-  get [ID]() {
-    return this.#id
+    register(this, native.Window_new(title, width, height))
   }
 
   get title() {
-    return native.window_title(this.#id)
+    return native.Window_title(getNativeId(this))
   }
 
   set title(title: string) {
-    native.window_set_title(this.#id, title)
+    native.Window_set_title(getNativeId(this), title)
   }
 
   show() {
-    native.window_show(this.#id)
+    native.Window_show(getNativeId(this))
   }
 
   hide() {
-    native.window_hide(this.#id)
+    native.Window_hide(getNativeId(this))
   }
 
   focus() {
-    native.window_focus(this.#id)
+    native.Window_focus(getNativeId(this))
   }
 
   minimize() {
-    native.window_minimize(this.#id)
+    native.Window_minimize(getNativeId(this))
   }
 
   maximize() {
-    native.window_maximize(this.#id)
+    native.Window_maximize(getNativeId(this))
   }
 
   restore() {
-    native.window_restore(this.#id)
+    native.Window_restore(getNativeId(this))
   }
 
   async loadURL(url: URL | string, options = {}) {
@@ -84,13 +73,11 @@ export class AppWindow {
         return new Promise((resolve, reject) => (next = { resolve, reject }))
       }))
 
-    const [width, height] = native.window_size(this.#id)
-    await this.#send({ type: 'init', windowId: this.#id, width, height, url: '' + url, options })
+    const [width, height] = native.Window_size(getNativeId(this))
+    await this.#send({ type: 'init', windowId: getNativeId(this), width, height, url: '' + url, options })
   }
 
   async eval(js: string) {
     return this.#send({ type: 'eval', js })
   }
 }
-
-const WINDOW_REGISTRY = new FinalizationRegistry(id => native.window_drop(id))

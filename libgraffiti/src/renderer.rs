@@ -25,7 +25,7 @@ pub struct Renderer {
     layout_nodes: Rc<RefCell<SlotMap<NodeId, LayoutNode>>>,
     styles: Rc<RefCell<SlotMap<NodeId, Style>>>,
     texts: Rc<RefCell<SlotMap<NodeId, Text>>>,
-    canvas: Canvas,
+    canvas: Rc<RefCell<Canvas>>,
 }
 
 impl Renderer {
@@ -40,11 +40,11 @@ impl Renderer {
             layout_nodes: Rc::clone(&layout_nodes),
             styles: Rc::clone(&styles),
             texts: Rc::clone(&texts),
-            canvas: Canvas::new(),
+            canvas: Rc::new(RefCell::new(Canvas::new())),
         }
     }
 
-    pub fn render<'a>(&'a mut self) -> Frame {
+    pub fn render<'a>(&'a self) -> Frame {
         let document = &*self.document.borrow();
         let layout_nodes = &*self.layout_nodes.borrow();
         let styles = &*self.styles.borrow();
@@ -53,7 +53,7 @@ impl Renderer {
 
         let mut ctx = RenderContext {
             document,
-            canvas: &mut self.canvas,
+            canvas: &mut self.canvas.borrow_mut(),
             layout_nodes,
             styles,
             texts,

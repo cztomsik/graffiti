@@ -13,6 +13,13 @@ if (PLATFORM === 'windows') LIB = LIB_URL.href.replace('file:///', '') // ~~Wind
 else LIB = LIB_URL.pathname
 //const PREBUILT_URL = `https://github.com/cztomsik/graffiti/releases/download/${VERSION}`
 
+const NATIVE_ID = Symbol()
+const NATIVE_REGISTRY = new FinalizationRegistry(id => native.drop(id))
+
+export const register = (target, id) => NATIVE_REGISTRY.register(target, (target[NATIVE_ID] = id))
+
+export const getNativeId = target => target[NATIVE_ID]
+
 // export async fn, nothing should be done at import time (testing)
 export const loadNativeApi = async () => {
   if (isDeno) {

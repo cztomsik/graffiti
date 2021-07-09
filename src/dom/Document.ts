@@ -1,7 +1,7 @@
 // TODO: cyclic
 import { Node } from './Node'
 
-import { native } from '../native'
+import { native, register, getNativeId } from '../native'
 import {
   NodeList,
   Text,
@@ -167,8 +167,7 @@ export class Document extends Node implements globalThis.Document {
   }
 
   elementFromPoint(x, y): Element | null {
-    // TODO: find a better way to get that id (and to call native)
-    let id = native.viewport_element_from_point(this['__VIEWPORT_ID'], x, y)
+    let id = native.Viewport_element_from_point(getNativeId(this.defaultView), x, y)
 
     return id && lookup(this, id)
   }
@@ -290,43 +289,33 @@ declare global {
   interface Document extends Doc {}
 }
 
-const DOC_ID = Symbol()
 const REFS = Symbol()
-const NODE_REGISTRY = Symbol()
-const NODE_ID = Symbol()
 
 const initDocument = (doc) => {
-  doc[DOC_ID] = native.document_new()
-  doc[REFS] = []
-  doc[NODE_REGISTRY] = new FinalizationRegistry(id => native.document_drop_node(doc[DOC_ID], id))
-  initNode(doc, doc, 0)
-
-  DOCUMENT_REGISTRY.register(doc, doc[DOC_ID])
+  doc[REFS] = {}
+  initNode(doc, doc, native.Document_new())
 }
 
 const initNode = (doc, node, id) => {
-  node[NODE_ID] = id
   doc[REFS][id] = new WeakRef(node)
-  doc[NODE_REGISTRY].register(node, id)
+  register(node, id)
 }
 
 const lookup = (doc, id) => (id && doc[REFS][id]?.deref()) ?? null
 
 // package-private
-export const getDocId = (doc) => doc[DOC_ID]
-export const initTextNode = (doc, node, cdata) => initNode(doc, node, native.document_create_text_node(doc[DOC_ID], cdata))
-export const initComment = (doc, node, cdata) => initNode(doc, node, native.document_create_comment(doc[DOC_ID], cdata))
-export const setCdata = (doc, node, cdata) => native.document_set_cdata(doc[DOC_ID], node[NODE_ID], cdata)
-export const initElement = (doc, el, localName) => initNode(doc, el, native.document_create_element(doc[DOC_ID], localName))
-export const getAttribute = (doc, el, k) => native.document_attribute(doc[DOC_ID], el[NODE_ID], k)
-export const setAttribute = (doc, el, k, v) => native.document_set_attribute(doc[DOC_ID], el[NODE_ID], k, v)
-export const removeAttribute = (doc, el, k) => native.document_remove_attribute(doc[DOC_ID], el[NODE_ID], k)
-export const getAttributeNames = (doc, el) => native.document_attribute_names(doc[DOC_ID], el[NODE_ID])
-export const setElementStyleProp = (doc, el, prop, val) => native.document_set_element_style_property(doc[DOC_ID], el[NODE_ID], prop, val)
-export const insertChild = (doc, parent, child, index) => native.document_insert_child(doc[DOC_ID], parent[NODE_ID], child[NODE_ID], index)
-export const removeChild = (doc, parent, child) => native.document_remove_child(doc[DOC_ID], parent[NODE_ID], child[NODE_ID])
-export const matches = (doc, el, sel) => lookup(doc, native.document_matches(doc[DOC_ID], el[NODE_ID], sel))
-export const querySelector = (doc, ctxNode, sel) => lookup(doc, native.document_query_selector(doc[DOC_ID], ctxNode[NODE_ID], sel))
-export const querySelectorAll = (doc, ctxNode, sel) => native.document_query_selector_all(doc[DOC_ID], ctxNode[NODE_ID], sel).map(id => lookup(doc, id))
-
-const DOCUMENT_REGISTRY = new FinalizationRegistry(id => native.document_drop(id))
+export const getDocId = (doc) => getNativeId(doc)
+export const initTextNode = (doc, node, cdata) => initNode(doc, node, native.Document_create_text_node(getNativeId(doc), cdata))
+export const initComment = (doc, node, cdata) => initNode(doc, node, native.Document_create_comment(getNativeId(doc), cdata))
+export const setCdata = (doc, node, cdata) => native.Document_set_cdata(getNativeId(doc), getNativeId(node), cdata)
+export const initElement = (doc, el, localName) => initNode(doc, el, native.Document_create_element(getNativeId(doc), localName))
+export const getAttribute = (doc, el, k) => native.Document_attribute(getNativeId(doc), getNativeId(el), k)
+export const setAttribute = (doc, el, k, v) => native.Document_set_attribute(getNativeId(doc), getNativeId(el), k, v)
+export const removeAttribute = (doc, el, k) => native.Document_remove_attribute(getNativeId(doc), getNativeId(el), k)
+export const getAttributeNames = (doc, el) => native.Document_attribute_names(getNativeId(doc), getNativeId(el))
+export const setElementStyleProp = (doc, el, prop, val) => native.Document_set_element_style_property(getNativeId(doc), getNativeId(el), prop, val)
+export const insertChild = (doc, parent, child, index) => native.Document_insert_child(getNativeId(doc), getNativeId(parent), getNativeId(child), index)
+export const removeChild = (doc, parent, child) => native.Document_remove_child(getNativeId(doc), getNativeId(parent), getNativeId(child))
+export const matches = (doc, el, sel) => lookup(doc, native.Document_matches(getNativeId(doc), getNativeId(el), sel))
+export const querySelector = (doc, ctxNode, sel) => lookup(doc, native.Document_query_selector(getNativeId(doc), getNativeId(ctxNode), sel))
+export const querySelectorAll = (doc, ctxNode, sel) => native.Document_query_selector_all(getNativeId(doc), getNativeId(ctxNode), sel).map(id => lookup(doc, id))

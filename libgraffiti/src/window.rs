@@ -3,11 +3,11 @@
 use super::App;
 use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use graffiti_glfw::*;
+use std::cell::RefCell;
 use std::ffi::CStr;
 use std::os::raw::{c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
-use std::rc::{Rc};
-use std::cell::{RefCell, Ref};
+use std::rc::Rc;
 
 pub struct Window {
     _app: Rc<App>,
@@ -61,8 +61,8 @@ impl Window {
         unsafe { glfwGetCocoaWindow(self.glfw_window) as _ }
     }
 
-    pub fn title(&self) -> Ref<String> {
-        self.title.borrow()
+    pub fn title(&self) -> String {
+        self.title.borrow().clone()
     }
 
     pub fn set_title(&self, title: &str) {

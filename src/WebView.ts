@@ -1,31 +1,24 @@
-import { native } from './native'
+import { native, register, getNativeId } from './native'
 import { AppWindow } from './index'
-import { ID } from './AppWindow'
 
 export class WebView {
-  #id: number
-
   constructor() {
-    this.#id = native.webview_new()
-
-    WEBVIEW_REGISTRY.register(this, this.#id)
+    register(this, native.WebView_new())
   }
 
   attach(window: AppWindow) {
-    native.webview_attach(this.#id, window[ID])
+    native.WebView_attach(getNativeId(this), getNativeId(window))
   }
 
   async loadURL(url: URL | string) {
-    native.webview_load_url(this.#id, '' + url)
+    native.WebView_load_url(getNativeId(this), '' + url)
   }
 
   async eval(js) {
-    const res = native.webview_eval(this.#id, js)
+    const res = native.WebView_eval(getNativeId(this), js)
 
     if (res !== undefined) {
       return JSON.parse(res)
     }
   }
 }
-
-const WEBVIEW_REGISTRY = new FinalizationRegistry(id => native.webview_drop(id))

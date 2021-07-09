@@ -17,13 +17,13 @@ export class App {
 
   // useful for testing/debugging
   tick() {
-    native.tick()
+    native.App_tick()
   }
 
   static async init() {
     await loadNativeApi()
 
-    native.init()
+    native.App_init()
 
     return new App()
   }
