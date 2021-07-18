@@ -1,6 +1,7 @@
 #[macro_use]
 mod util;
 
+mod dom;
 mod app;
 mod css;
 mod document;

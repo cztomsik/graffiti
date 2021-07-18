@@ -7,12 +7,12 @@ use crate::layout::{Align, Dimension, Display, FlexDirection, FlexWrap, Justify,
 use crate::renderer::Renderer;
 use crate::util::SlotMap;
 use crate::{Document, DocumentEvent, NodeId, NodeType};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
 pub struct Viewport {
-    size: (i32, i32),
+    size: Cell<(i32, i32)>,
 
     document: Rc<RefCell<Document>>,
     // TODO: something like hibitset?
@@ -38,7 +38,7 @@ impl Viewport {
         layout_nodes.borrow_mut()[0].set_style(Style::from("display: block; width: 100%; height: 100%").props().into());
 
         let viewport = Self {
-            size,
+            size: size.into(),
             document: Rc::clone(&document),
             dirty_nodes: Rc::clone(&dirty_nodes),
             layout_nodes: Rc::clone(&layout_nodes),
@@ -99,7 +99,7 @@ impl Viewport {
         &self.document
     }
 
-    pub fn render(&mut self) -> Frame {
+    pub fn render(&self) -> Frame {
         self.update();
 
         self.renderer.render()
@@ -150,8 +150,8 @@ impl Viewport {
 
     // TODO: computed_style?
 
-    pub fn resize(&mut self, size: (i32, i32)) {
-        self.size = size;
+    pub fn resize(&self, size: (i32, i32)) {
+        self.size.set(size);
         self.update();
     }
 
@@ -199,7 +199,8 @@ impl Viewport {
     }
 
     fn update_layout(&self) {
-        let size = (self.size.0 as _, self.size.1 as _);
+        let (w, h) = self.size.get();
+        let size = (w as _, h as _);
 
         self.layout_nodes.borrow()[self.document.borrow().root()].calculate(size);
     }
