@@ -112,6 +112,20 @@ impl<T: Eq + Hash> PartialEq for Atom<T> {
     }
 }
 
+/// ```
+/// assert_eq!("foo", Atom::from("foo"))
+/// ```
+impl<T, Q> PartialEq<Q> for Atom<T>
+where
+    T: 'static + Eq + Hash + Borrow<Q>,
+    Q: ?Sized + Eq + Hash,
+    Wrap<T>: Borrow<Q>
+{
+    fn eq(&self, other: &Q) -> bool {
+        Q::eq(self.deref().borrow(), other)
+    }
+}
+
 impl<T: Display + Eq + Hash> Display for Atom<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{}", self.0 .0)

@@ -3,8 +3,9 @@
 
 import { EventTarget } from '../events/index'
 import { NodeList } from './index'
-import { insertChild, removeChild, querySelector, querySelectorAll } from './Document'
+import { querySelector, querySelectorAll } from './Document'
 import { assert, last, UNSUPPORTED } from '../util'
+import { getNativeId, native } from '../native'
 
 export abstract class Node extends EventTarget implements G.Node, G.ParentNode, G.ChildNode, G.NonDocumentTypeChildNode, G.Slottable {
   abstract readonly nodeType: number
@@ -42,7 +43,11 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     ;(child as any).parentNode = this
 
     if (this.nodeType !== DOCUMENT_FRAGMENT_NODE) {
-      insertChild(this.ownerDocument, this, child, index)
+      if (refNode) {
+        native.Node_insert_before(getNativeId(this), getNativeId(child), getNativeId(refNode))
+      } else {
+        native.Node_append_child(getNativeId(this), getNativeId(child))
+      }
     }
 
     return child
@@ -55,7 +60,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
 
     if (this.nodeType !== DOCUMENT_FRAGMENT_NODE) {
-      removeChild(this.ownerDocument, this, child)
+      native.Node_remove_child(getNativeId(this), getNativeId(child))
     }
 
     return child

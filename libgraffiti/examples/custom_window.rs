@@ -1,7 +1,5 @@
 use graffiti::gfx::{GlBackend, RenderBackend};
-use graffiti::{Document, Viewport};
-use std::cell::RefCell;
-use std::rc::Rc;
+use graffiti::{Document, Node, Viewport};
 
 // or whatever else you use to create a window with GL context
 use graffiti_glfw::*;
@@ -25,20 +23,18 @@ fn main() {
 
         glfwMakeContextCurrent(win);
 
-        let document = Rc::new(RefCell::new(Document::new()));
-        let mut viewport = Viewport::new((width, height), &document);
+        let doc = Document::new();
+        let viewport = Viewport::new((width, height), doc.clone());
 
         let mut backend = GlBackend::new(|symbol| {
             let symbol = std::ffi::CString::new(symbol).unwrap();
             glfwGetProcAddress(symbol.as_ptr()) as _
         });
 
-        let mut doc = viewport.document().borrow_mut();
-        let root = doc.root();
         let h1 = doc.create_element("h1");
         let hello = doc.create_text_node("Hello");
-        doc.insert_child(h1, hello, 0);
-        doc.insert_child(root, h1, 0);
+        h1.append_child(hello);
+        doc.append_child(h1);
         drop(doc);
 
         while glfwWindowShouldClose(win) != GLFW_TRUE {
