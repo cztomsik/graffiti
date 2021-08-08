@@ -1,5 +1,5 @@
-import { setCdata } from './Document'
 import { Node } from './index'
+import { getNativeId, native } from '../native'
 
 export abstract class CharacterData extends Node implements globalThis.CharacterData {
   #data = ''
@@ -17,7 +17,7 @@ export abstract class CharacterData extends Node implements globalThis.Character
   set data(data) {
     this.#data = normalize(data)
 
-    setCdata(this.ownerDocument, this, data)
+    native.CharacterData_set_data(getNativeId(this), data)
   }
 
   get nodeValue() {

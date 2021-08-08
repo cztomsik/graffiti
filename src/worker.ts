@@ -5,10 +5,9 @@
 //   - Deno doesn't have runInContext and it might not be enough anyway)
 // - we want location.reload() for development purposes (live-reload, HMR)
 
-import { native, loadNativeApi, register } from './native'
+import { native, loadNativeApi, register, getNativeId } from './native'
 import { Window, makeGlobal } from './window/Window'
 import { readURL } from './util'
-import { getDocId } from './dom/Document'
 import { parseIntoDocument } from './dom/DOMParser'
 import { loadStyles } from './dom/HTMLLinkElement'
 import { runScripts } from './dom/HTMLScriptElement'
@@ -44,7 +43,7 @@ async function send(result, error?) {
   // TODO: we can avoid namespacing with MessageChannel sent with first init
   //       (this is currently blocked by deno which does not yet support transferables)
   postMessage({ type: '__GFT', result, error }, '')
-  native.wake_up()
+  native.App_wake_up()
 }
 
 async function main({ windowId, width, height, url, options }) {
@@ -58,7 +57,7 @@ async function main({ windowId, width, height, url, options }) {
   makeGlobal(window)
 
   // init viewport
-  const viewportId = native.viewport_new(width, height, getDocId(document))
+  const viewportId = native.Viewport_new(width, height, getNativeId(document))
   register(window, viewportId)
 
   // load html
@@ -82,11 +81,11 @@ async function main({ windowId, width, height, url, options }) {
     // TODO: windowId or viewportId? or something else?
 
     // TODO: async...
-    while ((ev = native.window_next_event(windowId))) {
+    while ((ev = native.Window_next_event(windowId))) {
       handleEvent(ev)
     }
 
-    native.viewport_render(windowId, viewportId)
+    native.Viewport_render(windowId, viewportId)
 
     setTimeout(loop, 100)
   }
@@ -165,7 +164,7 @@ async function main({ windowId, width, height, url, options }) {
       }
 
       case 'resize': {
-        native.viewport_resize(viewportId, vec2![0], vec2![1])
+        native.Viewport_resize(viewportId, vec2![0], vec2![1])
         return
       }
 

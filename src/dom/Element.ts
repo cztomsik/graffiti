@@ -1,7 +1,8 @@
 import { Node, NodeList, XMLSerializer } from './index'
 import { ERR } from '../util'
-import { initElement, getAttributeNames, getAttribute, setAttribute, removeAttribute, matches } from './Document'
+import { initElement, matches } from './Document'
 import { parseFragment } from './DOMParser'
+import { getNativeId, native } from '../native'
 
 export abstract class Element extends Node implements globalThis.Element {
   abstract readonly tagName: string
@@ -40,11 +41,11 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   getAttribute(name: string): string | null {
-    return getAttribute(this.ownerDocument, this, name)
+    return native.Element_attribute(getNativeId(this), name)
   }
 
   getAttributeNames(): string[] {
-    return getAttributeNames(this.ownerDocument, this)
+    return native.Element_attribute_names(getNativeId(this))
   }
 
   hasAttribute(name: string): boolean {
@@ -58,11 +59,11 @@ export abstract class Element extends Node implements globalThis.Element {
   setAttribute(name: string, value: string) {
     value = (typeof value === 'string' ? value : '' + value).toLowerCase()
 
-    setAttribute(this.ownerDocument, this, name, value)
+    native.Element_set_attribute(getNativeId(this), name, value)
   }
 
   removeAttribute(name: string) {
-    removeAttribute(this.ownerDocument, this, name)
+    native.Element_remove_attribute(getNativeId(this), name)
   }
 
   toggleAttribute(name: string, force?: boolean): boolean {
@@ -147,7 +148,6 @@ export abstract class Element extends Node implements globalThis.Element {
 
   // maybe later
   animate
-  assignedSlot
   attachShadow
   clientHeight
   clientLeft

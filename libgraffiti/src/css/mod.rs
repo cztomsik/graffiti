@@ -1,12 +1,12 @@
-mod css_engine;
+mod cssom;
+mod matching;
 mod parser;
 mod properties;
 mod selector;
-mod style;
 mod value_types;
 
-pub use css_engine::*;
+pub use cssom::*;
+pub(crate) use matching::*;
 pub use properties::*;
 pub use selector::*;
-pub use style::*;
 pub use value_types::*;

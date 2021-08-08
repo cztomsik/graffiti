@@ -304,18 +304,10 @@ const initNode = (doc, node, id) => {
 const lookup = (doc, id) => (id && doc[REFS][id]?.deref()) ?? null
 
 // package-private
-export const getDocId = (doc) => getNativeId(doc)
 export const initTextNode = (doc, node, cdata) => initNode(doc, node, native.Document_create_text_node(getNativeId(doc), cdata))
 export const initComment = (doc, node, cdata) => initNode(doc, node, native.Document_create_comment(getNativeId(doc), cdata))
-export const setCdata = (doc, node, cdata) => native.Document_set_cdata(getNativeId(doc), getNativeId(node), cdata)
 export const initElement = (doc, el, localName) => initNode(doc, el, native.Document_create_element(getNativeId(doc), localName))
-export const getAttribute = (doc, el, k) => native.Document_attribute(getNativeId(doc), getNativeId(el), k)
-export const setAttribute = (doc, el, k, v) => native.Document_set_attribute(getNativeId(doc), getNativeId(el), k, v)
-export const removeAttribute = (doc, el, k) => native.Document_remove_attribute(getNativeId(doc), getNativeId(el), k)
-export const getAttributeNames = (doc, el) => native.Document_attribute_names(getNativeId(doc), getNativeId(el))
 export const setElementStyleProp = (doc, el, prop, val) => native.Document_set_element_style_property(getNativeId(doc), getNativeId(el), prop, val)
-export const insertChild = (doc, parent, child, index) => native.Document_insert_child(getNativeId(doc), getNativeId(parent), getNativeId(child), index)
-export const removeChild = (doc, parent, child) => native.Document_remove_child(getNativeId(doc), getNativeId(parent), getNativeId(child))
 export const matches = (doc, el, sel) => lookup(doc, native.Document_matches(getNativeId(doc), getNativeId(el), sel))
 export const querySelector = (doc, ctxNode, sel) => lookup(doc, native.Document_query_selector(getNativeId(doc), getNativeId(ctxNode), sel))
 export const querySelectorAll = (doc, ctxNode, sel) => native.Document_query_selector_all(getNativeId(doc), getNativeId(ctxNode), sel).map(id => lookup(doc, id))

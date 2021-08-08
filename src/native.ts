@@ -14,7 +14,7 @@ else LIB = LIB_URL.pathname
 //const PREBUILT_URL = `https://github.com/cztomsik/graffiti/releases/download/${VERSION}`
 
 const NATIVE_ID = Symbol()
-const NATIVE_REGISTRY = new FinalizationRegistry(id => native.drop(id))
+const NATIVE_REGISTRY = new FinalizationRegistry(id => native.Any_drop(id))
 
 export const register = (target, id) => NATIVE_REGISTRY.register(target, (target[NATIVE_ID] = id))
 
