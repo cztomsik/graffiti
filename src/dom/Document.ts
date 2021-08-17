@@ -1,7 +1,7 @@
 // TODO: cyclic
 import { Node } from './Node'
 
-import { native, register, getNativeId } from '../native'
+import { native, register, getNativeId, lookup } from '../native'
 import {
   NodeList,
   Text,
@@ -56,7 +56,7 @@ export class Document extends Node implements globalThis.Document {
     // if it's ever a problem we could use child.ownerDocument
     this.ownerDocument = this
 
-    initDocument(this)
+    register(this, native.Document_new())
   }
 
   get nodeType() {
@@ -188,18 +188,17 @@ export class Document extends Node implements globalThis.Document {
   get forms() {
     return this.getElementsByTagName('form')
   }
+
   get images() {
     return this.getElementsByTagName('img')
   }
+
   get links() {
     return this.getElementsByTagName('link')
   }
+
   get scripts() {
     return this.getElementsByTagName('script')
-  }
-
-  getElementById(id) {
-    return this.querySelector(`#${id}`)
   }
 
   // deprecated
@@ -288,26 +287,3 @@ type Doc = Document
 declare global {
   interface Document extends Doc {}
 }
-
-const REFS = Symbol()
-
-const initDocument = (doc) => {
-  doc[REFS] = {}
-  initNode(doc, doc, native.Document_new())
-}
-
-const initNode = (doc, node, id) => {
-  doc[REFS][id] = new WeakRef(node)
-  register(node, id)
-}
-
-const lookup = (doc, id) => (id && doc[REFS][id]?.deref()) ?? null
-
-// package-private
-export const initTextNode = (doc, node, cdata) => initNode(doc, node, native.Document_create_text_node(getNativeId(doc), cdata))
-export const initComment = (doc, node, cdata) => initNode(doc, node, native.Document_create_comment(getNativeId(doc), cdata))
-export const initElement = (doc, el, localName) => initNode(doc, el, native.Document_create_element(getNativeId(doc), localName))
-export const setElementStyleProp = (doc, el, prop, val) => native.Document_set_element_style_property(getNativeId(doc), getNativeId(el), prop, val)
-export const matches = (doc, el, sel) => lookup(doc, native.Document_matches(getNativeId(doc), getNativeId(el), sel))
-export const querySelector = (doc, ctxNode, sel) => lookup(doc, native.Document_query_selector(getNativeId(doc), getNativeId(ctxNode), sel))
-export const querySelectorAll = (doc, ctxNode, sel) => native.Document_query_selector_all(getNativeId(doc), getNativeId(ctxNode), sel).map(id => lookup(doc, id))
