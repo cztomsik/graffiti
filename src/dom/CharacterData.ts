@@ -2,22 +2,12 @@ import { Node } from './index'
 import { getNativeId, native } from '../native'
 
 export abstract class CharacterData extends Node implements globalThis.CharacterData {
-  #data = ''
-
-  // don't call setter first-time
-  constructor(data = '', doc = document) {
-    super(doc)
-    this.#data = normalize(data)
-  }
-
   get data() {
-    return this.#data
+    return native.CharacterData_data(getNativeId(this))
   }
 
   set data(data) {
-    this.#data = normalize(data)
-
-    native.CharacterData_set_data(getNativeId(this), data)
+    native.CharacterData_set_data(getNativeId(this), normalize(data))
   }
 
   get nodeValue() {
@@ -65,7 +55,7 @@ export abstract class CharacterData extends Node implements globalThis.Character
   }
 }
 
-function normalize(data) {
+export function normalize(data) {
   // spec allows null but not undefined
   if (data === null) {
     data = ''

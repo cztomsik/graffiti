@@ -1,12 +1,12 @@
-import { initTextNode } from './Document'
 import { Node, CharacterData } from './index'
+import { normalize } from './CharacterData'
+import { native, getNativeId, register } from '../native'
 
 export class Text extends CharacterData implements globalThis.Text {
-  constructor(data, doc) {
-    super(data, doc)
+  constructor(data = '', doc = document) {
+    super(doc)
 
-    // this.data is already normalized
-    initTextNode(doc, this, this.data)
+    register(this, native.Document_create_text_node(getNativeId(doc), normalize(data)))
   }
 
   get nodeType() {
