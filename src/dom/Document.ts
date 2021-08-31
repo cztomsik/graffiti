@@ -167,9 +167,7 @@ export class Document extends Node implements globalThis.Document {
   }
 
   elementFromPoint(x, y): Element | null {
-    let id = native.Viewport_element_from_point(getNativeId(this.defaultView), x, y)
-
-    return id && lookup(this, id)
+    return lookup(native.Viewport_element_from_point(getNativeId(this.defaultView), x, y))
   }
 
   hasFocus(): boolean {

@@ -1,10 +1,9 @@
 #[macro_use]
 mod util;
 
-mod dom;
 mod app;
 mod css;
-mod document;
+mod dom;
 mod layout;
 mod renderer;
 mod viewport;
@@ -13,11 +12,12 @@ mod window;
 
 pub use self::{
   app::App,
-  document::{Document, DocumentEvent, NodeId, NodeType},
+  dom::{CharacterData, Document, Element, Node, NodeId, NodeType},
   viewport::Viewport,
   webview::WebView,
-  window::{Window, Event},
+  window::{Event, Window},
 };
 pub mod gfx;
 
-mod bindings;
+mod ffi;
+mod nodejs;

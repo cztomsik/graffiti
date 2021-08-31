@@ -9,6 +9,14 @@ export class AppWindow {
     register(this, native.Window_new(title, width, height))
   }
 
+  get width() {
+    return native.Window_width(getNativeId(this))
+  }
+
+  get height() {
+    return native.Window_height(getNativeId(this))
+  }
+
   get title() {
     return native.Window_title(getNativeId(this))
   }
@@ -73,7 +81,7 @@ export class AppWindow {
         return new Promise((resolve, reject) => (next = { resolve, reject }))
       }))
 
-    const [width, height] = native.Window_size(getNativeId(this))
+    const [width, height] = [this.width, this.height]
     await this.#send({ type: 'init', windowId: getNativeId(this), width, height, url: '' + url, options })
   }
 

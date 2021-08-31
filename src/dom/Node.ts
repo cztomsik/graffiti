@@ -2,10 +2,9 @@
 //   x it's ok to include mixins (to avoid duplication)
 
 import { EventTarget } from '../events/index'
-import { NodeList } from './index'
-import { querySelector, querySelectorAll } from './Document'
+import { NodeList, HTMLElement } from './index'
 import { assert, last, UNSUPPORTED } from '../util'
-import { getNativeId, native } from '../native'
+import { native, getNativeId, lookup } from '../native'
 
 export abstract class Node extends EventTarget implements G.Node, G.ParentNode, G.ChildNode, G.NonDocumentTypeChildNode, G.Slottable {
   abstract readonly nodeType: number
@@ -30,7 +29,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     }
 
     // fragment
-    if (child.nodeType === DOCUMENT_FRAGMENT_NODE) {
+    if (child.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
       child.childNodes.splice(0).forEach(c => this.insertBefore(c, refNode))
       return child
     }
@@ -42,7 +41,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     this.childNodes.splice(index, 0, child)
     ;(child as any).parentNode = this
 
-    if (this.nodeType !== DOCUMENT_FRAGMENT_NODE) {
+    if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
       if (refNode) {
         native.Node_insert_before(getNativeId(this), getNativeId(child), getNativeId(refNode))
       } else {
@@ -59,7 +58,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     ;(child as any).parentNode = null
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
 
-    if (this.nodeType !== DOCUMENT_FRAGMENT_NODE) {
+    if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
       native.Node_remove_child(getNativeId(this), getNativeId(child))
     }
 
@@ -85,7 +84,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
   }
 
   get parentElement(): HTMLElement | null {
-    return (this.parentNode instanceof HTMLElement) ?this.parentNode :null
+    return this.parentNode instanceof HTMLElement ? this.parentNode : null
   }
 
   get nextSibling(): G.ChildNode | null {
@@ -107,7 +106,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
   // shouldn't be part of element.textContent
   get textContent(): string | null {
     return this.childNodes
-      .filter(c => c.nodeType == ELEMENT_NODE || c.nodeType == TEXT_NODE)
+      .filter(c => c.nodeType == Node.ELEMENT_NODE || c.nodeType == Node.TEXT_NODE)
       .map(c => c.textContent)
       .join('')
   }
@@ -178,7 +177,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
 
       other = other.parentNode
     }
-  
+
     return false
   }
 
@@ -316,15 +315,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
 // define fallback .childNodes
 Object.defineProperty(Node.prototype, 'childNodes', { value: NodeList.EMPTY_FROZEN, writable: true })
 
-// perf(const vs. property lookup)
-const ELEMENT_NODE = Node.ELEMENT_NODE
-const TEXT_NODE = Node.TEXT_NODE
-const COMMENT_NODE = Node.COMMENT_NODE
-const DOCUMENT_NODE = Node.DOCUMENT_NODE
-const DOCUMENT_FRAGMENT_NODE = Node.DOCUMENT_FRAGMENT_NODE
-
-const sibling = (nodes, child, offset) =>
-  (nodes && nodes[nodes.indexOf(child) + offset]) ?? null
+const sibling = (nodes, child, offset) => (nodes && nodes[nodes.indexOf(child) + offset]) ?? null
 
 const strToNode = (parent, n) => (typeof n === 'string' ? parent.ownerDocument.createTextNode('' + n) : n)
 

@@ -1,21 +1,24 @@
 import { Node, NodeList, XMLSerializer } from './index'
 import { ERR } from '../util'
-import { initElement, matches } from './Document'
 import { parseFragment } from './DOMParser'
-import { getNativeId, native } from '../native'
+import { native, getNativeId, register, TRUE } from '../native'
+import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
 
 export abstract class Element extends Node implements globalThis.Element {
   abstract readonly tagName: string
   readonly childNodes = new NodeList<ChildNode>()
   #localName: string
-  #classList
+
+  // both lazy-created
+  #classList?: DOMTokenList
+  #style?: CSSStyleDeclaration
 
   constructor(doc = document, localName: string = ERR('new Element() is not supported')) {
     super(doc)
 
     this.#localName = localName
 
-    initElement(doc, this, localName)
+    register(this, native.Document_create_element(getNativeId(doc), localName))
   }
 
   get nodeType() {
@@ -28,6 +31,12 @@ export abstract class Element extends Node implements globalThis.Element {
 
   get localName() {
     return this.#localName
+  }
+
+  get style() {
+    return (
+      this.#style ?? (this.#style = register(new CSSStyleDeclaration(null), native.Element_style(getNativeId(this))))
+    )
   }
 
   /** @deprecated */
@@ -129,16 +138,12 @@ export abstract class Element extends Node implements globalThis.Element {
     this.replaceWith(parseFragment(this.ownerDocument, html))
   }
 
-  matches(sel: string): boolean {
-    return matches(document, this, sel)
+  matches(selector: string): boolean {
+    return native.Element_matches(getNativeId(this), selector) === TRUE
   }
 
   get classList() {
-    if (this.#classList === undefined) {
-      this.#classList = createClassList(this)
-    }
-
-    return this.#classList
+    return this.#classList ?? (this.#classList = createClassList(this))
   }
 
   // later
