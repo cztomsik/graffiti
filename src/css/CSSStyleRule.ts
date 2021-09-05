@@ -1,11 +1,16 @@
 import { CSSRule } from './CSSRule'
 import { CSSStyleDeclaration } from './CSSStyleDeclaration'
+import { native, getNativeId, register } from '../native'
 
 export class CSSStyleRule extends CSSRule implements globalThis.CSSStyleRule {
-  readonly style = new CSSStyleDeclaration(this, (prop, value) => console.log('TODO: change rule style', prop, value))
+  #style = register(new CSSStyleDeclaration(this), native.CssStyleRule_style(getNativeId(this)))
 
-  constructor(parent: CSSStyleSheet, public selectorText: string) {
-    super(parent)
+  get selectorText() {
+    return native.CssStyleRule_selector_text(getNativeId(this))
+  }
+
+  get style() {
+    return this.#style
   }
 
   get type() {

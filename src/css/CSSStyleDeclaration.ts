@@ -1,17 +1,13 @@
+import { getNativeId, native } from '../native'
 import { UNSUPPORTED } from '../util'
 
 // minimal impl just to get something working
 // (many props are missing)
 export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
-  #values = new Map<string, string>()
-  #onChange
-
-  constructor(public readonly parentRule, onChange) {
-    this.#onChange = onChange
-  }
+  constructor(public readonly parentRule: CSSRule | null) {}
 
   getPropertyValue(propertyName: string): string {
-    return this.#values.get(propertyName) ?? ''
+    return native.CssStyleDeclaration_property_value(getNativeId(this), propertyName)
   }
 
   getPropertyPriority(propertyName: string): string {
@@ -28,42 +24,22 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
       console.warn('!important is not supported')
     }
 
-    this.#values.set(propertyName, value)
-    this.#onChange(propertyName, value)
+    native.CssStyleDeclaration_set_property(getNativeId(this), propertyName, value)
   }
 
   removeProperty(propertyName: string): string {
-    const prev = this.#values.get(propertyName)
-
-    this.#values.delete(propertyName)
-    this.#onChange(propertyName, undefined)
-
-    return prev ?? ''
+    // TODO: native should return this
+    const prev = this.getPropertyValue(propertyName)
+    native.CssStyleDeclaration_remove_property(getNativeId(this), propertyName)
+    return prev
   }
 
   get cssText(): string {
-    return Array.from(this.#values).map(([prop, value]) => `${prop}: ${value}`).join('; ')
+    return native.CssStyleDeclaration_css_text(getNativeId(this))
   }
 
   set cssText(cssText: string) {
-    // TODO: make sure attribute is set in native
-
-    // TODO: either parse props in JS or get hashmap from native
-    //       subset of https://github.com/cztomsik/graffiti/blob/e87f8f336401f06909c54d5471202ef0711c76a9/src/css/parse.ts
-
-    console.log('TODO: CSSStyleDeclaration.cssText = ', cssText)
-
-    /*
-    for (const prop of this.#values.keys()) {
-      this.removeProperty(prop)
-    }
-
-    const { props } = parseRules(`dummy { ${cssText} }`)[0]
-
-    for (const [prop, v] of Object.entries(props)) {
-      this.setProperty(prop, v)
-    }
-    */
+    native.CssStyleDeclaration_set_css_text(getNativeId(this), cssText)
   }
 
   // TODO: extend Array<string> but it's tricky because it should be
@@ -72,11 +48,11 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   [index: number]: string
 
   get length() {
-    return UNSUPPORTED()
+    return native.CssStyleDeclaration_length(getNativeId(this))
   }
 
   item(index: number): string {
-    return UNSUPPORTED()
+    return native.CssStyleDeclaration_item(getNativeId(this), index)
   }
 
   get alignContent() { return this.getPropertyValue('align-content') }
