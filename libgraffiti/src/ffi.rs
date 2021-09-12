@@ -22,6 +22,10 @@ use std::sync::RwLock;
 #[repr(transparent)]
 pub struct ObjId<T: ?Sized>(c_uint, PhantomData<T>);
 
+impl <T: ?Sized> ObjId<T> {
+    pub const NULL: Self = ObjId(0, PhantomData);
+}
+
 #[derive(Default)]
 struct Ctx {
     refs: SlotMap<c_uint, Rc<dyn Any>>,
@@ -207,8 +211,15 @@ pub extern "C" fn gft_Node_remove_child(parent: ObjId<dyn Node>, child: ObjId<dy
     get_node(parent).remove_child(get_node(child))
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn gft_Node_query_selector(node: ObjId<dyn Node>, selector: *const c_char) -> ObjId<Element> {
+    match get_node(node).query_selector(to_str(selector)) {
+        Some(el) => el.into(),
+        None => ObjId::NULL
+    }
+}
+
 // TODO: to_id() + map(to_id())?
-// //Node_query_selector: |node, sel: String| get_node(node).query_selector(&sel),
 // //Node_query_selector_all: |node, sel: String| get_node(node).query_selector_all(&sel),
 
 #[no_mangle]
@@ -221,7 +232,6 @@ pub unsafe extern "C" fn gft_CharacterData_set_data(node: ObjId<CharacterData>, 
     get(node).set_data(to_str(data))
 }
 
-// Element_local_name: |el| get(el).local_name().to_string(),
 #[no_mangle]
 pub extern "C" fn gft_Element_local_name(el: ObjId<Element>) -> *mut c_char {
     CString::new(get(el).local_name().as_str()).unwrap().into_raw()
