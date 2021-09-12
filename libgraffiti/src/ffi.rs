@@ -1,4 +1,9 @@
 // thread-safe FFI
+// - the main idea here is that we hold all objects in a thread-local list of Rc<dyn Any>
+//   and we only return/accept indices to that list so we can avoid (unsafe) pointers
+// - in order to be able to do quick-lookups we also maintain HashMap<ptr, id>
+//   this is useful for QSA but also for anything which returns Rc<> and hence could/should
+//   result in some already existing id/index
 
 use crate::css::CssStyleDeclaration;
 use crate::util::SlotMap;
@@ -9,16 +14,18 @@ use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CStr;
-use std::os::raw::{c_char, c_int, c_uint, c_double};
+use std::marker::PhantomData;
+use std::os::raw::{c_char, c_double, c_int, c_uint};
 use std::rc::Rc;
 use std::sync::RwLock;
 
-type ObjId = c_uint;
+#[repr(transparent)]
+pub struct ObjId<T: ?Sized>(c_uint, PhantomData<T>);
 
 #[derive(Default)]
 struct Ctx {
-    refs: SlotMap<ObjId, Rc<dyn Any>>,
-    ref_ids: HashMap<*const dyn Any, ObjId>,
+    refs: SlotMap<c_uint, Rc<dyn Any>>,
+    ref_ids: HashMap<*const dyn Any, c_uint>,
 }
 
 thread_local! {
@@ -29,29 +36,27 @@ thread_local! {
 static EVENTS: Lazy<RwLock<SlotMap<u32, Receiver<Event>>>> = Lazy::new(Default::default);
 
 #[no_mangle]
-pub extern "C" fn gft_Rc_drop(obj: ObjId) {
+pub extern "C" fn gft_Rc_drop(obj: ObjId<dyn Any>) {
     CTX.with(|ctx| {
         let mut ctx = ctx.borrow_mut();
-        let any = ctx.refs.remove(obj).unwrap();
+        let any = ctx.refs.remove(obj.0).unwrap();
         ctx.ref_ids.remove(&Rc::as_ptr(&any));
     })
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Vec_len(vec: ObjId) -> c_uint {
-    get::<Vec<Rc<dyn Any>>>(vec).len() as u32
+pub extern "C" fn gft_Vec_len(vec: ObjId<Vec<Rc<dyn Any>>>) -> c_uint {
+    get(vec).len() as u32
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Vec_get(vec: ObjId, index: c_uint) -> ObjId {
-    to_id(Rc::clone(
-        get::<Vec<Rc<dyn Any>>>(vec).get(index as usize).expect("out of bounds"),
-    ))
+pub extern "C" fn gft_Vec_get(vec: ObjId<Vec<Rc<dyn Any>>>, index: c_uint) -> ObjId<Vec<Rc<dyn Any>>> {
+    to_id(Rc::clone(get(vec).get(index as usize).expect("out of bounds")))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_App_init() -> ObjId {
-    to_id(unsafe { App::init() })
+pub unsafe extern "C" fn gft_App_init() -> ObjId<App> {
+    App::init().into()
 }
 
 #[no_mangle]
@@ -65,127 +70,136 @@ pub extern "C" fn gft_App_wake_up() {
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Window_new(title: *const c_char, width: c_int, height: c_int) -> ObjId {
+pub unsafe extern "C" fn gft_Window_new(title: *const c_char, width: c_int, height: c_int) -> ObjId<Window> {
     let w = Window::new(to_str(title), width, height);
     let events = w.events().clone();
 
     let id = to_id(Rc::new(w));
 
-    EVENTS.write().unwrap().put(id, events);
+    EVENTS.write().unwrap().put(id.0, events);
 
     id
 }
 
 // Window_next_event: |w| EVENTS.read().unwrap()[w].try_recv().ok().map(event),
-// Window_title: |w| get::<Window>(w).title(),
+// Window_title: |w| get(w).title(),
 
 #[no_mangle]
-pub extern "C" fn gft_Window_set_title(win: ObjId, title: *const c_char) {
-    get::<Window>(win).set_title(to_str(title))
+pub unsafe extern "C" fn gft_Window_set_title(win: ObjId<Window>, title: *const c_char) {
+    get(win).set_title(to_str(title))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Window_width(win: ObjId) -> c_int {
-    get::<Window>(win).size().0
+pub extern "C" fn gft_Window_width(win: ObjId<Window>) -> c_int {
+    get(win).size().0
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Window_height(win: ObjId) -> c_int {
-    get::<Window>(win).size().1
+pub extern "C" fn gft_Window_height(win: ObjId<Window>) -> c_int {
+    get(win).size().1
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Window_resize(win: ObjId, width: c_int, height: c_int) {
-    get::<Window>(win).set_size((width, height))
+pub extern "C" fn gft_Window_resize(win: ObjId<Window>, width: c_int, height: c_int) {
+    get(win).set_size((width, height))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Window_show(win: ObjId) {
-    get::<Window>(win).show()
+pub extern "C" fn gft_Window_show(win: ObjId<Window>) {
+    get(win).show()
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Window_hide(win: ObjId) {
-    get::<Window>(win).hide()
+pub extern "C" fn gft_Window_hide(win: ObjId<Window>) {
+    get(win).hide()
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Window_focus(win: ObjId) {
-    get::<Window>(win).focus()
+pub extern "C" fn gft_Window_focus(win: ObjId<Window>) {
+    get(win).focus()
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Window_minimize(win: ObjId) {
-    get::<Window>(win).minimize()
+pub extern "C" fn gft_Window_minimize(win: ObjId<Window>) {
+    get(win).minimize()
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Window_maximize(win: ObjId) {
-    get::<Window>(win).maximize()
+pub extern "C" fn gft_Window_maximize(win: ObjId<Window>) {
+    get(win).maximize()
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Window_restore(win: ObjId) {
-    get::<Window>(win).restore()
+pub extern "C" fn gft_Window_restore(win: ObjId<Window>) {
+    get(win).restore()
 }
 
 #[no_mangle]
-pub extern "C" fn gft_WebView_new() -> ObjId {
+pub extern "C" fn gft_WebView_new() -> ObjId<WebView> {
     to_id(Rc::new(WebView::new()))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_WebView_attach(webview: ObjId, win: ObjId) {
-    get::<WebView>(webview).attach(&get::<Window>(win))
+pub extern "C" fn gft_WebView_attach(webview: ObjId<WebView>, win: ObjId<Window>) {
+    get(webview).attach(&get(win))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_WebView_load_url(webview: ObjId, url: *const c_char) {
-    get::<WebView>(webview).load_url(to_str(url))
+pub unsafe extern "C" fn gft_WebView_load_url(webview: ObjId<WebView>, url: *const c_char) {
+    get(webview).load_url(to_str(url))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_WebView_eval(webview: ObjId, script: *const c_char) {
-    get::<WebView>(webview).eval(to_str(script))
+pub unsafe extern "C" fn gft_WebView_eval(webview: ObjId<WebView>, script: *const c_char) {
+    get(webview).eval(to_str(script))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Document_new() -> ObjId {
-    to_id(Document::new())
+pub extern "C" fn gft_Document_new() -> ObjId<Document> {
+    Document::new().into()
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Document_create_element(doc: ObjId, local_name: *const c_char) -> ObjId {
-    to_id(get::<Document>(doc).create_element(to_str(local_name)))
+pub unsafe extern "C" fn gft_Document_create_element(
+    doc: ObjId<Document>,
+    local_name: *const c_char,
+) -> ObjId<Element> {
+    get(doc).create_element(to_str(local_name)).into()
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Document_create_text_node(doc: ObjId, data: *const c_char) -> ObjId {
-    to_id(get::<Document>(doc).create_text_node(to_str(data)))
+pub unsafe extern "C" fn gft_Document_create_text_node(
+    doc: ObjId<Document>,
+    data: *const c_char,
+) -> ObjId<CharacterData> {
+    get(doc).create_text_node(to_str(data)).into()
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Document_create_comment(doc: ObjId, data: *const c_char) -> ObjId {
-    to_id(get::<Document>(doc).create_comment(to_str(data)))
+pub unsafe extern "C" fn gft_Document_create_comment(
+    doc: ObjId<Document>,
+    data: *const c_char,
+) -> ObjId<CharacterData> {
+    get(doc).create_comment(to_str(data)).into()
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_node_type(node: ObjId) -> u32 {
+pub extern "C" fn gft_Node_node_type(node: ObjId<dyn Node>) -> u32 {
     get_node(node).node_type() as u32
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_append_child(parent: ObjId, child: ObjId) {
+pub extern "C" fn gft_Node_append_child(parent: ObjId<dyn Node>, child: ObjId<dyn Node>) {
     get_node(parent).append_child(get_node(child))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_insert_before(parent: ObjId, child: ObjId, before: ObjId) {
+pub extern "C" fn gft_Node_insert_before(parent: ObjId<dyn Node>, child: ObjId<dyn Node>, before: ObjId<dyn Node>) {
     get_node(parent).insert_before(get_node(child), get_node(before))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_remove_child(parent: ObjId, child: ObjId) {
+pub extern "C" fn gft_Node_remove_child(parent: ObjId<dyn Node>, child: ObjId<dyn Node>) {
     get_node(parent).remove_child(get_node(child))
 }
 
@@ -193,73 +207,83 @@ pub extern "C" fn gft_Node_remove_child(parent: ObjId, child: ObjId) {
 // //Node_query_selector: |node, sel: String| get_node(node).query_selector(&sel),
 // //Node_query_selector_all: |node, sel: String| get_node(node).query_selector_all(&sel),
 
-// CharacterData_data: |node| get::<CharacterData>(node).data(),
+// CharacterData_data: |node| get(node).data(),
 #[no_mangle]
-pub extern "C" fn gft_CharacterData_set_data(node: ObjId, data: *const c_char) {
-    get::<CharacterData>(node).set_data(to_str(data))
+pub unsafe extern "C" fn gft_CharacterData_set_data(node: ObjId<CharacterData>, data: *const c_char) {
+    get(node).set_data(to_str(data))
 }
 
-// Element_local_name: |el| get::<Element>(el).local_name().to_string(),
-// Element_attribute_names: |el| get::<Element>(el).attribute_names(),
-// Element_attribute: |el, att: String| get::<Element>(el).attribute(&att),
+// Element_local_name: |el| get(el).local_name().to_string(),
+// Element_attribute_names: |el| get(el).attribute_names(),
+// Element_attribute: |el, att: String| get(el).attribute(&att),
 #[no_mangle]
-pub extern "C" fn gft_Element_set_attribute(el: ObjId, att: *const c_char, val: *const c_char) {
-    get::<Element>(el).set_attribute(to_str(att), to_str(val))
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Element_remove_attribute(el: ObjId, att: *const c_char) {
-    get::<Element>(el).remove_attribute(to_str(att))
+pub unsafe extern "C" fn gft_Element_set_attribute(el: ObjId<Element>, att: *const c_char, val: *const c_char) {
+    get(el).set_attribute(to_str(att), to_str(val))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_CssStyleDeclaration_length(style: ObjId) -> c_uint {
-    get::<CssStyleDeclaration>(style).length() as _
+pub unsafe extern "C" fn gft_Element_remove_attribute(el: ObjId<Element>, att: *const c_char) {
+    get(el).remove_attribute(to_str(att))
 }
 
-// CssStyleDeclaration_property_value: |style, prop: String| get::<Element>(el).style_property_value(&prop),
 #[no_mangle]
-pub extern "C" fn gft_CssStyleDeclaration_set_property(style: ObjId, prop: *const c_char, val: *const c_char) {
-    //get::<CssStyleDeclaration>(style).set_property(to_str(prop), to_str(val))
+pub extern "C" fn gft_CssStyleDeclaration_length(style: ObjId<CssStyleDeclaration>) -> c_uint {
+    get(style).length() as _
+}
+
+// CssStyleDeclaration_property_value: |style, prop: String| get(el).style_property_value(&prop),
+#[no_mangle]
+pub unsafe extern "C" fn gft_CssStyleDeclaration_set_property(
+    style: ObjId<CssStyleDeclaration>,
+    prop: *const c_char,
+    val: *const c_char,
+) {
+    //get(style).set_property(to_str(prop), to_str(val))
     println!("TODO: style.set_property()")
 }
 
-// Viewport_new: |w: f64, h: f64, doc: u32| to_id(Rc::new(Viewport::new((w as _, h as _), get::<Document>(doc)))),
+// Viewport_new: |w: f64, h: f64, doc: u32| to_id(Rc::new(Viewport::new((w as _, h as _), get(doc)))),
 // Viewport_render: |w: u32, vp: u32| println!("TODO: Viewport_render"),
 
 #[no_mangle]
-pub extern "C" fn gft_Viewport_resize(viewport: ObjId, width: c_double, height: c_double) {
-    get::<Viewport>(viewport).resize((width as _, height as _))
+pub extern "C" fn gft_Viewport_resize(viewport: ObjId<Viewport>, width: c_double, height: c_double) {
+    get(viewport).resize((width as _, height as _))
 }
 
-// Viewport_element_from_point: |vp, x: f64, y: f64| get::<Viewport>(vp).element_from_point((x as _, y as _))
+// Viewport_element_from_point: |vp, x: f64, y: f64| get(vp).element_from_point((x as _, y as _))
 
-fn to_id(any: Rc<dyn Any>) -> ObjId {
+impl<T: 'static> From<Rc<T>> for ObjId<T> {
+    fn from(rc: Rc<T>) -> Self {
+        to_id(rc)
+    }
+}
+
+fn to_id<T>(any: Rc<dyn Any>) -> ObjId<T> {
     CTX.with(|ctx| {
         let mut ctx = ctx.borrow_mut();
         let ptr = Rc::as_ptr(&any);
 
         if let Some(&id) = ctx.ref_ids.get(&ptr) {
-            return id;
+            return ObjId(id, PhantomData);
         }
 
         let id = ctx.refs.insert(any);
         ctx.ref_ids.insert(ptr, id);
 
-        id
+        ObjId(id, PhantomData)
     })
 }
 
-fn any(obj: ObjId) -> Rc<dyn Any> {
-    CTX.with(|ctx| Rc::clone(&ctx.borrow().refs[obj]))
+fn any<T: ?Sized>(obj: ObjId<T>) -> Rc<dyn Any> {
+    CTX.with(|ctx| Rc::clone(&ctx.borrow().refs[obj.0]))
 }
 
-fn get<T: 'static>(obj: ObjId) -> Rc<T> {
+fn get<T: 'static>(obj: ObjId<T>) -> Rc<T> {
     Rc::downcast::<T>(any(obj)).expect("invalid object type")
 }
 
-fn get_node(obj: ObjId) -> Rc<dyn Node> {
-    let any = any(obj);
+fn get_node(node: ObjId<dyn Node>) -> Rc<dyn Node> {
+    let any = any(node);
     let type_id = (&*any).type_id();
 
     if type_id == TypeId::of::<Element>() {
@@ -273,8 +297,8 @@ fn get_node(obj: ObjId) -> Rc<dyn Node> {
     }
 }
 
-fn to_str<'a>(ptr: *const c_char) -> &'a str {
-    unsafe { CStr::from_ptr(ptr).to_str().expect("invalid string") }
+unsafe fn to_str<'a>(ptr: *const c_char) -> &'a str {
+    CStr::from_ptr(ptr).to_str().expect("invalid string")
 }
 
 // TODO: ?
