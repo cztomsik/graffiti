@@ -69,7 +69,6 @@ dependencies = [
  "fontdb",
  "graffiti-glfw",
  "graffiti-yoga",
- "nanoserde",
  "objc",
  "once_cell",
  "pom",
@@ -128,19 +127,6 @@ checksum = "d9b70ca2a6103ac8b665dc150b142ef0e4e89df640c9e6cf295d189c3caebe5a"
 dependencies = [
  "libc",
 ]
-
-[[package]]
-name = "nanoserde"
-version = "0.1.22"
-source = "git+https://github.com/not-fl3/nanoserde?rev=c66efbd#c66efbd3e47b409221ff36c1c0f9f752f93af435"
-dependencies = [
- "nanoserde-derive",
-]
-
-[[package]]
-name = "nanoserde-derive"
-version = "0.1.14"
-source = "git+https://github.com/not-fl3/nanoserde?rev=c66efbd#c66efbd3e47b409221ff36c1c0f9f752f93af435"
 
 [[package]]
 name = "objc"

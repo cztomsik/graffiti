@@ -1,21 +1,17 @@
-#![allow(unused)]
-
-// observable model
+// document model
 // x holds the data/truth (tree of nodes)
 // x allows changes
-// - notifies listener
-// - qs(a)
+// x qs(a)
 // x weak data
 
 use crate::css::{CssStyleDeclaration, MatchingContext, Selector};
 use crate::util::{Atom, SlotMap};
-use std::any::{type_name, Any, TypeId};
-use std::cell::{Cell, Ref, RefCell, RefMut};
+use std::any::{Any, TypeId};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
-use std::marker::PhantomData;
 use std::ops::Deref;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 #[allow(unused)]
 #[repr(u32)]
@@ -38,8 +34,18 @@ pub enum NodeType {
 // TODO: maybe we can make it private?
 pub type NodeId = u32;
 
-pub trait Node: Deref<Target = NodeRef> + Debug {}
-impl<T: Deref<Target = NodeRef> + Debug> Node for T {}
+pub trait Node: Any + Deref<Target = NodeRef> + Debug {}
+impl<T: 'static + Deref<Target = NodeRef> + Debug> Node for T {}
+
+impl dyn Node {
+    pub fn downcast<T: Node>(self: Rc<dyn Node>) -> Result<Rc<T>, Rc<dyn Node>> {
+        if (*self).type_id() == TypeId::of::<T>() {
+            unsafe { Ok(Rc::from_raw(Rc::into_raw(self) as *const _)) }
+        } else {
+            Err(self)
+        }
+    }
+}
 
 pub struct NodeRef {
     store: Rc<RefCell<Store>>,
@@ -97,11 +103,22 @@ impl NodeRef {
         store.nodes[child.id].parent_node = Some(self.id);
 
         store.refs.put(child.id, child.clone());
-        // TODO: emit
     }
 
+    // TODO: test
     pub fn insert_before(&self, child: Rc<dyn Node>, before: Rc<dyn Node>) {
-        todo!()
+        let mut store = self.store.borrow_mut();
+
+        if store.nodes[self.id].first_child == Some(before.id) {
+            store.nodes[self.id].first_child = Some(child.id)
+        }
+
+        store.nodes[before.id].prev_sibling = Some(child.id);
+
+        store.nodes[child.id].next_sibling = Some(before.id);
+        store.nodes[child.id].parent_node = Some(self.id);
+
+        store.refs.put(child.id, child.clone());
     }
 
     pub fn remove_child(&self, child: Rc<dyn Node>) {
@@ -128,7 +145,6 @@ impl NodeRef {
         store.nodes[child.id].prev_sibling = None;
 
         store.refs.remove(child.id);
-        //self.emit(Event::Remove(parent, child));
     }
 
     pub fn query_selector(&self, selector: &str) -> Option<Rc<Element>> {
@@ -136,7 +152,23 @@ impl NodeRef {
     }
 
     pub fn query_selector_all(&self, selector: &str) -> Vec<Rc<Element>> {
-        todo!()
+        let selector = Selector::from(selector);
+        let mut els = Vec::new();
+        let mut next = self.first_child();
+
+        while let Some(node) = next {
+            next = node.next_sibling();
+
+            if let Ok(el) = node.downcast::<Element>() {
+                els.push(el);
+            }
+        }
+
+        self.with_matching_context(|ctx| {
+            els.into_iter()
+                .filter(|el| ctx.match_selector(&selector, el.id).is_some())
+                .collect()
+        })
     }
 
     // sparse data, dropped with the node
@@ -164,13 +196,26 @@ impl NodeRef {
 
     // helpers
 
-    /*
-    fn emit(&self, event: Event) {
-        for listener in &self.store.borrow().listeners {
-            listener(self, &event);
-        }
+    pub(crate) fn with_matching_context<R, F: FnOnce(MatchingContext<'_, NodeId>) -> R>(&self, f: F) -> R {
+        let store = self.store.borrow();
+        let els = &store.elements;
+
+        f(MatchingContext {
+            has_local_name: &|el, name| name == &els[&el].local_name,
+            has_identifier: &|el, id| Some(id) == els[&el].identifier.as_ref(),
+            has_class: &|el, cls| match &els[&el].class_name {
+                Some(s) => s.split_ascii_whitespace().any(|part| part == **cls),
+                None => false,
+            },
+            parent: &|el| store.nodes[el].parent_node,
+        })
     }
-    */
+}
+
+impl PartialEq for NodeRef {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.store, &other.store) && self.id == other.id
+    }
 }
 
 impl Drop for NodeRef {
@@ -184,7 +229,7 @@ impl Drop for NodeRef {
         s.weak_data.remove(self.id);
         s.free_ids.push(self.id);
 
-        //self.emit(Event::Drop(node, node_type));
+        // TODO: we need to do something about (strong) refs to child nodes
     }
 }
 
@@ -194,13 +239,13 @@ impl Debug for NodeRef {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Document(NodeRef);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Element(NodeRef);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct CharacterData(NodeRef);
 
 // TODO: move to util?
@@ -224,7 +269,7 @@ impl Document {
                 identifier: None,
                 class_name: None,
                 style: CssStyleDeclaration::new(),
-                attrs: Vec::new(),
+                attributes: Vec::new(),
             },
         );
         res
@@ -240,10 +285,6 @@ impl Document {
         let res = Rc::new(CharacterData(create_node(&self.store, NodeType::Comment)));
         res.set_data(data);
         res
-    }
-
-    pub fn add_listener(&mut self, listener: impl Fn() + 'static) {
-        self.store.borrow_mut().listeners.push(Box::new(listener));
     }
 }
 
@@ -265,7 +306,7 @@ impl Element {
             names.push("class".to_owned());
         }
 
-        for (k, _) in &el_data.attrs {
+        for (k, _) in &el_data.attributes {
             names.push(k.to_string());
         }
 
@@ -281,7 +322,7 @@ impl Element {
             "class" => el_data.class_name.as_deref().cloned(),
             "style" => Some(el_data.style.css_text()),
             _ => el_data
-                .attrs
+                .attributes
                 .iter()
                 .find(|(a, _)| attr == **a)
                 .map(|(_, v)| v.to_string()),
@@ -297,10 +338,10 @@ impl Element {
             "class" => el_data.class_name = Some(value.into()),
             "style" => el_data.style.set_css_text(value),
             _ => {
-                if let Some(a) = el_data.attrs.iter_mut().find(|(a, _)| attr == **a) {
+                if let Some(a) = el_data.attributes.iter_mut().find(|(a, _)| attr == **a) {
                     a.1 = value.into();
                 } else {
-                    el_data.attrs.push((attr.into(), value.into()));
+                    el_data.attributes.push((attr.into(), value.into()));
                 }
             }
         }
@@ -314,12 +355,12 @@ impl Element {
             "id" => drop(el_data.identifier.take()),
             "class" => drop(el_data.identifier.take()),
             "style" => el_data.style = CssStyleDeclaration::EMPTY,
-            _ => el_data.attrs.retain(|(a, _)| attr != **a),
+            _ => el_data.attributes.retain(|(a, _)| attr != **a),
         };
     }
 
     pub fn matches(&self, selector: &str) -> bool {
-        todo!()
+        self.with_matching_context(|ctx| ctx.match_selector(&Selector::from(selector), self.id).is_some())
     }
 
     //pub fn style() -> Rc<CssStyleDeclaration> { todo!() }
@@ -332,7 +373,6 @@ impl CharacterData {
 
     pub fn set_data(&self, data: &str) {
         self.store.borrow_mut().cdata.insert(self.id, data.to_owned());
-        // TODO: self.emit(Event::Cdata(cdata_node, cdata));
     }
 }
 
@@ -342,7 +382,6 @@ pub struct Store {
     nodes: SlotMap<NodeId, NodeData>,
     elements: HashMap<NodeId, ElementData>,
     cdata: HashMap<NodeId, String>,
-    listeners: Vec<Box<dyn Fn()>>,
 
     // TODO: move to slotmap?
     free_ids: Vec<NodeId>,
@@ -366,7 +405,7 @@ struct ElementData {
     class_name: Option<Atom<String>>,
     // TODO: Rc<>?
     style: CssStyleDeclaration,
-    attrs: Vec<(Atom<String>, Atom<String>)>,
+    attributes: Vec<(Atom<String>, Atom<String>)>,
 }
 
 fn create_node(store: &Rc<RefCell<Store>>, node_type: NodeType) -> NodeRef {
@@ -451,8 +490,11 @@ mod tests {
         div.set_attribute("id", "panel");
         assert_eq!(div.attribute("id").as_deref(), Some("panel"));
 
-        doc.append_child(div);
-        //assert_eq!(doc.query_selector("div#panel"), Some(div.clone()));
+        // even before connecting, browsers do the same
+        assert!(div.matches("div#panel"));
+
+        doc.append_child(div.clone());
+        assert_eq!(doc.query_selector("div#panel"), Some(div));
     }
 
     #[test]
@@ -521,5 +563,20 @@ mod tests {
         assert_eq!(doc.weak_data(), Some(1));
         doc.remove_weak_data::<usize>();
         assert_eq!(doc.weak_data(), None::<usize>);
+    }
+
+    #[test]
+    fn downcast() {
+        let doc = Document::new();
+        let div = doc.create_element("div");
+
+        let node: Rc<dyn Node> = doc.clone();
+        assert!(node.downcast::<Document>().is_ok());
+
+        let node: Rc<dyn Node> = div.clone();
+        assert!(node.downcast::<Document>().is_err());
+
+        let node: Rc<dyn Node> = div.clone();
+        assert!(node.downcast::<Element>().is_ok());
     }
 }

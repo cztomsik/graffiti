@@ -1,5 +1,5 @@
 use graffiti::gfx::{GlBackend, RenderBackend};
-use graffiti::{Document, Node, Viewport};
+use graffiti::{Document, Viewport};
 
 // or whatever else you use to create a window with GL context
 use graffiti_glfw::*;

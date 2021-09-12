@@ -1,19 +1,5 @@
 // TODO: move rest of this to dom.rs
 
-#[derive(Debug)]
-pub enum DocumentEvent<'a> {
-    Create(NodeId, NodeType),
-    Insert(NodeId, NodeId, usize),
-    Remove(NodeId, NodeId),
-    Cdata(NodeId, &'a str),
-
-    // TODO: call during Document::Drop, probably in document order (children first)
-    Drop(NodeId, NodeType),
-}
-
-// private shorthand
-type Event<'a> = DocumentEvent<'a>;
-
 impl Document {
     pub fn child_nodes(&self, node: NodeId) -> impl Iterator<Item = NodeId> + '_ {
         ChildNodes {
@@ -46,38 +32,12 @@ impl Document {
         }
     }
 
-    pub fn matches(&self, el: NodeId, selector: &str) -> bool {
-        self.with_matching_context(|ctx| ctx.match_selector(&Selector::from(selector), el).is_some())
-    }
-
-    pub fn query_selector_all(&self, context_node: NodeId, selector: &str) -> Vec<NodeId> {
-        let selector = Selector::from(selector);
-        let els = self.descendant_children(context_node);
-
-        self.with_matching_context(|ctx| {
-            els.into_iter()
-                .filter(|el| ctx.match_selector(&selector, *el).is_some())
-                .collect()
-        })
-    }
-
     pub(crate) fn descendant_children(&self, element: NodeId) -> Vec<NodeId> {
         self.children(element)
             .flat_map(move |ch| std::iter::once(ch).chain(self.descendant_children(ch)))
             .collect()
     }
 
-    pub(crate) fn with_matching_context<R, F: FnOnce(MatchingContext<'_, NodeId>) -> R>(&self, f: F) -> R {
-        f(MatchingContext {
-            has_local_name: &|el, name| **name == self.local_name(el),
-            has_identifier: &|el, id| Some(id.to_string()) == self.attribute(el, "id"),
-            has_class: &|el, cls| match self.attribute(el, "class") {
-                Some(s) => s.split_ascii_whitespace().any(|part| part == **cls),
-                None => false,
-            },
-            parent: &|el| self.parent_element(el),
-        })
-    }
 }
 
 pub struct ChildNodes<'a> {
