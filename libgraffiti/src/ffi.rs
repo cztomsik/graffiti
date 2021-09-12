@@ -13,7 +13,7 @@ use once_cell::sync::Lazy;
 use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_double, c_int, c_uint};
 use std::rc::Rc;
@@ -82,7 +82,11 @@ pub unsafe extern "C" fn gft_Window_new(title: *const c_char, width: c_int, heig
 }
 
 // Window_next_event: |w| EVENTS.read().unwrap()[w].try_recv().ok().map(event),
-// Window_title: |w| get(w).title(),
+
+#[no_mangle]
+pub extern "C" fn gft_Window_title(win: ObjId<Window>) -> *mut c_char {
+    CString::new(get(win).title()).unwrap().into_raw()
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_Window_set_title(win: ObjId<Window>, title: *const c_char) {
@@ -207,15 +211,32 @@ pub extern "C" fn gft_Node_remove_child(parent: ObjId<dyn Node>, child: ObjId<dy
 // //Node_query_selector: |node, sel: String| get_node(node).query_selector(&sel),
 // //Node_query_selector_all: |node, sel: String| get_node(node).query_selector_all(&sel),
 
-// CharacterData_data: |node| get(node).data(),
+#[no_mangle]
+pub unsafe extern "C" fn gft_CharacterData_data(node: ObjId<CharacterData>) -> *mut c_char {
+    CString::new(get(node).data()).unwrap().into_raw()
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn gft_CharacterData_set_data(node: ObjId<CharacterData>, data: *const c_char) {
     get(node).set_data(to_str(data))
 }
 
 // Element_local_name: |el| get(el).local_name().to_string(),
+#[no_mangle]
+pub extern "C" fn gft_Element_local_name(el: ObjId<Element>) -> *mut c_char {
+    CString::new(get(el).local_name().as_str()).unwrap().into_raw()
+}
+
 // Element_attribute_names: |el| get(el).attribute_names(),
-// Element_attribute: |el, att: String| get(el).attribute(&att),
+
+#[no_mangle]
+pub unsafe extern "C" fn gft_Element_attribute(el: ObjId<Element>, att: *const c_char) -> *mut c_char {
+    match get(el).attribute(to_str(att)) {
+        Some(s) => CString::new(s).unwrap().into_raw(),
+        None => std::ptr::null_mut(),
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn gft_Element_set_attribute(el: ObjId<Element>, att: *const c_char, val: *const c_char) {
     get(el).set_attribute(to_str(att), to_str(val))
