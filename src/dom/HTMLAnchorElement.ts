@@ -1,15 +1,12 @@
 import { HTMLElement } from './index'
 
 export class HTMLAnchorElement extends HTMLElement implements globalThis.HTMLAnchorElement {
-  charset
-  coords
   download
   hash
   host
   hostname
   href
   hreflang
-  name
   origin
   password
   pathname
@@ -19,11 +16,16 @@ export class HTMLAnchorElement extends HTMLElement implements globalThis.HTMLAnc
   referrerPolicy
   rel
   relList
-  rev
   search
-  shape
   target
   text
   type
   username
+
+  // deprecated
+  charset
+  coords  
+  name
+  rev
+  shape
 }

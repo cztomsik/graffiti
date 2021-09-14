@@ -34,13 +34,6 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
     this.dispatchEvent(new FocusEvent('focus'))
   }
 
-  // TODO
-  offsetParent
-  offsetLeft
-  offsetTop
-  offsetWidth
-  offsetHeight
-
   // later
   enterKeyHint
   accessKey
