@@ -4,6 +4,5 @@ libgraffiti/graffiti-yoga/target
 **/*~
 **/node_modules
 **/.DS_Store
-.vscode
 lib
 _site/
