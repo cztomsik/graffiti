@@ -1,13 +1,20 @@
 import { readURL } from '../util'
+import { DOMTokenList } from './DOMTokenList'
 import { HTMLElement } from './HTMLElement'
 
 export class HTMLLinkElement extends HTMLElement implements globalThis.HTMLLinkElement {
+  #relList = new DOMTokenList(this, "rel")
+
   get rel() {
     return this.getAttribute('rel') ?? ''
   }
 
   set rel(rel) {
     this.setAttribute('rel', rel)
+  }
+
+  get relList() {
+    return this.#relList
   }
 
   get href() {
@@ -28,7 +35,6 @@ export class HTMLLinkElement extends HTMLElement implements globalThis.HTMLLinkE
   integrity
   media
   referrerPolicy
-  relList
   sizes
   type
   nonce?
