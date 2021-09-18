@@ -42,7 +42,6 @@ export class Document extends Node implements globalThis.Document {
   readonly defaultView: Window & typeof globalThis | null = null
   readonly implementation = new DOMImplementation()
   readonly childNodes = new NodeList<ChildNode>()
-  readonly compatMode = 'CSS1Compat'
 
   // TODO: getter, should be last focused (from symbol?) or body (which can be null sometimes)
   readonly activeElement: Element | null = null
@@ -67,6 +66,10 @@ export class Document extends Node implements globalThis.Document {
     return '#document'
   }
 
+  get compatMode() {
+    return 'CSS1Compat'
+  }
+
   get documentElement() {
     // chrome allows removing root & appending a new one
     return this.childNodes[0] ?? null
@@ -85,14 +88,14 @@ export class Document extends Node implements globalThis.Document {
   }
 
   set title(title) {
-    const head = this.head || this.appendChild(this.createElement('head'))
+    const head = this.head ?? this.appendChild(this.createElement('head'))
     const titleEl = head.childNodes.find(n => n.localName === 'title') ?? head.appendChild(this.createElement('title'))
 
     titleEl.data = title
   }
 
   get location() {
-    // DOMParser docs should have null (TS is wrong)
+    // DOMParser-created documents should have null location (TS is wrong)
     return this.defaultView?.location ?? (null as any)
   }
 
@@ -241,16 +244,21 @@ export class Document extends Node implements globalThis.Document {
   evaluate
   execCommand
   exitFullscreen
+  exitPictureInPicture
   exitPointerLock
+  fonts
   fullscreenElement
   fullscreenEnabled
   getAnimations
   getElementsByName
   getSelection
+  hasStorageAccess
   hidden
   inputEncoding
   lastModified
   origin
+  pictureInPictureElement
+  pictureInPictureEnabled
   plugins
   pointerLockElement
   queryCommandEnabled
@@ -260,6 +268,8 @@ export class Document extends Node implements globalThis.Document {
   queryCommandValue
   readyState
   referrer
+  requestStorageAccess
+  rootElement
   scrollingElement
   timeline
   URL
