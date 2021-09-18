@@ -5,6 +5,7 @@ import { HTMLElement } from './HTMLElement'
 import { UNSUPPORTED } from '../util'
 
 export class HTMLCanvasElement extends HTMLElement implements globalThis.HTMLCanvasElement {
+  captureStream
   width
   height
   nonce
@@ -29,10 +30,6 @@ export class HTMLCanvasElement extends HTMLElement implements globalThis.HTMLCan
   }
 
   toDataURL(type?: string, quality?: any): string {
-    return UNSUPPORTED()
-  }
-
-  transferControlToOffscreen(): OffscreenCanvas {
     return UNSUPPORTED()
   }
 }

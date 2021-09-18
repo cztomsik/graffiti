@@ -48,6 +48,7 @@ export abstract class HTMLElement extends Element implements globalThis.HTMLElem
   inputMode
   isContentEditable
   lang
+  outerText
   spellcheck
   tabIndex
   title

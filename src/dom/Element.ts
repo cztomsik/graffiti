@@ -3,6 +3,7 @@ import { ERR } from '../util'
 import { parseFragment } from './DOMParser'
 import { native, getNativeId, register, TRUE } from '../native'
 import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
+import { DOMTokenList } from './DOMTokenList'
 
 export abstract class Element extends Node implements globalThis.Element {
   abstract readonly tagName: string
@@ -142,8 +143,12 @@ export abstract class Element extends Node implements globalThis.Element {
     return native.Element_matches(getNativeId(this), selector) === TRUE
   }
 
+  closest(selector: string) {
+    this.matches(selector) ? this : this.parentElement?.closest(selector)
+  }
+
   get classList() {
-    return this.#classList ?? (this.#classList = createClassList(this))
+    return this.#classList ?? (this.#classList = new DOMTokenList(this, 'className'))
   }
 
   // later
@@ -170,6 +175,7 @@ export abstract class Element extends Node implements globalThis.Element {
   insertAdjacentHTML
   insertAdjacentText
   msGetRegionContent
+  part
   prefix
   releasePointerCapture
   removeAttributeNode
@@ -189,37 +195,44 @@ export abstract class Element extends Node implements globalThis.Element {
   shadowRoot
   slot
 
+  // not sure if and when
+  ariaAtomic
+  ariaAutoComplete
+  ariaBusy
+  ariaChecked
+  ariaColCount
+  ariaColIndex
+  ariaColSpan
+  ariaCurrent
+  ariaDisabled
+  ariaExpanded
+  ariaHasPopup
+  ariaHidden
+  ariaKeyShortcuts
+  ariaLabel
+  ariaLevel
+  ariaLive
+  ariaModal
+  ariaMultiLine
+  ariaMultiSelectable
+  ariaOrientation
+  ariaPlaceholder
+  ariaPosInSet
+  ariaPressed
+  ariaReadOnly
+  ariaRequired
+  ariaRoleDescription
+  ariaRowCount
+  ariaRowIndex
+  ariaRowSpan
+  ariaSelected
+  ariaSetSize
+  ariaSort
+  ariaValueMax
+  ariaValueMin
+  ariaValueNow
+  ariaValueText
+
   // ignore vendor
   webkitMatchesSelector
-}
-
-function createClassList(el): DOMTokenList {
-  const getTokens = () => el.className.split(/\s+/g)
-  const setTokens = tokens => (el.className = tokens.join(' '))
-
-  const classList = {
-    supports: token => true,
-    item: i => getTokens()[i],
-    contains: token => getTokens().includes(token),
-    forEach: (cb, thisArg) => getTokens().forEach(cb, thisArg),
-
-    add: (...tokens) => setTokens([...new Set([...getTokens(), ...tokens])]),
-    remove: (...tokens) => setTokens(getTokens().filter(t => !tokens.includes(t))),
-    replace: (token, newToken) => setTokens(getTokens().map(t => (t === token ? newToken : t))),
-    toggle: (token, force = getTokens().includes(token)) => classList[force ? 'add' : 'remove'](token),
-
-    get value() {
-      return el.className
-    },
-
-    set value(v) {
-      el.className = v
-    },
-
-    get length() {
-      return getTokens().length
-    },
-  }
-
-  return classList
 }

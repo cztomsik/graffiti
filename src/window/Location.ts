@@ -8,12 +8,12 @@ export class Location implements globalThis.Location {
     this.#history = history
   }
 
-  get _url() {
+  get #url() {
     return new URL(this.#history._current.url)
   }
 
   get href() {
-    return this._url.href
+    return this.#url.href
   }
 
   set href(v) {
@@ -21,7 +21,7 @@ export class Location implements globalThis.Location {
   }
 
   get pathname() {
-    return this._url.pathname
+    return this.#url.pathname
   }
 
   set pathname(v) {
@@ -29,7 +29,7 @@ export class Location implements globalThis.Location {
   }
 
   get search() {
-    return this._url.search
+    return this.#url.search
   }
 
   set search(v) {
@@ -37,7 +37,7 @@ export class Location implements globalThis.Location {
   }
 
   get hash() {
-    return this._url.hash
+    return this.#url.hash
   }
 
   set hash(v) {
@@ -45,7 +45,7 @@ export class Location implements globalThis.Location {
   }
 
   get hostname() {
-    return this._url.hostname
+    return this.#url.hostname
   }
 
   set hostname(hostname) {
@@ -53,7 +53,7 @@ export class Location implements globalThis.Location {
   }
 
   get port() {
-    return this._url.port
+    return this.#url.port
   }
 
   set port(port) {
@@ -61,18 +61,18 @@ export class Location implements globalThis.Location {
   }
 
   get protocol() {
-    return this._url.protocol
+    return this.#url.protocol
   }
 
   set protocol(protocol) {
     UNSUPPORTED()
   }
 
-  assign(href) {
+  assign(href: string) {
     this.#history._navigate(href, false)
   }
 
-  replace(href) {
+  replace(href: string) {
     this.#history._navigate(href, true)
   }
 

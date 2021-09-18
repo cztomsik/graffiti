@@ -372,6 +372,14 @@ class EventTargetWithHandlerProps extends BaseEventTarget {
     setHandler(this, 'focus', listener)
   }
 
+  get onformdata() {
+    return getHandler(this, 'formdata')
+  }
+
+  set onformdata(listener) {
+    setHandler(this, 'formdata', listener)
+  }
+
   get onfullscreenchange() {
     return getHandler(this, 'fullscreenchange')
   }
@@ -1108,6 +1116,10 @@ class EventTargetWithHandlerProps extends BaseEventTarget {
   onmspointerout
   onmspointerover
   onmspointerup
+  onwebkitanimationend
+  onwebkitanimationiteration
+  onwebkitanimationstart
+  onwebkittransitionend
 }
 
 const getHandler = (et, kind) => et[INLINE_HANDLERS][kind] ?? null
