@@ -13,22 +13,13 @@ use std::fmt::{Debug, Error, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
-#[allow(unused)]
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NodeType {
     Element = 1,
-    Attribute = 2,
     Text = 3,
-    CdataSection = 4,
-    EntityReference = 5,
-    Entity = 6,
-    ProcessingInstruction = 7,
     Comment = 8,
     Document = 9,
-    DocumentType = 10,
-    DocumentFragment = 11,
-    Notation = 12,
 }
 
 // TODO: maybe we can make it private?
@@ -75,32 +66,33 @@ impl NodeRef {
             .map(|id| self.store.borrow().refs[id].clone())
     }
 
+    pub fn previous_sibling(&self) -> Option<Rc<dyn Node>> {
+        self.store.borrow().nodes[self.id]
+            .previous_sibling
+            .map(|id| self.store.borrow().refs[id].clone())
+    }
+
     pub fn next_sibling(&self) -> Option<Rc<dyn Node>> {
         self.store.borrow().nodes[self.id]
             .next_sibling
             .map(|id| self.store.borrow().refs[id].clone())
     }
 
-    pub fn prev_sibling(&self) -> Option<Rc<dyn Node>> {
-        self.store.borrow().nodes[self.id]
-            .prev_sibling
-            .map(|id| self.store.borrow().refs[id].clone())
-    }
-
     pub fn append_child(&self, child: Rc<dyn Node>) {
         let mut store = self.store.borrow_mut();
+        let nodes = &mut store.nodes;
 
-        if store.nodes[self.id].first_child == None {
-            store.nodes[self.id].first_child = Some(child.id)
+        if nodes[self.id].first_child == None {
+            nodes[self.id].first_child = Some(child.id)
         }
 
-        if let Some(last) = store.nodes[self.id].last_child {
-            store.nodes[last].next_sibling = Some(child.id);
+        if let Some(last) = nodes[self.id].last_child {
+            nodes[last].next_sibling = Some(child.id);
         }
 
-        store.nodes[self.id].last_child = Some(child.id);
-
-        store.nodes[child.id].parent_node = Some(self.id);
+        nodes[child.id].previous_sibling = nodes[child.id].last_child;
+        nodes[self.id].last_child = Some(child.id);
+        nodes[child.id].parent_node = Some(self.id);
 
         store.refs.put(child.id, child.clone());
     }
@@ -108,41 +100,43 @@ impl NodeRef {
     // TODO: test
     pub fn insert_before(&self, child: Rc<dyn Node>, before: Rc<dyn Node>) {
         let mut store = self.store.borrow_mut();
+        let nodes = &mut store.nodes;
 
-        if store.nodes[self.id].first_child == Some(before.id) {
-            store.nodes[self.id].first_child = Some(child.id)
+        if nodes[self.id].first_child == Some(before.id) {
+            nodes[self.id].first_child = Some(child.id)
         }
 
-        store.nodes[before.id].prev_sibling = Some(child.id);
+        nodes[before.id].previous_sibling = Some(child.id);
 
-        store.nodes[child.id].next_sibling = Some(before.id);
-        store.nodes[child.id].parent_node = Some(self.id);
+        nodes[child.id].next_sibling = Some(before.id);
+        nodes[child.id].parent_node = Some(self.id);
 
         store.refs.put(child.id, child.clone());
     }
 
     pub fn remove_child(&self, child: Rc<dyn Node>) {
         let mut store = self.store.borrow_mut();
+        let nodes = &mut store.nodes;
 
-        if store.nodes[self.id].last_child == Some(child.id) {
-            store.nodes[self.id].last_child = store.nodes[child.id].prev_sibling
+        if nodes[self.id].first_child == Some(child.id) {
+            nodes[self.id].first_child = nodes[child.id].next_sibling
         }
 
-        if store.nodes[self.id].first_child == Some(child.id) {
-            store.nodes[self.id].first_child = store.nodes[child.id].next_sibling
+        if nodes[self.id].last_child == Some(child.id) {
+            nodes[self.id].last_child = nodes[child.id].previous_sibling
         }
 
-        if let Some(prev) = store.nodes[child.id].prev_sibling {
-            store.nodes[prev].next_sibling = store.nodes[child.id].next_sibling;
+        if let Some(prev) = nodes[child.id].previous_sibling {
+            nodes[prev].next_sibling = nodes[child.id].next_sibling;
         }
 
-        if let Some(next) = store.nodes[child.id].next_sibling {
-            store.nodes[next].prev_sibling = store.nodes[child.id].prev_sibling;
+        if let Some(next) = nodes[child.id].next_sibling {
+            nodes[next].previous_sibling = nodes[child.id].previous_sibling;
         }
 
-        store.nodes[child.id].parent_node = None;
-        store.nodes[child.id].next_sibling = None;
-        store.nodes[child.id].prev_sibling = None;
+        nodes[child.id].parent_node = None;
+        nodes[child.id].next_sibling = None;
+        nodes[child.id].previous_sibling = None;
 
         store.refs.remove(child.id);
     }
@@ -294,7 +288,7 @@ impl Element {
     }
 
     pub fn attribute_names(&self) -> Vec<String> {
-        let mut store = self.store.borrow();
+        let store = self.store.borrow();
         let el_data = store.elements.get(&self.id).unwrap();
         let mut names = Vec::new();
 
@@ -314,7 +308,7 @@ impl Element {
     }
 
     pub fn attribute(&self, attr: &str) -> Option<String> {
-        let mut store = self.store.borrow();
+        let store = self.store.borrow();
         let el_data = store.elements.get(&self.id).unwrap();
 
         match attr {
@@ -368,7 +362,7 @@ impl Element {
 
 impl CharacterData {
     pub fn data(&self) -> String {
-        self.store.borrow().cdata.get(&self.id).unwrap().clone()
+        self.store.borrow().cdata[&self.id].clone()
     }
 
     pub fn set_data(&self, data: &str) {
@@ -395,7 +389,7 @@ struct NodeData {
     parent_node: Option<NodeId>,
     first_child: Option<NodeId>,
     next_sibling: Option<NodeId>,
-    prev_sibling: Option<NodeId>,
+    previous_sibling: Option<NodeId>,
     last_child: Option<NodeId>,
 }
 
@@ -417,7 +411,7 @@ fn create_node(store: &Rc<RefCell<Store>>, node_type: NodeType) -> NodeRef {
         parent_node: None,
         first_child: None,
         next_sibling: None,
-        prev_sibling: None,
+        previous_sibling: None,
         last_child: None,
     };
 
@@ -433,8 +427,6 @@ fn create_node(store: &Rc<RefCell<Store>>, node_type: NodeType) -> NodeRef {
         id
     };
     drop(store_mut);
-
-    //self.emit(Event::Create(id, self.node_type(id)));
 
     NodeRef { store, id }
 }
@@ -503,7 +495,7 @@ mod tests {
         assert_eq!(doc.parent_node(), None);
         assert_eq!(doc.first_child(), None);
         assert_eq!(doc.next_sibling(), None);
-        assert_eq!(doc.prev_sibling(), None);
+        assert_eq!(doc.previous_sibling(), None);
 
         let ch1 = doc.create_text_node("ch1");
         let ch2 = doc.create_text_node("ch2");
@@ -513,13 +505,13 @@ mod tests {
         assert_eq!(doc.first_child(), Some(ch1.clone() as _));
         assert_eq!(ch1.parent_node(), Some(doc.clone() as _));
         assert_eq!(ch1.next_sibling(), None);
-        assert_eq!(ch1.prev_sibling(), None);
+        assert_eq!(ch1.previous_sibling(), None);
 
         /*
         doc.append_child(root, ch2);
         assert_eq!(doc.first_child(root), Some(ch1));
         assert_eq!(doc.next_sibling(ch1), Some(ch2));
-        assert_eq!(doc.prev_sibling(ch2), Some(ch1));
+        assert_eq!(doc.previous_sibling(ch2), Some(ch1));
 
         assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch1, ch2]);
 

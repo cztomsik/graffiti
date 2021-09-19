@@ -3,9 +3,8 @@ export class NodeList<T extends Node> extends Array implements globalThis.NodeLi
     return this[index]
   }
 
+  // TODO
   forEach
-
-  static EMPTY_FROZEN: NodeList<any> = Object.freeze(new NodeList()) as any
 }
 
 declare global {

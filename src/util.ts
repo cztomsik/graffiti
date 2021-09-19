@@ -1,24 +1,26 @@
 export const isDeno = 'Deno' in globalThis
 export const isNodeJS = 'process' in globalThis
 
+export const PLATFORM = isDeno
+  ? globalThis.Deno?.build.os
+  : isNodeJS
+  ? (await import('os')).platform().replace(/win32/, 'windows')
+  : 'unknown'
+
 export const assert = (value, msg) => value || ERR(msg)
 
 export const NOOP = () => {}
-export const ERR = (...msgs): any => {
-  throw new Error(msgs.join(' '))
+export const ERR = (msg: string): any => {
+  throw new Error(msg)
 }
 export const TODO = () => ERR('TODO')
 export const UNSUPPORTED = () => ERR('UNSUPPORTED')
 
+// TODO: find a better way, maybe we will have to drop \0 strings
+const encoder = new TextEncoder()
+export const encode = (input: string) => new Uint8Array([...encoder.encode(input), 0])
+
 export const last = arr => arr[arr.length - 1]
-
-export const LITTLE_ENDIAN = (() => {
-  let b = new ArrayBuffer(2)
-  new DataView(b).setInt16(0, 256, true)
-  return new Int16Array(b)[0] === 256
-})()
-
-export const PLATFORM = globalThis.Deno?.build.os ?? (await import('os')).platform().replace(/win32/, 'windows')
 
 export const Worker =
   globalThis.Worker ??

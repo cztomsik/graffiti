@@ -68,7 +68,7 @@ export class History implements globalThis.History {
     this.#states[this.#index] = this._resolve(data, title, url)
   }
 
-  _navigate(href, replace) {
+  _navigate(href: string, replace: boolean) {
     // save because it could be replaced
     const from = this._current
 

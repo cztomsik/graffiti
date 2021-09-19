@@ -55,7 +55,7 @@ export class Document extends Node implements globalThis.Document {
     // if it's ever a problem we could use child.ownerDocument
     this.ownerDocument = this
 
-    register(this, native.Document_new())
+    register(this, native.gft_Document_new())
   }
 
   get nodeType() {
@@ -170,7 +170,7 @@ export class Document extends Node implements globalThis.Document {
   }
 
   elementFromPoint(x, y): Element | null {
-    return lookup(native.Viewport_element_from_point(getNativeId(this.defaultView), x, y))
+    return lookup(native.gft_Viewport_element_from_point(getNativeId(this.defaultView), x, y))
   }
 
   hasFocus(): boolean {

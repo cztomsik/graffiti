@@ -14,6 +14,10 @@ export const loadNativeApi = async () => {
     return await loadNodejsAddon(libFile)
   }
 
+  if (isDeno) {
+    return await loadDenoPlugin(libFile)
+  }
+
   return ERR('unsupported JS engine')
 }
 
@@ -44,7 +48,10 @@ export const getNativeId = wrapper => wrapper[NATIVE_ID]
 
 
 const NATIVE_ID = Symbol()
-const WRAPPER_REFS: WeakRef<any>[] = []
+const WRAPPER_REFS: WeakRef<any>[] = [
+  // [0] should never be accessed so this is both fine and it also works as a check
+  null as any,
+]
 const NATIVE_REGISTRY = new FinalizationRegistry((id: number) => {
   native.Rc_drop(id)
   WRAPPER_REFS[id] = undefined as any
@@ -71,14 +78,37 @@ const loadNodejsAddon = async libFile => {
   process['dlopen']({ exports: native = {} }, libFile)
 }
 
-const loadDenoPlugin = async (Deno = globalThis.Deno) => {
+const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
   // TODO: fetch using https://deno.land/x/cache (Plug doesn't really add anything here)
 
   // TODO: wait for https://github.com/denoland/deno/pull/11648
-  // const lib = Deno.dlopen(libName, {
-  //   // TODO: parse/generate from ffi.rs
-  //   xxx: { parameters: ["u32"], result: "u32" },
-  // });
 
-  return TODO()
+  const lib = Deno.dlopen(libFile, {
+    // TODO: parse/generate from ffi.rs
+    gft_App_init: { parameters: [], result: 'u32' },
+    gft_App_wake_up: { parameters: [], result: 'void' },
+    gft_App_tick: { parameters: ['u32'], result: 'u32' },
+    gft_Window_new: { parameters: ['buffer', 'i32', 'i32'], result: 'u32' },
+    gft_Window_width: { parameters: ['u32'], result: 'i32' },
+    gft_Window_height: { parameters: ['u32'], result: 'i32' },
+    gft_Document_new: { parameters: [], result: 'u32' },
+    gft_Document_create_element: { parameters: ['u32', 'buffer'], result: 'u32' },
+    gft_Document_create_text_node: { parameters: ['u32', 'buffer'], result: 'u32' },
+    gft_Document_create_comment: { parameters: ['u32', 'buffer'], result: 'u32' },
+    gft_Node_append_child: { parameters: ['u32', 'u32'], result: 'u32' },
+    gft_Node_insert_before: { parameters: ['u32', 'u32', 'u32'], result: 'u32' },
+    gft_WebView_new: { parameters: [], result: 'u32' },
+    gft_WebView_attach: { parameters: ['u32', 'u32'], result: 'void' },
+    gft_WebView_load_url: { parameters: ['u32', 'buffer'], result: 'void' },
+    gft_WebView_eval: { parameters: ['u32', 'buffer'], result: 'void' },
+  })
+
+  // debug
+  native = Object.fromEntries(
+    Object.entries<any>(lib.symbols).map(([name, fn]) => {
+      return [name, (...args) => (console.log('call', name, ...args), fn(...args))]
+    })
+  )
+
+  //native = lib.symbols
 }

@@ -1,12 +1,13 @@
 import { Node, CharacterData } from './index'
 import { normalize } from './CharacterData'
 import { native, getNativeId, register } from '../native'
+import { encode } from '../util'
 
 export class Comment extends CharacterData implements globalThis.Comment {
   constructor(data = '', doc = document) {
     super(doc)
 
-    register(this, native.Document_create_comment(getNativeId(doc), normalize(data)))
+    register(this, native.gft_Document_create_comment(getNativeId(doc), encode(normalize(data))))
   }
 
   get nodeType() {

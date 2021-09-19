@@ -20,4 +20,6 @@ pub use self::{
 pub mod gfx;
 
 mod ffi;
+
+// /// cbindgen:ignore
 //mod nodejs;

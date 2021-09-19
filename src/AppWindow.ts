@@ -1,55 +1,57 @@
 import { native, register, getNativeId } from './native'
-import { ERR, Worker } from './util'
+import { encode, ERR, Worker } from './util'
 
 export class AppWindow {
   #worker?: Worker
-  #send = ERR.bind('no worker')
+  #send: any = ERR.bind('no worker')
 
   constructor({ title = 'Graffiti', width = 1024, height = 768 } = {}) {
-    register(this, native.Window_new(title, width, height))
+    register(this, native.gft_Window_new(encode(title), width, height))
   }
 
   get width() {
-    return native.Window_width(getNativeId(this))
+    return native.gft_Window_width(getNativeId(this))
   }
 
   get height() {
-    return native.Window_height(getNativeId(this))
+    return native.gft_Window_height(getNativeId(this))
   }
 
   get title() {
-    return native.Window_title(getNativeId(this))
+    return native.gft_Window_title(getNativeId(this))
   }
 
   set title(title: string) {
-    native.Window_set_title(getNativeId(this), title)
+    native.gft_Window_set_title(getNativeId(this), title)
   }
 
   show() {
-    native.Window_show(getNativeId(this))
+    native.gft_Window_show(getNativeId(this))
   }
 
   hide() {
-    native.Window_hide(getNativeId(this))
+    native.gft_Window_hide(getNativeId(this))
   }
 
   focus() {
-    native.Window_focus(getNativeId(this))
+    native.gft_Window_focus(getNativeId(this))
   }
 
   minimize() {
-    native.Window_minimize(getNativeId(this))
+    native.gft_Window_minimize(getNativeId(this))
   }
 
   maximize() {
-    native.Window_maximize(getNativeId(this))
+    native.gft_Window_maximize(getNativeId(this))
   }
 
   restore() {
-    native.Window_restore(getNativeId(this))
+    native.gft_Window_restore(getNativeId(this))
   }
 
   async loadURL(url: URL | string, options = {}) {
+    console.log(this.width, this.height)
+
     this.#worker?.terminate()
 
     const worker = new Worker(new URL('worker.js', import.meta.url), {
@@ -73,15 +75,18 @@ export class AppWindow {
 
     // setup sequential req/res communication
     // TODO: prefix or isolate entirely, not sure yet
+    // TODO: it should now be possible to create channel and send it to the worker
+    //       and use that for our two-way communication
     this.#worker = worker
-    this.#send = msg =>
-      (current = current.then(() => {
+    this.#send = msg => {
+      return (current = current.then(() => {
         next = null
         worker.postMessage(msg)
         return new Promise((resolve, reject) => (next = { resolve, reject }))
       }))
+    }
 
-    const [width, height] = [this.width, this.height]
+    const { width, height } = this
     await this.#send({ type: 'init', windowId: getNativeId(this), width, height, url: '' + url, options })
   }
 

@@ -5,9 +5,12 @@
 //   this is useful for QSA but also for anything which returns Rc<> and hence could/should
 //   result in some already existing id/index
 
+// https://github.com/eqrion/cbindgen/issues/385
+#![allow(bare_trait_objects)]
+
 use crate::css::CssStyleDeclaration;
 use crate::util::SlotMap;
-use crate::{App, CharacterData, Document, Element, Event, Node, Viewport, WebView, Window};
+use crate::{App, CharacterData, Document, Element, Event, Node, NodeType, Viewport, WebView, Window};
 use crossbeam_channel::Receiver;
 use once_cell::sync::Lazy;
 use std::any::{Any, TypeId};
@@ -22,7 +25,7 @@ use std::sync::RwLock;
 #[repr(transparent)]
 pub struct ObjId<T: ?Sized>(c_uint, PhantomData<T>);
 
-impl <T: ?Sized> ObjId<T> {
+impl<T: ?Sized> ObjId<T> {
     pub const NULL: Self = ObjId(0, PhantomData);
 }
 
@@ -33,7 +36,12 @@ struct Ctx {
 }
 
 thread_local! {
-    static CTX: Rc<RefCell<Ctx>> = Default::default();
+    static CTX: Rc<RefCell<Ctx>> = {
+        let mut ctx = Ctx::default();
+        let null = ctx.refs.insert(Rc::new(()));
+        assert_eq!(null, ObjId::<dyn Any>::NULL.0);
+        Rc::new(RefCell::new(ctx))
+    }
 }
 
 // shouldn't block unless when a window is created/destroyed
@@ -49,12 +57,12 @@ pub extern "C" fn gft_Rc_drop(obj: ObjId<dyn Any>) {
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Vec_len(vec: ObjId<Vec<Rc<dyn Any>>>) -> c_uint {
+pub extern "C" fn gft_Vec_len(vec: ObjId<Vec<Rc<Any>>>) -> c_uint {
     get(vec).len() as u32
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Vec_get(vec: ObjId<Vec<Rc<dyn Any>>>, index: c_uint) -> ObjId<Vec<Rc<dyn Any>>> {
+pub extern "C" fn gft_Vec_get(vec: ObjId<Vec<Rc<Any>>>, index: c_uint) -> ObjId<Vec<Rc<Any>>> {
     to_id(Rc::clone(get(vec).get(index as usize).expect("out of bounds")))
 }
 
@@ -64,8 +72,13 @@ pub unsafe extern "C" fn gft_App_init() -> ObjId<App> {
 }
 
 #[no_mangle]
-pub extern "C" fn gft_App_tick() {
-    App::current().expect("no app").tick()
+pub extern "C" fn gft_App_current() -> ObjId<App> {
+    App::current().into()
+}
+
+#[no_mangle]
+pub extern "C" fn gft_App_tick(app: ObjId<App>) {
+    get(app).tick()
 }
 
 #[no_mangle]
@@ -110,6 +123,11 @@ pub extern "C" fn gft_Window_height(win: ObjId<Window>) -> c_int {
 #[no_mangle]
 pub extern "C" fn gft_Window_resize(win: ObjId<Window>, width: c_int, height: c_int) {
     get(win).set_size((width, height))
+}
+
+#[no_mangle]
+pub extern "C" fn gft_Window_should_close(win: ObjId<Window>) -> bool {
+    get(win).should_close()
 }
 
 #[no_mangle]
@@ -192,31 +210,53 @@ pub unsafe extern "C" fn gft_Document_create_comment(
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_node_type(node: ObjId<dyn Node>) -> u32 {
+pub extern "C" fn gft_Node_node_type(node: ObjId<Node>) -> u32 {
     get_node(node).node_type() as u32
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_append_child(parent: ObjId<dyn Node>, child: ObjId<dyn Node>) {
+pub extern "C" fn gft_Node_parent_node(node: ObjId<Node>) -> ObjId<Node> {
+    get_node(node).parent_node().into()
+}
+
+#[no_mangle]
+pub extern "C" fn gft_Node_first_child(node: ObjId<Node>) -> ObjId<Node> {
+    get_node(node).first_child().into()
+}
+
+#[no_mangle]
+pub extern "C" fn gft_Node_last_child(node: ObjId<Node>) -> ObjId<Node> {
+    get_node(node).last_child().into()
+}
+
+#[no_mangle]
+pub extern "C" fn gft_Node_previous_sibling(node: ObjId<Node>) -> ObjId<Node> {
+    get_node(node).previous_sibling().into()
+}
+
+#[no_mangle]
+pub extern "C" fn gft_Node_next_sibling(node: ObjId<Node>) -> ObjId<Node> {
+    get_node(node).next_sibling().into()
+}
+
+#[no_mangle]
+pub extern "C" fn gft_Node_append_child(parent: ObjId<Node>, child: ObjId<Node>) {
     get_node(parent).append_child(get_node(child))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_insert_before(parent: ObjId<dyn Node>, child: ObjId<dyn Node>, before: ObjId<dyn Node>) {
+pub extern "C" fn gft_Node_insert_before(parent: ObjId<Node>, child: ObjId<Node>, before: ObjId<Node>) {
     get_node(parent).insert_before(get_node(child), get_node(before))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_remove_child(parent: ObjId<dyn Node>, child: ObjId<dyn Node>) {
+pub extern "C" fn gft_Node_remove_child(parent: ObjId<Node>, child: ObjId<Node>) {
     get_node(parent).remove_child(get_node(child))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn gft_Node_query_selector(node: ObjId<dyn Node>, selector: *const c_char) -> ObjId<Element> {
-    match get_node(node).query_selector(to_str(selector)) {
-        Some(el) => el.into(),
-        None => ObjId::NULL
-    }
+pub unsafe extern "C" fn gft_Node_query_selector(node: ObjId<Node>, selector: *const c_char) -> ObjId<Element> {
+    get_node(node).query_selector(to_str(selector)).into()
 }
 
 // TODO: to_id() + map(to_id())?
@@ -283,13 +323,38 @@ pub extern "C" fn gft_Viewport_resize(viewport: ObjId<Viewport>, width: c_double
 
 // Viewport_element_from_point: |vp, x: f64, y: f64| get(vp).element_from_point((x as _, y as _))
 
+impl<T: ?Sized> From<Option<Rc<T>>> for ObjId<T>
+where
+    Rc<T>: Into<ObjId<T>>,
+{
+    fn from(opt: Option<Rc<T>>) -> Self {
+        match opt {
+            Some(obj) => obj.into(),
+            None => ObjId::NULL,
+        }
+    }
+}
+
 impl<T: 'static> From<Rc<T>> for ObjId<T> {
     fn from(rc: Rc<T>) -> Self {
         to_id(rc)
     }
 }
 
-fn to_id<T>(any: Rc<dyn Any>) -> ObjId<T> {
+// TODO: add to_node() to Node trait
+impl From<Rc<dyn Node>> for ObjId<dyn Node> {
+    fn from(node: Rc<dyn Node>) -> ObjId<dyn Node> {
+        match node.node_type() {
+            NodeType::Document => to_id(node.downcast::<Document>().unwrap()),
+            NodeType::Element => to_id(node.downcast::<Element>().unwrap()),
+            NodeType::Text => to_id(node.downcast::<CharacterData>().unwrap()),
+            NodeType::Comment => to_id(node.downcast::<CharacterData>().unwrap()),
+            _ => unreachable!(),
+        }
+    }
+}
+
+fn to_id<T: ?Sized>(any: Rc<dyn Any>) -> ObjId<T> {
     CTX.with(|ctx| {
         let mut ctx = ctx.borrow_mut();
         let ptr = Rc::as_ptr(&any);
@@ -313,7 +378,7 @@ fn get<T: 'static>(obj: ObjId<T>) -> Rc<T> {
     Rc::downcast::<T>(any(obj)).expect("invalid object type")
 }
 
-fn get_node(node: ObjId<dyn Node>) -> Rc<dyn Node> {
+fn get_node(node: ObjId<Node>) -> Rc<dyn Node> {
     let any = any(node);
     let type_id = (&*any).type_id();
 

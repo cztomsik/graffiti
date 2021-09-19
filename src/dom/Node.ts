@@ -43,9 +43,9 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
 
     if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
       if (refNode) {
-        native.Node_insert_before(getNativeId(this), getNativeId(child), getNativeId(refNode))
+        native.gft_Node_insert_before(getNativeId(this), getNativeId(child), getNativeId(refNode))
       } else {
-        native.Node_append_child(getNativeId(this), getNativeId(child))
+        native.gft_Node_append_child(getNativeId(this), getNativeId(child))
       }
     }
 
@@ -59,7 +59,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
 
     if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
-      native.Node_remove_child(getNativeId(this), getNativeId(child))
+      native.gft_Node_remove_child(getNativeId(this), getNativeId(child))
     }
 
     return child
@@ -223,7 +223,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
 
   get children(): HTMLCollection {
     // TODO: HTMLCollection
-    return this.childNodes.filter(c => c.nodeType === ELEMENT_NODE) as any
+    return this.childNodes.filter(c => c.nodeType === Node.ELEMENT_NODE) as any
   }
 
   get childElementCount(): number {
@@ -246,12 +246,23 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
     nodes.forEach(n => this.insertBefore(strToNode(this, n), this.firstChild))
   }
 
-  querySelector(selectors) {
-    return querySelector(this.ownerDocument, this, selectors)
+  replaceChildren(...nodes: (G.Node | string)[]) {
+    this.childNodes.forEach(n => this.removeChild(n))
+    this.append(...nodes)
   }
 
-  querySelectorAll(selectors) {
-    return querySelectorAll(this.ownerDocument, this, selectors)
+  getElementById(id) {
+    return this.querySelector(`#${id}`)
+  }
+
+  querySelector(selector) {
+    return lookup(native.gft_Node_query_selector(getNativeId(this), selector))
+  }
+
+  querySelectorAll(selector) {
+    const elIds = native.gft_Node_query_selector_all(getNativeId(this), selector)
+
+    return elIds.map(lookup)
   }
 
   getElementsByTagName(tagName) {
@@ -313,7 +324,7 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
 }
 
 // define fallback .childNodes
-Object.defineProperty(Node.prototype, 'childNodes', { value: NodeList.EMPTY_FROZEN, writable: true })
+Object.defineProperty(Node.prototype, 'childNodes', { value: Object.freeze(new NodeList()), writable: true })
 
 const sibling = (nodes, child, offset) => (nodes && nodes[nodes.indexOf(child) + offset]) ?? null
 
