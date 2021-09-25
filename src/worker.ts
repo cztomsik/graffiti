@@ -42,7 +42,7 @@ async function handleMessage(msg) {
 async function send(result, error?) {
   // TODO: we can avoid namespacing with MessageChannel sent with first init
   //       (this is currently blocked by deno which does not yet support transferables)
-  postMessage({ type: '__GFT', result, error }, '')
+  postMessage({ type: '__GFT', result, error })
   native.gft_App_wake_up()
 }
 
@@ -57,7 +57,7 @@ async function main({ windowId, width, height, url, options }) {
   makeGlobal(window)
 
   // init viewport
-  const viewportId = native.gft_Viewport_new(width, height, getNativeId(document))
+  const viewportId = -1 //native.gft_Viewport_new(width, height, getNativeId(document))
   register(window, viewportId)
 
   // load html
@@ -81,11 +81,11 @@ async function main({ windowId, width, height, url, options }) {
     // TODO: windowId or viewportId? or something else?
 
     // TODO: async...
-    while ((ev = native.gft_Window_next_event(windowId))) {
-      handleEvent(ev)
-    }
+    // while ((ev = native.gft_Window_next_event(windowId))) {
+    //   handleEvent(ev)
+    // }
 
-    native.gft_Viewport_render(windowId, viewportId)
+    // native.gft_Viewport_render(windowId, viewportId)
 
     setTimeout(loop, 100)
   }
