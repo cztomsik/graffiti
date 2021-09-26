@@ -1,5 +1,5 @@
 import { Node, NodeList, XMLSerializer } from './index'
-import { ERR } from '../util'
+import { encode, ERR } from '../util'
 import { parseFragment } from './DOMParser'
 import { native, getNativeId, register, TRUE } from '../native'
 import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
@@ -19,7 +19,7 @@ export abstract class Element extends Node implements globalThis.Element {
 
     this.#localName = localName
 
-    register(this, native.Document_create_element(getNativeId(doc), localName))
+    register(this, native.gft_Document_create_element(getNativeId(doc), encode(localName)))
   }
 
   get nodeType() {
@@ -36,7 +36,7 @@ export abstract class Element extends Node implements globalThis.Element {
 
   get style() {
     return (
-      this.#style ?? (this.#style = register(new CSSStyleDeclaration(null), native.Element_style(getNativeId(this))))
+      this.#style ?? (this.#style = register(new CSSStyleDeclaration(null), native.gft_Element_style(getNativeId(this))))
     )
   }
 
@@ -51,11 +51,11 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   getAttribute(name: string): string | null {
-    return native.Element_attribute(getNativeId(this), name)
+    return native.gft_Element_attribute(getNativeId(this), name)
   }
 
   getAttributeNames(): string[] {
-    return native.Element_attribute_names(getNativeId(this))
+    return native.gft_Element_attribute_names(getNativeId(this))
   }
 
   hasAttribute(name: string): boolean {
@@ -69,11 +69,11 @@ export abstract class Element extends Node implements globalThis.Element {
   setAttribute(name: string, value: string) {
     value = (typeof value === 'string' ? value : '' + value).toLowerCase()
 
-    native.Element_set_attribute(getNativeId(this), name, value)
+    native.gft_Element_set_attribute(getNativeId(this), encode(name), encode(value))
   }
 
   removeAttribute(name: string) {
-    native.Element_remove_attribute(getNativeId(this), name)
+    native.gft_Element_remove_attribute(getNativeId(this), encode(name))
   }
 
   toggleAttribute(name: string, force?: boolean): boolean {
@@ -140,7 +140,7 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   matches(selector: string): boolean {
-    return native.Element_matches(getNativeId(this), selector) === TRUE
+    return native.gft_Element_matches(getNativeId(this), selector) === TRUE
   }
 
   closest(selector: string) {

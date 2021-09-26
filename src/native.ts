@@ -23,18 +23,12 @@ export const loadNativeApi = async () => {
 
 // bind wrapper object to be cached and/or collected when necessary,
 export const register = <T extends object>(wrapper: T, id) => {
-  // TODO: remove checks later
-
-  if (id > WRAPPER_REFS.length) {
-    console.log('unexpected hole in refs', id, wrapper)
-  }
-
-  if (WRAPPER_REFS[id] !== undefined) {
-    console.log('already registered', id, wrapper)
-  }
-
-  NATIVE_REGISTRY.register(wrapper, id)
-  WRAPPER_REFS[id] = new WeakRef(wrapper)
+  // TODO: could be explicit (or method/symbol on wrapper/class?),
+  //       we only need lookup for few objects
+  const key = native.gft_Ref_key(id)
+  console.log('register', id, key)
+  NATIVE_REGISTRY.register(wrapper, [id, key])
+  WRAPPER_REFS.set(key, new WeakRef(wrapper))
   wrapper[NATIVE_ID] = id
 
   return wrapper
@@ -48,13 +42,10 @@ export const getNativeId = wrapper => wrapper[NATIVE_ID]
 
 
 const NATIVE_ID = Symbol()
-const WRAPPER_REFS: WeakRef<any>[] = [
-  // [0] should never be accessed so this is both fine and it also works as a check
-  null as any,
-]
-const NATIVE_REGISTRY = new FinalizationRegistry((id: number) => {
-  native.Rc_drop(id)
-  WRAPPER_REFS[id] = undefined as any
+const WRAPPER_REFS: Map<number, WeakRef<any>> = new Map()
+const NATIVE_REGISTRY = new FinalizationRegistry(([id, key]: [number, number]) => {
+  native.Ref_drop(id)
+  WRAPPER_REFS.delete(id)
 })
 
 const resolveLibFile = async () => {
@@ -85,6 +76,10 @@ const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
 
   const lib = Deno.dlopen(libFile, {
     // TODO: parse/generate from ffi.rs
+    gft_Ref_drop: { parameters: ['u32'], result: 'void' },
+    gft_Ref_key: { parameters: ['u32'], result: 'u64' },
+    gft_Vec_len: { parameters: ['u32'], result: 'u32' },
+    gft_Vec_get: { parameters: ['u32', 'u32'], result: 'u32' },
     gft_App_init: { parameters: [], result: 'u32' },
     gft_App_wake_up: { parameters: [], result: 'void' },
     gft_App_tick: { parameters: ['u32'], result: 'u32' },
@@ -97,6 +92,9 @@ const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
     gft_Document_create_comment: { parameters: ['u32', 'buffer'], result: 'u32' },
     gft_Node_append_child: { parameters: ['u32', 'u32'], result: 'u32' },
     gft_Node_insert_before: { parameters: ['u32', 'u32', 'u32'], result: 'u32' },
+    gft_Node_query_selector: { parameters: ['u32', 'buffer'], result: 'u32' },
+    gft_Node_query_selector_all: { parameters: ['u32', 'buffer'], result: 'u32' },
+    gft_Element_set_attribute: { parameters: ['u32', 'buffer', 'buffer'], result: 'void' },
     gft_WebView_new: { parameters: [], result: 'u32' },
     gft_WebView_attach: { parameters: ['u32', 'u32'], result: 'void' },
     gft_WebView_load_url: { parameters: ['u32', 'buffer'], result: 'void' },
@@ -106,7 +104,11 @@ const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
   // debug
   native = Object.fromEntries(
     Object.entries<any>(lib.symbols).map(([name, fn]) => {
-      return [name, (...args) => (console.log('call', name, ...args), fn(...args))]
+      return [name, (...args) => {
+        const res = (console.log('call', name, ...args), fn(...args))
+        console.log('<-', res)
+        return res
+      }]
     })
   )
 

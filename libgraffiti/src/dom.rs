@@ -147,20 +147,19 @@ impl NodeRef {
 
     pub fn query_selector_all(&self, selector: &str) -> Vec<Rc<Element>> {
         let selector = Selector::from(selector);
-        let mut els = Vec::new();
-        let mut next = self.first_child();
-
-        while let Some(node) = next {
-            next = node.next_sibling();
-
-            if let Ok(el) = node.downcast::<Element>() {
-                els.push(el);
+        let els = Traverse {
+            store: self.store.clone(),
+            next: self.store.borrow().nodes[self.id].first_child.map(NodeEdge::Start),
             }
-        }
+        .filter_map(|edge| match edge {
+            NodeEdge::Start(node) if self.store.borrow().nodes[node].node_type == NodeType::Element => Some(node),
+            _ => None,
+        });
 
         self.with_matching_context(|ctx| {
             els.into_iter()
-                .filter(|el| ctx.match_selector(&selector, el.id).is_some())
+                .filter(|&el| ctx.match_selector(&selector, el).is_some())
+                .map(|el| self.store.borrow().refs[el].clone().downcast::<Element>().unwrap())
                 .collect()
         })
     }
@@ -429,6 +428,48 @@ fn create_node(store: &Rc<RefCell<Store>>, node_type: NodeType) -> NodeRef {
     drop(store_mut);
 
     NodeRef { store, id }
+}
+
+#[derive(Clone, Debug)]
+enum NodeEdge {
+    Start(NodeId),
+    End(NodeId),
+}
+
+#[derive(Clone)]
+struct Traverse {
+    // TODO: so it's going to borrow every time?
+    //       or is this going to be Ref<> and it might panic on change?
+    store: Rc<RefCell<Store>>,
+    next: Option<NodeEdge>,
+}
+
+impl Iterator for Traverse {
+    type Item = NodeEdge;
+
+    fn next(&mut self) -> Option<NodeEdge> {
+        let nodes = &self.store.borrow().nodes;
+
+        match self.next.take() {
+            Some(next) => {
+                self.next = match next {
+                    NodeEdge::Start(node) => match nodes[node].first_child {
+                        Some(first_child) => Some(NodeEdge::Start(first_child)),
+                        None => Some(NodeEdge::End(node)),
+                    },
+                    NodeEdge::End(node) => match nodes[node].next_sibling {
+                        Some(next_sibling) => Some(NodeEdge::Start(next_sibling)),
+                        None => match nodes[node].parent_node {
+                            Some(parent) => Some(NodeEdge::End(parent)),
+                            None => None,
+                        },
+                    },
+                };
+                Some(next)
+            }
+            None => None,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -1,6 +1,8 @@
 import { StyleSheet } from './StyleSheet'
 import { CSSRuleList } from './CSSRuleList'
 import { CSSStyleRule } from './CSSStyleRule'
+import { getNativeId, lookup, native, register } from '../native'
+import { encode } from '../util'
 
 export class CSSStyleSheet extends StyleSheet implements globalThis.CSSStyleSheet {
   readonly cssRules = new CSSRuleList()
@@ -12,13 +14,13 @@ export class CSSStyleSheet extends StyleSheet implements globalThis.CSSStyleShee
   }
 
   insertRule(rule: string, index = 0): number {
-    native.CssStyleSheet_insert_rule(getNativeId(this), rule, index)
+    native.gft_CssStyleSheet_insert_rule(getNativeId(this), encode(rule), index)
 
     return index
   }
 
   deleteRule(index: number) {
-    native.CssStyleSheet_delete_rule(getNativeId(this), index)
+    native.gft_CssStyleSheet_delete_rule(getNativeId(this), index)
   }
 
   // deprecated

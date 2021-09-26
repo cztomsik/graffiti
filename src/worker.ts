@@ -57,8 +57,8 @@ async function main({ windowId, width, height, url, options }) {
   makeGlobal(window)
 
   // init viewport
-  const viewportId = -1 //native.gft_Viewport_new(width, height, getNativeId(document))
-  register(window, viewportId)
+  //const viewportId = -1 //native.gft_Viewport_new(width, height, getNativeId(document))
+  //register(window, viewportId)
 
   // load html
   parseIntoDocument(document, await readURL(url))

@@ -3,7 +3,7 @@
 
 import { EventTarget } from '../events/index'
 import { NodeList, HTMLElement } from './index'
-import { assert, last, UNSUPPORTED } from '../util'
+import { assert, encode, last, UNSUPPORTED } from '../util'
 import { native, getNativeId, lookup } from '../native'
 
 export abstract class Node extends EventTarget implements G.Node, G.ParentNode, G.ChildNode, G.NonDocumentTypeChildNode, G.Slottable {
@@ -260,9 +260,27 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
   }
 
   querySelectorAll(selector) {
-    const elIds = native.gft_Node_query_selector_all(getNativeId(this), selector)
+    const res: Element[] = []
+    const vec = native.gft_Node_query_selector_all(getNativeId(this), encode(selector))
 
-    return elIds.map(lookup)
+    try {
+      const len = native.gft_Vec_len(vec)
+
+      for (let i = 0; i < len; i++) {
+        const nodeRef = native.gft_Vec_get(vec, i)
+
+        try {
+          const key = native.gft_Ref_key(nodeRef)
+          res.push(lookup(key))
+        } finally {
+          native.gft_Ref_drop(nodeRef)
+        }
+      }
+    } finally {
+      native.gft_Ref_drop(vec)
+    }
+
+    return NodeList.from(res) as any
   }
 
   getElementsByTagName(tagName) {

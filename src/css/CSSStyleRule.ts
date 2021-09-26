@@ -3,10 +3,10 @@ import { CSSStyleDeclaration } from './CSSStyleDeclaration'
 import { native, getNativeId, register } from '../native'
 
 export class CSSStyleRule extends CSSRule implements globalThis.CSSStyleRule {
-  #style = register(new CSSStyleDeclaration(this), native.CssStyleRule_style(getNativeId(this)))
+  #style = register(new CSSStyleDeclaration(this), native.gft_CssStyleRule_style(getNativeId(this)))
 
   get selectorText() {
-    return native.CssStyleRule_selector_text(getNativeId(this))
+    return native.gft_CssStyleRule_selector_text(getNativeId(this))
   }
 
   get style() {
