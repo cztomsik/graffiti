@@ -11,9 +11,9 @@ enum NodeType {
 };
 typedef uint32_t NodeType;
 
-typedef unsigned int Ref_Vec_Rc_Any;
-
 typedef unsigned int Ref_Any;
+
+typedef unsigned int Ref_Vec_Rc_Any;
 
 typedef unsigned int Ref_App;
 
@@ -44,6 +44,10 @@ extern void *LoadLibraryA(const char *filename);
 extern void *GetProcAddress(void *module, const char *name);
 
 extern int FreeLibrary(void *handle);
+
+void gft_Ref_drop(Ref_Any obj);
+
+uint64_t gft_Ref_key(Ref_Any obj);
 
 unsigned int gft_Vec_len(Ref_Vec_Rc_Any vec);
 

@@ -44,12 +44,12 @@ thread_local! {
 static EVENTS: Lazy<RwLock<SlotMap<u32, Receiver<Event>>>> = Lazy::new(Default::default);
 
 #[no_mangle]
-pub extern "C" fn gft_Ref_drop(obj: Ref<dyn Any>) {
+pub extern "C" fn gft_Ref_drop(obj: Ref<Any>) {
     REFS.with(|refs| refs.borrow_mut().remove(obj.0));
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Ref_key(obj: Ref<dyn Any>) -> u64 {
+pub extern "C" fn gft_Ref_key(obj: Ref<Any>) -> u64 {
     let ptr: u64 = REFS.with(|refs| Rc::as_ptr(&refs.borrow()[obj.0])) as *const c_void as usize as _;
     let key = ptr.bitxor(0xF0F0F0);
 
