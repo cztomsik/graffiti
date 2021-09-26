@@ -3,25 +3,35 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef unsigned int ObjId_Vec_Rc_Any;
+enum NodeType {
+  Element = 1,
+  Text = 3,
+  Comment = 8,
+  Document = 9,
+};
+typedef uint32_t NodeType;
 
-typedef unsigned int ObjId_App;
+typedef unsigned int Ref_Vec_Rc_Any;
 
-typedef unsigned int ObjId_Window;
+typedef unsigned int Ref_Any;
 
-typedef unsigned int ObjId_WebView;
+typedef unsigned int Ref_App;
 
-typedef unsigned int ObjId_Document;
+typedef unsigned int Ref_Window;
 
-typedef unsigned int ObjId_Element;
+typedef unsigned int Ref_WebView;
 
-typedef unsigned int ObjId_CharacterData;
+typedef unsigned int Ref_Document;
 
-typedef unsigned int ObjId_Node;
+typedef unsigned int Ref_Element;
 
-typedef unsigned int ObjId_CssStyleDeclaration;
+typedef unsigned int Ref_CharacterData;
 
-typedef unsigned int ObjId_Viewport;
+typedef unsigned int Ref_Node;
+
+typedef unsigned int Ref_CssStyleDeclaration;
+
+typedef unsigned int Ref_Viewport;
 
 extern void *dlopen(const char *filename, int flags);
 
@@ -35,96 +45,98 @@ extern void *GetProcAddress(void *module, const char *name);
 
 extern int FreeLibrary(void *handle);
 
-unsigned int gft_Vec_len(ObjId_Vec_Rc_Any vec);
+unsigned int gft_Vec_len(Ref_Vec_Rc_Any vec);
 
-ObjId_Vec_Rc_Any gft_Vec_get(ObjId_Vec_Rc_Any vec, unsigned int index);
+Ref_Any gft_Vec_get(Ref_Vec_Rc_Any vec, unsigned int index);
 
-ObjId_App gft_App_init(void);
+Ref_App gft_App_init(void);
 
-ObjId_App gft_App_current(void);
+Ref_App gft_App_current(void);
 
-void gft_App_tick(ObjId_App app);
+void gft_App_tick(Ref_App app);
 
 void gft_App_wake_up(void);
 
-ObjId_Window gft_Window_new(const char *title, int width, int height);
+Ref_Window gft_Window_new(const char *title, int width, int height);
 
-char *gft_Window_title(ObjId_Window win);
+char *gft_Window_title(Ref_Window win);
 
-void gft_Window_set_title(ObjId_Window win, const char *title);
+void gft_Window_set_title(Ref_Window win, const char *title);
 
-int gft_Window_width(ObjId_Window win);
+int gft_Window_width(Ref_Window win);
 
-int gft_Window_height(ObjId_Window win);
+int gft_Window_height(Ref_Window win);
 
-void gft_Window_resize(ObjId_Window win, int width, int height);
+void gft_Window_resize(Ref_Window win, int width, int height);
 
-bool gft_Window_should_close(ObjId_Window win);
+bool gft_Window_should_close(Ref_Window win);
 
-void gft_Window_show(ObjId_Window win);
+void gft_Window_show(Ref_Window win);
 
-void gft_Window_hide(ObjId_Window win);
+void gft_Window_hide(Ref_Window win);
 
-void gft_Window_focus(ObjId_Window win);
+void gft_Window_focus(Ref_Window win);
 
-void gft_Window_minimize(ObjId_Window win);
+void gft_Window_minimize(Ref_Window win);
 
-void gft_Window_maximize(ObjId_Window win);
+void gft_Window_maximize(Ref_Window win);
 
-void gft_Window_restore(ObjId_Window win);
+void gft_Window_restore(Ref_Window win);
 
-ObjId_WebView gft_WebView_new(void);
+Ref_WebView gft_WebView_new(void);
 
-void gft_WebView_attach(ObjId_WebView webview, ObjId_Window win);
+void gft_WebView_attach(Ref_WebView webview, Ref_Window win);
 
-void gft_WebView_load_url(ObjId_WebView webview, const char *url);
+void gft_WebView_load_url(Ref_WebView webview, const char *url);
 
-void gft_WebView_eval(ObjId_WebView webview, const char *script);
+void gft_WebView_eval(Ref_WebView webview, const char *script);
 
-ObjId_Document gft_Document_new(void);
+Ref_Document gft_Document_new(void);
 
-ObjId_Element gft_Document_create_element(ObjId_Document doc, const char *local_name);
+Ref_Element gft_Document_create_element(Ref_Document doc, const char *local_name);
 
-ObjId_CharacterData gft_Document_create_text_node(ObjId_Document doc, const char *data);
+Ref_CharacterData gft_Document_create_text_node(Ref_Document doc, const char *data);
 
-ObjId_CharacterData gft_Document_create_comment(ObjId_Document doc, const char *data);
+Ref_CharacterData gft_Document_create_comment(Ref_Document doc, const char *data);
 
-uint32_t gft_Node_node_type(ObjId_Node node);
+NodeType gft_Node_node_type(Ref_Node node);
 
-ObjId_Node gft_Node_parent_node(ObjId_Node node);
+Ref_Node gft_Node_parent_node(Ref_Node node);
 
-ObjId_Node gft_Node_first_child(ObjId_Node node);
+Ref_Node gft_Node_first_child(Ref_Node node);
 
-ObjId_Node gft_Node_last_child(ObjId_Node node);
+Ref_Node gft_Node_last_child(Ref_Node node);
 
-ObjId_Node gft_Node_previous_sibling(ObjId_Node node);
+Ref_Node gft_Node_previous_sibling(Ref_Node node);
 
-ObjId_Node gft_Node_next_sibling(ObjId_Node node);
+Ref_Node gft_Node_next_sibling(Ref_Node node);
 
-void gft_Node_append_child(ObjId_Node parent, ObjId_Node child);
+void gft_Node_append_child(Ref_Node parent, Ref_Node child);
 
-void gft_Node_insert_before(ObjId_Node parent, ObjId_Node child, ObjId_Node before);
+void gft_Node_insert_before(Ref_Node parent, Ref_Node child, Ref_Node before);
 
-void gft_Node_remove_child(ObjId_Node parent, ObjId_Node child);
+void gft_Node_remove_child(Ref_Node parent, Ref_Node child);
 
-ObjId_Element gft_Node_query_selector(ObjId_Node node, const char *selector);
+Ref_Element gft_Node_query_selector(Ref_Node node, const char *selector);
 
-char *gft_CharacterData_data(ObjId_CharacterData node);
+Ref_Vec_Rc_Any gft_Node_query_selector_all(Ref_Node node, const char *selector);
 
-void gft_CharacterData_set_data(ObjId_CharacterData node, const char *data);
+char *gft_CharacterData_data(Ref_CharacterData node);
 
-char *gft_Element_local_name(ObjId_Element el);
+void gft_CharacterData_set_data(Ref_CharacterData node, const char *data);
 
-char *gft_Element_attribute(ObjId_Element el, const char *att);
+char *gft_Element_local_name(Ref_Element el);
 
-void gft_Element_set_attribute(ObjId_Element el, const char *att, const char *val);
+char *gft_Element_attribute(Ref_Element el, const char *att);
 
-void gft_Element_remove_attribute(ObjId_Element el, const char *att);
+void gft_Element_set_attribute(Ref_Element el, const char *att, const char *val);
 
-unsigned int gft_CssStyleDeclaration_length(ObjId_CssStyleDeclaration style);
+void gft_Element_remove_attribute(Ref_Element el, const char *att);
 
-void gft_CssStyleDeclaration_set_property(ObjId_CssStyleDeclaration style,
+unsigned int gft_CssStyleDeclaration_length(Ref_CssStyleDeclaration style);
+
+void gft_CssStyleDeclaration_set_property(Ref_CssStyleDeclaration style,
                                           const char *prop,
                                           const char *val);
 
-void gft_Viewport_resize(ObjId_Viewport viewport, double width, double height);
+void gft_Viewport_resize(Ref_Viewport viewport, double width, double height);

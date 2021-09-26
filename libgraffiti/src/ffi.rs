@@ -65,7 +65,7 @@ pub extern "C" fn gft_Vec_len(vec: Ref<Vec<Rc<Any>>>) -> c_uint {
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Vec_get(vec: Ref<Vec<Rc<Any>>>, index: c_uint) -> Ref<Rc<Any>> {
+pub extern "C" fn gft_Vec_get(vec: Ref<Vec<Rc<Any>>>, index: c_uint) -> Ref<Any> {
     new_ref(Rc::clone(get(vec).get(index as usize).expect("out of bounds")))
 }
 
@@ -360,7 +360,7 @@ impl From<Rc<dyn Node>> for Ref<dyn Node> {
 
 fn new_ref<T: ?Sized>(any: Rc<dyn Any>) -> Ref<T> {
     REFS.with(|refs| Ref(refs.borrow_mut().insert(any), PhantomData))
-        }
+}
 
 fn any<T: ?Sized>(obj: Ref<T>) -> Rc<dyn Any> {
     REFS.with(|refs| Rc::clone(&refs.borrow()[obj.0]))
