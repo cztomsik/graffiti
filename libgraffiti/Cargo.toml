@@ -11,6 +11,7 @@ crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 once_cell = "1.7.2"
+fnv = "1.0.7"
 pom = "3.2.0"
 ab_glyph = "0.2.10"
 fontdb = { git = "https://github.com/cztomsik/fontdb", rev = "f106359" }
