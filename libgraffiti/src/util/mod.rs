@@ -14,3 +14,6 @@ pub use atom::*;
 
 mod slotmap;
 pub use slotmap::*;
+
+mod bloom;
+pub use bloom::*;

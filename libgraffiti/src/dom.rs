@@ -5,7 +5,7 @@
 // x weak data
 
 use crate::css::{CssStyleDeclaration, MatchingContext, Selector};
-use crate::util::{Atom, SlotMap};
+use crate::util::{Atom, Bloom, SlotMap};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Error, Formatter};
@@ -41,35 +41,35 @@ impl NodeRef {
         self.store.nodes.borrow()[self.id]
             .parent_node
             .get()
-            .map(|id| self.node_ref(id))
+            .map(|id| self.store.node_ref(id))
     }
 
     pub fn first_child(&self) -> Option<NodeRef> {
         self.store.nodes.borrow()[self.id]
             .first_child
             .get()
-            .map(|id| self.node_ref(id))
+            .map(|id| self.store.node_ref(id))
     }
 
     pub fn last_child(&self) -> Option<NodeRef> {
         self.store.nodes.borrow()[self.id]
             .last_child
             .get()
-            .map(|id| self.node_ref(id))
+            .map(|id| self.store.node_ref(id))
     }
 
     pub fn previous_sibling(&self) -> Option<NodeRef> {
         self.store.nodes.borrow()[self.id]
             .previous_sibling
             .get()
-            .map(|id| self.node_ref(id))
+            .map(|id| self.store.node_ref(id))
     }
 
     pub fn next_sibling(&self) -> Option<NodeRef> {
         self.store.nodes.borrow()[self.id]
             .next_sibling
             .get()
-            .map(|id| self.node_ref(id))
+            .map(|id| self.store.node_ref(id))
     }
 
     pub fn append_child(&self, child: &NodeRef) {
@@ -87,7 +87,9 @@ impl NodeRef {
         nodes[self.id].last_child.set(Some(child.id));
         nodes[child.id].parent_node.set(Some(self.id));
 
-        self.store.inc_count(child.id);
+        // TODO: add to damaged
+        child.update_ancestors();
+        child.inc_count();
     }
 
     // TODO: test
@@ -103,7 +105,9 @@ impl NodeRef {
         nodes[child.id].next_sibling.set(Some(before.id));
         nodes[child.id].parent_node.set(Some(self.id));
 
-        self.store.inc_count(child.id);
+        // TODO: add to damaged
+        child.update_ancestors();
+        child.inc_count();
     }
 
     pub fn remove_child(&self, child: &NodeRef) {
@@ -129,7 +133,8 @@ impl NodeRef {
         nodes[child.id].next_sibling.set(None);
         nodes[child.id].previous_sibling.set(None);
 
-        self.store.dec_count(child.id);
+        child.clear_ancestors();
+        child.dec_count();
     }
 
     pub fn query_selector(&self, selector: &str) -> Option<ElementRef> {
@@ -138,14 +143,7 @@ impl NodeRef {
 
     pub fn query_selector_all(&self, selector: &str) -> Vec<ElementRef> {
         let selector = Selector::from(selector);
-        let els = Traverse {
-            store: self.store.clone(),
-            next: self.store.nodes.borrow()[self.id]
-                .first_child
-                .get()
-                .map(NodeEdge::Start),
-        }
-        .filter_map(|edge| match edge {
+        let els = self.descendants().filter_map(|edge| match edge {
             NodeEdge::Start(node) if self.store.nodes.borrow()[node].node_type() == NodeType::Element => Some(node),
             _ => None,
         });
@@ -153,13 +151,13 @@ impl NodeRef {
         self.with_matching_context(|ctx| {
             els.into_iter()
                 .filter(|&el| ctx.match_selector(&selector, el).is_some())
-                .map(|el| self.node_ref(el).downcast::<ElementRef>().unwrap())
+                .map(|el| self.store.node_ref(el).downcast::<ElementRef>().unwrap())
                 .collect()
         })
     }
 
     pub fn as_node(&self) -> NodeRef {
-        self.node_ref(self.id)
+        self.store.node_ref(self.id)
     }
 
     pub fn downcast_ref<T: 'static>(&self) -> Option<&T> {
@@ -184,12 +182,52 @@ impl NodeRef {
 
     // helpers
 
-    fn node_ref(&self, id: NodeId) -> NodeRef {
-        self.store.inc_count(id);
-        NodeRef {
+    fn descendants(&self) -> Traverse {
+        Traverse {
             store: self.store.clone(),
-            id,
+            next: self.store.nodes.borrow()[self.id]
+                .first_child
+                .get()
+                .map(NodeEdge::Start),
         }
+    }
+
+    fn descendants_and_self(&self) -> Traverse {
+        // TODO: Traverse::from(self), Traverse::from(self.first_child())
+        //       but then we would need Option<> for store ref
+        Traverse {
+            store: self.store.clone(),
+            next: Some(NodeEdge::Start(self.id)),
+        }
+    }
+
+    fn update_ancestors(&self) {
+        let nodes = self.store.nodes.borrow();
+
+        for edge in self.descendants_and_self() {
+            if let NodeEdge::Start(node) = edge {
+                let parent = nodes[node].parent_node.get().unwrap();
+                nodes[node].ancestors.set(nodes[parent].ancestors.get().with(&parent));
+            }
+        }
+    }
+
+    fn clear_ancestors(&self) {
+        let nodes = self.store.nodes.borrow();
+
+        for edge in self.descendants_and_self() {
+            if let NodeEdge::Start(node) = edge {
+                nodes[node].ancestors.take();
+            }
+        }
+    }
+
+    fn inc_count(&self) {
+        self.store.inc_count(self.id);
+    }
+
+    fn dec_count(&self) {
+        self.store.dec_count(self.id);
     }
 
     pub(crate) fn with_matching_context<R, F: FnOnce(MatchingContext<'_, NodeId>) -> R>(&self, f: F) -> R {
@@ -215,7 +253,7 @@ impl PartialEq for NodeRef {
 
 impl Drop for NodeRef {
     fn drop(&mut self) {
-        self.store.dec_count(self.id)
+        self.dec_count()
     }
 }
 
@@ -227,7 +265,7 @@ impl Debug for NodeRef {
 
 impl Clone for NodeRef {
     fn clone(&self) -> Self {
-        self.store.inc_count(self.id);
+        self.inc_count();
 
         Self {
             store: self.store.clone(),
@@ -385,6 +423,15 @@ pub struct Store {
 }
 
 impl Store {
+    fn node_ref(self: &Rc<Self>, id: NodeId) -> NodeRef {
+        self.inc_count(id);
+
+        NodeRef {
+            store: self.clone(),
+            id,
+        }
+    }
+
     fn inc_count(&self, id: NodeId) {
         let node = &self.nodes.borrow()[id];
         node.ref_count.set(node.ref_count.get() + 1);
@@ -419,6 +466,7 @@ struct Node {
     previous_sibling: Cell<Option<NodeId>>,
     last_child: Cell<Option<NodeId>>,
     ref_count: Cell<u32>,
+    ancestors: Cell<Bloom<NodeId>>,
     data: NodeData,
 }
 
@@ -490,6 +538,7 @@ fn create_node(store: &Rc<Store>, data: NodeData) -> NodeRef {
         previous_sibling: Cell::new(None),
         last_child: Cell::new(None),
         ref_count: Cell::new(1),
+        ancestors: Cell::new(Bloom::new()),
         data,
     };
 
