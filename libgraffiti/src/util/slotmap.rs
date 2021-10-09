@@ -1,14 +1,11 @@
 // slotmap reimplementation with u32 and without versioning
 // the reason is that V8 doesn't like numbers above 2^30
 
-use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
 
 pub struct SlotMap<K, V> {
-    _phantom: PhantomData<K>,
-
-    // TODO: slot reusing
     slots: Vec<Option<V>>,
+    free_keys: Vec<K>,
 }
 
 // could be `From<usize> + Into<usize>` or some `Key` trait but
@@ -17,9 +14,8 @@ pub struct SlotMap<K, V> {
 impl<V> SlotMap<u32, V> {
     pub fn new() -> Self {
         Self {
-            _phantom: PhantomData,
-
             slots: Vec::new(),
+            free_keys: Vec::new(),
         }
     }
 
@@ -46,15 +42,13 @@ impl<V> SlotMap<u32, V> {
     }
 
     pub fn insert(&mut self, value: V) -> u32 {
-        self.insert_with_key(|_| value)
-    }
-
-    pub fn insert_with_key(&mut self, f: impl FnOnce(u32) -> V) -> u32 {
-        let key = std::convert::TryFrom::try_from(self.slots.len()).expect("slotmap full");
-
-        self.slots.push(Some(f(key)));
-
-        key
+        if let Some(key) = self.free_keys.pop() {
+            self.slots[key as usize] = Some(value);
+            key
+        } else {
+            self.slots.push(Some(value));
+            (self.slots.len() - 1) as u32
+        }
     }
 
     pub fn put(&mut self, key: u32, value: V) {
@@ -68,6 +62,7 @@ impl<V> SlotMap<u32, V> {
     }
 
     pub fn remove(&mut self, key: u32) -> Option<V> {
+        self.free_keys.push(key);
         self.slot_mut(key).take()
     }
 }

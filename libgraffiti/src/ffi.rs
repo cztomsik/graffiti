@@ -11,7 +11,7 @@
 
 use crate::util::SlotMap;
 use crate::{
-    App, CharacterData, CssStyleDeclaration, Document, Element, Event, Node, NodeId, NodeType, Viewport, WebView,
+    App, CharacterDataRef, CssStyleDeclaration, DocumentRef, ElementRef, Event, NodeRef, NodeId, NodeType, Viewport, WebView,
     Window,
 };
 use crossbeam_channel::Receiver;
@@ -31,7 +31,7 @@ pub struct Ref<T: ?Sized>(NonZeroU32, PhantomData<*const T>);
 
 #[derive(Debug, Clone)]
 pub enum Value {
-    Node(Node),
+    Node(NodeRef),
     Rc(Rc<dyn Any>),
     String(String),
     Vec(Vec<Value>),
@@ -94,18 +94,30 @@ pub extern "C" fn gft_App_wake_up() {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn gft_Window_new(title: *const c_char, width: c_int, height: c_int) -> Ref<Window> {
-    let w = Window::new(to_str(title), width, height);
-    let events = w.events().clone();
+pub unsafe extern "C" fn gft_Window_new(
+    title: *const c_char,
+    title_len: u32,
+    width: c_int,
+    height: c_int,
+) -> Ref<Window> {
+    let win = Window::new(to_str(title, title_len), width, height);
+    let events = win.events().clone();
 
-    let id: Ref<Window> = Rc::new(w).into();
+    let win_ref: Ref<Window> = Rc::new(win).into();
+    EVENTS.write().unwrap().put(win_ref.0.get(), events);
 
-    EVENTS.write().unwrap().put(id.0, events);
-
-    id
+    win_ref
 }
 
-// Window_next_event: |w| EVENTS.read().unwrap()[w].try_recv().ok().map(event),
+#[no_mangle]
+pub unsafe extern "C" fn gft_Window_next_event(win: Ref<Window>, event_dest: *mut Event) -> bool {
+    if let Some(event) = EVENTS.read().unwrap()[win.0.get()].try_recv().ok() {
+        *event_dest = event;
+        return true;
+}
+
+    false
+}
 
 #[no_mangle]
 pub extern "C" fn gft_Window_title(win: Ref<Window>) -> Ref<String> {
@@ -188,110 +200,146 @@ pub unsafe extern "C" fn gft_WebView_eval(webview: Ref<WebView>, script: *const 
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Document_new() -> Ref<Document> {
-    Document::new().as_node().into()
+pub extern "C" fn gft_Document_new() -> Ref<DocumentRef> {
+    DocumentRef::new().as_node().into()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn gft_Document_create_element(doc: Ref<Document>, local_name: *const c_char) -> Ref<Element> {
-    get(doc).create_element(to_str(local_name)).into()
+pub unsafe extern "C" fn gft_Document_create_element(
+    doc: Ref<DocumentRef>,
+    local_name: *const c_char,
+    local_name_len: u32,
+) -> Ref<ElementRef> {
+    with_tls(|tls| tls[&doc].create_element(to_str(local_name, local_name_len)))
+        .as_node()
+        .into()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn gft_Document_create_text_node(doc: Ref<Document>, data: *const c_char) -> Ref<CharacterData> {
-    get(doc).create_text_node(to_str(data)).into()
+pub unsafe extern "C" fn gft_Document_create_text_node(
+    doc: Ref<DocumentRef>,
+    data: *const c_char,
+    data_len: u32,
+) -> Ref<CharacterDataRef> {
+    with_tls(|tls| tls[&doc].create_text_node(to_str(data, data_len)))
+        .as_node()
+        .into()
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn gft_Document_create_comment(
+    doc: Ref<DocumentRef>,
+    data: *const c_char,
+    data_len: u32,
+) -> Ref<CharacterDataRef> {
+    with_tls(|tls| tls[&doc].create_comment(to_str(data, data_len)))
+        .as_node()
+        .into()
+}
 
 #[no_mangle]
-pub extern "C" fn gft_Node_id(node: Ref<Node>) -> NodeId {
+pub extern "C" fn gft_Node_id(node: Ref<NodeRef>) -> NodeId {
     with_tls(|tls| tls[&node].id())
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_node_type(node: Ref<Node>) -> NodeType {
+pub extern "C" fn gft_Node_node_type(node: Ref<NodeRef>) -> NodeType {
     with_tls(|tls| tls[&node].node_type())
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_parent_node(node: Ref<Node>) -> Option<Ref<Node>> {
+pub extern "C" fn gft_Node_parent_node(node: Ref<NodeRef>) -> Option<Ref<NodeRef>> {
     with_tls(|tls| tls[&node].parent_node()).map(Ref::from)
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_first_child(node: Ref<Node>) -> Option<Ref<Node>> {
+pub extern "C" fn gft_Node_first_child(node: Ref<NodeRef>) -> Option<Ref<NodeRef>> {
     with_tls(|tls| tls[&node].first_child()).map(Ref::from)
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_last_child(node: Ref<Node>) -> Option<Ref<Node>> {
+pub extern "C" fn gft_Node_last_child(node: Ref<NodeRef>) -> Option<Ref<NodeRef>> {
     with_tls(|tls| tls[&node].last_child()).map(Ref::from)
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_previous_sibling(node: Ref<Node>) -> Option<Ref<Node>> {
+pub extern "C" fn gft_Node_previous_sibling(node: Ref<NodeRef>) -> Option<Ref<NodeRef>> {
     with_tls(|tls| tls[&node].previous_sibling()).map(Ref::from)
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_next_sibling(node: Ref<Node>) -> Option<Ref<Node>> {
+pub extern "C" fn gft_Node_next_sibling(node: Ref<NodeRef>) -> Option<Ref<NodeRef>> {
     with_tls(|tls| tls[&node].next_sibling()).map(Ref::from)
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_append_child(parent: Ref<Node>, child: Ref<Node>) {
+pub extern "C" fn gft_Node_append_child(parent: Ref<NodeRef>, child: Ref<NodeRef>) {
     with_tls(|tls| tls[&parent].append_child(&tls[&child]))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_insert_before(parent: Ref<Node>, child: Ref<Node>, before: Ref<Node>) {
+pub extern "C" fn gft_Node_insert_before(parent: Ref<NodeRef>, child: Ref<NodeRef>, before: Ref<NodeRef>) {
     with_tls(|tls| tls[&parent].insert_before(&tls[&child], &tls[&before]))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Node_remove_child(parent: Ref<Node>, child: Ref<Node>) {
+pub extern "C" fn gft_Node_remove_child(parent: Ref<NodeRef>, child: Ref<NodeRef>) {
     with_tls(|tls| tls[&parent].remove_child(&tls[&child]))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn gft_Node_query_selector(node: Ref<Node>, selector: *const c_char) -> Ref<Element> {
-    get_node(node).query_selector(to_str(selector)).into()
+pub unsafe extern "C" fn gft_Node_query_selector(
+    node: Ref<NodeRef>,
+    selector: *const c_char,
+    selector_len: u32,
+) -> Option<Ref<ElementRef>> {
+    with_tls(|tls| tls[&node].query_selector(to_str(selector, selector_len)))
+        .map(|el| el.as_node())
+        .map(Ref::from)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_Node_query_selector_all(
-    node: Ref<Node>,
+    node: Ref<NodeRef>,
     selector: *const c_char,
-) -> Ref<Vec<Rc<Any>>> {
-    let anys: Vec<_> = get_node(node)
-        .query_selector_all(to_str(selector))
-        .iter()
-        .map(|r| r.clone() as Rc<dyn Any>)
-        .collect();
-    Rc::new(anys).into()
+    selector_len: u32,
+) -> Ref<Vec<Value>> {
+    let els = with_tls(|tls| tls[&node].query_selector_all(to_str(selector, selector_len)));
+    // TODO: map(Value::from)???
+    //       and maybe we could use it as part of Ref::from() or maybe replace Ref::from entirely with short snippet
+    //       which is repeated over again but also explicit about TLS usage
+    els.iter()
+        .map(|el| Value::Node(el.as_node()))
+        .collect::<Vec<_>>()
+        .into()
 }
 
 #[no_mangle]
-pub extern "C" fn gft_CharacterData_data(node: Ref<CharacterData>) -> Ref<String> {
+pub extern "C" fn gft_CharacterData_data(node: Ref<CharacterDataRef>) -> Ref<String> {
     with_tls(|tls| tls[&node].data()).into()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn gft_CharacterData_set_data(node: Ref<CharacterData>, data: *const c_char, data_len: u32) {
+pub unsafe extern "C" fn gft_CharacterData_set_data(node: Ref<CharacterDataRef>, data: *const c_char, data_len: u32) {
     with_tls(|tls| tls[&node].set_data(to_str(data, data_len)))
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Element_local_name(el: Ref<Element>) -> Ref<String> {
+pub extern "C" fn gft_Element_local_name(el: Ref<ElementRef>) -> Ref<String> {
     with_tls(|tls| tls[&el].local_name().to_string()).into()
 }
 
-// Element_attribute_names: |el| get(el).attribute_names(),
+#[no_mangle]
+pub extern "C" fn gft_Element_attribute_names(el: Ref<ElementRef>) -> Ref<Vec<Value>> {
+    let names = with_tls(|tls| tls[&el].attribute_names());
+    let values: Vec<_> = names.into_iter().map(|name| Value::String(name)).collect();
+
+    values.into()
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_Element_attribute(
-    el: Ref<Element>,
+    el: Ref<ElementRef>,
     att: *const c_char,
     att_len: u32,
 ) -> Option<Ref<String>> {
@@ -300,7 +348,7 @@ pub unsafe extern "C" fn gft_Element_attribute(
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_Element_set_attribute(
-    el: Ref<Element>,
+    el: Ref<ElementRef>,
     att: *const c_char,
     att_len: u32,
     val: *const c_char,
@@ -310,12 +358,12 @@ pub unsafe extern "C" fn gft_Element_set_attribute(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn gft_Element_remove_attribute(el: Ref<Element>, att: *const c_char, att_len: u32) {
+pub unsafe extern "C" fn gft_Element_remove_attribute(el: Ref<ElementRef>, att: *const c_char, att_len: u32) {
     with_tls(|tls| tls[&el].remove_attribute(to_str(att, att_len)))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn gft_Element_matches(el: Ref<Element>, selector: *const c_char, selector_len: u32) -> bool {
+pub unsafe extern "C" fn gft_Element_matches(el: Ref<ElementRef>, selector: *const c_char, selector_len: u32) -> bool {
     with_tls(|tls| tls[&el].matches(to_str(selector, selector_len)))
 }
 
@@ -348,16 +396,16 @@ pub extern "C" fn gft_CssStyleDeclaration_set_property(
 // Viewport_new: |w: f64, h: f64, doc: u32| to_id(Rc::new(Viewport::new((w as _, h as _), get(doc)))),
 // Viewport_render: |w: u32, vp: u32| println!("TODO: Viewport_render"),
 
-#[no_mangle]
-pub extern "C" fn gft_Viewport_resize(viewport: Ref<Viewport>, width: c_double, height: c_double) {
-    get(viewport).resize((width as _, height as _))
-}
+// #[no_mangle]
+// pub extern "C" fn gft_Viewport_resize(viewport: Ref<Viewport>, width: c_double, height: c_double) {
+//     get(viewport).resize((width as _, height as _))
+// }
 
 // Viewport_element_from_point: |vp, x: f64, y: f64| get(vp).element_from_point((x as _, y as _))
 
 // TODO: make it more explicit, into() hides TLS
-impl<T: 'static> From<Node> for Ref<T> {
-    fn from(node: Node) -> Self {
+impl<T: 'static> From<NodeRef> for Ref<T> {
+    fn from(node: NodeRef) -> Self {
         new_ref(Value::Node(node))
     }
 }

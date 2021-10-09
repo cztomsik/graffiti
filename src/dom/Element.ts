@@ -1,9 +1,10 @@
 import { Node, NodeList, XMLSerializer } from './index'
-import { encode, ERR } from '../util'
+import { ERR } from '../util'
 import { parseFragment } from './DOMParser'
-import { native, getNativeId, register, TRUE } from '../native'
+import { native, encode, getNativeId, register, decode, getRefs } from '../native'
 import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
 import { DOMTokenList } from './DOMTokenList'
+import { registerElement } from './Document'
 
 export abstract class Element extends Node implements globalThis.Element {
   abstract readonly tagName: string
@@ -19,7 +20,9 @@ export abstract class Element extends Node implements globalThis.Element {
 
     this.#localName = localName
 
-    register(this, native.gft_Document_create_element(getNativeId(doc), encode(localName)))
+    const ref = native.gft_Document_create_element(getNativeId(doc), ...encode(localName))
+    register(this, ref)
+    registerElement(doc, native.gft_Node_id(ref), this)
   }
 
   get nodeType() {
@@ -55,7 +58,12 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   getAttributeNames(): string[] {
-    return native.gft_Element_attribute_names(getNativeId(this))
+    const refs = getRefs(native.gft_Element_attribute_names(getNativeId(this)))
+
+    // decode() does the drop here
+    const names = refs.map(decode)
+
+    return names as any
   }
 
   hasAttribute(name: string): boolean {
@@ -140,7 +148,7 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   matches(selector: string): boolean {
-    return native.gft_Element_matches(getNativeId(this), selector) === TRUE
+    return native.gft_Element_matches(getNativeId(this), selector)
   }
 
   closest(selector: string) {

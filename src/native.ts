@@ -2,7 +2,22 @@ import { ERR, isDeno, isNodeJS, PLATFORM, TODO } from './util'
 
 // flat object with all of the native functions,
 // initialized by `loadNativeApi()`
+// TODO: Record<string, Function>
+// TODO: consider using top-level await
 export let native: any = null
+
+// unpack Vec<Ref<Value>> to array of refs
+// note that native.gft_Ref_drop(ref) still needs to be called for each ref
+export const getRefs = vec => {
+  const refs: number[] = []
+
+  for (let i = 0, len = native.gft_Vec_len(vec); i < len; i++) {
+    refs.push(native.gft_Vec_get(vec, i))
+  }
+  native.gft_Ref_drop(vec)
+
+  return refs
+}
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
@@ -12,6 +27,16 @@ export const encode = (input: string) => {
   return [buf, buf.length]
 }
 
+export const decode = (stringRef: number) => {
+  if (!stringRef) {
+    return null
+  }
+
+  const buf = new Uint8Array(native.gft_String_bytes_len(stringRef))
+  native.gft_String_copy(stringRef, buf);
+  native.gft_Ref_drop(stringRef)
+  return decoder.decode(buf)
+}
 
 export const loadNativeApi = async () => {
   const libFile = await resolveLibFile()
@@ -27,32 +52,19 @@ export const loadNativeApi = async () => {
   return ERR('unsupported JS engine')
 }
 
-// bind wrapper object to be cached and/or collected when necessary,
+// bind wrapper object to be automatically dropped
 export const register = <T extends object>(wrapper: T, id) => {
-  // TODO: could be explicit (or method/symbol on wrapper/class?),
-  //       we only need lookup for few objects
-  const key = native.gft_Ref_key(id)
-  console.log('register', id, key)
-  NATIVE_REGISTRY.register(wrapper, [id, key])
-  WRAPPER_REFS.set(key, new WeakRef(wrapper))
+  NATIVE_REGISTRY.register(wrapper, id)
   wrapper[NATIVE_ID] = id
 
   return wrapper
 }
 
-// get wrapper for a given given native id
-export const lookup = id => (id === NULL ? null : WRAPPER_REFS[id]?.deref())
-
 // get id from wrapper so it can be passed to native calls
 export const getNativeId = wrapper => wrapper[NATIVE_ID]
 
-
 const NATIVE_ID = Symbol()
-const WRAPPER_REFS: Map<number, WeakRef<any>> = new Map()
-const NATIVE_REGISTRY = new FinalizationRegistry(([id, key]: [number, number]) => {
-  native.Ref_drop(id)
-  WRAPPER_REFS.delete(id)
-})
+const NATIVE_REGISTRY = new FinalizationRegistry((id: number) => native.Ref_drop(id))
 
 const resolveLibFile = async () => {
   // TODO
@@ -78,33 +90,38 @@ const loadNodejsAddon = async libFile => {
 const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
   // TODO: fetch using https://deno.land/x/cache (Plug doesn't really add anything here)
 
-  // TODO: wait for https://github.com/denoland/deno/pull/11648
-
   const lib = Deno.dlopen(libFile, {
     // TODO: parse/generate from ffi.rs
     gft_Ref_drop: { parameters: ['u32'], result: 'void' },
-    gft_Ref_key: { parameters: ['u32'], result: 'u64' },
+    gft_String_bytes_len: { parameters: ['u32'], result: 'u32' },
+    gft_String_copy: { parameters: ['u32', 'buffer'], result: 'void' },
     gft_Vec_len: { parameters: ['u32'], result: 'u32' },
     gft_Vec_get: { parameters: ['u32', 'u32'], result: 'u32' },
     gft_App_init: { parameters: [], result: 'u32' },
     gft_App_wake_up: { parameters: [], result: 'void' },
-    gft_App_tick: { parameters: ['u32'], result: 'u32' },
-    gft_Window_new: { parameters: ['buffer', 'i32', 'i32'], result: 'u32' },
+    gft_App_tick: { parameters: ['u32'], result: 'void' },
+    gft_Window_new: { parameters: ['buffer', 'u32', 'i32', 'i32'], result: 'u32' },
     gft_Window_width: { parameters: ['u32'], result: 'i32' },
     gft_Window_height: { parameters: ['u32'], result: 'i32' },
     gft_Document_new: { parameters: [], result: 'u32' },
-    gft_Document_create_element: { parameters: ['u32', 'buffer'], result: 'u32' },
-    gft_Document_create_text_node: { parameters: ['u32', 'buffer'], result: 'u32' },
-    gft_Document_create_comment: { parameters: ['u32', 'buffer'], result: 'u32' },
-    gft_Node_append_child: { parameters: ['u32', 'u32'], result: 'u32' },
-    gft_Node_insert_before: { parameters: ['u32', 'u32', 'u32'], result: 'u32' },
-    gft_Node_query_selector: { parameters: ['u32', 'buffer'], result: 'u32' },
-    gft_Node_query_selector_all: { parameters: ['u32', 'buffer'], result: 'u32' },
-    gft_Element_set_attribute: { parameters: ['u32', 'buffer', 'buffer'], result: 'void' },
+    gft_Document_create_element: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
+    gft_Document_create_text_node: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
+    gft_Document_create_comment: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
+    gft_Node_id: { parameters: ['u32'], result: 'u32' },
+    gft_Node_append_child: { parameters: ['u32', 'u32'], result: 'void' },
+    gft_Node_insert_before: { parameters: ['u32', 'u32', 'u32'], result: 'void' },
+    gft_Node_remove_child: { parameters: ['u32', 'u32'], result: 'void' },
+    gft_Node_query_selector: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
+    gft_Node_query_selector_all: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
+    gft_Element_attribute_names: { parameters: ['u32'], result: 'u32' },
+    gft_Element_attribute: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
+    gft_Element_set_attribute: { parameters: ['u32', 'buffer', 'u32', 'buffer', 'u32'], result: 'void' },
+    gft_CharacterData_data: { parameters: ['u32'], result: 'u32' },
+    gft_CharacterData_set_data: { parameters: ['u32', 'buffer', 'u32'], result: 'void' },
     gft_WebView_new: { parameters: [], result: 'u32' },
     gft_WebView_attach: { parameters: ['u32', 'u32'], result: 'void' },
-    gft_WebView_load_url: { parameters: ['u32', 'buffer'], result: 'void' },
-    gft_WebView_eval: { parameters: ['u32', 'buffer'], result: 'void' },
+    gft_WebView_load_url: { parameters: ['u32', 'buffer', 'u32'], result: 'void' },
+    gft_WebView_eval: { parameters: ['u32', 'buffer', 'u32'], result: 'void' },
   })
 
   // debug

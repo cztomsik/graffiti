@@ -7,7 +7,7 @@
 use crate::css::{CssStyleDeclaration, MatchingContext, Selector};
 use crate::util::{Atom, Bloom, SlotMap};
 use std::any::TypeId;
-use std::cell::{Cell, RefCell, Ref};
+use std::cell::{Cell, Ref, RefCell};
 use std::fmt::{Debug, Error, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
@@ -177,7 +177,7 @@ impl NodeRef {
     }
 
     pub fn downcast<T: Clone + 'static>(self) -> Option<T> {
-        self.downcast_ref().map(Clone::clone)
+        self.downcast_ref().cloned()
     }
 
     // helpers
@@ -417,9 +417,6 @@ impl CharacterDataRef {
 #[derive(Default)]
 pub struct Store {
     nodes: RefCell<SlotMap<NodeId, Node>>,
-
-    // TODO: move to slotmap?
-    free_ids: RefCell<Vec<NodeId>>,
 }
 
 impl Store {
@@ -455,7 +452,6 @@ impl Store {
         }
 
         self.nodes.borrow_mut().remove(id);
-        self.free_ids.borrow_mut().push(id);
     }
 }
 
@@ -528,10 +524,7 @@ impl Node {
 }
 
 fn create_node(store: &Rc<Store>, data: NodeData) -> NodeRef {
-    let mut free_ids = store.free_ids.borrow_mut();
-    let mut nodes = store.nodes.borrow_mut();
-
-    let node = Node {
+    let id = store.nodes.borrow_mut().insert(Node {
         parent_node: Cell::new(None),
         first_child: Cell::new(None),
         next_sibling: Cell::new(None),
@@ -540,14 +533,7 @@ fn create_node(store: &Rc<Store>, data: NodeData) -> NodeRef {
         ref_count: Cell::new(1),
         ancestors: Cell::new(Bloom::new()),
         data,
-    };
-
-    let id = if let Some(id) = free_ids.pop() {
-        nodes.put(id, node);
-        id
-    } else {
-        nodes.insert(node)
-    };
+    });
 
     NodeRef {
         store: Rc::clone(store),
