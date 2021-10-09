@@ -6,9 +6,8 @@
 
 use crate::css::{CssStyleDeclaration, MatchingContext, Selector};
 use crate::util::{Atom, SlotMap};
-use std::any::{Any, TypeId};
-use std::cell::RefCell;
-use std::collections::HashMap;
+use std::any::TypeId;
+use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Error, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
@@ -22,185 +21,188 @@ pub enum NodeType {
     Document = 9,
 }
 
-// TODO: maybe we can make it private?
 pub type NodeId = u32;
 
-pub trait Node: Any + Deref<Target = NodeRef> + Debug {}
-impl<T: 'static + Deref<Target = NodeRef> + Debug> Node for T {}
-
-impl dyn Node {
-    pub fn downcast<T: Node>(self: Rc<dyn Node>) -> Result<Rc<T>, Rc<dyn Node>> {
-        if (*self).type_id() == TypeId::of::<T>() {
-            unsafe { Ok(Rc::from_raw(Rc::into_raw(self) as *const _)) }
-        } else {
-            Err(self)
-        }
-    }
-}
-
 pub struct NodeRef {
-    store: Rc<RefCell<Store>>,
+    store: Rc<Store>,
     id: NodeId,
 }
 
 impl NodeRef {
+    pub fn id(&self) -> NodeId {
+        self.id
+    }
+
     pub fn node_type(&self) -> NodeType {
-        self.store.borrow().nodes[self.id].node_type
+        self.store.nodes.borrow()[self.id].node_type()
     }
 
-    pub fn parent_node(&self) -> Option<Rc<dyn Node>> {
-        self.store.borrow().nodes[self.id]
+    pub fn parent_node(&self) -> Option<NodeRef> {
+        self.store.nodes.borrow()[self.id]
             .parent_node
-            .map(|id| self.store.borrow().refs[id].clone())
+            .get()
+            .map(|id| self.node_ref(id))
     }
 
-    pub fn first_child(&self) -> Option<Rc<dyn Node>> {
-        self.store.borrow().nodes[self.id]
+    pub fn first_child(&self) -> Option<NodeRef> {
+        self.store.nodes.borrow()[self.id]
             .first_child
-            .map(|id| self.store.borrow().refs[id].clone())
+            .get()
+            .map(|id| self.node_ref(id))
     }
 
-    pub fn last_child(&self) -> Option<Rc<dyn Node>> {
-        self.store.borrow().nodes[self.id]
+    pub fn last_child(&self) -> Option<NodeRef> {
+        self.store.nodes.borrow()[self.id]
             .last_child
-            .map(|id| self.store.borrow().refs[id].clone())
+            .get()
+            .map(|id| self.node_ref(id))
     }
 
-    pub fn previous_sibling(&self) -> Option<Rc<dyn Node>> {
-        self.store.borrow().nodes[self.id]
+    pub fn previous_sibling(&self) -> Option<NodeRef> {
+        self.store.nodes.borrow()[self.id]
             .previous_sibling
-            .map(|id| self.store.borrow().refs[id].clone())
+            .get()
+            .map(|id| self.node_ref(id))
     }
 
-    pub fn next_sibling(&self) -> Option<Rc<dyn Node>> {
-        self.store.borrow().nodes[self.id]
+    pub fn next_sibling(&self) -> Option<NodeRef> {
+        self.store.nodes.borrow()[self.id]
             .next_sibling
-            .map(|id| self.store.borrow().refs[id].clone())
+            .get()
+            .map(|id| self.node_ref(id))
     }
 
-    pub fn append_child(&self, child: Rc<dyn Node>) {
-        let mut store = self.store.borrow_mut();
-        let nodes = &mut store.nodes;
+    pub fn append_child(&self, child: &NodeRef) {
+        let nodes = self.store.nodes.borrow();
 
-        if nodes[self.id].first_child == None {
-            nodes[self.id].first_child = Some(child.id)
+        if nodes[self.id].first_child.get() == None {
+            nodes[self.id].first_child.set(Some(child.id))
         }
 
-        if let Some(last) = nodes[self.id].last_child {
-            nodes[last].next_sibling = Some(child.id);
+        if let Some(last) = nodes[self.id].last_child.get() {
+            nodes[last].next_sibling.set(Some(child.id));
         }
 
-        nodes[child.id].previous_sibling = nodes[child.id].last_child;
-        nodes[self.id].last_child = Some(child.id);
-        nodes[child.id].parent_node = Some(self.id);
+        nodes[child.id].previous_sibling.set(nodes[child.id].last_child.get());
+        nodes[self.id].last_child.set(Some(child.id));
+        nodes[child.id].parent_node.set(Some(self.id));
 
-        store.refs.put(child.id, child.clone());
+        self.store.inc_count(child.id);
     }
 
     // TODO: test
-    pub fn insert_before(&self, child: Rc<dyn Node>, before: Rc<dyn Node>) {
-        let mut store = self.store.borrow_mut();
-        let nodes = &mut store.nodes;
+    pub fn insert_before(&self, child: &NodeRef, before: &NodeRef) {
+        let nodes = self.store.nodes.borrow();
 
-        if nodes[self.id].first_child == Some(before.id) {
-            nodes[self.id].first_child = Some(child.id)
+        if nodes[self.id].first_child.get() == Some(before.id) {
+            nodes[self.id].first_child.set(Some(child.id))
         }
 
-        nodes[before.id].previous_sibling = Some(child.id);
+        nodes[before.id].previous_sibling.set(Some(child.id));
 
-        nodes[child.id].next_sibling = Some(before.id);
-        nodes[child.id].parent_node = Some(self.id);
+        nodes[child.id].next_sibling.set(Some(before.id));
+        nodes[child.id].parent_node.set(Some(self.id));
 
-        store.refs.put(child.id, child.clone());
+        self.store.inc_count(child.id);
     }
 
-    pub fn remove_child(&self, child: Rc<dyn Node>) {
-        let mut store = self.store.borrow_mut();
-        let nodes = &mut store.nodes;
+    pub fn remove_child(&self, child: &NodeRef) {
+        let nodes = self.store.nodes.borrow();
 
-        if nodes[self.id].first_child == Some(child.id) {
-            nodes[self.id].first_child = nodes[child.id].next_sibling
+        if nodes[self.id].first_child.get() == Some(child.id) {
+            nodes[self.id].first_child.set(nodes[child.id].next_sibling.get())
         }
 
-        if nodes[self.id].last_child == Some(child.id) {
-            nodes[self.id].last_child = nodes[child.id].previous_sibling
+        if nodes[self.id].last_child.get() == Some(child.id) {
+            nodes[self.id].last_child.set(nodes[child.id].previous_sibling.get())
         }
 
-        if let Some(prev) = nodes[child.id].previous_sibling {
-            nodes[prev].next_sibling = nodes[child.id].next_sibling;
+        if let Some(prev) = nodes[child.id].previous_sibling.get() {
+            nodes[prev].next_sibling.set(nodes[child.id].next_sibling.get());
         }
 
-        if let Some(next) = nodes[child.id].next_sibling {
-            nodes[next].previous_sibling = nodes[child.id].previous_sibling;
+        if let Some(next) = nodes[child.id].next_sibling.get() {
+            nodes[next].previous_sibling.set(nodes[child.id].previous_sibling.get());
         }
 
-        nodes[child.id].parent_node = None;
-        nodes[child.id].next_sibling = None;
-        nodes[child.id].previous_sibling = None;
+        nodes[child.id].parent_node.set(None);
+        nodes[child.id].next_sibling.set(None);
+        nodes[child.id].previous_sibling.set(None);
 
-        store.refs.remove(child.id);
+        self.store.dec_count(child.id);
     }
 
-    pub fn query_selector(&self, selector: &str) -> Option<Rc<Element>> {
+    pub fn query_selector(&self, selector: &str) -> Option<ElementRef> {
         self.query_selector_all(selector).get(0).cloned()
     }
 
-    pub fn query_selector_all(&self, selector: &str) -> Vec<Rc<Element>> {
+    pub fn query_selector_all(&self, selector: &str) -> Vec<ElementRef> {
         let selector = Selector::from(selector);
         let els = Traverse {
             store: self.store.clone(),
-            next: self.store.borrow().nodes[self.id].first_child.map(NodeEdge::Start),
-            }
+            next: self.store.nodes.borrow()[self.id]
+                .first_child
+                .get()
+                .map(NodeEdge::Start),
+        }
         .filter_map(|edge| match edge {
-            NodeEdge::Start(node) if self.store.borrow().nodes[node].node_type == NodeType::Element => Some(node),
+            NodeEdge::Start(node) if self.store.nodes.borrow()[node].node_type() == NodeType::Element => Some(node),
             _ => None,
         });
 
         self.with_matching_context(|ctx| {
             els.into_iter()
                 .filter(|&el| ctx.match_selector(&selector, el).is_some())
-                .map(|el| self.store.borrow().refs[el].clone().downcast::<Element>().unwrap())
+                .map(|el| self.node_ref(el).downcast::<ElementRef>().unwrap())
                 .collect()
         })
     }
 
-    // sparse data, dropped with the node
-    // (canvas? parsed sheet?)
-    pub fn weak_data<T: Clone + 'static>(&self) -> Option<T> {
-        self.store.borrow().weak_data[self.id]
-            .iter()
-            .find_map(|any| any.downcast_ref())
-            .cloned()
+    pub fn as_node(&self) -> NodeRef {
+        self.node_ref(self.id)
     }
 
-    pub fn set_weak_data<T: 'static>(&self, data: T) {
-        let mut store = self.store.borrow_mut();
+    pub fn downcast_ref<T: 'static>(&self) -> Option<&T> {
+        let type_id = TypeId::of::<T>();
+        let node_type = self.node_type();
 
-        if let Some(v) = store.weak_data[self.id].iter_mut().find(|any| any.is::<T>()) {
-            *v = Box::new(data);
+        if (type_id == TypeId::of::<ElementRef>() && node_type == NodeType::Element)
+            || (type_id == TypeId::of::<CharacterDataRef>()
+                && (node_type == NodeType::Text || node_type == NodeType::Comment))
+            || (type_id == TypeId::of::<DocumentRef>() && node_type == NodeType::Document)
+            || (type_id == TypeId::of::<NodeRef>())
+        {
+            unsafe { std::mem::transmute(self) }
         } else {
-            store.weak_data[self.id].push(Box::new(data));
+            None
         }
     }
 
-    pub fn remove_weak_data<T: 'static>(&self) {
-        self.store.borrow_mut().weak_data[self.id].retain(|any| !any.is::<T>());
+    pub fn downcast<T: Clone + 'static>(self) -> Option<T> {
+        self.downcast_ref().map(Clone::clone)
     }
 
     // helpers
 
+    fn node_ref(&self, id: NodeId) -> NodeRef {
+        self.store.inc_count(id);
+        NodeRef {
+            store: self.store.clone(),
+            id,
+        }
+    }
+
     pub(crate) fn with_matching_context<R, F: FnOnce(MatchingContext<'_, NodeId>) -> R>(&self, f: F) -> R {
-        let store = self.store.borrow();
-        let els = &store.elements;
+        let nodes = self.store.nodes.borrow();
 
         f(MatchingContext {
-            has_local_name: &|el, name| name == &els[&el].local_name,
-            has_identifier: &|el, id| Some(id) == els[&el].identifier.as_ref(),
-            has_class: &|el, cls| match &els[&el].class_name {
+            has_local_name: &|el, name| name == &nodes[el].el().local_name,
+            has_identifier: &|el, id| Some(id) == nodes[el].el().identifier.as_ref(),
+            has_class: &|el, cls| match &nodes[el].el().class_name {
                 Some(s) => s.split_ascii_whitespace().any(|part| part == **cls),
                 None => false,
             },
-            parent: &|el| store.nodes[el].parent_node,
+            parent: &|el| nodes[el].parent_node.get(),
         })
     }
 }
@@ -213,16 +215,7 @@ impl PartialEq for NodeRef {
 
 impl Drop for NodeRef {
     fn drop(&mut self) {
-        let mut s = self.store.borrow_mut();
-        s.nodes.remove(self.id);
-
-        s.elements.remove(&self.id);
-        s.cdata.remove(&self.id);
-
-        s.weak_data.remove(self.id);
-        s.free_ids.push(self.id);
-
-        // TODO: we need to do something about (strong) refs to child nodes
+        self.store.dec_count(self.id)
     }
 }
 
@@ -232,74 +225,88 @@ impl Debug for NodeRef {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Document(NodeRef);
+impl Clone for NodeRef {
+    fn clone(&self) -> Self {
+        self.store.inc_count(self.id);
 
-#[derive(Debug, PartialEq)]
-pub struct Element(NodeRef);
+        Self {
+            store: self.store.clone(),
+            id: self.id,
+        }
+    }
+}
 
-#[derive(Debug, PartialEq)]
-pub struct CharacterData(NodeRef);
+#[derive(Debug, Clone, PartialEq)]
+pub struct DocumentRef(NodeRef);
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ElementRef(NodeRef);
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CharacterDataRef(NodeRef);
 
 // TODO: move to util?
 // (we might use it for CSS too)
-macro_rules! impl_deref_node { ($($struct:ident),*) => { $(impl Deref for $struct { type Target = NodeRef; fn deref(&self) -> &NodeRef { &self.0 } } )* } }
-impl_deref_node!(Document, Element, CharacterData);
+macro_rules! impl_deref {
+    ($struct:ident, $target: ident) => {
+        impl Deref for $struct {
+            type Target = $target;
+            fn deref(&self) -> &$target {
+                &self.0
+            }
+        }
+    };
+}
+impl_deref!(DocumentRef, NodeRef);
+impl_deref!(ElementRef, NodeRef);
+impl_deref!(CharacterDataRef, NodeRef);
 
-impl Document {
-    pub fn new() -> Rc<Document> {
-        let doc = Rc::new(Document(create_node(&Default::default(), NodeType::Document)));
-        doc.store.borrow_mut().refs.put(doc.id, doc.clone());
-        doc
+impl DocumentRef {
+    pub fn new() -> DocumentRef {
+        DocumentRef(create_node(&Default::default(), NodeData::Document))
     }
 
-    pub fn create_element(&self, local_name: &str) -> Rc<Element> {
-        let res = Rc::new(Element(create_node(&self.store, NodeType::Element)));
-        self.store.borrow_mut().elements.insert(
-            res.id,
-            ElementData {
+    pub fn create_element(&self, local_name: &str) -> ElementRef {
+        ElementRef(create_node(
+            &self.store,
+            NodeData::Element(ElementData {
                 local_name: local_name.into(),
                 identifier: None,
                 class_name: None,
                 style: CssStyleDeclaration::new(),
                 attributes: Vec::new(),
-            },
-        );
-        res
+            }),
+        ))
     }
 
-    pub fn create_text_node(&self, data: &str) -> Rc<CharacterData> {
-        let res = Rc::new(CharacterData(create_node(&self.store, NodeType::Text)));
-        res.set_data(data);
-        res
+    pub fn create_text_node(&self, data: &str) -> CharacterDataRef {
+        CharacterDataRef(create_node(&self.store, NodeData::Text(data.to_owned())))
     }
 
-    pub fn create_comment(&self, data: &str) -> Rc<CharacterData> {
-        let res = Rc::new(CharacterData(create_node(&self.store, NodeType::Comment)));
-        res.set_data(data);
-        res
+    pub fn create_comment(&self, data: &str) -> CharacterDataRef {
+        CharacterDataRef(create_node(&self.store, NodeData::Comment(data.to_owned())))
     }
 }
 
-impl Element {
+impl ElementRef {
     pub fn local_name(&self) -> Atom<String> {
-        self.store.borrow().elements.get(&self.id).unwrap().local_name.clone()
+        self.store.nodes.borrow()[self.id].el().local_name.clone()
     }
 
     pub fn attribute_names(&self) -> Vec<String> {
-        let store = self.store.borrow();
-        let el_data = store.elements.get(&self.id).unwrap();
+        let nodes = self.store.nodes.borrow();
+        let el = nodes[self.id].el();
         let mut names = Vec::new();
 
-        if el_data.identifier.is_some() {
+        if el.identifier.is_some() {
             names.push("id".to_owned());
         }
 
-        if el_data.class_name.is_some() {
+        if el.class_name.is_some() {
             names.push("class".to_owned());
         }
 
-        for (k, _) in &el_data.attributes {
+        for (k, _) in &el.attributes {
             names.push(k.to_string());
         }
 
@@ -307,14 +314,14 @@ impl Element {
     }
 
     pub fn attribute(&self, attr: &str) -> Option<String> {
-        let store = self.store.borrow();
-        let el_data = store.elements.get(&self.id).unwrap();
+        let nodes = self.store.nodes.borrow();
+        let el = nodes[self.id].el();
 
         match attr {
-            "id" => el_data.identifier.as_deref().cloned(),
-            "class" => el_data.class_name.as_deref().cloned(),
-            "style" => Some(el_data.style.css_text()),
-            _ => el_data
+            "id" => el.identifier.as_deref().cloned(),
+            "class" => el.class_name.as_deref().cloned(),
+            "style" => Some(el.style.css_text()),
+            _ => el
                 .attributes
                 .iter()
                 .find(|(a, _)| attr == **a)
@@ -323,32 +330,32 @@ impl Element {
     }
 
     pub fn set_attribute(&self, attr: &str, value: &str) {
-        let mut store = self.store.borrow_mut();
-        let el_data = store.elements.get_mut(&self.id).unwrap();
+        let mut nodes = self.store.nodes.borrow_mut();
+        let mut el = nodes[self.id].el_mut();
 
         match attr {
-            "id" => el_data.identifier = Some(value.into()),
-            "class" => el_data.class_name = Some(value.into()),
-            "style" => el_data.style.set_css_text(value),
+            "id" => el.identifier = Some(value.into()),
+            "class" => el.class_name = Some(value.into()),
+            "style" => el.style.set_css_text(value),
             _ => {
-                if let Some(a) = el_data.attributes.iter_mut().find(|(a, _)| attr == **a) {
+                if let Some(a) = el.attributes.iter_mut().find(|(a, _)| attr == **a) {
                     a.1 = value.into();
                 } else {
-                    el_data.attributes.push((attr.into(), value.into()));
+                    el.attributes.push((attr.into(), value.into()));
                 }
             }
         }
     }
 
     pub fn remove_attribute(&self, attr: &str) {
-        let mut store = self.store.borrow_mut();
-        let el_data = store.elements.get_mut(&self.id).unwrap();
+        let mut nodes = self.store.nodes.borrow_mut();
+        let mut el = nodes[self.id].el_mut();
 
         match attr {
-            "id" => drop(el_data.identifier.take()),
-            "class" => drop(el_data.identifier.take()),
-            "style" => el_data.style = CssStyleDeclaration::EMPTY,
-            _ => el_data.attributes.retain(|(a, _)| attr != **a),
+            "id" => drop(el.identifier.take()),
+            "class" => drop(el.identifier.take()),
+            "style" => el.style = CssStyleDeclaration::EMPTY,
+            _ => el.attributes.retain(|(a, _)| attr != **a),
         };
     }
 
@@ -359,37 +366,70 @@ impl Element {
     //pub fn style() -> Rc<CssStyleDeclaration> { todo!() }
 }
 
-impl CharacterData {
+impl CharacterDataRef {
     pub fn data(&self) -> String {
-        self.store.borrow().cdata[&self.id].clone()
+        self.store.nodes.borrow()[self.id].cdata().clone()
     }
 
     pub fn set_data(&self, data: &str) {
-        self.store.borrow_mut().cdata.insert(self.id, data.to_owned());
+        *self.store.nodes.borrow_mut()[self.id].cdata_mut() = data.to_owned()
     }
 }
 
 #[derive(Default)]
 pub struct Store {
-    refs: SlotMap<NodeId, Rc<dyn Node>>,
-    nodes: SlotMap<NodeId, NodeData>,
-    elements: HashMap<NodeId, ElementData>,
-    cdata: HashMap<NodeId, String>,
+    nodes: RefCell<SlotMap<NodeId, Node>>,
 
     // TODO: move to slotmap?
-    free_ids: Vec<NodeId>,
-
-    // SlotMap + Vec because node freeing has to be fast
-    weak_data: SlotMap<NodeId, Vec<Box<dyn Any>>>,
+    free_ids: RefCell<Vec<NodeId>>,
 }
 
-struct NodeData {
-    node_type: NodeType,
-    parent_node: Option<NodeId>,
-    first_child: Option<NodeId>,
-    next_sibling: Option<NodeId>,
-    previous_sibling: Option<NodeId>,
-    last_child: Option<NodeId>,
+impl Store {
+    fn inc_count(&self, id: NodeId) {
+        let node = &self.nodes.borrow()[id];
+        node.ref_count.set(node.ref_count.get() + 1);
+    }
+
+    fn dec_count(&self, id: NodeId) {
+        let prev = self.nodes.borrow()[id].ref_count.get();
+        self.nodes.borrow()[id].ref_count.set(prev - 1);
+
+        if prev == 1 {
+            self.drop_node(id);
+        }
+    }
+
+    // test are failing for this, maybe it's the order?
+    fn drop_node(&self, id: NodeId) {
+        println!("drop_node {}", id);
+
+        // potentially drop whole subtree (first)
+        let mut next = self.nodes.borrow()[id].first_child.take();
+        while let Some(child) = next {
+            next = self.nodes.borrow()[child].next_sibling.take();
+            self.dec_count(child);
+        }
+
+        self.nodes.borrow_mut().remove(id);
+        self.free_ids.borrow_mut().push(id);
+    }
+}
+
+struct Node {
+    parent_node: Cell<Option<NodeId>>,
+    first_child: Cell<Option<NodeId>>,
+    next_sibling: Cell<Option<NodeId>>,
+    previous_sibling: Cell<Option<NodeId>>,
+    last_child: Cell<Option<NodeId>>,
+    ref_count: Cell<u32>,
+    data: NodeData,
+}
+
+enum NodeData {
+    Document,
+    Text(String),
+    Comment(String),
+    Element(ElementData),
 }
 
 struct ElementData {
@@ -401,33 +441,72 @@ struct ElementData {
     attributes: Vec<(Atom<String>, Atom<String>)>,
 }
 
-fn create_node(store: &Rc<RefCell<Store>>, node_type: NodeType) -> NodeRef {
-    let store = Rc::clone(store);
-    let mut store_mut = store.borrow_mut();
+impl Node {
+    fn node_type(&self) -> NodeType {
+        match self.data {
+            NodeData::Element(_) => NodeType::Element,
+            NodeData::Text(_) => NodeType::Text,
+            NodeData::Comment(_) => NodeType::Comment,
+            NodeData::Document => NodeType::Document,
+        }
+    }
 
-    let node = NodeData {
-        node_type,
-        parent_node: None,
-        first_child: None,
-        next_sibling: None,
-        previous_sibling: None,
-        last_child: None,
+    fn cdata(&self) -> &String {
+        match &self.data {
+            NodeData::Text(data) => data,
+            NodeData::Comment(data) => data,
+            _ => panic!("not cdata node"),
+        }
+    }
+
+    fn cdata_mut(&mut self) -> &mut String {
+        match &mut self.data {
+            NodeData::Text(data) => data,
+            NodeData::Comment(data) => data,
+            _ => panic!("not cdata node"),
+        }
+    }
+
+    fn el(&self) -> &ElementData {
+        match &self.data {
+            NodeData::Element(data) => data,
+            _ => panic!("not el node"),
+        }
+    }
+
+    fn el_mut(&mut self) -> &mut ElementData {
+        match &mut self.data {
+            NodeData::Element(data) => data,
+            _ => panic!("not el node"),
+        }
+    }
+}
+
+fn create_node(store: &Rc<Store>, data: NodeData) -> NodeRef {
+    let mut free_ids = store.free_ids.borrow_mut();
+    let mut nodes = store.nodes.borrow_mut();
+
+    let node = Node {
+        parent_node: Cell::new(None),
+        first_child: Cell::new(None),
+        next_sibling: Cell::new(None),
+        previous_sibling: Cell::new(None),
+        last_child: Cell::new(None),
+        ref_count: Cell::new(1),
+        data,
     };
 
-    let id = if let Some(id) = store_mut.free_ids.pop() {
-        store_mut.nodes.put(id, node);
-        store_mut.weak_data.put(id, Vec::new());
+    let id = if let Some(id) = free_ids.pop() {
+        nodes.put(id, node);
         id
     } else {
-        let id = store_mut.nodes.insert(node);
-        let weak_id = store_mut.weak_data.insert(Vec::new());
-        debug_assert_eq!(id, weak_id);
-
-        id
+        nodes.insert(node)
     };
-    drop(store_mut);
 
-    NodeRef { store, id }
+    NodeRef {
+        store: Rc::clone(store),
+        id,
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -438,9 +517,8 @@ enum NodeEdge {
 
 #[derive(Clone)]
 struct Traverse {
-    // TODO: so it's going to borrow every time?
-    //       or is this going to be Ref<> and it might panic on change?
-    store: Rc<RefCell<Store>>,
+    // TODO: maybe it could be ref so we don't have to borrow during iteration?
+    store: Rc<Store>,
     next: Option<NodeEdge>,
 }
 
@@ -448,18 +526,18 @@ impl Iterator for Traverse {
     type Item = NodeEdge;
 
     fn next(&mut self) -> Option<NodeEdge> {
-        let nodes = &self.store.borrow().nodes;
+        let nodes = &self.store.nodes.borrow();
 
         match self.next.take() {
             Some(next) => {
                 self.next = match next {
-                    NodeEdge::Start(node) => match nodes[node].first_child {
+                    NodeEdge::Start(node) => match nodes[node].first_child.get() {
                         Some(first_child) => Some(NodeEdge::Start(first_child)),
                         None => Some(NodeEdge::End(node)),
                     },
-                    NodeEdge::End(node) => match nodes[node].next_sibling {
+                    NodeEdge::End(node) => match nodes[node].next_sibling.get() {
                         Some(next_sibling) => Some(NodeEdge::Start(next_sibling)),
-                        None => match nodes[node].parent_node {
+                        None => match nodes[node].parent_node.get() {
                             Some(parent) => Some(NodeEdge::End(parent)),
                             None => None,
                         },
@@ -476,15 +554,9 @@ impl Iterator for Traverse {
 mod tests {
     use super::*;
 
-    impl PartialEq for dyn Node {
-        fn eq(&self, other: &Self) -> bool {
-            self.id == other.id
-        }
-    }
-
     #[test]
     fn test() {
-        let doc = Document::new();
+        let doc = DocumentRef::new();
         assert_eq!(doc.node_type(), NodeType::Document);
         assert_eq!(doc.first_child(), None);
 
@@ -503,21 +575,21 @@ mod tests {
         assert_eq!(comment.data(), "test");
         comment.set_data("test2");
 
-        div.append_child(hello.clone());
-        assert_eq!(div.first_child(), Some(hello.clone() as _));
+        div.append_child(&hello);
+        assert_eq!(div.first_child(), Some(hello.as_node()));
 
-        div.append_child(comment.clone());
-        assert_eq!(div.first_child(), Some(hello.clone() as _));
-        assert_eq!(hello.next_sibling(), Some(comment.clone() as _));
+        div.append_child(&comment);
+        assert_eq!(div.first_child(), Some(hello.as_node()));
+        assert_eq!(hello.next_sibling(), Some(comment.as_node()));
 
-        div.remove_child(comment.clone());
-        assert_eq!(div.first_child(), Some(hello.clone() as _));
+        div.remove_child(&comment);
+        assert_eq!(div.first_child(), Some(hello.as_node()));
         assert_eq!(div.next_sibling(), None);
     }
 
     #[test]
     fn qsa() {
-        let doc = Document::new();
+        let doc = DocumentRef::new();
         let div = doc.create_element("div");
 
         div.set_attribute("id", "panel");
@@ -526,13 +598,13 @@ mod tests {
         // even before connecting, browsers do the same
         assert!(div.matches("div#panel"));
 
-        doc.append_child(div.clone());
+        doc.append_child(&div);
         assert_eq!(doc.query_selector("div#panel"), Some(div));
     }
 
     #[test]
     fn tree() {
-        let doc = Document::new();
+        let doc = DocumentRef::new();
         assert_eq!(doc.parent_node(), None);
         assert_eq!(doc.first_child(), None);
         assert_eq!(doc.next_sibling(), None);
@@ -542,9 +614,9 @@ mod tests {
         let ch2 = doc.create_text_node("ch2");
         let ch3 = doc.create_text_node("ch3");
 
-        doc.append_child(ch1.clone());
-        assert_eq!(doc.first_child(), Some(ch1.clone() as _));
-        assert_eq!(ch1.parent_node(), Some(doc.clone() as _));
+        doc.append_child(&ch1);
+        assert_eq!(doc.first_child(), Some(ch1.clone().as_node()));
+        assert_eq!(ch1.parent_node(), Some(doc.clone().as_node()));
         assert_eq!(ch1.next_sibling(), None);
         assert_eq!(ch1.previous_sibling(), None);
 
@@ -574,7 +646,7 @@ mod tests {
 
     #[test]
     fn inline_style() {
-        let doc = Document::new();
+        let doc = DocumentRef::new();
         let div = doc.create_element("div");
 
         div.set_attribute("style", "display: block");
@@ -588,28 +660,17 @@ mod tests {
     }
 
     #[test]
-    fn weak_data() {
-        let doc = Document::new();
-
-        assert_eq!(doc.weak_data(), None::<usize>);
-        doc.set_weak_data(1);
-        assert_eq!(doc.weak_data(), Some(1));
-        doc.remove_weak_data::<usize>();
-        assert_eq!(doc.weak_data(), None::<usize>);
-    }
-
-    #[test]
     fn downcast() {
-        let doc = Document::new();
+        let doc = DocumentRef::new();
         let div = doc.create_element("div");
 
-        let node: Rc<dyn Node> = doc.clone();
-        assert!(node.downcast::<Document>().is_ok());
+        let node = doc.as_node();
+        assert!(node.downcast::<DocumentRef>().is_some());
 
-        let node: Rc<dyn Node> = div.clone();
-        assert!(node.downcast::<Document>().is_err());
+        let node = div.as_node();
+        assert!(node.downcast::<DocumentRef>().is_none());
 
-        let node: Rc<dyn Node> = div.clone();
-        assert!(node.downcast::<Element>().is_ok());
+        let node = div.as_node();
+        assert!(node.downcast::<ElementRef>().is_some());
     }
 }
