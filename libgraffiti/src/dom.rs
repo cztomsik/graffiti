@@ -7,7 +7,7 @@
 use crate::css::{CssStyleDeclaration, MatchingContext, Selector};
 use crate::util::{Atom, Bloom, SlotMap};
 use std::any::TypeId;
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, Ref};
 use std::fmt::{Debug, Error, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
@@ -184,7 +184,7 @@ impl NodeRef {
 
     fn descendants(&self) -> Traverse {
         Traverse {
-            store: self.store.clone(),
+            nodes: self.store.nodes.borrow(),
             next: self.store.nodes.borrow()[self.id]
                 .first_child
                 .get()
@@ -194,9 +194,9 @@ impl NodeRef {
 
     fn descendants_and_self(&self) -> Traverse {
         // TODO: Traverse::from(self), Traverse::from(self.first_child())
-        //       but then we would need Option<> for store ref
+        //       but then we would need Option<> for nodes ref
         Traverse {
-            store: self.store.clone(),
+            nodes: self.store.nodes.borrow(),
             next: Some(NodeEdge::Start(self.id)),
         }
     }
@@ -561,29 +561,25 @@ enum NodeEdge {
     End(NodeId),
 }
 
-#[derive(Clone)]
-struct Traverse {
-    // TODO: maybe it could be ref so we don't have to borrow during iteration?
-    store: Rc<Store>,
+struct Traverse<'a> {
+    nodes: Ref<'a, SlotMap<NodeId, Node>>,
     next: Option<NodeEdge>,
 }
 
-impl Iterator for Traverse {
+impl Iterator for Traverse<'_> {
     type Item = NodeEdge;
 
     fn next(&mut self) -> Option<NodeEdge> {
-        let nodes = &self.store.nodes.borrow();
-
         match self.next.take() {
             Some(next) => {
                 self.next = match next {
-                    NodeEdge::Start(node) => match nodes[node].first_child.get() {
+                    NodeEdge::Start(node) => match self.nodes[node].first_child.get() {
                         Some(first_child) => Some(NodeEdge::Start(first_child)),
                         None => Some(NodeEdge::End(node)),
                     },
-                    NodeEdge::End(node) => match nodes[node].next_sibling.get() {
+                    NodeEdge::End(node) => match self.nodes[node].next_sibling.get() {
                         Some(next_sibling) => Some(NodeEdge::Start(next_sibling)),
-                        None => match nodes[node].parent_node.get() {
+                        None => match self.nodes[node].parent_node.get() {
                             Some(parent) => Some(NodeEdge::End(parent)),
                             None => None,
                         },
