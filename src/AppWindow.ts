@@ -1,12 +1,12 @@
-import { native, register, getNativeId } from './native'
-import { encode, ERR, Worker } from './util'
+import { native, encode, register, getNativeId } from './native'
+import { ERR, Worker } from './util'
 
 export class AppWindow {
   #worker?: Worker
   #send: any = ERR.bind('no worker')
 
   constructor({ title = 'Graffiti', width = 1024, height = 768 } = {}) {
-    register(this, native.gft_Window_new(encode(title), width, height))
+    register(this, native.gft_Window_new(...encode(title), width, height))
   }
 
   get width() {

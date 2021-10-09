@@ -4,8 +4,14 @@ import { ERR, isDeno, isNodeJS, PLATFORM, TODO } from './util'
 // initialized by `loadNativeApi()`
 export let native: any = null
 
-export const TRUE = 1
-export const NULL = 0
+const encoder = new TextEncoder()
+const decoder = new TextDecoder()
+
+export const encode = (input: string) => {
+  const buf = encoder.encode(input)
+  return [buf, buf.length]
+}
+
 
 export const loadNativeApi = async () => {
   const libFile = await resolveLibFile()

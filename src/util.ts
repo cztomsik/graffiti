@@ -16,10 +16,6 @@ export const ERR = (msg: string): any => {
 export const TODO = () => ERR('TODO')
 export const UNSUPPORTED = () => ERR('UNSUPPORTED')
 
-// TODO: find a better way, maybe we will have to drop \0 strings
-const encoder = new TextEncoder()
-export const encode = (input: string) => new Uint8Array([...encoder.encode(input), 0])
-
 export const last = arr => arr[arr.length - 1]
 
 export const Worker =

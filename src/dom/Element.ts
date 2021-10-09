@@ -51,7 +51,7 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   getAttribute(name: string): string | null {
-    return native.gft_Element_attribute(getNativeId(this), name)
+    return decode(native.gft_Element_attribute(getNativeId(this), ...encode(name)))
   }
 
   getAttributeNames(): string[] {
@@ -69,11 +69,11 @@ export abstract class Element extends Node implements globalThis.Element {
   setAttribute(name: string, value: string) {
     value = (typeof value === 'string' ? value : '' + value).toLowerCase()
 
-    native.gft_Element_set_attribute(getNativeId(this), encode(name), encode(value))
+    native.gft_Element_set_attribute(getNativeId(this), ...encode(name), ...encode(value))
   }
 
   removeAttribute(name: string) {
-    native.gft_Element_remove_attribute(getNativeId(this), encode(name))
+    native.gft_Element_remove_attribute(getNativeId(this), ...encode(name))
   }
 
   toggleAttribute(name: string, force?: boolean): boolean {
