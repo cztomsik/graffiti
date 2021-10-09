@@ -83,7 +83,7 @@ impl NodeRef {
             nodes[last].next_sibling.set(Some(child.id));
         }
 
-        nodes[child.id].previous_sibling.set(nodes[child.id].last_child.get());
+        nodes[child.id].previous_sibling.set(nodes[self.id].last_child.get());
         nodes[self.id].last_child.set(Some(child.id));
         nodes[child.id].parent_node.set(Some(self.id));
 
@@ -399,10 +399,7 @@ impl Store {
         }
     }
 
-    // test are failing for this, maybe it's the order?
     fn drop_node(&self, id: NodeId) {
-        println!("drop_node {}", id);
-
         // potentially drop whole subtree (first)
         let mut next = self.nodes.borrow()[id].first_child.take();
         while let Some(child) = next {
@@ -563,7 +560,7 @@ mod tests {
         let div = doc.create_element("div");
         assert_eq!(div.node_type(), NodeType::Element);
         assert_eq!(*div.local_name(), "div");
-        assert_eq!(doc.first_child(), None);
+        assert_eq!(div.first_child(), None);
 
         let hello = doc.create_text_node("hello");
         assert_eq!(hello.node_type(), NodeType::Text);
@@ -620,28 +617,26 @@ mod tests {
         assert_eq!(ch1.next_sibling(), None);
         assert_eq!(ch1.previous_sibling(), None);
 
-        /*
-        doc.append_child(root, ch2);
-        assert_eq!(doc.first_child(root), Some(ch1));
-        assert_eq!(doc.next_sibling(ch1), Some(ch2));
-        assert_eq!(doc.previous_sibling(ch2), Some(ch1));
+        doc.append_child(&ch2);
+        assert_eq!(doc.first_child(), Some(ch1.as_node()));
+        assert_eq!(ch1.next_sibling(), Some(ch2.as_node()));
+        assert_eq!(ch2.previous_sibling(), Some(ch1.as_node()));
 
-        assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch1, ch2]);
+        //assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch1, ch2]);
 
-        doc.insert_child(root, ch3, 0);
+        doc.insert_before(&ch3, &ch1);
 
-        assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch3, ch1, ch2]);
+        //assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch3, ch1, ch2]);
 
-        doc.remove_child(ch1);
-        doc.remove_child(ch2);
+        doc.remove_child(&ch1);
+        doc.remove_child(&ch2);
 
-        assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch3]);
+        //assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch3]);
 
-        doc.insert_child(ch2, 0);
-        doc.insert_child(ch1, 0);
+        doc.insert_before(&ch2, &ch3);
+        doc.insert_before(&ch1, &ch2);
 
-        assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch1, ch2, ch3]);
-        */
+        //assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch1, ch2, ch3]);
     }
 
     #[test]
