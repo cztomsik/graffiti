@@ -22,6 +22,7 @@ pub struct WebView {
 }
 
 impl WebView {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let _app = App::current().expect("no App");
 

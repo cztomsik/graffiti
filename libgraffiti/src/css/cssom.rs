@@ -100,7 +100,7 @@ impl CssStyleDeclaration {
 
     pub fn css_text(&self) -> String {
         self.props().fold(String::new(), |mut s, p| {
-            write!(s, "{}: {};", p.name(), p.value_as_string());
+            write!(s, "{}: {};", p.name(), p.value_as_string()).unwrap();
             s
         })
     }

@@ -108,7 +108,7 @@ pub unsafe extern "C" fn gft_Window_new(
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_Window_next_event(win: Ref<Window>, event_dest: *mut Event) -> bool {
-    if let Some(event) = EVENTS.read().unwrap()[win.0.get()].try_recv().ok() {
+    if let Ok(event) = EVENTS.read().unwrap()[win.0.get()].try_recv() {
         *event_dest = event;
         return true;
     }
@@ -329,7 +329,7 @@ pub extern "C" fn gft_Element_local_name(el: Ref<ElementRef>) -> Ref<String> {
 #[no_mangle]
 pub extern "C" fn gft_Element_attribute_names(el: Ref<ElementRef>) -> Ref<Vec<Value>> {
     let names = with_tls(|tls| tls[&el].attribute_names());
-    let values: Vec<_> = names.into_iter().map(|name| Value::String(name)).collect();
+    let values: Vec<_> = names.into_iter().map(Value::String).collect();
 
     values.into()
 }

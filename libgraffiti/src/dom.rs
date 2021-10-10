@@ -565,10 +565,7 @@ impl Iterator for Traverse<'_> {
                     },
                     NodeEdge::End(node) => match self.nodes[node].next_sibling.get() {
                         Some(next_sibling) => Some(NodeEdge::Start(next_sibling)),
-                        None => match self.nodes[node].parent_node.get() {
-                            Some(parent) => Some(NodeEdge::End(parent)),
-                            None => None,
-                        },
+                        None => self.nodes[node].parent_node.get().map(NodeEdge::End),
                     },
                 };
                 Some(next)

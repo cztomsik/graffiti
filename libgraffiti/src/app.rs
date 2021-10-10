@@ -1,13 +1,13 @@
 #![allow(clippy::missing_safety_doc)]
 
+use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use graffiti_glfw::*;
+use once_cell::sync::Lazy;
+use std::cell::RefCell;
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_int};
 use std::rc::{Rc, Weak};
-use std::cell::RefCell;
-use crossbeam_channel::{unbounded as channel, Receiver, Sender};
-use once_cell::sync::Lazy;
 
 thread_local! {
     static APP: RefCell<Weak<App>> = Default::default();
@@ -18,10 +18,7 @@ pub type AppTask = Box<dyn FnOnce() + 'static + Send>;
 // TODO: consider removing crossbeam but it's also used by Window
 static TASK_CHANNEL: Lazy<(Sender<AppTask>, Receiver<AppTask>)> = Lazy::new(channel);
 
-pub struct App {
-    // !Send, !Sync
-    _marker: PhantomData<*mut ()>,
-}
+pub struct App(PhantomData<*mut ()>);
 
 impl App {
     pub unsafe fn init() -> Rc<Self> {
@@ -29,7 +26,7 @@ impl App {
         assert_eq!(glfwInit(), GLFW_TRUE);
         glfwSetErrorCallback(handle_glfw_error);
 
-        let rc = Rc::new(Self { _marker: PhantomData });
+        let rc = Rc::new(Self(PhantomData));
 
         APP.with(|weak| weak.replace(Rc::downgrade(&rc)));
 
@@ -44,13 +41,13 @@ impl App {
         self.run_tasks();
         self.wait_events_timeout(0.1);
     }
-    
+
     pub fn run_tasks(&self) {
         TASK_CHANNEL.1.try_iter().for_each(|t| t());
     }
 
     pub fn push_task(&self, task: impl FnOnce() + 'static + Send) {
-        TASK_CHANNEL.0.send(Box::new(task));
+        TASK_CHANNEL.0.send(Box::new(task)).expect("app down");
     }
 
     pub fn poll_events(&self) {
