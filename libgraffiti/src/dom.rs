@@ -9,6 +9,7 @@ use crate::util::{Atom, Bloom, SlotMap};
 use std::any::TypeId;
 use std::cell::{Cell, Ref, RefCell};
 use std::fmt::{Debug, Error, Formatter};
+use std::num::NonZeroU32;
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -21,7 +22,7 @@ pub enum NodeType {
     Document = 9,
 }
 
-pub type NodeId = u32;
+pub type NodeId = NonZeroU32;
 
 pub struct NodeRef {
     store: Rc<Store>,
@@ -183,7 +184,7 @@ impl NodeRef {
     // helpers
 
     fn descendants(&self) -> Traverse {
-        // TODO: skip(1) 
+        // TODO: skip(1)
         Traverse {
             nodes: self.store.nodes.borrow(),
             next: self.store.nodes.borrow()[self.id]

@@ -40,15 +40,15 @@ pub enum Value {
 }
 
 thread_local! {
-    static REFS: RefCell<SlotMap<c_uint, Value>> = Default::default();
+    static REFS: RefCell<SlotMap<NonZeroU32, Value>> = Default::default();
 }
 
 // should only block when window is being created/destroyed
-static EVENTS: Lazy<RwLock<SlotMap<u32, Receiver<Event>>>> = Lazy::new(Default::default);
+static EVENTS: Lazy<RwLock<SlotMap<NonZeroU32, Receiver<Event>>>> = Lazy::new(Default::default);
 
 #[no_mangle]
 pub extern "C" fn gft_Ref_drop(obj: Ref<Value>) {
-    with_tls(|tls| tls.remove(obj.0.get() - 1));
+    with_tls(|tls| tls.remove(obj.0));
 }
 
 #[no_mangle]
@@ -106,14 +106,14 @@ pub unsafe extern "C" fn gft_Window_new(
     let events = win.events().clone();
 
     let win_ref: Ref<Window> = Rc::new(win).into();
-    EVENTS.write().unwrap().put(win_ref.0.get(), events);
+    EVENTS.write().unwrap().put(win_ref.0, events);
 
     win_ref
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_Window_next_event(win: Ref<Window>, event_dest: *mut Event) -> bool {
-    if let Ok(event) = EVENTS.read().unwrap()[win.0.get()].try_recv() {
+    if let Ok(event) = EVENTS.read().unwrap()[win.0].try_recv() {
         *event_dest = event;
         return true;
     }
@@ -441,7 +441,7 @@ impl From<Vec<Value>> for Ref<Vec<Value>> {
 fn new_ref<T: ?Sized>(value: Value) -> Ref<T> {
     REFS.with(|refs| {
         Ref(
-            NonZeroU32::new(refs.borrow_mut().insert(value) + 1).unwrap(),
+            refs.borrow_mut().insert(value),
             PhantomData,
         )
     })
@@ -455,18 +455,18 @@ unsafe fn to_str<'a>(ptr: *const c_char, len: u32) -> &'a str {
     std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr as _, len as _))
 }
 
-fn with_tls<T>(mut fun: impl FnMut(&mut SlotMap<c_uint, Value>) -> T) -> T {
+fn with_tls<T>(mut fun: impl FnMut(&mut SlotMap<NonZeroU32, Value>) -> T) -> T {
     REFS.with(|refs| {
         let mut refs = refs.borrow_mut();
         fun(&mut *refs)
     })
 }
 
-impl<T: 'static> Index<&Ref<T>> for SlotMap<c_uint, Value> {
+impl<T: 'static> Index<&Ref<T>> for SlotMap<NonZeroU32, Value> {
     type Output = T;
 
     fn index(&self, index: &Ref<T>) -> &T {
-        match &self[index.0.get() - 1] {
+        match &self[index.0] {
             Value::Node(node) => node.downcast_ref::<T>(),
             Value::Rc(rc) => rc.downcast_ref::<T>(),
             Value::String(string) => <dyn Any>::downcast_ref(string),
