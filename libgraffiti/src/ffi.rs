@@ -23,6 +23,11 @@ use std::os::raw::{c_char, c_double, c_int, c_uint, c_void};
 use std::rc::Rc;
 use std::sync::RwLock;
 
+// cbindgen hack for Option<Ref<T>>
+#[cfg(cbindgen)]
+#[repr(transparent)]
+struct Option<T>(T);
+
 #[repr(transparent)]
 pub struct Ref<T: ?Sized>(NonZeroU32, PhantomData<*const T>);
 
