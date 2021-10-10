@@ -75,7 +75,6 @@ dependencies = [
  "fnv",
  "fontdb",
  "graffiti-glfw",
- "graffiti-yoga",
  "objc",
  "once_cell",
  "pom",
@@ -85,13 +84,6 @@ dependencies = [
 [[package]]
 name = "graffiti-glfw"
 version = "3.3.2"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "graffiti-yoga"
-version = "1.18.0"
 dependencies = [
  "cc",
 ]
