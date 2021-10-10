@@ -114,7 +114,7 @@ pub unsafe extern "C" fn gft_Window_next_event(win: Ref<Window>, event_dest: *mu
     if let Some(event) = EVENTS.read().unwrap()[win.0.get()].try_recv().ok() {
         *event_dest = event;
         return true;
-}
+    }
 
     false
 }
@@ -344,7 +344,7 @@ pub unsafe extern "C" fn gft_Element_attribute(
     att_len: u32,
 ) -> Option<Ref<String>> {
     with_tls(|tls| tls[&el].attribute(to_str(att, att_len))).map(Ref::from)
-    }
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_Element_set_attribute(
@@ -419,7 +419,7 @@ impl<T: 'static> From<Rc<T>> for Ref<T> {
 impl From<String> for Ref<String> {
     fn from(string: String) -> Self {
         new_ref(Value::String(string))
-        }
+    }
 }
 
 impl From<Vec<Value>> for Ref<Vec<Value>> {
@@ -461,7 +461,7 @@ impl<T: 'static> Index<&Ref<T>> for SlotMap<c_uint, Value> {
             Value::Rc(rc) => rc.downcast_ref::<T>(),
             Value::String(string) => <dyn Any>::downcast_ref(string),
             Value::Vec(vec) => <dyn Any>::downcast_ref(vec),
-    }
+        }
         .expect("invalid object type")
-}
+    }
 }

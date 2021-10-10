@@ -1,7 +1,7 @@
 // TODO: cyclic
 import { Node } from './Node'
 
-import { native, register, getNativeId, lookup } from '../native'
+import { native, register, getNativeId } from '../native'
 import {
   NodeList,
   Text,
@@ -37,6 +37,8 @@ import { UNSUPPORTED } from '../util'
 
 import { Event } from '../events/Event'
 
+const ELS = Symbol()
+
 export class Document extends Node implements globalThis.Document {
   readonly ownerDocument
   readonly defaultView: Window & typeof globalThis | null = null
@@ -56,6 +58,8 @@ export class Document extends Node implements globalThis.Document {
     this.ownerDocument = this
 
     register(this, native.gft_Document_new())
+
+    this[ELS] = new Map()
   }
 
   get nodeType() {
@@ -170,7 +174,7 @@ export class Document extends Node implements globalThis.Document {
   }
 
   elementFromPoint(x, y): Element | null {
-    return lookup(native.gft_Viewport_element_from_point(getNativeId(this.defaultView), x, y))
+    return lookupElement(this, native.gft_Viewport_element_from_point(getNativeId(this.defaultView), x, y))
   }
 
   hasFocus(): boolean {
@@ -289,6 +293,10 @@ export class Document extends Node implements globalThis.Document {
   releaseEvents
   vlinkColor
 }
+
+export const registerElement = (doc, nodeId, el) => doc[ELS].set(nodeId, new WeakRef(el))
+
+export const lookupElement = (doc, nodeId) => nodeId ?doc[ELS].get(nodeId).deref() :null
 
 type Doc = Document
 

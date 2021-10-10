@@ -56,3 +56,9 @@ export async function readURL(url) {
 
   return UNSUPPORTED()
 }
+
+export const LITTLE_ENDIAN = (() => {
+  let b = new ArrayBuffer(2)
+  new DataView(b).setInt16(0, 256, true)
+  return new Int16Array(b)[0] === 256
+})()

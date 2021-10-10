@@ -101,6 +101,7 @@ const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
     gft_App_wake_up: { parameters: [], result: 'void' },
     gft_App_tick: { parameters: ['u32'], result: 'void' },
     gft_Window_new: { parameters: ['buffer', 'u32', 'i32', 'i32'], result: 'u32' },
+    gft_Window_next_event: { parameters: ['u32', 'buffer'], result: 'u8' },
     gft_Window_width: { parameters: ['u32'], result: 'i32' },
     gft_Window_height: { parameters: ['u32'], result: 'i32' },
     gft_Document_new: { parameters: [], result: 'u32' },
@@ -125,15 +126,15 @@ const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
   })
 
   // debug
-  native = Object.fromEntries(
-    Object.entries<any>(lib.symbols).map(([name, fn]) => {
-      return [name, (...args) => {
-        const res = (console.log('call', name, ...args), fn(...args))
-        console.log('<-', res)
-        return res
-      }]
-    })
-  )
+  // native = Object.fromEntries(
+  //   Object.entries<any>(lib.symbols).map(([name, fn]) => {
+  //     return [name, (...args) => {
+  //       const res = (console.log('call', name, ...args), fn(...args))
+  //       console.log('<-', res)
+  //       return res
+  //     }]
+  //   })
+  // )
 
-  //native = lib.symbols
+  native = lib.symbols
 }

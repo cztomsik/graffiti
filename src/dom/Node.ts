@@ -3,10 +3,12 @@
 
 import { EventTarget } from '../events/index'
 import { NodeList, HTMLElement } from './index'
-import { assert, encode, last, UNSUPPORTED } from '../util'
-import { native, getNativeId, lookup } from '../native'
+import { assert, last, UNSUPPORTED } from '../util'
+import { native, encode, getNativeId, getRefs } from '../native'
+import { lookupElement } from './Document'
 
-export abstract class Node extends EventTarget implements G.Node, G.ParentNode, G.ChildNode, G.NonDocumentTypeChildNode, G.Slottable {
+export abstract class Node extends EventTarget
+  implements G.Node, G.ParentNode, G.ChildNode, G.NonDocumentTypeChildNode, G.Slottable {
   abstract readonly nodeType: number
   abstract readonly nodeName: string
   readonly parentNode: Element | null = null
@@ -256,31 +258,20 @@ export abstract class Node extends EventTarget implements G.Node, G.ParentNode, 
   }
 
   querySelector(selector) {
-    return lookup(native.gft_Node_query_selector(getNativeId(this), selector))
+    const ref = native.gft_Node_query_selector(getNativeId(this), ...encode(selector))
+    const nodeId = ref && native.gft_Node_id(ref)
+    return lookupElement(this.ownerDocument, nodeId)
   }
 
   querySelectorAll(selector) {
-    const res: Element[] = []
-    const vec = native.gft_Node_query_selector_all(getNativeId(this), encode(selector))
+    const refs = getRefs(native.gft_Node_query_selector_all(getNativeId(this), ...encode(selector)))
+    const els = refs.map(ref => {
+      const id = native.gft_Node_id(ref)
+      native.gft_Ref_drop(ref)
+      return lookupElement(this.ownerDocument, id)
+    })
 
-    try {
-      const len = native.gft_Vec_len(vec)
-
-      for (let i = 0; i < len; i++) {
-        const nodeRef = native.gft_Vec_get(vec, i)
-
-        try {
-          const key = native.gft_Ref_key(nodeRef)
-          res.push(lookup(key))
-        } finally {
-          native.gft_Ref_drop(nodeRef)
-        }
-      }
-    } finally {
-      native.gft_Ref_drop(vec)
-    }
-
-    return NodeList.from(res) as any
+    return NodeList.from(els) as any
   }
 
   getElementsByTagName(tagName) {

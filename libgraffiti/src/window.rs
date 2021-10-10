@@ -221,9 +221,9 @@ impl Drop for Window {
 }
 
 #[derive(Debug, Clone, Copy)]
-#[repr(u32)]
+#[repr(C, u32)]
 pub enum Event {
-    CursorPos(f64, f64),
+    CursorPos(f32, f32),
     MouseDown,
     MouseUp,
     Scroll(f64, f64),
@@ -239,7 +239,7 @@ pub enum Event {
 }
 
 unsafe extern "C" fn handle_glfw_cursor_pos(w: GlfwWindow, x: c_double, y: c_double) {
-    send_event(w, Event::CursorPos(x, y));
+    send_event(w, Event::CursorPos(x as _, y as _));
 }
 
 unsafe extern "C" fn handle_glfw_scroll(w: GlfwWindow, x: c_double, y: c_double) {

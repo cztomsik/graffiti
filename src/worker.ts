@@ -7,12 +7,14 @@
 
 import { native, loadNativeApi, register, getNativeId } from './native'
 import { Window, makeGlobal } from './window/Window'
-import { readURL } from './util'
+import { LITTLE_ENDIAN, readURL } from './util'
 import { parseIntoDocument } from './dom/DOMParser'
 import { loadStyles } from './dom/HTMLLinkElement'
 import { runScripts } from './dom/HTMLScriptElement'
 
 // event state
+const eventBytes = new Uint8Array(24)
+const eventView = new DataView(eventBytes.buffer)
 let mousePos = [0, 0]
 let overElement
 let clickedElement
@@ -77,13 +79,12 @@ async function main({ windowId, width, height, url, options }) {
 
   function loop() {
     // dispatch all events for this round
-    let ev
     // TODO: windowId or viewportId? or something else?
 
     // TODO: async...
-    // while ((ev = native.gft_Window_next_event(windowId))) {
-    //   handleEvent(ev)
-    // }
+    while (native.gft_Window_next_event(windowId, eventBytes)) {
+      handleEvent()
+    }
 
     // native.gft_Viewport_render(windowId, viewportId)
 
@@ -91,20 +92,35 @@ async function main({ windowId, width, height, url, options }) {
   }
 
   // TODO: review, this is old code
-  function handleEvent(event: [string, [number, number] | null, number | null]) {
-    const [kind, vec2, u32] = event
+  function handleEvent() {
+    // TODO: codegen
+    enum EventKind {
+      CursorPos = 0,
+      MouseDown = 1,
+      MouseUp = 2,
+      Scroll = 3,
+  
+      // JS e.which
+      KeyUp = 4,
+      KeyDown = 5,
+      KeyPress = 6,
+  
+      Resize = 7,
+      FramebufferSize = 8,
+      Close = 9,
+    }
 
     // TODO: only for mouse events
-    let target = document.elementFromPoint(mousePos[0], mousePos[1]) ?? document.documentElement
+    let target = document.documentElement //document.elementFromPoint(mousePos[0], mousePos[1]) ?? document.documentElement
 
-    switch (kind) {
-      case 'mousemove': {
-        mousePos = vec2!
+    switch (eventView.getUint32(0, LITTLE_ENDIAN)) {
+      case EventKind.CursorPos: {
+        mousePos = [eventView.getFloat32(4), eventView.getFloat32(8)]
 
         const prevTarget = overElement
         overElement = target
 
-        target.dispatchEvent(new MouseEvent(kind, { bubbles: true, cancelable: true }))
+        target.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true }))
 
         if (target !== prevTarget) {
           if (prevTarget) {
@@ -117,15 +133,15 @@ async function main({ windowId, width, height, url, options }) {
         return
       }
 
-      case 'mousedown': {
+      case EventKind.MouseDown: {
         clickedElement = target
-        target.dispatchEvent(new MouseEvent(kind, { bubbles: true, cancelable: true }))
+        target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
 
         return
       }
 
-      case 'mouseup': {
-        target.dispatchEvent(new MouseEvent(kind, { bubbles: true, cancelable: true }))
+      case EventKind.MouseUp: {
+        target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }))
 
         // TODO: only els with tabindex should be focusable
 
@@ -147,28 +163,28 @@ async function main({ windowId, width, height, url, options }) {
       // keyup - key is up, after action, can be prevented
       // beforeinput - event.data contains new chars, may be empty when removing
       // input - like input, but after update (not sure if it's possible to do this on this level)
-      case 'keydown': {
+      case EventKind.KeyDown: {
         const target = document.activeElement || document.documentElement
-        const keyCode = u32!
-        target.dispatchEvent(new KeyboardEvent(kind, { bubbles: true, cancelable: true, keyCode }))
+        const keyCode = eventView.getUint32(4)
+        target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, keyCode }))
         return
       }
 
-      case 'keypress': {
+      case EventKind.KeyPress: {
         const target = document.activeElement || document.documentElement
-        const charCode = u32!
+        const charCode = eventView.getUint32(4)
         const key = String.fromCharCode(charCode)
 
-        target.dispatchEvent(new KeyboardEvent(kind, { bubbles: true, cancelable: true, charCode, key }))
+        target.dispatchEvent(new KeyboardEvent('keypress', { bubbles: true, cancelable: true, charCode, key }))
         return
       }
 
-      case 'resize': {
-        native.gft_Viewport_resize(viewportId, vec2![0], vec2![1])
+      case EventKind.Resize: {
+        //native.gft_Viewport_resize(viewportId, vec2![0], vec2![1])
         return
       }
 
-      case 'close': {
+      case EventKind.Close: {
         console.log('TODO: close worker somehow (or tell main process to do it)')
         return
       }
