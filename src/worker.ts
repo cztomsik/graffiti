@@ -58,9 +58,9 @@ async function main({ windowId, width, height, url, options }) {
   document.URL = url
   makeGlobal(window)
 
-  // init viewport
-  //const viewportId = -1 //native.gft_Viewport_new(width, height, getNativeId(document))
-  //register(window, viewportId)
+  // init renderer
+  const renderer = native.gft_Renderer_new(getNativeId(document), width, height)
+  register(window, renderer)
 
   // load html
   parseIntoDocument(document, await readURL(url))
@@ -86,7 +86,7 @@ async function main({ windowId, width, height, url, options }) {
       handleEvent()
     }
 
-    // native.gft_Viewport_render(windowId, viewportId)
+    native.gft_Renderer_render(renderer)
 
     setTimeout(loop, 100)
   }
@@ -180,7 +180,11 @@ async function main({ windowId, width, height, url, options }) {
       }
 
       case EventKind.Resize: {
-        //native.gft_Viewport_resize(viewportId, vec2![0], vec2![1])
+        native.gft_Renderer_resize(
+          renderer,
+          eventView.getFloat32(4, LITTLE_ENDIAN),
+          eventView.getFloat32(8, LITTLE_ENDIAN)
+        )
         return
       }
 

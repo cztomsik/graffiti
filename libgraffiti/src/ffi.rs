@@ -6,13 +6,10 @@
 // - each Ref you get has to be dropped (once), even if you are just traversing the tree
 // - two Refs can technically point to the same Rc<>
 
-// https://github.com/eqrion/cbindgen/issues/385
-#![allow(bare_trait_objects)]
-
 use crate::util::SlotMap;
 use crate::{
-    App, CharacterDataRef, CssStyleDeclaration, DocumentRef, ElementRef, Event, NodeRef, NodeId, NodeType, Viewport, WebView,
-    Window,
+    App, CharacterDataRef, CssStyleDeclaration, DocumentRef, ElementRef, Event, NodeId, NodeRef, NodeType, Renderer,
+    WebView, Window,
 };
 use crossbeam_channel::Receiver;
 use once_cell::sync::Lazy;
@@ -45,7 +42,7 @@ thread_local! {
 static EVENTS: Lazy<RwLock<SlotMap<u32, Receiver<Event>>>> = Lazy::new(Default::default);
 
 #[no_mangle]
-pub extern "C" fn gft_Ref_drop(obj: Ref<Any>) {
+pub extern "C" fn gft_Ref_drop(obj: Ref<Value>) {
     with_tls(|tls| tls.remove(obj.0.get() - 1));
 }
 
@@ -393,13 +390,21 @@ pub extern "C" fn gft_CssStyleDeclaration_set_property(
     //with_tls(|tls| tls[&style].set_property(to_str(prop, prop_len), to_str(val, val_len)))
 }
 
-// Viewport_new: |w: f64, h: f64, doc: u32| to_id(Rc::new(Viewport::new((w as _, h as _), get(doc)))),
-// Viewport_render: |w: u32, vp: u32| println!("TODO: Viewport_render"),
+#[no_mangle]
+pub extern "C" fn gft_Renderer_new(doc: Ref<DocumentRef>, width: f32, height: f32) -> Ref<Renderer> {
+    let renderer = with_tls(|tls| Renderer::new(tls[&doc].clone(), width, height));
+    Rc::new(renderer).into()
+}
 
-// #[no_mangle]
-// pub extern "C" fn gft_Viewport_resize(viewport: Ref<Viewport>, width: c_double, height: c_double) {
-//     get(viewport).resize((width as _, height as _))
-// }
+#[no_mangle]
+pub extern "C" fn gft_Renderer_render(renderer: Ref<Renderer>) {
+    with_tls(|tls| tls[&renderer].render())
+}
+
+#[no_mangle]
+pub extern "C" fn gft_Renderer_resize(renderer: Ref<Renderer>, width: f32, height: f32) {
+    with_tls(|tls| tls[&renderer].resize(width, height))
+}
 
 // Viewport_element_from_point: |vp, x: f64, y: f64| get(vp).element_from_point((x as _, y as _))
 

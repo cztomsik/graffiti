@@ -1,4 +1,29 @@
-use crate::css::Style;
+
+
+
+use crate::{DocumentRef};
+
+pub struct Renderer {
+    document: DocumentRef
+}
+
+impl Renderer {
+    pub fn new(document: DocumentRef, width: f32, height: f32) -> Self {
+        Self {
+            document
+        }
+    }
+
+    pub fn render(&self) {
+        println!("TODO: Renderer::render()");
+    }
+
+    pub fn resize(&self, width: f32, height: f32) {
+        println!("TODO: Renderer::resize({}, {})", width, height);
+    }
+}
+
+/*
 use crate::gfx::{Canvas, Frame, Text, Vec2, AABB, RGBA8};
 use crate::layout::LayoutNode;
 use crate::util::SlotMap;
@@ -184,3 +209,4 @@ fn style(style: &Style) -> RenderStyle {
 
     res
 }
+*/

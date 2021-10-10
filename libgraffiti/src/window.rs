@@ -226,15 +226,15 @@ pub enum Event {
     CursorPos(f32, f32),
     MouseDown,
     MouseUp,
-    Scroll(f64, f64),
+    Scroll(f32, f32),
 
     // JS e.which
     KeyUp(u32),
     KeyDown(u32),
     KeyPress(u32),
 
-    Resize(i32, i32),
-    FramebufferSize(i32, i32),
+    Resize(f32, f32),
+    FramebufferSize(f32, f32),
     Close,
 }
 
@@ -243,7 +243,7 @@ unsafe extern "C" fn handle_glfw_cursor_pos(w: GlfwWindow, x: c_double, y: c_dou
 }
 
 unsafe extern "C" fn handle_glfw_scroll(w: GlfwWindow, x: c_double, y: c_double) {
-    send_event(w, Event::Scroll(x, y));
+    send_event(w, Event::Scroll(x as _, y as _));
 }
 
 unsafe extern "C" fn handle_glfw_mouse_button(w: GlfwWindow, _button: c_int, action: c_int, _mods: c_int) {
@@ -276,11 +276,11 @@ unsafe extern "C" fn handle_glfw_char(w: GlfwWindow, char: c_uint) {
 }
 
 unsafe extern "C" fn handle_glfw_window_size(w: GlfwWindow, width: c_int, height: c_int) {
-    send_event(w, Event::Resize(width, height));
+    send_event(w, Event::Resize(width as _, height as _));
 }
 
 unsafe extern "C" fn handle_glfw_framebuffer_size(w: GlfwWindow, width: c_int, height: c_int) {
-    send_event(w, Event::FramebufferSize(width, height));
+    send_event(w, Event::FramebufferSize(width as _, height as _));
 }
 
 unsafe extern "C" fn handle_glfw_window_close(w: GlfwWindow) {
