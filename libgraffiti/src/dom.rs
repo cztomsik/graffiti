@@ -183,6 +183,7 @@ impl NodeRef {
     // helpers
 
     fn descendants(&self) -> Traverse {
+        // TODO: skip(1) 
         Traverse {
             nodes: self.store.nodes.borrow(),
             next: self.store.nodes.borrow()[self.id]
@@ -193,12 +194,7 @@ impl NodeRef {
     }
 
     fn descendants_and_self(&self) -> Traverse {
-        // TODO: Traverse::from(self), Traverse::from(self.first_child())
-        //       but then we would need Option<> for nodes ref
-        Traverse {
-            nodes: self.store.nodes.borrow(),
-            next: Some(NodeEdge::Start(self.id)),
-        }
+        Traverse::from(self)
     }
 
     fn update_ancestors(&self) {
@@ -550,6 +546,15 @@ enum NodeEdge {
 struct Traverse<'a> {
     nodes: Ref<'a, SlotMap<NodeId, Node>>,
     next: Option<NodeEdge>,
+}
+
+impl<'a> From<&'a NodeRef> for Traverse<'a> {
+    fn from(node: &'a NodeRef) -> Self {
+        Self {
+            nodes: node.store.nodes.borrow(),
+            next: Some(NodeEdge::Start(node.id)),
+        }
+    }
 }
 
 impl Iterator for Traverse<'_> {
