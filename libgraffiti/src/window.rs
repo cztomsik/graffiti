@@ -1,26 +1,39 @@
 #![allow(clippy::missing_safety_doc)]
 
 use super::App;
+use crate::app::AppOwned;
 use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use graffiti_glfw::*;
-use std::cell::RefCell;
-use std::ffi::CStr;
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
+//use std::ffi::CStr;
 use std::os::raw::{c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
-use std::rc::Rc;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex, Weak};
+
+static NEXT_ID: Lazy<AtomicU32> = Lazy::new(Default::default);
+static WINDOWS: Lazy<Mutex<HashMap<WindowId, Weak<Window>>>> = Lazy::new(Default::default);
+
+pub type WindowId = u32;
 
 pub struct Window {
-    _app: Rc<App>,
-    title: RefCell<String>,
-    glfw_window: GlfwWindow,
+    _app: Arc<App>,
+    id: WindowId,
+    glfw_window: AppOwned<GlfwWindow>,
     events: Receiver<Event>,
+
+    // glfw does not provide getter
+    title: Mutex<String>,
 }
 
 impl Window {
-    pub fn new(title: &str, width: i32, height: i32) -> Self {
+    pub fn new(title: &str, width: i32, height: i32) -> Arc<Self> {
         let _app = App::current().expect("no App");
+        let title = title.to_owned();
+        let (events_tx, events) = channel();
 
-        unsafe {
+        let (title, glfw_window) = _app.await_task(move || unsafe {
             glfwDefaultWindowHints();
 
             #[cfg(target_os = "macos")]
@@ -31,11 +44,10 @@ impl Window {
                 glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
             }
 
-            let glfw_window = glfwCreateWindow(width, height, *c_str!(title), null_mut(), null_mut());
+            let glfw_window = glfwCreateWindow(width, height, *c_str!(title.as_str()), null_mut(), null_mut());
             assert_ne!(glfw_window, null_mut(), "create GLFW window");
-            let (events_tx, events) = channel();
 
-            // TODO: drop
+            // Sender<Event>
             glfwSetWindowUserPointer(glfw_window, Box::into_raw(Box::new(events_tx)) as *mut _);
 
             glfwSetCursorPosCallback(glfw_window, handle_glfw_cursor_pos);
@@ -47,130 +59,162 @@ impl Window {
             glfwSetFramebufferSizeCallback(glfw_window, handle_glfw_framebuffer_size);
             glfwSetWindowCloseCallback(glfw_window, handle_glfw_window_close);
 
-            Self {
-                _app,
-                title: title.to_owned().into(),
-                glfw_window,
-                events,
-            }
-        }
+            // detach
+            glfwMakeContextCurrent(std::ptr::null_mut());
+
+            (title, AppOwned(glfw_window))
+        });
+
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let win = Arc::new(Self {
+            _app,
+            id,
+            title: Mutex::new(title),
+            glfw_window,
+            events,
+        });
+
+        WINDOWS.lock().unwrap().insert(id, Arc::downgrade(&win));
+
+        win
+    }
+
+    pub fn find_by_id(id: WindowId) -> Option<Arc<Window>> {
+        WINDOWS.lock().unwrap().get(&id).map(Weak::upgrade).flatten()
+    }
+
+    pub fn id(&self) -> WindowId {
+        self.id
     }
 
     #[cfg(target_os = "macos")]
     pub fn native_handle(&self) -> *mut c_void {
-        unsafe { glfwGetCocoaWindow(self.glfw_window) as _ }
+        self.glfw_window.with(|win| unsafe { glfwGetCocoaWindow(win) as usize }) as _
     }
 
     pub fn title(&self) -> String {
-        self.title.borrow().clone()
+        self.title.lock().unwrap().clone()
     }
 
     pub fn set_title(&self, title: &str) {
-        unsafe { glfwSetWindowTitle(self.glfw_window, *c_str!(title)) }
+        *self.title.lock().unwrap() = title.to_owned();
 
-        self.title.replace(title.to_owned());
+        let title = title.to_owned();
+        self.glfw_window
+            .with(move |win| unsafe { glfwSetWindowTitle(win, *c_str!(title)) });
     }
 
     pub fn resizable(&self) -> bool {
-        unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_RESIZABLE) == GLFW_TRUE }
+        self.glfw_window
+            .with(|win| unsafe { glfwGetWindowAttrib(win, GLFW_RESIZABLE) == GLFW_TRUE })
     }
 
     pub fn set_resizable(&self, resizable: bool) {
-        unsafe { glfwSetWindowAttrib(self.glfw_window, GLFW_RESIZABLE, resizable as _) }
+        self.glfw_window
+            .with(move |win| unsafe { glfwSetWindowAttrib(win, GLFW_RESIZABLE, resizable as _) })
     }
 
     pub fn size(&self) -> (i32, i32) {
-        let mut size = (0, 0);
-
-        unsafe { glfwGetWindowSize(self.glfw_window, &mut size.0, &mut size.1) }
-
-        size
+        self.glfw_window.with(|win| {
+            let mut size = (0, 0);
+            unsafe { glfwGetWindowSize(win, &mut size.0, &mut size.1) }
+            size
+        })
     }
 
     pub fn set_size(&self, (width, height): (i32, i32)) {
-        unsafe { glfwSetWindowSize(self.glfw_window, width as _, height as _) }
+        self.glfw_window
+            .with(move |win| unsafe { glfwSetWindowSize(win, width as _, height as _) })
     }
 
     pub fn framebuffer_size(&self) -> (i32, i32) {
-        let mut size = (0, 0);
-
-        unsafe { glfwGetFramebufferSize(self.glfw_window, &mut size.0, &mut size.1) }
-
-        size
+        self.glfw_window.with(|win| {
+            let mut size = (0, 0);
+            unsafe { glfwGetFramebufferSize(win, &mut size.0, &mut size.1) }
+            size
+        })
     }
 
     pub fn content_scale(&self) -> (f32, f32) {
-        let mut scale = (0., 0.);
-
-        unsafe { glfwGetWindowContentScale(self.glfw_window, &mut scale.0, &mut scale.1) }
-
-        scale
+        self.glfw_window.with(|win| {
+            let mut scale = (0., 0.);
+            unsafe { glfwGetWindowContentScale(win, &mut scale.0, &mut scale.1) }
+            scale
+        })
     }
 
     pub fn transparent(&self) -> bool {
-        unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_TRANSPARENT_FRAMEBUFFER) == GLFW_TRUE }
+        self.glfw_window
+            .with(|win| unsafe { glfwGetWindowAttrib(win, GLFW_TRANSPARENT_FRAMEBUFFER) == GLFW_TRUE })
     }
 
     pub fn opacity(&self) -> f32 {
-        unsafe { glfwGetWindowOpacity(self.glfw_window) }
+        self.glfw_window.with(|win| unsafe { glfwGetWindowOpacity(win) })
     }
 
     pub fn set_opacity(&self, opacity: f32) {
-        unsafe { glfwSetWindowOpacity(self.glfw_window, opacity) }
+        self.glfw_window
+            .with(move |win| unsafe { glfwSetWindowOpacity(win, opacity) })
     }
 
     pub fn visible(&self) -> bool {
-        unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_VISIBLE) == GLFW_TRUE }
+        self.glfw_window
+            .with(|win| unsafe { glfwGetWindowAttrib(win, GLFW_VISIBLE) == GLFW_TRUE })
     }
 
     pub fn show(&self) {
-        unsafe { glfwShowWindow(self.glfw_window) }
+        self.glfw_window.with(|win| unsafe { glfwShowWindow(win) })
     }
 
     pub fn hide(&self) {
-        unsafe { glfwHideWindow(self.glfw_window) }
+        self.glfw_window.with(|win| unsafe { glfwHideWindow(win) })
     }
 
     pub fn focused(&self) -> bool {
-        unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_FOCUSED) == GLFW_TRUE }
+        self.glfw_window
+            .with(|win| unsafe { glfwGetWindowAttrib(win, GLFW_FOCUSED) == GLFW_TRUE })
     }
 
     pub fn focus(&self) {
-        unsafe { glfwFocusWindow(self.glfw_window) }
+        self.glfw_window.with(|win| unsafe { glfwFocusWindow(win) })
     }
 
     pub fn minimized(&self) -> bool {
-        unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_ICONIFIED) == GLFW_TRUE }
+        self.glfw_window
+            .with(|win| unsafe { glfwGetWindowAttrib(win, GLFW_ICONIFIED) == GLFW_TRUE })
     }
 
     pub fn minimize(&self) {
-        unsafe { glfwIconifyWindow(self.glfw_window) }
+        self.glfw_window.with(|win| unsafe { glfwIconifyWindow(win) });
     }
 
     pub fn maximized(&self) -> bool {
-        unsafe { glfwGetWindowAttrib(self.glfw_window, GLFW_MAXIMIZED) == GLFW_TRUE }
+        self.glfw_window
+            .with(|win| unsafe { glfwGetWindowAttrib(win, GLFW_MAXIMIZED) == GLFW_TRUE })
     }
 
     pub fn maximize(&self) {
-        unsafe { glfwMaximizeWindow(self.glfw_window) }
+        self.glfw_window.with(|win| unsafe { glfwMaximizeWindow(win) })
     }
 
     pub fn restore(&self) {
-        unsafe { glfwRestoreWindow(self.glfw_window) }
+        self.glfw_window.with(|win| unsafe { glfwRestoreWindow(win) })
     }
 
     pub fn request_attention(&self) {
-        unsafe { glfwRequestWindowAttention(self.glfw_window) }
+        self.glfw_window.with(|win| unsafe { glfwRequestWindowAttention(win) })
     }
 
     // event loop
 
     pub fn should_close(&self) -> bool {
-        unsafe { glfwWindowShouldClose(self.glfw_window) == GLFW_TRUE }
+        self.glfw_window
+            .with(|win| unsafe { glfwWindowShouldClose(win) == GLFW_TRUE })
     }
 
     pub fn set_should_close(&self, value: bool) {
-        unsafe { glfwSetWindowShouldClose(self.glfw_window, value as _) }
+        self.glfw_window
+            .with(move |win| unsafe { glfwSetWindowShouldClose(win, value as _) })
     }
 
     // note it needs to be processed one by one because each event can cause new changes,
@@ -182,7 +226,7 @@ impl Window {
     // GL
 
     pub unsafe fn make_current(&self) {
-        glfwMakeContextCurrent(self.glfw_window);
+        glfwMakeContextCurrent(self.glfw_window.0);
     }
 
     pub unsafe fn get_proc_address(&self, symbol: &str) -> *const c_void {
@@ -196,27 +240,33 @@ impl Window {
     // some people say everything related to HDC is tied to the original thread
     // and drivers are free to depend on this
     pub fn swap_buffers(&self) {
-        unsafe { glfwSwapBuffers(self.glfw_window) }
+        self.glfw_window.with(|win| unsafe { glfwSwapBuffers(win) })
     }
 
-    pub fn clipboard_string(&self) -> Option<&str> {
-        unsafe { CStr::from_ptr(glfwGetClipboardString(self.glfw_window)).to_str().ok() }
+    pub fn clipboard_string(&self) -> Option<String> {
+        todo!()
+        // TODO: we should copy and we also need to check for null
+        // unsafe { CStr::from_ptr(glfwGetClipboardString(self.glfw_window)).to_str().ok() }
     }
 
     pub fn set_clipboard_string(&self, string: &str) {
-        unsafe { glfwSetClipboardString(self.glfw_window, *c_str!(string)) }
+        let string = string.to_owned();
+        self.glfw_window
+            .with(|win| unsafe { glfwSetClipboardString(win, *c_str!(string)) })
     }
 }
 
 impl Drop for Window {
     fn drop(&mut self) {
-        unsafe {
-            let ptr = glfwGetWindowUserPointer(self.glfw_window);
-            glfwSetWindowUserPointer(self.glfw_window, null_mut());
-            glfwDestroyWindow(self.glfw_window);
+        WINDOWS.lock().unwrap().remove(&self.id);
+
+        self.glfw_window.with(|win| unsafe {
+            let ptr = glfwGetWindowUserPointer(win);
+            glfwSetWindowUserPointer(win, null_mut());
+            glfwDestroyWindow(win);
 
             drop(Box::from_raw(ptr as *mut Sender<Event>));
-        }
+        })
     }
 }
 
