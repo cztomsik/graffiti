@@ -87,9 +87,12 @@ impl Window {
         self.id
     }
 
-    #[cfg(target_os = "macos")]
     pub fn native_handle(&self) -> *mut c_void {
-        self.glfw_window.with(|win| unsafe { glfwGetCocoaWindow(win) as usize }) as _
+        if cfg!(target_os = "macos") {
+          return self.glfw_window.with(|win| unsafe { glfwGetCocoaWindow(win) as usize }) as _
+        }
+
+        std::ptr::null_mut()
     }
 
     pub fn title(&self) -> String {

@@ -50,8 +50,6 @@ export class AppWindow {
   }
 
   async loadURL(url: URL | string, options = {}) {
-    console.log(this.width, this.height)
-
     this.#worker?.terminate()
 
     const worker = new Worker(new URL('worker.js', import.meta.url), {
@@ -86,8 +84,7 @@ export class AppWindow {
       }))
     }
 
-    const { width, height } = this
-    await this.#send({ type: 'init', windowId: getNativeId(this), width, height, url: '' + url, options })
+    await this.#send({ type: 'init', windowId: native.gft_Window_id(getNativeId(this)), url: '' + url, options })
   }
 
   async eval(js: string) {

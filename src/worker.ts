@@ -5,12 +5,16 @@
 //   - Deno doesn't have runInContext and it might not be enough anyway)
 // - we want location.reload() for development purposes (live-reload, HMR)
 
-import { native, loadNativeApi, register, getNativeId } from './native'
+import { native, register, getNativeId } from './native'
 import { Window, makeGlobal } from './window/Window'
 import { LITTLE_ENDIAN, readURL } from './util'
 import { parseIntoDocument } from './dom/DOMParser'
 import { loadStyles } from './dom/HTMLLinkElement'
 import { runScripts } from './dom/HTMLScriptElement'
+
+// global state
+let appRef = 0
+let winRef = 0
 
 // event state
 const eventBytes = new Uint8Array(24)
@@ -45,13 +49,13 @@ async function send(result, error?) {
   // TODO: we can avoid namespacing with MessageChannel sent with first init
   //       (this is currently blocked by deno which does not yet support transferables)
   postMessage({ type: '__GFT', result, error })
-  native.gft_App_wake_up()
+  native.gft_App_wake_up(appRef)
 }
 
-async function main({ windowId, width, height, url, options }) {
-  // unfortunately, we need native in worker too - there are many blocking APIs
-  // and those would be impossible to emulate with parent<->worker postMessage()
-  await loadNativeApi()
+async function main({ windowId, url, options }) {
+  // TODO: free
+  appRef = native.gft_App_current()
+  winRef = native.gft_Window_find_by_id(windowId)
 
   // setup env
   const { window, document } = new Window()
@@ -59,7 +63,7 @@ async function main({ windowId, width, height, url, options }) {
   makeGlobal(window)
 
   // init renderer
-  const renderer = native.gft_Renderer_new(getNativeId(document), width, height)
+  const renderer = native.gft_Renderer_new(getNativeId(document), winRef)
   register(window, renderer)
 
   // load html
@@ -79,10 +83,7 @@ async function main({ windowId, width, height, url, options }) {
 
   function loop() {
     // dispatch all events for this round
-    // TODO: windowId or viewportId? or something else?
-
-    // TODO: async...
-    while (native.gft_Window_next_event(windowId, eventBytes)) {
+    while (native.gft_Window_next_event(winRef, eventBytes)) {
       handleEvent()
     }
 
@@ -99,12 +100,12 @@ async function main({ windowId, width, height, url, options }) {
       MouseDown = 1,
       MouseUp = 2,
       Scroll = 3,
-  
+
       // JS e.which
       KeyUp = 4,
       KeyDown = 5,
       KeyPress = 6,
-  
+
       Resize = 7,
       FramebufferSize = 8,
       Close = 9,

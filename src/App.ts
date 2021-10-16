@@ -1,4 +1,4 @@
-import { native, loadNativeApi, register, getNativeId } from './native'
+import { native, register, getNativeId } from './native'
 
 export class App {
   private constructor() {
@@ -23,8 +23,6 @@ export class App {
   }
 
   static async init() {
-    await loadNativeApi()
-
     return new App()
   }
 }

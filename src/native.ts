@@ -1,10 +1,7 @@
 import { ERR, isDeno, isNodeJS, PLATFORM, TODO } from './util'
 
 // flat object with all of the native functions,
-// initialized by `loadNativeApi()`
-// TODO: Record<string, Function>
-// TODO: consider using top-level await
-export let native: any = null
+export const native: Record<string, Function> = await loadNativeApi()
 
 // unpack Vec<Ref<Value>> to array of refs
 // note that native.gft_Ref_drop(ref) still needs to be called for each ref
@@ -38,7 +35,7 @@ export const decode = (stringRef: number) => {
   return decoder.decode(buf)
 }
 
-export const loadNativeApi = async () => {
+async function loadNativeApi() {
   const libFile = await resolveLibFile()
 
   if (isNodeJS) {
@@ -64,9 +61,9 @@ export const register = <T extends object>(wrapper: T, id) => {
 export const getNativeId = wrapper => wrapper[NATIVE_ID]
 
 const NATIVE_ID = Symbol()
-const NATIVE_REGISTRY = new FinalizationRegistry((id: number) => native.Ref_drop(id))
+const NATIVE_REGISTRY = new FinalizationRegistry((id: number) => native.gft_Ref_drop(id))
 
-const resolveLibFile = async () => {
+async function resolveLibFile() {
   // TODO
   // const PREBUILT_URL = `https://github.com/cztomsik/graffiti/releases/download/${VERSION}`
 
@@ -77,17 +74,13 @@ const resolveLibFile = async () => {
   return PLATFORM === 'windows' ? LIB_URL.href.replace('file:///', '') : LIB_URL.pathname
 }
 
-// TODO: we couldnt use ffi-napi because of workers
-// https://github.com/node-ffi-napi/node-ffi-napi/issues/125
-const loadNodejsAddon = async libFile => {
-  // tell dylib to register napi extension
-  process.env.GFT_NODEJS = '1'
-
-  // require() would make ncc bundle some unnecessary build artifacts
-  process['dlopen']({ exports: native = {} }, libFile)
+async function loadNodejsAddon(libFile) {
+  // TODO: we cant use ffi-napi because of workers
+  // https://github.com/node-ffi-napi/node-ffi-napi/issues/125
+  return TODO()
 }
 
-const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
+async function loadDenoPlugin(libFile, Deno = globalThis.Deno) {
   // TODO: fetch using https://deno.land/x/cache (Plug doesn't really add anything here)
 
   const lib = Deno.dlopen(libFile, {
@@ -98,9 +91,12 @@ const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
     gft_Vec_len: { parameters: ['u32'], result: 'u32' },
     gft_Vec_get: { parameters: ['u32', 'u32'], result: 'u32' },
     gft_App_init: { parameters: [], result: 'u32' },
-    gft_App_wake_up: { parameters: [], result: 'void' },
+    gft_App_current: { parameters: [], result: 'u32' },
+    gft_App_wake_up: { parameters: ['u32'], result: 'void' },
     gft_App_tick: { parameters: ['u32'], result: 'void' },
     gft_Window_new: { parameters: ['buffer', 'u32', 'i32', 'i32'], result: 'u32' },
+    gft_Window_id: { parameters: ['u32'], result: 'u32' },
+    gft_Window_find_by_id: { parameters: ['u32'], result: 'u32' },
     gft_Window_next_event: { parameters: ['u32', 'buffer'], result: 'u8' },
     gft_Window_width: { parameters: ['u32'], result: 'i32' },
     gft_Window_height: { parameters: ['u32'], result: 'i32' },
@@ -119,7 +115,7 @@ const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
     gft_Element_set_attribute: { parameters: ['u32', 'buffer', 'u32', 'buffer', 'u32'], result: 'void' },
     gft_CharacterData_data: { parameters: ['u32'], result: 'u32' },
     gft_CharacterData_set_data: { parameters: ['u32', 'buffer', 'u32'], result: 'void' },
-    gft_Renderer_new: { parameters: ['u32', 'f32', 'f32'], result: 'u32' },
+    gft_Renderer_new: { parameters: ['u32', 'u32'], result: 'u32' },
     gft_Renderer_render: { parameters: ['u32'], result: 'void' },
     gft_Renderer_resize: { parameters: ['u32', 'f32', 'f32'], result: 'void' },
     gft_WebView_new: { parameters: [], result: 'u32' },
@@ -129,7 +125,7 @@ const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
   })
 
   // debug
-  // native = Object.fromEntries(
+  // return Object.fromEntries(
   //   Object.entries<any>(lib.symbols).map(([name, fn]) => {
   //     return [name, (...args) => {
   //       const res = (console.log('call', name, ...args), fn(...args))
@@ -139,5 +135,5 @@ const loadDenoPlugin = async (libFile, Deno = globalThis.Deno) => {
   //   })
   // )
 
-  native = lib.symbols
+  return lib.symbols
 }
