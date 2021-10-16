@@ -1,18 +1,6 @@
 // TODO: move rest of this to dom.rs
 
 impl Document {
-    pub fn child_nodes(&self, node: NodeId) -> impl Iterator<Item = NodeId> + '_ {
-        ChildNodes {
-            doc: self,
-            next: self.nodes[node].first_child,
-        }
-    }
-
-    pub fn children(&self, node: NodeId) -> impl Iterator<Item = NodeId> + '_ {
-        self.child_nodes(node)
-            .filter(move |n| self.node_type(*n) == NodeType::Element)
-    }
-
     // doesn't allocate if there's 0-1 child_nodes
     pub fn text_content(&self, node: NodeId) -> Cow<str> {
         match self.node_type(node) {
@@ -38,23 +26,4 @@ impl Document {
             .collect()
     }
 
-}
-
-pub struct ChildNodes<'a> {
-    doc: &'a Document,
-    next: Option<NodeId>,
-}
-
-impl<'a> Iterator for ChildNodes<'a> {
-    type Item = NodeId;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.next.take() {
-            Some(next) => {
-                self.next = self.doc.nodes[next].next_sibling;
-                Some(next)
-            }
-            _ => None,
-        }
-    }
 }
