@@ -23,6 +23,10 @@ typedef Ref_App Option_Ref_App;
 
 typedef uint32_t Ref_Window;
 
+typedef uint32_t WindowId;
+
+typedef Ref_Window Option_Ref_Window;
+
 enum Event_Tag {
   CursorPos,
   MouseDown,
@@ -98,18 +102,6 @@ typedef uint32_t Ref_CssStyleDeclaration;
 
 typedef uint32_t Ref_Renderer;
 
-extern void *dlopen(const char *filename, int flags);
-
-extern void *dlsym(void *handle, const char *symbol);
-
-extern int dlclose(void *handle);
-
-extern void *LoadLibraryA(const char *filename);
-
-extern void *GetProcAddress(void *module, const char *name);
-
-extern int FreeLibrary(void *handle);
-
 void gft_Ref_drop(Ref_Value obj);
 
 unsigned int gft_Vec_len(Ref_Vec_Value vec);
@@ -126,9 +118,13 @@ Option_Ref_App gft_App_current(void);
 
 void gft_App_tick(Ref_App app);
 
-void gft_App_wake_up(void);
+void gft_App_wake_up(Ref_App app);
 
 Ref_Window gft_Window_new(const char *title, uint32_t title_len, int width, int height);
+
+WindowId gft_Window_id(Ref_Window win);
+
+Option_Ref_Window gft_Window_find_by_id(WindowId id);
 
 bool gft_Window_next_event(Ref_Window win, struct Event *event_dest);
 
@@ -238,7 +234,7 @@ void gft_CssStyleDeclaration_set_property(Ref_CssStyleDeclaration style,
                                           const char *val,
                                           uint32_t val_len);
 
-Ref_Renderer gft_Renderer_new(Ref_DocumentRef doc, float width, float height);
+Ref_Renderer gft_Renderer_new(Ref_DocumentRef doc, Ref_Window win);
 
 void gft_Renderer_render(Ref_Renderer renderer);
 
