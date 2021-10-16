@@ -88,10 +88,10 @@ impl Window {
     }
 
     pub fn native_handle(&self) -> *mut c_void {
-        if cfg!(target_os = "macos") {
-          return self.glfw_window.with(|win| unsafe { glfwGetCocoaWindow(win) as usize }) as _
-        }
+        #[cfg(target_os = "macos")]
+        return self.glfw_window.with(|win| unsafe { glfwGetCocoaWindow(win) as usize }) as _;
 
+        #[allow(unreachable_code)]
         std::ptr::null_mut()
     }
 
