@@ -6,7 +6,7 @@ use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use graffiti_glfw::*;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
-//use std::ffi::CStr;
+use std::ffi::CString;
 use std::os::raw::{c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -30,10 +30,10 @@ pub struct Window {
 impl Window {
     pub fn new(title: &str, width: i32, height: i32) -> Arc<Self> {
         let _app = App::current().expect("no App");
-        let title = title.to_owned();
+        let c_title = CString::new(title).unwrap();
         let (events_tx, events) = channel();
 
-        let (title, glfw_window) = _app.await_task(move || unsafe {
+        let glfw_window = _app.await_task(move || unsafe {
             glfwDefaultWindowHints();
 
             #[cfg(target_os = "macos")]
@@ -44,7 +44,7 @@ impl Window {
                 glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
             }
 
-            let glfw_window = glfwCreateWindow(width, height, *c_str!(title.as_str()), null_mut(), null_mut());
+            let glfw_window = glfwCreateWindow(width, height, c_title.as_ptr(), null_mut(), null_mut());
             assert_ne!(glfw_window, null_mut(), "create GLFW window");
 
             // Sender<Event>
@@ -62,14 +62,14 @@ impl Window {
             // detach
             glfwMakeContextCurrent(std::ptr::null_mut());
 
-            (title, AppOwned(glfw_window))
+            AppOwned(glfw_window)
         });
 
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         let win = Arc::new(Self {
             _app,
             id,
-            title: Mutex::new(title),
+            title: Mutex::new(title.to_owned()),
             glfw_window,
             events,
         });
@@ -102,9 +102,9 @@ impl Window {
     pub fn set_title(&self, title: &str) {
         *self.title.lock().unwrap() = title.to_owned();
 
-        let title = title.to_owned();
+        let title = CString::new(title).unwrap();
         self.glfw_window
-            .with(move |win| unsafe { glfwSetWindowTitle(win, *c_str!(title)) });
+            .with(move |win| unsafe { glfwSetWindowTitle(win, title.as_ptr()) });
     }
 
     pub fn resizable(&self) -> bool {
@@ -236,7 +236,8 @@ impl Window {
         // TODO: this is magic we should rather panic if not current
         self.make_current();
 
-        glfwGetProcAddress(*c_str!(symbol))
+        let symbol = CString::new(symbol).unwrap();
+        glfwGetProcAddress(symbol.as_ptr())
     }
 
     // GLFW says it's possible to call this from any thread but
@@ -253,9 +254,9 @@ impl Window {
     }
 
     pub fn set_clipboard_string(&self, string: &str) {
-        let string = string.to_owned();
+        let string = CString::new(string).unwrap();
         self.glfw_window
-            .with(|win| unsafe { glfwSetClipboardString(win, *c_str!(string)) })
+            .with(move |win| unsafe { glfwSetClipboardString(win, string.as_ptr()) })
     }
 }
 

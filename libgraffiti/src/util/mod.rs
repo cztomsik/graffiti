@@ -1,7 +1,3 @@
-#[macro_use]
-mod c_str;
-pub use c_str::*;
-
 mod atom;
 pub use atom::*;
 

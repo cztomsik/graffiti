@@ -4,6 +4,7 @@
 #[link(name = "WebKit", kind = "framework")]
 extern "C" {}
 
+use std::ffi::CString;
 use crate::app::AppOwned;
 use crate::{App, Window};
 use std::os::raw::c_void;
@@ -57,11 +58,11 @@ impl WebView {
     }
 
     pub fn load_url(&self, url: &str) {
-        let url = url.to_owned();
+        let url = CString::new(url).unwrap();
 
         #[cfg(target_os = "macos")]
         self.webview.with(move |webview| unsafe {
-            let url: id = msg_send![class!(NSString), stringWithUTF8String: *c_str!(url.as_str())];
+            let url: id = msg_send![class!(NSString), stringWithUTF8String: url.as_ptr()];
             let url: id = msg_send![class!(NSURL), URLWithString: url];
             let req: id = msg_send![class!(NSURLRequest), requestWithURL: url];
             let () = msg_send![*webview, loadRequest: req];
@@ -69,7 +70,7 @@ impl WebView {
     }
 
     pub fn eval(&self, js: &str) {
-        let js = js.to_owned();
+        let js = CString::new(js).unwrap();
 
         println!("eval: {:?}", js);
 
@@ -78,7 +79,7 @@ impl WebView {
 
         #[cfg(target_os = "macos")]
         self.webview.with(move |webview| unsafe {
-            let js: id = msg_send![class!(NSString), stringWithUTF8String: *c_str!(js)];
+            let js: id = msg_send![class!(NSString), stringWithUTF8String: js.as_ptr()];
 
             // TODO: pass closure & get the result
             let () = msg_send![*webview, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
