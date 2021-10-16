@@ -3,6 +3,7 @@
 import { App, AppWindow, WebView } from '../lib/index.js'
 
 const app = await App.init()
+app.run()
 
 const w1 = new AppWindow()
 // await w1.loadURL(new URL('hello.html', import.meta.url))
@@ -23,5 +24,3 @@ setInterval(async () => {
   const html = await w1.eval('document.documentElement.outerHTML')
   webview.loadURL(`data:text/html,${encodeURIComponent(html)}`)
 }, 1000)
-
-app.run()
