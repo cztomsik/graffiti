@@ -9,10 +9,8 @@
 use crate::util::SlotMap;
 use crate::{
     App, CharacterDataRef, CssStyleDeclaration, DocumentRef, ElementRef, Event, NodeId, NodeRef, NodeType, Renderer,
-    WebView, Window,
+    WebView, Window, WindowId,
 };
-use crossbeam_channel::Receiver;
-use once_cell::sync::Lazy;
 use std::any::Any;
 use std::cell::RefCell;
 use std::ffi::CStr;
@@ -21,7 +19,7 @@ use std::num::NonZeroU32;
 use std::ops::Index;
 use std::os::raw::{c_char, c_double, c_int, c_uint, c_void};
 use std::rc::Rc;
-use std::sync::RwLock;
+use std::sync::Arc;
 
 // cbindgen hack for Option<Ref<T>>
 #[cfg(cbindgen)]
@@ -35,6 +33,7 @@ pub struct Ref<T: ?Sized>(NonZeroU32, PhantomData<*const T>);
 pub enum Value {
     Node(NodeRef),
     Rc(Rc<dyn Any>),
+    Arc(Arc<dyn Any>),
     String(String),
     Vec(Vec<Value>),
 }
@@ -42,9 +41,6 @@ pub enum Value {
 thread_local! {
     static REFS: RefCell<SlotMap<NonZeroU32, Value>> = Default::default();
 }
-
-// should only block when window is being created/destroyed
-static EVENTS: Lazy<RwLock<SlotMap<NonZeroU32, Receiver<Event>>>> = Lazy::new(Default::default);
 
 #[no_mangle]
 pub extern "C" fn gft_Ref_drop(obj: Ref<Value>) {
@@ -91,8 +87,8 @@ pub extern "C" fn gft_App_tick(app: Ref<App>) {
 }
 
 #[no_mangle]
-pub extern "C" fn gft_App_wake_up() {
-    App::wake_up()
+pub extern "C" fn gft_App_wake_up(app: Ref<App>) {
+    with_tls(|tls| tls[&app].wake_up())
 }
 
 #[no_mangle]
@@ -102,23 +98,28 @@ pub unsafe extern "C" fn gft_Window_new(
     width: c_int,
     height: c_int,
 ) -> Ref<Window> {
-    let win = Window::new(to_str(title, title_len), width, height);
-    let events = win.events().clone();
+    Window::new(to_str(title, title_len), width, height).into()
+}
 
-    let win_ref: Ref<Window> = Rc::new(win).into();
-    EVENTS.write().unwrap().put(win_ref.0, events);
+#[no_mangle]
+pub extern "C" fn gft_Window_id(win: Ref<Window>) -> WindowId {
+    with_tls(|tls| tls[&win].id())
+}
 
-    win_ref
+#[no_mangle]
+pub unsafe extern "C" fn gft_Window_find_by_id(id: WindowId) -> Option<Ref<Window>> {
+    Window::find_by_id(id).map(From::from)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_Window_next_event(win: Ref<Window>, event_dest: *mut Event) -> bool {
-    if let Ok(event) = EVENTS.read().unwrap()[win.0].try_recv() {
-        *event_dest = event;
-        return true;
-    }
-
-    false
+    with_tls(|tls| {
+        if let Ok(event) = tls[&win].events().try_recv() {
+            *event_dest = event;
+            return true;
+        }
+        false
+    })
 }
 
 #[no_mangle]
@@ -396,8 +397,8 @@ pub extern "C" fn gft_CssStyleDeclaration_set_property(
 }
 
 #[no_mangle]
-pub extern "C" fn gft_Renderer_new(doc: Ref<DocumentRef>, width: f32, height: f32) -> Ref<Renderer> {
-    let renderer = with_tls(|tls| Renderer::new(tls[&doc].clone(), width, height));
+pub extern "C" fn gft_Renderer_new(doc: Ref<DocumentRef>, win: Ref<Window>) -> Ref<Renderer> {
+    let renderer = with_tls(|tls| Renderer::new(tls[&doc].clone(), &tls[&win]));
     Rc::new(renderer).into()
 }
 
@@ -426,6 +427,12 @@ impl<T: 'static> From<Rc<T>> for Ref<T> {
     }
 }
 
+impl<T: 'static> From<Arc<T>> for Ref<T> {
+    fn from(arc: Arc<T>) -> Self {
+        new_ref(Value::Arc(arc))
+    }
+}
+
 impl From<String> for Ref<String> {
     fn from(string: String) -> Self {
         new_ref(Value::String(string))
@@ -439,12 +446,7 @@ impl From<Vec<Value>> for Ref<Vec<Value>> {
 }
 
 fn new_ref<T: ?Sized>(value: Value) -> Ref<T> {
-    REFS.with(|refs| {
-        Ref(
-            refs.borrow_mut().insert(value),
-            PhantomData,
-        )
-    })
+    REFS.with(|refs| Ref(refs.borrow_mut().insert(value), PhantomData))
 }
 
 unsafe fn to_str<'a>(ptr: *const c_char, len: u32) -> &'a str {
@@ -469,6 +471,7 @@ impl<T: 'static> Index<&Ref<T>> for SlotMap<NonZeroU32, Value> {
         match &self[index.0] {
             Value::Node(node) => node.downcast_ref::<T>(),
             Value::Rc(rc) => rc.downcast_ref::<T>(),
+            Value::Arc(arc) => arc.downcast_ref::<T>(),
             Value::String(string) => <dyn Any>::downcast_ref(string),
             Value::Vec(vec) => <dyn Any>::downcast_ref(vec),
         }

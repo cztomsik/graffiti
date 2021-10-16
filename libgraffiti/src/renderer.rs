@@ -1,16 +1,17 @@
 
-
-
-use crate::{DocumentRef};
+use crate::{App, DocumentRef, Window, NodeRef, NodeType};
+use std::cell::RefCell;
 
 pub struct Renderer {
-    document: DocumentRef
+    window_id: u32,
+    document: DocumentRef,
 }
 
 impl Renderer {
-    pub fn new(document: DocumentRef, width: f32, height: f32) -> Self {
+    pub fn new(document: DocumentRef, win: &Window) -> Self {
         Self {
-            document
+            window_id: win.id(),
+            document,
         }
     }
 
