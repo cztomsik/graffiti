@@ -11,11 +11,11 @@ mod window;
 
 pub use self::{
   app::App,
-  css::{CssStyleDeclaration},
-  dom::{CharacterDataRef, DocumentRef, ElementRef, NodeRef, NodeId, NodeType},
+  css::CssStyleDeclaration,
+  dom::{CharacterDataRef, DocumentRef, ElementRef, NodeId, NodeRef, NodeType},
   renderer::Renderer,
   webview::WebView,
-  window::{Event, Window},
+  window::{Event, Window, WindowId},
 };
 pub mod gfx;
 
