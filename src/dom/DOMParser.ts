@@ -1,7 +1,6 @@
-// @ts-expect-error
-import { Parser } from 'htmlparser2'
 import { Document } from './index'
 import { ERR } from '../util'
+import { HTMLParser } from '../htmlparser.js'
 
 export class DOMParser implements globalThis.DOMParser {
   parseFromString(string: string, contentType: DOMParserSupportedType): Document {
@@ -36,20 +35,17 @@ export const parseFragment = (doc, html) => {
   const fr = doc.createDocumentFragment()
   let stack = [fr]
 
-  const parser = new Parser({
-    onopentag: (tag, atts) => {
+  HTMLParser(html, {
+    start: (tag, atts) => {
       let el = doc.createElement(tag)
-      Object.entries(atts ?? {}).forEach(([att, v]) => el.setAttribute(att, v))
+      atts.forEach((att) => el.setAttribute(att.name, att.value))
       stack[0].appendChild(el)
       stack.unshift(el)
     },
-    onclosetag: _ => stack.shift(),
-    ontext: cdata => stack[0].appendChild(doc.createTextNode(cdata)),
-    oncomment: cdata => stack[0].appendChild(doc.createComment(cdata)),
+    end: _ => stack.shift(),
+    chars: cdata => stack[0].appendChild(doc.createTextNode(cdata)),
+    comment: cdata => stack[0].appendChild(doc.createComment(cdata)),
   })
-
-  parser.write(html)
-  parser.end()
 
   return fr
 }

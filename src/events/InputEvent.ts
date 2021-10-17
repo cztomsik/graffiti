@@ -11,4 +11,8 @@ export class InputEvent extends UIEvent implements globalThis.InputEvent {
     this.inputType = eventInit?.inputType ?? 'insertText'
     this.isComposing = eventInit?.isComposing ?? false
   }
+
+  // later
+  dataTransfer
+  getTargetRanges
 }

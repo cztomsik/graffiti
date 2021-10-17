@@ -1,7 +1,7 @@
 // TODO: cyclic
 import { Node } from './Node'
 
-import { native } from '../native'
+import { native, register, getNativeId } from '../native'
 import {
   NodeList,
   Text,
@@ -37,12 +37,13 @@ import { UNSUPPORTED } from '../util'
 
 import { Event } from '../events/Event'
 
+const ELS = Symbol()
+
 export class Document extends Node implements globalThis.Document {
   readonly ownerDocument
   readonly defaultView: Window & typeof globalThis | null = null
   readonly implementation = new DOMImplementation()
   readonly childNodes = new NodeList<ChildNode>()
-  readonly compatMode = 'CSS1Compat'
 
   // TODO: getter, should be last focused (from symbol?) or body (which can be null sometimes)
   readonly activeElement: Element | null = null
@@ -56,7 +57,9 @@ export class Document extends Node implements globalThis.Document {
     // if it's ever a problem we could use child.ownerDocument
     this.ownerDocument = this
 
-    initDocument(this)
+    register(this, native.gft_Document_new())
+
+    this[ELS] = new Map()
   }
 
   get nodeType() {
@@ -65,6 +68,10 @@ export class Document extends Node implements globalThis.Document {
 
   get nodeName() {
     return '#document'
+  }
+
+  get compatMode() {
+    return 'CSS1Compat'
   }
 
   get documentElement() {
@@ -85,14 +92,14 @@ export class Document extends Node implements globalThis.Document {
   }
 
   set title(title) {
-    const head = this.head || this.appendChild(this.createElement('head'))
+    const head = this.head ?? this.appendChild(this.createElement('head'))
     const titleEl = head.childNodes.find(n => n.localName === 'title') ?? head.appendChild(this.createElement('title'))
 
     titleEl.data = title
   }
 
   get location() {
-    // DOMParser docs should have null (TS is wrong)
+    // DOMParser-created documents should have null location (TS is wrong)
     return this.defaultView?.location ?? (null as any)
   }
 
@@ -167,10 +174,7 @@ export class Document extends Node implements globalThis.Document {
   }
 
   elementFromPoint(x, y): Element | null {
-    // TODO: find a better way to get that id (and to call native)
-    let id = native.viewport_element_from_point(this['__VIEWPORT_ID'], x, y)
-
-    return id && lookup(this, id)
+    return lookupElement(this, native.gft_Viewport_element_from_point(getNativeId(this.defaultView), x, y))
   }
 
   hasFocus(): boolean {
@@ -189,18 +193,17 @@ export class Document extends Node implements globalThis.Document {
   get forms() {
     return this.getElementsByTagName('form')
   }
+
   get images() {
     return this.getElementsByTagName('img')
   }
+
   get links() {
     return this.getElementsByTagName('link')
   }
+
   get scripts() {
     return this.getElementsByTagName('script')
-  }
-
-  getElementById(id) {
-    return this.querySelector(`#${id}`)
   }
 
   // deprecated
@@ -245,16 +248,21 @@ export class Document extends Node implements globalThis.Document {
   evaluate
   execCommand
   exitFullscreen
+  exitPictureInPicture
   exitPointerLock
+  fonts
   fullscreenElement
   fullscreenEnabled
   getAnimations
   getElementsByName
   getSelection
+  hasStorageAccess
   hidden
   inputEncoding
   lastModified
   origin
+  pictureInPictureElement
+  pictureInPictureEnabled
   plugins
   pointerLockElement
   queryCommandEnabled
@@ -264,6 +272,8 @@ export class Document extends Node implements globalThis.Document {
   queryCommandValue
   readyState
   referrer
+  requestStorageAccess
+  rootElement
   scrollingElement
   timeline
   URL
@@ -284,49 +294,12 @@ export class Document extends Node implements globalThis.Document {
   vlinkColor
 }
 
+export const registerElement = (doc, nodeId, el) => doc[ELS].set(nodeId, new WeakRef(el))
+
+export const lookupElement = (doc, nodeId) => nodeId ?doc[ELS].get(nodeId).deref() :null
+
 type Doc = Document
 
 declare global {
   interface Document extends Doc {}
 }
-
-const DOC_ID = Symbol()
-const REFS = Symbol()
-const NODE_REGISTRY = Symbol()
-const NODE_ID = Symbol()
-
-const initDocument = (doc) => {
-  doc[DOC_ID] = native.document_new()
-  doc[REFS] = []
-  doc[NODE_REGISTRY] = new FinalizationRegistry(id => native.document_drop_node(doc[DOC_ID], id))
-  initNode(doc, doc, 0)
-
-  DOCUMENT_REGISTRY.register(doc, doc[DOC_ID])
-}
-
-const initNode = (doc, node, id) => {
-  node[NODE_ID] = id
-  doc[REFS][id] = new WeakRef(node)
-  doc[NODE_REGISTRY].register(node, id)
-}
-
-const lookup = (doc, id) => (id && doc[REFS][id]?.deref()) ?? null
-
-// package-private
-export const getDocId = (doc) => doc[DOC_ID]
-export const initTextNode = (doc, node, cdata) => initNode(doc, node, native.document_create_text_node(doc[DOC_ID], cdata))
-export const initComment = (doc, node, cdata) => initNode(doc, node, native.document_create_comment(doc[DOC_ID], cdata))
-export const setCdata = (doc, node, cdata) => native.document_set_cdata(doc[DOC_ID], node[NODE_ID], cdata)
-export const initElement = (doc, el, localName) => initNode(doc, el, native.document_create_element(doc[DOC_ID], localName))
-export const getAttribute = (doc, el, k) => native.document_attribute(doc[DOC_ID], el[NODE_ID], k)
-export const setAttribute = (doc, el, k, v) => native.document_set_attribute(doc[DOC_ID], el[NODE_ID], k, v)
-export const removeAttribute = (doc, el, k) => native.document_remove_attribute(doc[DOC_ID], el[NODE_ID], k)
-export const getAttributeNames = (doc, el) => native.document_attribute_names(doc[DOC_ID], el[NODE_ID])
-export const setElementStyleProp = (doc, el, prop, val) => native.document_set_element_style_property(doc[DOC_ID], el[NODE_ID], prop, val)
-export const insertChild = (doc, parent, child, index) => native.document_insert_child(doc[DOC_ID], parent[NODE_ID], child[NODE_ID], index)
-export const removeChild = (doc, parent, child) => native.document_remove_child(doc[DOC_ID], parent[NODE_ID], child[NODE_ID])
-export const matches = (doc, el, sel) => lookup(doc, native.document_matches(doc[DOC_ID], el[NODE_ID], sel))
-export const querySelector = (doc, ctxNode, sel) => lookup(doc, native.document_query_selector(doc[DOC_ID], ctxNode[NODE_ID], sel))
-export const querySelectorAll = (doc, ctxNode, sel) => native.document_query_selector_all(doc[DOC_ID], ctxNode[NODE_ID], sel).map(id => lookup(doc, id))
-
-const DOCUMENT_REGISTRY = new FinalizationRegistry(id => native.document_drop(id))

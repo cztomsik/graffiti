@@ -10,8 +10,8 @@
 //   and we also get correct overriding for free (only valid prop should override prev one)
 
 use super::{
-    Combinator, Component, CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssOverflow, Rule, Selector,
-    SelectorPart, Style, StyleSheet,
+    Combinator, Component, CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssOverflow, CssStyleDeclaration,
+    CssStyleRule, CssStyleSheet, Selector, SelectorPart,
 };
 use crate::util::Atom;
 use pom::char_class::alphanum;
@@ -23,7 +23,7 @@ pub(super) type Parser<'a, T> = pom::parser::Parser<'a, Token<'a>, T>;
 type Token<'a> = &'a str;
 // pub type ParseError = pom::Error;
 
-pub(super) fn sheet<'a>() -> Parser<'a, StyleSheet> {
+pub(super) fn sheet<'a>() -> Parser<'a, CssStyleSheet> {
     // anything until next "}}" (empty media is matched with unknown)
     let media = sym("@") * sym("media") * (!seq(&["}", "}"]) * skip(1)).repeat(1..).map(|_| None) - sym("}") - sym("}");
     // anything until next "}"
@@ -31,15 +31,15 @@ pub(super) fn sheet<'a>() -> Parser<'a, StyleSheet> {
 
     (rule().map(Option::Some) | media | unknown)
         .repeat(0..)
-        .map(|maybe_rules| StyleSheet {
+        .map(|maybe_rules| CssStyleSheet {
             rules: maybe_rules.into_iter().flatten().collect(),
         })
 }
 
-fn rule<'a>() -> Parser<'a, Rule> {
+fn rule<'a>() -> Parser<'a, CssStyleRule> {
     let rule = selector() - sym("{") + style() - sym("}");
 
-    rule.map(|(selector, style)| Rule::new(selector, style))
+    rule.map(|(selector, style)| CssStyleRule::new(selector, style))
 }
 
 pub(super) fn selector<'a>() -> Parser<'a, Selector> {
@@ -82,13 +82,13 @@ pub(super) fn selector<'a>() -> Parser<'a, Selector> {
     })
 }
 
-pub(super) fn style<'a>() -> Parser<'a, Style> {
+pub(super) fn style<'a>() -> Parser<'a, CssStyleDeclaration> {
     // any chunk of tokens before ";" or "}"
     let prop_value = (!sym(";") * !sym("}") * skip(1)).repeat(1..).collect();
     let prop = any() - sym(":") + prop_value - sym(";").discard().repeat(0..);
 
     prop.repeat(0..).map(|props| {
-        let mut style = Style::new();
+        let mut style = CssStyleDeclaration::new();
 
         for (p, v) in props {
             // skip unknown
@@ -99,7 +99,7 @@ pub(super) fn style<'a>() -> Parser<'a, Style> {
     })
 }
 
-pub(super) fn parse_prop_into<'a>(prop: &str, value: &[&str], style: &mut Style) {
+pub(super) fn parse_prop_into<'a>(prop: &str, value: &[&str], style: &mut CssStyleDeclaration) {
     if let Ok(p) = super::prop_parser(prop).parse(value) {
         style.add_prop(p);
     } else if let Ok(props) = super::shorthand_parser(prop).parse(value) {
@@ -338,22 +338,22 @@ mod tests {
 
     #[test]
     fn basic() {
-        let sheet = StyleSheet::from("div { color: #fff }");
+        let sheet = CssStyleSheet::from("div { color: #fff }");
 
         assert_eq!(
             sheet.rules[0],
-            Rule::new(Selector::from("div"), Style::from("color: #fff"))
+            CssStyleRule::new(Selector::from("div"), CssStyleDeclaration::from("color: #fff"))
         );
         assert_eq!(sheet.rules[0].style().css_text(), "color: rgba(255, 255, 255, 255);");
 
         // white-space
-        assert_eq!(StyleSheet::from(" *{}").rules.len(), 1);
-        assert_eq!(StyleSheet::from("\n*{\n}\n").rules.len(), 1);
+        assert_eq!(CssStyleSheet::from(" *{}").rules.len(), 1);
+        assert_eq!(CssStyleSheet::from("\n*{\n}\n").rules.len(), 1);
 
         // forgiving/future-compatibility
-        assert_eq!(StyleSheet::from(":root {} a { v: 0 }").rules.len(), 2);
-        assert_eq!(StyleSheet::from("a {} @media { a { v: 0 } } b {}").rules.len(), 2);
-        assert_eq!(StyleSheet::from("@media { a { v: 0 } } a {} b {}").rules.len(), 2);
+        assert_eq!(CssStyleSheet::from(":root {} a { v: 0 }").rules.len(), 2);
+        assert_eq!(CssStyleSheet::from("a {} @media { a { v: 0 } } b {}").rules.len(), 2);
+        assert_eq!(CssStyleSheet::from("@media { a { v: 0 } } a {} b {}").rules.len(), 2);
     }
 
     #[test]
@@ -361,27 +361,27 @@ mod tests {
         use StyleProp::*;
 
         assert_eq!(
-            &Style::from("overflow: hidden").props,
+            &CssStyleDeclaration::from("overflow: hidden").props,
             &[OverflowX(CssOverflow::Hidden), OverflowY(CssOverflow::Hidden)]
         );
 
         assert_eq!(
-            &Style::from("overflow: visible hidden").props,
+            &CssStyleDeclaration::from("overflow: visible hidden").props,
             &[OverflowX(CssOverflow::Visible), OverflowY(CssOverflow::Hidden)]
         );
 
         assert_eq!(
-            &Style::from("flex: 1").props,
+            &CssStyleDeclaration::from("flex: 1").props,
             &[FlexGrow(1.), FlexShrink(1.), FlexBasis(CssDimension::Auto)]
         );
 
         assert_eq!(
-            &Style::from("flex: 2 3 10px").props,
+            &CssStyleDeclaration::from("flex: 2 3 10px").props,
             &[FlexGrow(2.), FlexShrink(3.), FlexBasis(CssDimension::Px(10.))]
         );
 
         assert_eq!(
-            &Style::from("padding: 0").props,
+            &CssStyleDeclaration::from("padding: 0").props,
             &[
                 PaddingTop(CssDimension::ZERO),
                 PaddingRight(CssDimension::ZERO),
@@ -391,7 +391,7 @@ mod tests {
         );
 
         assert_eq!(
-            &Style::from("padding: 10px 20px").props,
+            &CssStyleDeclaration::from("padding: 10px 20px").props,
             &[
                 PaddingTop(CssDimension::Px(10.)),
                 PaddingRight(CssDimension::Px(20.)),
@@ -401,21 +401,21 @@ mod tests {
         );
 
         assert_eq!(
-            &Style::from("background: none").props,
+            &CssStyleDeclaration::from("background: none").props,
             &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]
         );
         assert_eq!(
-            &Style::from("background: #000").props,
+            &CssStyleDeclaration::from("background: #000").props,
             &[StyleProp::BackgroundColor(CssColor::BLACK)]
         );
 
         // override
-        let mut s = Style::from("background-color: #fff");
+        let mut s = CssStyleDeclaration::from("background-color: #fff");
         s.set_property("background", "#000");
         assert_eq!(s.props, &[StyleProp::BackgroundColor(CssColor::BLACK)]);
 
         // remove
-        let mut s = Style::from("background-color: #fff");
+        let mut s = CssStyleDeclaration::from("background-color: #fff");
         s.set_property("background", "none");
         assert_eq!(s.props, &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]);
     }

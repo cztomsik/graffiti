@@ -1,4 +1,30 @@
-use crate::css::Style;
+
+use crate::{App, DocumentRef, Window, NodeRef, NodeType};
+use std::cell::RefCell;
+
+pub struct Renderer {
+    window_id: u32,
+    document: DocumentRef,
+}
+
+impl Renderer {
+    pub fn new(document: DocumentRef, win: &Window) -> Self {
+        Self {
+            window_id: win.id(),
+            document,
+        }
+    }
+
+    pub fn render(&self) {
+        println!("TODO: Renderer::render()");
+    }
+
+    pub fn resize(&self, width: f32, height: f32) {
+        println!("TODO: Renderer::resize({}, {})", width, height);
+    }
+}
+
+/*
 use crate::gfx::{Canvas, Frame, Text, Vec2, AABB, RGBA8};
 use crate::layout::LayoutNode;
 use crate::util::SlotMap;
@@ -25,7 +51,7 @@ pub struct Renderer {
     layout_nodes: Rc<RefCell<SlotMap<NodeId, LayoutNode>>>,
     styles: Rc<RefCell<SlotMap<NodeId, Style>>>,
     texts: Rc<RefCell<SlotMap<NodeId, Text>>>,
-    canvas: Canvas,
+    canvas: Rc<RefCell<Canvas>>,
 }
 
 impl Renderer {
@@ -40,11 +66,11 @@ impl Renderer {
             layout_nodes: Rc::clone(&layout_nodes),
             styles: Rc::clone(&styles),
             texts: Rc::clone(&texts),
-            canvas: Canvas::new(),
+            canvas: Rc::new(RefCell::new(Canvas::new())),
         }
     }
 
-    pub fn render<'a>(&'a mut self) -> Frame {
+    pub fn render<'a>(&'a self) -> Frame {
         let document = &*self.document.borrow();
         let layout_nodes = &*self.layout_nodes.borrow();
         let styles = &*self.styles.borrow();
@@ -53,7 +79,7 @@ impl Renderer {
 
         let mut ctx = RenderContext {
             document,
-            canvas: &mut self.canvas,
+            canvas: &mut self.canvas.borrow_mut(),
             layout_nodes,
             styles,
             texts,
@@ -184,3 +210,4 @@ fn style(style: &Style) -> RenderStyle {
 
     res
 }
+*/

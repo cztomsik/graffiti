@@ -1,65 +1,59 @@
-// slotmap reimplementation with u32 and without versioning
-// the reason is that V8 doesn't like numbers above 2^30
+// slotmap without versioning 
+// (V8 doesn't like numbers above 2^30)
 
-use std::marker::PhantomData;
+use std::num::NonZeroU32;
 use std::ops::{Index, IndexMut};
 
 pub struct SlotMap<K, V> {
-    _phantom: PhantomData<K>,
-
-    // TODO: slot reusing
     slots: Vec<Option<V>>,
+    // TODO: free_head: Option<K> + Entry<K, V> { Free { next_free: K }, Occupied { value: V } }
+    free_keys: Vec<K>,
 }
 
-// could be `From<usize> + Into<usize>` or some `Key` trait but
-// we're limited to u32 anyway (because of JS number precision)
-// and if it's just 4 bytes, NonZero is probably not worth it either
-impl<V> SlotMap<u32, V> {
+impl<K: Key, V> SlotMap<K, V> {
     pub fn new() -> Self {
         Self {
-            _phantom: PhantomData,
-
             slots: Vec::new(),
+            free_keys: Vec::new(),
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (u32, &V)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (NonZeroU32, &V)> + '_ {
         self.slots
             .iter()
             .enumerate()
-            .filter_map(|(i, slot)| slot.as_ref().map(|v| (i as u32, v)))
+            .filter_map(|(i, slot)| slot.as_ref().map(|v| (NonZeroU32::new(i as u32 + 1).unwrap(), v)))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (u32, &mut V)> + '_ {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (NonZeroU32, &mut V)> + '_ {
         self.slots
             .iter_mut()
             .enumerate()
-            .filter_map(|(i, slot)| slot.as_mut().map(|v| (i as u32, v)))
+            .filter_map(|(i, slot)| slot.as_mut().map(|v| (NonZeroU32::new(i as u32 + 1).unwrap(), v)))
     }
 
-    pub fn slot(&self, key: u32) -> &Option<V> {
-        self.slots.get(key as usize).expect("missing slot")
+    pub fn slot(&self, key: K) -> &Option<V> {
+        self.slots.get(key.index()).expect("missing slot")
     }
 
-    pub fn slot_mut(&mut self, key: u32) -> &mut Option<V> {
-        self.slots.get_mut(key as usize).expect("missing slot")
+    pub fn slot_mut(&mut self, key: K) -> &mut Option<V> {
+        self.slots.get_mut(key.index()).expect("missing slot")
     }
 
-    pub fn insert(&mut self, value: V) -> u32 {
-        self.insert_with_key(|_| value)
+    pub fn insert(&mut self, value: V) -> K {
+        if let Some(key) = self.free_keys.pop() {
+            self.slots[key.index()] = Some(value);
+            key
+        } else {
+            let key = K::from_index(self.slots.len()).expect("slotmap full");
+            self.slots.push(Some(value));
+
+            key
+        }
     }
 
-    pub fn insert_with_key(&mut self, f: impl FnOnce(u32) -> V) -> u32 {
-        let key = std::convert::TryFrom::try_from(self.slots.len()).expect("slotmap full");
-
-        self.slots.push(Some(f(key)));
-
-        key
-    }
-
-    pub fn put(&mut self, key: u32, value: V) {
-        // TODO: full
-        let min_len = key as usize + 1;
+    pub fn put(&mut self, key: K, value: V) {
+        let min_len = key.index() + 1;
         if min_len > self.slots.len() {
             self.slots.resize_with(min_len, || None);
         }
@@ -67,27 +61,43 @@ impl<V> SlotMap<u32, V> {
         *self.slot_mut(key) = Some(value);
     }
 
-    pub fn remove(&mut self, key: u32) -> Option<V> {
+    pub fn remove(&mut self, key: K) -> Option<V> {
+        self.free_keys.push(key);
         self.slot_mut(key).take()
     }
 }
 
-impl<V> Default for SlotMap<u32, V> {
+impl<K: Key, V> Default for SlotMap<K, V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<V> Index<u32> for SlotMap<u32, V> {
+impl<K: Key, V> Index<K> for SlotMap<K, V> {
     type Output = V;
 
-    fn index(&self, key: u32) -> &V {
+    fn index(&self, key: K) -> &V {
         self.slot(key).as_ref().expect("empty slot")
     }
 }
 
-impl<V> IndexMut<u32> for SlotMap<u32, V> {
-    fn index_mut(&mut self, key: u32) -> &mut V {
+impl<K: Key, V> IndexMut<K> for SlotMap<K, V> {
+    fn index_mut(&mut self, key: K) -> &mut V {
         self.slot_mut(key).as_mut().expect("empty slot")
+    }
+}
+
+pub trait Key: Copy {
+    fn from_index(index: usize) -> Option<Self>;
+    fn index(&self) -> usize;
+}
+
+impl Key for NonZeroU32 {
+    fn from_index(index: usize) -> Option<Self> {
+        Self::new(index as u32 + 1)
+    }
+
+    fn index(&self) -> usize {
+        return self.get() as usize - 1
     }
 }

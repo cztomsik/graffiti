@@ -9,7 +9,8 @@
     "alwaysStrict": true,
     "jsx": "react",
     "module": "esnext",
-    "outDir": "lib"
+    "outDir": "lib",
+    "useDefineForClassFields": false
   },
   "include": ["src"]
 }

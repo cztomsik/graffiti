@@ -31,6 +31,16 @@ export class KeyboardEvent extends UIEvent implements globalThis.KeyboardEvent {
     this.shiftKey = eventInit?.shiftKey ?? false
   }
 
+  initKeyboardEvent(type, bubbles, cancelable, view, key, location, ctrlKey, altKey, shiftKey, metaKey): void {
+    this.initUIEvent(type, bubbles, cancelable, view, 0)
+    this.key = key
+    this.location = location
+    this.ctrlKey = ctrlKey
+    this.altKey = altKey
+    this.shiftKey = shiftKey
+    this.metaKey = metaKey
+  }
+
   get char() {
     return String.fromCharCode(this.charCode)
   }

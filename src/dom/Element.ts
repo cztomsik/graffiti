@@ -1,20 +1,28 @@
 import { Node, NodeList, XMLSerializer } from './index'
 import { ERR } from '../util'
-import { initElement, getAttributeNames, getAttribute, setAttribute, removeAttribute, matches } from './Document'
 import { parseFragment } from './DOMParser'
+import { native, encode, getNativeId, register, decode, getRefs } from '../native'
+import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
+import { DOMTokenList } from './DOMTokenList'
+import { registerElement } from './Document'
 
 export abstract class Element extends Node implements globalThis.Element {
   abstract readonly tagName: string
   readonly childNodes = new NodeList<ChildNode>()
   #localName: string
-  #classList
+
+  // both lazy-created
+  #classList?: DOMTokenList
+  #style?: CSSStyleDeclaration
 
   constructor(doc = document, localName: string = ERR('new Element() is not supported')) {
     super(doc)
 
     this.#localName = localName
 
-    initElement(doc, this, localName)
+    const ref = native.gft_Document_create_element(getNativeId(doc), ...encode(localName))
+    register(this, ref)
+    registerElement(doc, native.gft_Node_id(ref), this)
   }
 
   get nodeType() {
@@ -29,6 +37,12 @@ export abstract class Element extends Node implements globalThis.Element {
     return this.#localName
   }
 
+  get style() {
+    return (
+      this.#style ?? (this.#style = register(new CSSStyleDeclaration(null), native.gft_Element_style(getNativeId(this))))
+    )
+  }
+
   /** @deprecated */
   get attributes(): any {
     // preact needs this
@@ -40,11 +54,16 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   getAttribute(name: string): string | null {
-    return getAttribute(this.ownerDocument, this, name)
+    return decode(native.gft_Element_attribute(getNativeId(this), ...encode(name)))
   }
 
   getAttributeNames(): string[] {
-    return getAttributeNames(this.ownerDocument, this)
+    const refs = getRefs(native.gft_Element_attribute_names(getNativeId(this)))
+
+    // decode() does the drop here
+    const names = refs.map(decode)
+
+    return names as any
   }
 
   hasAttribute(name: string): boolean {
@@ -58,11 +77,11 @@ export abstract class Element extends Node implements globalThis.Element {
   setAttribute(name: string, value: string) {
     value = (typeof value === 'string' ? value : '' + value).toLowerCase()
 
-    setAttribute(this.ownerDocument, this, name, value)
+    native.gft_Element_set_attribute(getNativeId(this), ...encode(name), ...encode(value))
   }
 
   removeAttribute(name: string) {
-    removeAttribute(this.ownerDocument, this, name)
+    native.gft_Element_remove_attribute(getNativeId(this), ...encode(name))
   }
 
   toggleAttribute(name: string, force?: boolean): boolean {
@@ -128,16 +147,16 @@ export abstract class Element extends Node implements globalThis.Element {
     this.replaceWith(parseFragment(this.ownerDocument, html))
   }
 
-  matches(sel: string): boolean {
-    return matches(document, this, sel)
+  matches(selector: string): boolean {
+    return native.gft_Element_matches(getNativeId(this), selector)
+  }
+
+  closest(selector: string) {
+    this.matches(selector) ? this : this.parentElement?.closest(selector)
   }
 
   get classList() {
-    if (this.#classList === undefined) {
-      this.#classList = createClassList(this)
-    }
-
-    return this.#classList
+    return this.#classList ?? (this.#classList = new DOMTokenList(this, 'className'))
   }
 
   // later
@@ -147,7 +166,6 @@ export abstract class Element extends Node implements globalThis.Element {
 
   // maybe later
   animate
-  assignedSlot
   attachShadow
   clientHeight
   clientLeft
@@ -165,6 +183,7 @@ export abstract class Element extends Node implements globalThis.Element {
   insertAdjacentHTML
   insertAdjacentText
   msGetRegionContent
+  part
   prefix
   releasePointerCapture
   removeAttributeNode
@@ -184,37 +203,44 @@ export abstract class Element extends Node implements globalThis.Element {
   shadowRoot
   slot
 
+  // not sure if and when
+  ariaAtomic
+  ariaAutoComplete
+  ariaBusy
+  ariaChecked
+  ariaColCount
+  ariaColIndex
+  ariaColSpan
+  ariaCurrent
+  ariaDisabled
+  ariaExpanded
+  ariaHasPopup
+  ariaHidden
+  ariaKeyShortcuts
+  ariaLabel
+  ariaLevel
+  ariaLive
+  ariaModal
+  ariaMultiLine
+  ariaMultiSelectable
+  ariaOrientation
+  ariaPlaceholder
+  ariaPosInSet
+  ariaPressed
+  ariaReadOnly
+  ariaRequired
+  ariaRoleDescription
+  ariaRowCount
+  ariaRowIndex
+  ariaRowSpan
+  ariaSelected
+  ariaSetSize
+  ariaSort
+  ariaValueMax
+  ariaValueMin
+  ariaValueNow
+  ariaValueText
+
   // ignore vendor
   webkitMatchesSelector
-}
-
-function createClassList(el): DOMTokenList {
-  const getTokens = () => el.className.split(/\s+/g)
-  const setTokens = tokens => (el.className = tokens.join(' '))
-
-  const classList = {
-    supports: token => true,
-    item: i => getTokens()[i],
-    contains: token => getTokens().includes(token),
-    forEach: (cb, thisArg) => getTokens().forEach(cb, thisArg),
-
-    add: (...tokens) => setTokens([...new Set([...getTokens(), ...tokens])]),
-    remove: (...tokens) => setTokens(getTokens().filter(t => !tokens.includes(t))),
-    replace: (token, newToken) => setTokens(getTokens().map(t => (t === token ? newToken : t))),
-    toggle: (token, force = getTokens().includes(token)) => classList[force ? 'add' : 'remove'](token),
-
-    get value() {
-      return el.className
-    },
-
-    set value(v) {
-      el.className = v
-    },
-
-    get length() {
-      return getTokens().length
-    },
-  }
-
-  return classList
 }

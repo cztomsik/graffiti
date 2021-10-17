@@ -21,7 +21,6 @@ export class SVGSVGElement extends SVGGraphicsElement implements globalThis.SVGS
   forceRedraw
   getComputedStyle
   getCurrentTime
-  getElementById
   getEnclosureList
   getIntersectionList
   height
@@ -42,4 +41,9 @@ export class SVGSVGElement extends SVGGraphicsElement implements globalThis.SVGS
   x
   y
   zoomAndPan
+
+  nonce
+  SVG_ZOOMANDPAN_DISABLE
+  SVG_ZOOMANDPAN_MAGNIFY
+  SVG_ZOOMANDPAN_UNKNOWN
 }

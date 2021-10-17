@@ -90,6 +90,7 @@ export class HTMLInputElement extends HTMLElement implements globalThis.HTMLInpu
   align
   alt
   autocomplete
+  capture
   checkValidity
   dirName
   files
@@ -131,4 +132,8 @@ export class HTMLInputElement extends HTMLElement implements globalThis.HTMLInpu
   valueAsNumber
   width
   willValidate
+
+  // ignore vendor
+  webkitEntries
+  webkitdirectory
 }

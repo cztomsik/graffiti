@@ -1,17 +1,13 @@
+import { getNativeId, native } from '../native'
 import { UNSUPPORTED } from '../util'
 
 // minimal impl just to get something working
 // (many props are missing)
 export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
-  #values = new Map<string, string>()
-  #onChange
-
-  constructor(public readonly parentRule, onChange) {
-    this.#onChange = onChange
-  }
+  constructor(public readonly parentRule: CSSRule | null) {}
 
   getPropertyValue(propertyName: string): string {
-    return this.#values.get(propertyName) ?? ''
+    return native.CssStyleDeclaration_property_value(getNativeId(this), propertyName)
   }
 
   getPropertyPriority(propertyName: string): string {
@@ -28,55 +24,33 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
       console.warn('!important is not supported')
     }
 
-    this.#values.set(propertyName, value)
-    this.#onChange(propertyName, value)
+    native.gft_CssStyleDeclaration_set_property(getNativeId(this), propertyName, value)
   }
 
   removeProperty(propertyName: string): string {
-    const prev = this.#values.get(propertyName)
-
-    this.#values.delete(propertyName)
-    this.#onChange(propertyName, undefined)
-
-    return prev ?? ''
+    // TODO: native should return this
+    const prev = this.getPropertyValue(propertyName)
+    native.gft_CssStyleDeclaration_remove_property(getNativeId(this), propertyName)
+    return prev
   }
 
   get cssText(): string {
-    return Array.from(this.#values).map(([prop, value]) => `${prop}: ${value}`).join('; ')
+    return native.gft_CssStyleDeclaration_css_text(getNativeId(this))
   }
 
   set cssText(cssText: string) {
-    // TODO: make sure attribute is set in native
-
-    // TODO: either parse props in JS or get hashmap from native
-    //       subset of https://github.com/cztomsik/graffiti/blob/e87f8f336401f06909c54d5471202ef0711c76a9/src/css/parse.ts
-
-    console.log('TODO: CSSStyleDeclaration.cssText = ', cssText)
-
-    /*
-    for (const prop of this.#values.keys()) {
-      this.removeProperty(prop)
-    }
-
-    const { props } = parseRules(`dummy { ${cssText} }`)[0]
-
-    for (const [prop, v] of Object.entries(props)) {
-      this.setProperty(prop, v)
-    }
-    */
+    native.gft_CssStyleDeclaration_set_css_text(getNativeId(this), cssText)
   }
 
-  // TODO: extend Array<string> but it's tricky because it should be
-  // lowercased and it should also expand shorthands and almost nobody uses it
-  // so it will probably just remain unsupported
+  // UNSUPPORTED
   [index: number]: string
 
   get length() {
-    return UNSUPPORTED()
+    return native.gft_CssStyleDeclaration_length(getNativeId(this))
   }
 
   item(index: number): string {
-    return UNSUPPORTED()
+    return native.gft_CssStyleDeclaration_item(getNativeId(this), index)
   }
 
   get alignContent() { return this.getPropertyValue('align-content') }
@@ -222,41 +196,9 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   get width() { return this.getPropertyValue('width') }
   set width(v: string) { this.setProperty('width', v) }
 
-  // maybe later (lot of them are SVG-only)
-  all
-  overscrollBehavior
-  overscrollBehaviorBlock
-  overscrollBehaviorInline
-  overscrollBehaviorX
-  overscrollBehaviorY
-  backgroundAttachment
-  backgroundClip
-  backgroundPosition
-  backgroundPositionX
-  backgroundPositionY
-  backgroundRepeat
-  backgroundSize
-  letterSpacing
-  opacity
-  outline
-  outlineColor
-  outlineOffset
-  outlineStyle
-  outlineWidth
-  overflowAnchor
-  overflowWrap
-  overflowX
-  overflowY
-  pointerEvents
-  position
-  textTransform
-  textUnderlinePosition
-  transformBox
-  transformOrigin
-  transformStyle
-  visibility
-  whiteSpace
+  // maybe later (lots of them are SVG-only)
   alignmentBaseline
+  all
   animation
   animationDelay
   animationDirection
@@ -266,11 +208,23 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   animationName
   animationPlayState
   animationTimingFunction
+  appearance
+  aspectRatio
   backfaceVisibility
-  baselineShift
+  backgroundAttachment
+  backgroundBlendMode
+  backgroundClip
   backgroundImage
   backgroundOrigin
+  backgroundPosition
+  backgroundPositionX
+  backgroundPositionY
+  backgroundRepeat
+  backgroundSize
+  baselineShift
   blockSize
+  borderBlock
+  borderBlockColor
   borderBlockEnd
   borderBlockEndColor
   borderBlockEndStyle
@@ -279,13 +233,19 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   borderBlockStartColor
   borderBlockStartStyle
   borderBlockStartWidth
+  borderBlockStyle
+  borderBlockWidth
   borderCollapse
+  borderEndEndRadius
+  borderEndStartRadius
   borderImage
   borderImageOutset
   borderImageRepeat
   borderImageSlice
   borderImageSource
   borderImageWidth
+  borderInline
+  borderInlineColor
   borderInlineEnd
   borderInlineEndColor
   borderInlineEndStyle
@@ -294,7 +254,11 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   borderInlineStartColor
   borderInlineStartStyle
   borderInlineStartWidth
+  borderInlineStyle
+  borderInlineWidth
   borderSpacing
+  borderStartEndRadius
+  borderStartStartRadius
   boxSizing
   breakAfter
   breakBefore
@@ -307,6 +271,7 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   clipRule
   colorInterpolation
   colorInterpolationFilters
+  colorScheme
   columnCount
   columnFill
   columnGap
@@ -317,9 +282,11 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   columns
   columnSpan
   columnWidth
+  contain
   content
   counterIncrement
   counterReset
+  counterSet
   cssFloat
   cursor
   direction
@@ -335,14 +302,17 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   floodOpacity
   fontFeatureSettings
   fontKerning
+  fontOpticalSizing
   fontSizeAdjust
   fontStretch
   fontSynthesis
+  fontVariantAlternates
   fontVariantCaps
   fontVariantEastAsian
   fontVariantLigatures
   fontVariantNumeric
   fontVariantPosition
+  fontVariationSettings
   gap
   glyphOrientationHorizontal
   glyphOrientationVertical
@@ -369,22 +339,33 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   imageRendering
   imeMode
   inlineSize
-  justifySelf
+  inset
+  insetBlock
+  insetBlockEnd
+  insetBlockStart
+  insetInline
+  insetInlineEnd
+  insetInlineStart
+  isolation
   justifyItems
+  justifySelf
   kerning
   layoutGrid
   layoutGridChar
   layoutGridLine
   layoutGridMode
   layoutGridType
+  letterSpacing
   lightingColor
   lineBreak
   listStyle
   listStyleImage
   listStylePosition
   listStyleType
+  marginBlock
   marginBlockEnd
   marginBlockStart
+  marginInline
   marginInlineEnd
   marginInlineStart
   marker
@@ -402,12 +383,35 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   maxInlineSize
   minBlockSize
   minInlineSize
+  mixBlendMode
   objectFit
   objectPosition
+  offset
+  offsetAnchor
+  offsetDistance
+  offsetPath
+  offsetRotate
+  opacity
   order
   orphans
+  outline
+  outlineColor
+  outlineOffset
+  outlineStyle
+  outlineWidth
+  overflowAnchor
+  overflowWrap
+  overflowX
+  overflowY
+  overscrollBehavior
+  overscrollBehaviorBlock
+  overscrollBehaviorInline
+  overscrollBehaviorX
+  overscrollBehaviorY
+  paddingBlock
   paddingBlockEnd
   paddingBlockStart
+  paddingInline
   paddingInlineEnd
   paddingInlineStart
   pageBreakAfter
@@ -420,6 +424,8 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   placeContent
   placeItems
   placeSelf
+  pointerEvents
+  position
   quotes
   resize
   rotate
@@ -429,6 +435,34 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   rubyPosition
   scale
   scrollBehavior
+  scrollMargin
+  scrollMarginBlock
+  scrollMarginBlockEnd
+  scrollMarginBlockStart
+  scrollMarginBottom
+  scrollMarginInline
+  scrollMarginInlineEnd
+  scrollMarginInlineStart
+  scrollMarginLeft
+  scrollMarginRight
+  scrollMarginTop
+  scrollPadding
+  scrollPaddingBlock
+  scrollPaddingBlockEnd
+  scrollPaddingBlockStart
+  scrollPaddingBottom
+  scrollPaddingInline
+  scrollPaddingInlineEnd
+  scrollPaddingInlineStart
+  scrollPaddingLeft
+  scrollPaddingRight
+  scrollPaddingTop
+  scrollSnapAlign
+  scrollSnapStop
+  scrollSnapType
+  shapeImageThreshold
+  shapeMargin
+  shapeOutside
   shapeRendering
   stopColor
   stopOpacity
@@ -448,7 +482,9 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   textDecoration
   textDecorationColor
   textDecorationLine
+  textDecorationSkipInk
   textDecorationStyle
+  textDecorationThickness
   textEmphasis
   textEmphasisColor
   textEmphasisPosition
@@ -461,7 +497,13 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   textOverflow
   textRendering
   textShadow
+  textTransform
+  textUnderlineOffset
+  textUnderlinePosition
   touchAction
+  transformBox
+  transformOrigin
+  transformStyle
   transition
   transitionDelay
   transitionDuration
@@ -471,6 +513,8 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   unicodeBidi
   userSelect
   verticalAlign
+  visibility
+  whiteSpace
   widows
   willChange
   wordBreak

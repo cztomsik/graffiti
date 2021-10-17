@@ -1,7 +1,9 @@
-import { native, loadNativeApi } from './native'
+import { native, register, getNativeId } from './native'
 
 export class App {
-  private constructor() {}
+  private constructor() {
+    register(this, native.gft_App_init())
+  }
 
   run() {
     const loop = () => {
@@ -17,14 +19,10 @@ export class App {
 
   // useful for testing/debugging
   tick() {
-    native.tick()
+    native.gft_App_tick(getNativeId(this))
   }
 
   static async init() {
-    await loadNativeApi()
-
-    native.init()
-
     return new App()
   }
 }

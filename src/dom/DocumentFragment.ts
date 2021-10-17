@@ -1,3 +1,4 @@
+import { ERR } from '../util'
 import { Node, NodeList, Document } from './index'
 
 export class DocumentFragment extends Node implements globalThis.DocumentFragment {
@@ -15,6 +16,13 @@ export class DocumentFragment extends Node implements globalThis.DocumentFragmen
     return '#document-fragment'
   }
 
-  // maybe later
-  getElementById
+  querySelector(sel) {
+    ERR('TODO: frag.querySelector() needs native fragment')
+    return super.querySelector(sel)
+  }
+
+  querySelectorAll(sel) {
+    ERR('TODO: frag.querySelectorAll() needs native fragment')
+    return super.querySelectorAll(sel)
+  }
 }

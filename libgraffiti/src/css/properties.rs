@@ -12,12 +12,12 @@ use crate::util::Atom;
 macro_rules! css_properties {
     ($(($name:literal, $parser:expr) => $variant:ident($value_type:ty),)*) => {
         #[derive(Debug, Clone, Copy, PartialEq)]
-        pub enum StylePropId {
+        pub(crate) enum StylePropId {
             $($variant,)*
         }
 
         #[derive(Debug, Clone, PartialEq)]
-        pub enum StyleProp {
+        pub(crate) enum StyleProp {
             $($variant($value_type),)*
         }
 
@@ -151,7 +151,7 @@ macro_rules! css_shorthands {
             }
         }
 
-        impl super::Style {
+        impl super::CssStyleDeclaration {
             pub(super) fn shorthand_value(&self, shorthand_name: &str) -> Option<String> {
                 match shorthand_name {
                     //$($name => todo!(),)*

@@ -5,15 +5,20 @@
 //   - Deno doesn't have runInContext and it might not be enough anyway)
 // - we want location.reload() for development purposes (live-reload, HMR)
 
-import { native, loadNativeApi } from './native'
+import { native, register, getNativeId } from './native'
 import { Window, makeGlobal } from './window/Window'
-import { readURL } from './util'
-import { getDocId } from './dom/Document'
+import { LITTLE_ENDIAN, readURL } from './util'
 import { parseIntoDocument } from './dom/DOMParser'
 import { loadStyles } from './dom/HTMLLinkElement'
 import { runScripts } from './dom/HTMLScriptElement'
 
+// global state
+let appRef = 0
+let winRef = 0
+
 // event state
+const eventBytes = new Uint8Array(24)
+const eventView = new DataView(eventBytes.buffer)
 let mousePos = [0, 0]
 let overElement
 let clickedElement
@@ -43,24 +48,23 @@ async function handleMessage(msg) {
 async function send(result, error?) {
   // TODO: we can avoid namespacing with MessageChannel sent with first init
   //       (this is currently blocked by deno which does not yet support transferables)
-  postMessage({ type: '__GFT', result, error }, '')
-  native.wake_up()
+  postMessage({ type: '__GFT', result, error })
+  native.gft_App_wake_up(appRef)
 }
 
-async function main({ windowId, width, height, url, options }) {
-  // unfortunately, we need native in worker too - there are many blocking APIs
-  // and those would be impossible to emulate with parent<->worker postMessage()
-  await loadNativeApi()
+async function main({ windowId, url, options }) {
+  // TODO: free
+  appRef = native.gft_App_current()
+  winRef = native.gft_Window_find_by_id(windowId)
 
   // setup env
   const { window, document } = new Window()
   document.URL = url
   makeGlobal(window)
 
-  // init viewport
-  const viewportId = native.viewport_new(width, height, getDocId(document))
-  document['__VIEWPORT_ID'] = viewportId
-  VIEWPORT_REGISTRY.register(window, viewportId)
+  // init renderer
+  const renderer = native.gft_Renderer_new(getNativeId(document), winRef)
+  register(window, renderer)
 
   // load html
   parseIntoDocument(document, await readURL(url))
@@ -79,34 +83,45 @@ async function main({ windowId, width, height, url, options }) {
 
   function loop() {
     // dispatch all events for this round
-    let ev
-    // TODO: windowId or viewportId? or something else?
-
-    // TODO: async...
-    while ((ev = native.window_next_event(windowId))) {
-      handleEvent(ev)
+    while (native.gft_Window_next_event(winRef, eventBytes)) {
+      handleEvent()
     }
 
-    native.viewport_render(windowId, viewportId)
+    native.gft_Renderer_render(renderer)
 
     setTimeout(loop, 100)
   }
 
   // TODO: review, this is old code
-  function handleEvent(event: [string, [number, number] | null, number | null]) {
-    const [kind, vec2, u32] = event
+  function handleEvent() {
+    // TODO: codegen
+    enum EventKind {
+      CursorPos = 0,
+      MouseDown = 1,
+      MouseUp = 2,
+      Scroll = 3,
+
+      // JS e.which
+      KeyUp = 4,
+      KeyDown = 5,
+      KeyPress = 6,
+
+      Resize = 7,
+      FramebufferSize = 8,
+      Close = 9,
+    }
 
     // TODO: only for mouse events
-    let target = document.elementFromPoint(mousePos[0], mousePos[1]) ?? document.documentElement
+    let target = document.documentElement //document.elementFromPoint(mousePos[0], mousePos[1]) ?? document.documentElement
 
-    switch (kind) {
-      case 'mousemove': {
-        mousePos = vec2!
+    switch (eventView.getUint32(0, LITTLE_ENDIAN)) {
+      case EventKind.CursorPos: {
+        mousePos = [eventView.getFloat32(4), eventView.getFloat32(8)]
 
         const prevTarget = overElement
         overElement = target
 
-        target.dispatchEvent(new MouseEvent(kind, { bubbles: true, cancelable: true }))
+        target.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true }))
 
         if (target !== prevTarget) {
           if (prevTarget) {
@@ -119,15 +134,15 @@ async function main({ windowId, width, height, url, options }) {
         return
       }
 
-      case 'mousedown': {
+      case EventKind.MouseDown: {
         clickedElement = target
-        target.dispatchEvent(new MouseEvent(kind, { bubbles: true, cancelable: true }))
+        target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
 
         return
       }
 
-      case 'mouseup': {
-        target.dispatchEvent(new MouseEvent(kind, { bubbles: true, cancelable: true }))
+      case EventKind.MouseUp: {
+        target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }))
 
         // TODO: only els with tabindex should be focusable
 
@@ -149,33 +164,35 @@ async function main({ windowId, width, height, url, options }) {
       // keyup - key is up, after action, can be prevented
       // beforeinput - event.data contains new chars, may be empty when removing
       // input - like input, but after update (not sure if it's possible to do this on this level)
-      case 'keydown': {
+      case EventKind.KeyDown: {
         const target = document.activeElement || document.documentElement
-        const keyCode = u32!
-        target.dispatchEvent(new KeyboardEvent(kind, { bubbles: true, cancelable: true, keyCode }))
+        const keyCode = eventView.getUint32(4)
+        target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, keyCode }))
         return
       }
 
-      case 'keypress': {
+      case EventKind.KeyPress: {
         const target = document.activeElement || document.documentElement
-        const charCode = u32!
+        const charCode = eventView.getUint32(4)
         const key = String.fromCharCode(charCode)
 
-        target.dispatchEvent(new KeyboardEvent(kind, { bubbles: true, cancelable: true, charCode, key }))
+        target.dispatchEvent(new KeyboardEvent('keypress', { bubbles: true, cancelable: true, charCode, key }))
         return
       }
 
-      case 'resize': {
-        native.viewport_resize(viewportId, vec2![0], vec2![1])
+      case EventKind.Resize: {
+        native.gft_Renderer_resize(
+          renderer,
+          eventView.getFloat32(4, LITTLE_ENDIAN),
+          eventView.getFloat32(8, LITTLE_ENDIAN)
+        )
         return
       }
 
-      case 'close': {
+      case EventKind.Close: {
         console.log('TODO: close worker somehow (or tell main process to do it)')
         return
       }
     }
   }
 }
-
-const VIEWPORT_REGISTRY = new FinalizationRegistry(id => native.viewport_drop(id))
