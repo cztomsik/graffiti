@@ -5,9 +5,9 @@
 // x weak data
 
 use crate::css::{CssStyleDeclaration, MatchingContext, Selector};
-use crate::util::{Atom, Bloom, SlotMap};
+use crate::util::{Atom, Bloom, Edge, IdTree};
 use std::any::TypeId;
-use std::cell::{Cell, Ref, RefCell};
+use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Error, Formatter};
 use std::num::NonZeroU32;
 use std::ops::Deref;
@@ -35,105 +35,69 @@ impl NodeRef {
     }
 
     pub fn node_type(&self) -> NodeType {
-        self.store.nodes.borrow()[self.id].node_type()
+        self.store.tree.borrow().data(self.id).node_type()
     }
 
     pub fn parent_node(&self) -> Option<NodeRef> {
-        self.store.nodes.borrow()[self.id]
-            .parent_node
-            .get()
+        self.store
+            .tree
+            .borrow()
+            .parent_node(self.id)
             .map(|id| self.store.node_ref(id))
     }
 
     pub fn first_child(&self) -> Option<NodeRef> {
-        self.store.nodes.borrow()[self.id]
-            .first_child
-            .get()
+        self.store
+            .tree
+            .borrow()
+            .first_child(self.id)
             .map(|id| self.store.node_ref(id))
     }
 
     pub fn last_child(&self) -> Option<NodeRef> {
-        self.store.nodes.borrow()[self.id]
-            .last_child
-            .get()
+        self.store
+            .tree
+            .borrow()
+            .last_child(self.id)
             .map(|id| self.store.node_ref(id))
     }
 
     pub fn previous_sibling(&self) -> Option<NodeRef> {
-        self.store.nodes.borrow()[self.id]
-            .previous_sibling
-            .get()
+        self.store
+            .tree
+            .borrow()
+            .previous_sibling(self.id)
             .map(|id| self.store.node_ref(id))
     }
 
     pub fn next_sibling(&self) -> Option<NodeRef> {
-        self.store.nodes.borrow()[self.id]
-            .next_sibling
-            .get()
+        self.store
+            .tree
+            .borrow()
+            .next_sibling(self.id)
             .map(|id| self.store.node_ref(id))
     }
 
     pub fn append_child(&self, child: &NodeRef) {
-        let nodes = self.store.nodes.borrow();
+        self.store.tree.borrow_mut().append_child(self.id, child.id);
 
-        if nodes[self.id].first_child.get() == None {
-            nodes[self.id].first_child.set(Some(child.id))
-        }
-
-        if let Some(last) = nodes[self.id].last_child.get() {
-            nodes[last].next_sibling.set(Some(child.id));
-        }
-
-        nodes[child.id].previous_sibling.set(nodes[self.id].last_child.get());
-        nodes[self.id].last_child.set(Some(child.id));
-        nodes[child.id].parent_node.set(Some(self.id));
-
-        // TODO: add to damaged
+        // TODO: add to damage
         child.update_ancestors();
         child.inc_count();
     }
 
-    // TODO: test
     pub fn insert_before(&self, child: &NodeRef, before: &NodeRef) {
-        let nodes = self.store.nodes.borrow();
+        self.store.tree.borrow_mut().insert_before(self.id, child.id, before.id);
 
-        if nodes[self.id].first_child.get() == Some(before.id) {
-            nodes[self.id].first_child.set(Some(child.id))
-        }
-
-        nodes[before.id].previous_sibling.set(Some(child.id));
-
-        nodes[child.id].next_sibling.set(Some(before.id));
-        nodes[child.id].parent_node.set(Some(self.id));
-
-        // TODO: add to damaged
+        // TODO: add to damage
         child.update_ancestors();
         child.inc_count();
     }
 
     pub fn remove_child(&self, child: &NodeRef) {
-        let nodes = self.store.nodes.borrow();
+        self.store.tree.borrow_mut().remove_child(self.id, child.id);
 
-        if nodes[self.id].first_child.get() == Some(child.id) {
-            nodes[self.id].first_child.set(nodes[child.id].next_sibling.get())
-        }
-
-        if nodes[self.id].last_child.get() == Some(child.id) {
-            nodes[self.id].last_child.set(nodes[child.id].previous_sibling.get())
-        }
-
-        if let Some(prev) = nodes[child.id].previous_sibling.get() {
-            nodes[prev].next_sibling.set(nodes[child.id].next_sibling.get());
-        }
-
-        if let Some(next) = nodes[child.id].next_sibling.get() {
-            nodes[next].previous_sibling.set(nodes[child.id].previous_sibling.get());
-        }
-
-        nodes[child.id].parent_node.set(None);
-        nodes[child.id].next_sibling.set(None);
-        nodes[child.id].previous_sibling.set(None);
-
+        // TODO: add to damage
         child.clear_ancestors();
         child.dec_count();
     }
@@ -144,8 +108,9 @@ impl NodeRef {
 
     pub fn query_selector_all(&self, selector: &str) -> Vec<ElementRef> {
         let selector = Selector::from(selector);
-        let els = self.descendants().filter_map(|edge| match edge {
-            NodeEdge::Start(node) if self.store.nodes.borrow()[node].node_type() == NodeType::Element => Some(node),
+        let tree = self.store.tree.borrow();
+        let els = tree.traverse(self.id).skip(1).filter_map(|edge| match edge {
+            Edge::Start(node) if self.store.tree.borrow().data(node).node_type() == NodeType::Element => Some(node),
             _ => None,
         });
 
@@ -183,38 +148,24 @@ impl NodeRef {
 
     // helpers
 
-    fn descendants(&self) -> Traverse {
-        // TODO: skip(1)
-        Traverse {
-            nodes: self.store.nodes.borrow(),
-            next: self.store.nodes.borrow()[self.id]
-                .first_child
-                .get()
-                .map(NodeEdge::Start),
-        }
-    }
-
-    fn descendants_and_self(&self) -> Traverse {
-        Traverse::from(self)
-    }
-
     fn update_ancestors(&self) {
-        let nodes = self.store.nodes.borrow();
-
-        for edge in self.descendants_and_self() {
-            if let NodeEdge::Start(node) = edge {
-                let parent = nodes[node].parent_node.get().unwrap();
-                nodes[node].ancestors.set(nodes[parent].ancestors.get().with(&parent));
+        for edge in self.store.tree.borrow().traverse(self.id) {
+            if let Edge::Start(node) = edge {
+                let parent = self.store.tree.borrow().parent_node(node).unwrap();
+                self.store
+                    .tree
+                    .borrow()
+                    .data(node)
+                    .ancestors
+                    .set(self.store.tree.borrow().data(parent).ancestors.get().with(&parent));
             }
         }
     }
 
     fn clear_ancestors(&self) {
-        let nodes = self.store.nodes.borrow();
-
-        for edge in self.descendants_and_self() {
-            if let NodeEdge::Start(node) = edge {
-                nodes[node].ancestors.take();
+        for edge in self.store.tree.borrow().traverse(self.id) {
+            if let Edge::Start(node) = edge {
+                self.store.tree.borrow().data(self.id).ancestors.take();
             }
         }
     }
@@ -228,16 +179,16 @@ impl NodeRef {
     }
 
     pub(crate) fn with_matching_context<R, F: FnOnce(MatchingContext<'_, NodeId>) -> R>(&self, f: F) -> R {
-        let nodes = self.store.nodes.borrow();
+        let tree = self.store.tree.borrow();
 
         f(MatchingContext {
-            has_local_name: &|el, name| name == &nodes[el].el().local_name,
-            has_identifier: &|el, id| Some(id) == nodes[el].el().identifier.as_ref(),
-            has_class: &|el, cls| match &nodes[el].el().class_name {
+            has_local_name: &|el, name| name == &tree.data(el).el().local_name,
+            has_identifier: &|el, id| Some(id) == tree.data(el).el().identifier.as_ref(),
+            has_class: &|el, cls| match &tree.data(el).el().class_name {
                 Some(s) => s.split_ascii_whitespace().any(|part| part == **cls),
                 None => false,
             },
-            parent: &|el| nodes[el].parent_node.get(),
+            parent: &|el| tree.parent_node(el),
         })
     }
 }
@@ -298,39 +249,36 @@ impl_deref!(CharacterDataRef, NodeRef);
 
 impl DocumentRef {
     pub fn new() -> DocumentRef {
-        DocumentRef(create_node(&Default::default(), NodeData::Document))
+        DocumentRef(Rc::<Store>::default().create_node(NodeData::Document))
     }
 
     pub fn create_element(&self, local_name: &str) -> ElementRef {
-        ElementRef(create_node(
-            &self.store,
-            NodeData::Element(ElementData {
-                local_name: local_name.into(),
-                identifier: None,
-                class_name: None,
-                style: CssStyleDeclaration::new(),
-                attributes: Vec::new(),
-            }),
-        ))
+        ElementRef(self.store.create_node(NodeData::Element(ElementData {
+            local_name: local_name.into(),
+            identifier: None,
+            class_name: None,
+            style: CssStyleDeclaration::new(),
+            attributes: Vec::new(),
+        })))
     }
 
     pub fn create_text_node(&self, data: &str) -> CharacterDataRef {
-        CharacterDataRef(create_node(&self.store, NodeData::Text(data.to_owned())))
+        CharacterDataRef(self.store.create_node(NodeData::Text(data.to_owned())))
     }
 
     pub fn create_comment(&self, data: &str) -> CharacterDataRef {
-        CharacterDataRef(create_node(&self.store, NodeData::Comment(data.to_owned())))
+        CharacterDataRef(self.store.create_node(NodeData::Comment(data.to_owned())))
     }
 }
 
 impl ElementRef {
     pub fn local_name(&self) -> Atom<String> {
-        self.store.nodes.borrow()[self.id].el().local_name.clone()
+        self.store.tree.borrow().data(self.id).el().local_name.clone()
     }
 
     pub fn attribute_names(&self) -> Vec<String> {
-        let nodes = self.store.nodes.borrow();
-        let el = nodes[self.id].el();
+        let tree = self.store.tree.borrow();
+        let el = tree.data(self.id).el();
         let mut names = Vec::new();
 
         if el.identifier.is_some() {
@@ -349,8 +297,8 @@ impl ElementRef {
     }
 
     pub fn attribute(&self, attr: &str) -> Option<String> {
-        let nodes = self.store.nodes.borrow();
-        let el = nodes[self.id].el();
+        let tree = self.store.tree.borrow();
+        let el = tree.data(self.id).el();
 
         match attr {
             "id" => el.identifier.as_deref().cloned(),
@@ -365,8 +313,8 @@ impl ElementRef {
     }
 
     pub fn set_attribute(&self, attr: &str, value: &str) {
-        let mut nodes = self.store.nodes.borrow_mut();
-        let mut el = nodes[self.id].el_mut();
+        let mut tree = self.store.tree.borrow_mut();
+        let mut el = tree.data_mut(self.id).el_mut();
 
         match attr {
             "id" => el.identifier = Some(value.into()),
@@ -383,8 +331,8 @@ impl ElementRef {
     }
 
     pub fn remove_attribute(&self, attr: &str) {
-        let mut nodes = self.store.nodes.borrow_mut();
-        let mut el = nodes[self.id].el_mut();
+        let mut tree = self.store.tree.borrow_mut();
+        let mut el = tree.data_mut(self.id).el_mut();
 
         match attr {
             "id" => drop(el.identifier.take()),
@@ -403,20 +351,32 @@ impl ElementRef {
 
 impl CharacterDataRef {
     pub fn data(&self) -> String {
-        self.store.nodes.borrow()[self.id].cdata().clone()
+        self.store.tree.borrow().data(self.id).cdata().clone()
     }
 
     pub fn set_data(&self, data: &str) {
-        *self.store.nodes.borrow_mut()[self.id].cdata_mut() = data.to_owned()
+        *self.store.tree.borrow_mut().data_mut(self.id).cdata_mut() = data.to_owned()
     }
 }
 
 #[derive(Default)]
 pub struct Store {
-    nodes: RefCell<SlotMap<NodeId, Node>>,
+    tree: RefCell<IdTree<Node>>,
 }
 
 impl Store {
+    fn create_node(self: &Rc<Self>, data: NodeData) -> NodeRef {
+        let id = self.tree.borrow_mut().create_node(Node {
+            ref_count: Cell::new(1),
+            ancestors: Cell::new(Bloom::new()),
+            data,
+        });
+        NodeRef {
+            store: Rc::clone(self),
+            id,
+        }
+    }
+
     fn node_ref(self: &Rc<Self>, id: NodeId) -> NodeRef {
         self.inc_count(id);
 
@@ -427,13 +387,13 @@ impl Store {
     }
 
     fn inc_count(&self, id: NodeId) {
-        let node = &self.nodes.borrow()[id];
-        node.ref_count.set(node.ref_count.get() + 1);
+        let tree = self.tree.borrow();
+        tree.data(id).ref_count.set(tree.data(id).ref_count.get() + 1);
     }
 
     fn dec_count(&self, id: NodeId) {
-        let prev = self.nodes.borrow()[id].ref_count.get();
-        self.nodes.borrow()[id].ref_count.set(prev - 1);
+        let prev = self.tree.borrow().data(id).ref_count.get();
+        self.tree.borrow().data(id).ref_count.set(prev - 1);
 
         if prev == 1 {
             self.drop_node(id);
@@ -442,22 +402,17 @@ impl Store {
 
     fn drop_node(&self, id: NodeId) {
         // potentially drop whole subtree (first)
-        let mut next = self.nodes.borrow()[id].first_child.take();
+        let mut next = self.tree.borrow().first_child(id);
         while let Some(child) = next {
-            next = self.nodes.borrow()[child].next_sibling.take();
+            next = self.tree.borrow().next_sibling(child);
             self.dec_count(child);
         }
 
-        self.nodes.borrow_mut().remove(id);
+        self.tree.borrow_mut().drop_node(id);
     }
 }
 
 struct Node {
-    parent_node: Cell<Option<NodeId>>,
-    first_child: Cell<Option<NodeId>>,
-    next_sibling: Cell<Option<NodeId>>,
-    previous_sibling: Cell<Option<NodeId>>,
-    last_child: Cell<Option<NodeId>>,
     ref_count: Cell<u32>,
     ancestors: Cell<Bloom<NodeId>>,
     data: NodeData,
@@ -520,67 +475,6 @@ impl Node {
     }
 }
 
-fn create_node(store: &Rc<Store>, data: NodeData) -> NodeRef {
-    let id = store.nodes.borrow_mut().insert(Node {
-        parent_node: Cell::new(None),
-        first_child: Cell::new(None),
-        next_sibling: Cell::new(None),
-        previous_sibling: Cell::new(None),
-        last_child: Cell::new(None),
-        ref_count: Cell::new(1),
-        ancestors: Cell::new(Bloom::new()),
-        data,
-    });
-
-    NodeRef {
-        store: Rc::clone(store),
-        id,
-    }
-}
-
-#[derive(Clone, Debug)]
-enum NodeEdge {
-    Start(NodeId),
-    End(NodeId),
-}
-
-struct Traverse<'a> {
-    nodes: Ref<'a, SlotMap<NodeId, Node>>,
-    next: Option<NodeEdge>,
-}
-
-impl<'a> From<&'a NodeRef> for Traverse<'a> {
-    fn from(node: &'a NodeRef) -> Self {
-        Self {
-            nodes: node.store.nodes.borrow(),
-            next: Some(NodeEdge::Start(node.id)),
-        }
-    }
-}
-
-impl Iterator for Traverse<'_> {
-    type Item = NodeEdge;
-
-    fn next(&mut self) -> Option<NodeEdge> {
-        match self.next.take() {
-            Some(next) => {
-                self.next = match next {
-                    NodeEdge::Start(node) => match self.nodes[node].first_child.get() {
-                        Some(first_child) => Some(NodeEdge::Start(first_child)),
-                        None => Some(NodeEdge::End(node)),
-                    },
-                    NodeEdge::End(node) => match self.nodes[node].next_sibling.get() {
-                        Some(next_sibling) => Some(NodeEdge::Start(next_sibling)),
-                        None => self.nodes[node].parent_node.get().map(NodeEdge::End),
-                    },
-                };
-                Some(next)
-            }
-            None => None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -631,46 +525,6 @@ mod tests {
 
         doc.append_child(&div);
         assert_eq!(doc.query_selector("div#panel"), Some(div));
-    }
-
-    #[test]
-    fn tree() {
-        let doc = DocumentRef::new();
-        assert_eq!(doc.parent_node(), None);
-        assert_eq!(doc.first_child(), None);
-        assert_eq!(doc.next_sibling(), None);
-        assert_eq!(doc.previous_sibling(), None);
-
-        let ch1 = doc.create_text_node("ch1");
-        let ch2 = doc.create_text_node("ch2");
-        let ch3 = doc.create_text_node("ch3");
-
-        doc.append_child(&ch1);
-        assert_eq!(doc.first_child(), Some(ch1.clone().as_node()));
-        assert_eq!(ch1.parent_node(), Some(doc.clone().as_node()));
-        assert_eq!(ch1.next_sibling(), None);
-        assert_eq!(ch1.previous_sibling(), None);
-
-        doc.append_child(&ch2);
-        assert_eq!(doc.first_child(), Some(ch1.as_node()));
-        assert_eq!(ch1.next_sibling(), Some(ch2.as_node()));
-        assert_eq!(ch2.previous_sibling(), Some(ch1.as_node()));
-
-        //assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch1, ch2]);
-
-        doc.insert_before(&ch3, &ch1);
-
-        //assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch3, ch1, ch2]);
-
-        doc.remove_child(&ch1);
-        doc.remove_child(&ch2);
-
-        //assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch3]);
-
-        doc.insert_before(&ch2, &ch3);
-        doc.insert_before(&ch1, &ch2);
-
-        //assert_eq!(doc.child_nodes(root).collect::<Vec<_>>(), vec![ch1, ch2, ch3]);
     }
 
     #[test]
