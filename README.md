@@ -13,15 +13,25 @@ HTML/CSS engine for node.js and deno. No electron, no webkit, no servo, all from
 
 ---
 
-**Work in progress**, [prev version](https://github.com/cztomsik/graffiti/tree/d60a4b75bf0a9fdb67af8fd449f054a411127f38)
+**Work in progress**, [prev version](https://github.com/cztomsik/graffiti/commit/28f9d9d5a24ac7d11bfda3d304e5c8714317f343)
 
-- nodejs 15.x, deno 1.8.3 (1.9 is broken)
 - CSS, events, (p)react/vue/svelte support
 - CLI for running `*.html` files
-- rendering is broken/low-quality, resize is broken
-- `WebView` is macos only (for now)
 
 Follow me on my [twitter](https://twitter.com/cztomsik) for updates.
+
+---
+
+## Current status
+- DOM is "done" (in a sense of what I wanted to achieve)
+- `WebView` is macos only (for now)
+- react/preact/vue is working with this
+- nodejs bindings are missing, only deno is working currently
+- hit-testing is missing (again)
+- rendering is broken
+- **layout is WIP** (I am currently replacing yoga with custom impl)
+- CSS should be working but it's not currently attached
+- incrementality is not done (performance)
 
 ---
 
