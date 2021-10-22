@@ -1,3 +1,53 @@
+
+
+#[derive(Debug, Clone, Copy)]
+pub enum Display { None, Inline, Block, Flex }
+
+#[derive(Debug, Clone, Copy)]
+pub enum Dimension { Auto, Px(f32), /*Fraction*/ Percent(f32) }
+
+#[derive(Debug, Clone, Copy)]
+pub struct Size<T: Copy> { pub width: T, pub height: T }
+
+#[derive(Debug, Clone, Copy)]
+pub struct Rect<T: Copy> { pub top: T, pub right: T, pub bottom: T, pub left: T }
+
+#[derive(Debug, Clone, Copy)]
+pub struct LayoutStyle {
+    pub display: Display,
+    pub size: Size<Dimension>,
+    pub min_size: Size<Dimension>,
+    pub max_size: Size<Dimension>,
+    pub padding: Rect<Dimension>,
+    pub margin: Rect<Dimension>,
+    pub border: Rect<Dimension>,
+}
+
+// TODO: vw, vh, vmin, vmax, rem
+struct Ctx {}
+
+impl Ctx {
+    fn resolve(&self, dim: Dimension, base: f32) -> f32 {
+        match dim {
+            Dimension::Px(v) => v,
+            Dimension::Percent(v) => base * v,
+            _ => f32::NAN
+        }
+    }
+
+    fn resolve_size(&self, size: Size<Dimension>, parent_size: Size<f32>) -> Size<f32> {
+        Size { width: self.resolve(size.width, parent_size.width), height: self.resolve(size.height, parent_size.height) }
+    }
+
+    fn resolve_rect(&self, rect: Rect<Dimension>, base: f32) -> Rect<f32> {
+        Rect { top: self.resolve(rect.top, base), right: self.resolve(rect.top, base), bottom: self.resolve(rect.top, base), left: self.resolve(rect.top, base) }
+    }
+
+}
+
+
+
+/*
 // TODO: eventually replace this with own layout engine
 //
 // x independent, easy to test
@@ -292,3 +342,5 @@ unsafe extern "C" fn measure_node<F: Fn(f32) -> (f32, f32)>(
         height: size.1,
     }
 }
+*/
+
