@@ -1,10 +1,10 @@
 // super-simple, unsync value interning
 // TODO: NonZeroU32 (so more selector parts could be stored inline)
 
+use fnv::FnvHashSet;
 use std::any::Any;
 use std::borrow::Borrow;
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::fmt::{Display, Error, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -29,7 +29,7 @@ impl<T: Eq + Hash + 'static> Atom<T> {
     fn with_wraps<F, R>(f: F) -> R
     where
         T: 'static,
-        F: FnOnce(&mut HashSet<Wrap<T>>) -> R,
+        F: FnOnce(&mut FnvHashSet<Wrap<T>>) -> R,
     {
         ATOM_STORES.with(|stores| {
             for any in &mut *stores.borrow_mut() {
@@ -37,7 +37,7 @@ impl<T: Eq + Hash + 'static> Atom<T> {
                     return f(wraps);
                 }
             }
-            let mut wraps = HashSet::new();
+            let mut wraps = FnvHashSet::default();
             let res = f(&mut wraps);
             stores.borrow_mut().push(Box::new(wraps));
             res
