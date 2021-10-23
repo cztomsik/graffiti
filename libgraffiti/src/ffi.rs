@@ -13,11 +13,10 @@ use crate::{
 };
 use std::any::Any;
 use std::cell::RefCell;
-use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::ops::Index;
-use std::os::raw::{c_char, c_double, c_int, c_uint, c_void};
+use std::os::raw::{c_char, c_int, c_uint};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -371,6 +370,11 @@ pub unsafe extern "C" fn gft_Element_matches(el: Ref<ElementRef>, selector: *con
 }
 
 #[no_mangle]
+pub extern "C" fn gft_Element_style(el: Ref<ElementRef>) -> Ref<CssStyleDeclaration> {
+    with_tls(|tls| tls[&el].style()).into()
+}
+
+#[no_mangle]
 pub extern "C" fn gft_CssStyleDeclaration_length(style: Ref<CssStyleDeclaration>) -> c_uint {
     with_tls(|tls| tls[&style].length() as _)
 }
@@ -385,15 +389,14 @@ pub unsafe extern "C" fn gft_CssStyleDeclaration_property_value(
 }
 
 #[no_mangle]
-pub extern "C" fn gft_CssStyleDeclaration_set_property(
+pub unsafe extern "C" fn gft_CssStyleDeclaration_set_property(
     style: Ref<CssStyleDeclaration>,
     prop: *const c_char,
     prop_len: u32,
     val: *const c_char,
     val_len: u32,
 ) {
-    todo!()
-    //with_tls(|tls| tls[&style].set_property(to_str(prop, prop_len), to_str(val, val_len)))
+    with_tls(|tls| tls[&style].set_property(to_str(prop, prop_len), to_str(val, val_len)))
 }
 
 #[no_mangle]
