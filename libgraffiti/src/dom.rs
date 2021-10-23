@@ -257,7 +257,7 @@ impl DocumentRef {
             local_name: local_name.into(),
             identifier: None,
             class_name: None,
-            style: CssStyleDeclaration::new(),
+            style: Rc::new(CssStyleDeclaration::new()),
             attributes: Vec::new(),
         })))
     }
@@ -287,6 +287,10 @@ impl ElementRef {
 
         if el.class_name.is_some() {
             names.push("class".to_owned());
+        }
+
+        if el.style.length() > 0 {
+            names.push("style".to_owned());
         }
 
         for (k, _) in &el.attributes {
@@ -337,7 +341,7 @@ impl ElementRef {
         match attr {
             "id" => drop(el.identifier.take()),
             "class" => drop(el.identifier.take()),
-            "style" => el.style = CssStyleDeclaration::EMPTY,
+            "style" => el.style.set_css_text(""),
             _ => el.attributes.retain(|(a, _)| attr != **a),
         };
     }
@@ -346,7 +350,9 @@ impl ElementRef {
         self.with_matching_context(|ctx| ctx.match_selector(&Selector::from(selector), self.id).is_some())
     }
 
-    //pub fn style() -> Rc<CssStyleDeclaration> { todo!() }
+    pub fn style(&self) -> Rc<CssStyleDeclaration> {
+        self.store.tree.borrow().data(self.id).el().style.clone()
+    }
 }
 
 impl CharacterDataRef {
@@ -429,8 +435,7 @@ struct ElementData {
     local_name: Atom<String>,
     identifier: Option<Atom<String>>,
     class_name: Option<Atom<String>>,
-    // TODO: Rc<>?
-    style: CssStyleDeclaration,
+    style: Rc<CssStyleDeclaration>,
     attributes: Vec<(Atom<String>, Atom<String>)>,
 }
 
