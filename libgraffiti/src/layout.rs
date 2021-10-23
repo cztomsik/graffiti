@@ -9,8 +9,28 @@ pub enum Dimension { Auto, Px(f32), /*Fraction*/ Percent(f32) }
 #[derive(Debug, Clone, Copy)]
 pub struct Size<T: Copy> { pub width: T, pub height: T }
 
+impl Size<Dimension> {
+    pub const AUTO: Self = Self { width: Dimension::Auto, height: Dimension::Auto };
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Rect<T: Copy> { pub top: T, pub right: T, pub bottom: T, pub left: T }
+
+impl Rect<Dimension> {
+    pub const ZERO: Self = Self { top: Dimension::Px(0.), right: Dimension::Px(0.), bottom: Dimension::Px(0.), left: Dimension::Px(0.) };
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Align { Auto, FlexStart, Center, FlexEnd, Stretch, Baseline, SpaceBetween, SpaceAround }
+
+#[derive(Debug, Clone, Copy)]
+pub enum Justify { FlexStart, Center, FlexEnd, SpaceBetween, SpaceAround, SpaceEvenly }
+
+#[derive(Debug, Clone, Copy)]
+pub enum FlexDirection { Row, Column }
+
+#[derive(Debug, Clone, Copy)]
+pub enum FlexWrap { NoWrap, Wrap }
 
 #[derive(Debug, Clone, Copy)]
 pub struct LayoutStyle {
@@ -21,6 +41,46 @@ pub struct LayoutStyle {
     pub padding: Rect<Dimension>,
     pub margin: Rect<Dimension>,
     pub border: Rect<Dimension>,
+
+    // flex & grid (not supported ATM)
+    pub align_self: Align,
+    pub align_content: Align,
+    pub align_items: Align,
+    pub justify_content: Justify,
+
+    // flex
+    pub flex_direction: FlexDirection,
+    pub flex_wrap: FlexWrap,
+    pub flex_grow: f32,
+    pub flex_shrink: f32,
+    pub flex_basis: Dimension,
+}
+
+impl Default for LayoutStyle {
+    fn default() -> Self {
+        Self {
+            display: Display::Inline,
+            size: Size::AUTO,
+            min_size: Size::AUTO,
+            max_size: Size::AUTO,
+            padding: Rect::ZERO,
+            margin: Rect::ZERO,
+            border: Rect::ZERO,
+
+            align_self: Align::Auto,
+            align_items: Align::Stretch,
+            align_content: Align::Stretch,
+            justify_content: Justify::FlexStart,
+
+            flex_direction: FlexDirection::Row,
+            flex_wrap: FlexWrap::NoWrap,
+            flex_grow: 0.,
+            flex_shrink: 1.,
+            flex_basis: Dimension::Auto,
+        }
+    }
+}
+
 }
 
 // TODO: vw, vh, vmin, vmax, rem
@@ -117,43 +177,6 @@ pub struct LayoutStyle {
 impl Default for LayoutStyle {
     fn default() -> Self {
         Self {
-            // size
-            width: Dimension::Auto,
-            height: Dimension::Auto,
-            min_width: Dimension::Undefined,
-            min_height: Dimension::Undefined,
-            max_width: Dimension::Undefined,
-            max_height: Dimension::Undefined,
-
-            // padding
-            padding_top: Dimension::Undefined,
-            padding_right: Dimension::Undefined,
-            padding_bottom: Dimension::Undefined,
-            padding_left: Dimension::Undefined,
-
-            // margin
-            margin_top: Dimension::Undefined,
-            margin_right: Dimension::Undefined,
-            margin_bottom: Dimension::Undefined,
-            margin_left: Dimension::Undefined,
-
-            // border
-            border_top: 0.,
-            border_right: 0.,
-            border_bottom: 0.,
-            border_left: 0.,
-
-            // flex
-            flex_grow: 0.,
-            flex_shrink: 1.,
-            flex_basis: Dimension::Auto,
-            flex_direction: FlexDirection::Row,
-            flex_wrap: FlexWrap::NoWrap,
-            align_content: Align::Stretch,
-            align_items: Align::Stretch,
-            align_self: Align::Auto,
-            justify_content: Justify::FlexStart,
-
             // position
             position: Position::Relative,
             top: Dimension::Undefined,
@@ -164,28 +187,12 @@ impl Default for LayoutStyle {
             // overflow
             overflow_x: Overflow::Visible,
             overflow_y: Overflow::Visible,
-
-            // other
-            // TODO: default should be "inline"
-            display: Display::Flex,
         }
     }
 }
 
-pub type Display = YGDisplay;
-pub type FlexDirection = YGFlexDirection;
-pub type FlexWrap = YGWrap;
 pub type Overflow = YGOverflow;
-pub type Align = YGAlign;
-pub type Justify = YGJustify;
 pub type Position = YGPositionType;
-
-pub enum Dimension {
-    Undefined,
-    Px(f32),
-    Percent(f32),
-    Auto,
-}
 
 #[derive(Debug)]
 pub struct LayoutNode(YGNodeRef);
@@ -212,79 +219,7 @@ impl LayoutNode {
     }
 
     pub fn set_style(&self, style: LayoutStyle) {
-        macro_rules! set_dim {
-            ($node:expr, $value:expr; $set:ident $set_perc:ident $($set_auto:ident)*) => (
-                unsafe {
-                    match $value {
-                        Dimension::Px(v) => $set($node.0, v),
-                        Dimension::Percent(v) => $set_perc($node.0, v),
-                        $(Dimension::Auto => $set_auto($node.0),)*
-                        _ => $set($node.0, YGUndefined)
-                    }
-                }
-            )
-        }
-        macro_rules! set_edge_dim {
-            ($node:expr, $edge:expr, $value:expr; $set:ident $set_perc:ident $($set_auto:ident)*) => (
-                unsafe {
-                    match $value {
-                        Dimension::Px(v) => $set($node.0, $edge, v),
-                        Dimension::Percent(v) => $set_perc($node.0, $edge, v),
-                        $(Dimension::Auto => $set_auto($node.0, $edge),)*
-                        _ => $set($node.0, $edge, YGUndefined)
-                    }
-                }
-            )
-        }
-
-        // size
-        set_dim!(self, style.width; YGNodeStyleSetWidth YGNodeStyleSetWidthPercent YGNodeStyleSetWidthAuto);
-        set_dim!(self, style.height; YGNodeStyleSetHeight YGNodeStyleSetHeightPercent YGNodeStyleSetHeightAuto);
-        set_dim!(self, style.min_width; YGNodeStyleSetMinWidth YGNodeStyleSetMinWidthPercent);
-        set_dim!(self, style.min_height; YGNodeStyleSetMinHeight YGNodeStyleSetMinHeightPercent);
-        set_dim!(self, style.max_width; YGNodeStyleSetMaxWidth YGNodeStyleSetMaxWidthPercent);
-        set_dim!(self, style.max_height; YGNodeStyleSetMaxHeight YGNodeStyleSetMaxHeightPercent);
-
-        // padding
-        set_edge_dim!(self, YGEdge::Top, style.padding_top; YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-        set_edge_dim!(self, YGEdge::Right, style.padding_right; YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-        set_edge_dim!(self, YGEdge::Bottom, style.padding_bottom; YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-        set_edge_dim!(self, YGEdge::Left, style.padding_left; YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-
-        // margin
-        set_edge_dim!(self, YGEdge::Top, style.margin_top; YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-        set_edge_dim!(self, YGEdge::Right, style.margin_right; YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-        set_edge_dim!(self, YGEdge::Bottom, style.margin_bottom; YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-        set_edge_dim!(self, YGEdge::Left, style.margin_left; YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-
-        // border
-        unsafe { YGNodeStyleSetBorder(self.0, YGEdge::Top, style.border_top) }
-        unsafe { YGNodeStyleSetBorder(self.0, YGEdge::Right, style.border_right) }
-        unsafe { YGNodeStyleSetBorder(self.0, YGEdge::Bottom, style.border_bottom) }
-        unsafe { YGNodeStyleSetBorder(self.0, YGEdge::Left, style.border_left) }
-
-        // position
-        unsafe { YGNodeStyleSetPositionType(self.0, style.position) }
-        set_edge_dim!(self, YGEdge::Top, style.top; YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-        set_edge_dim!(self, YGEdge::Right, style.right; YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-        set_edge_dim!(self, YGEdge::Bottom, style.bottom; YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-        set_edge_dim!(self, YGEdge::Left, style.left; YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-
-        // flex
-        unsafe { YGNodeStyleSetFlexGrow(self.0, style.flex_grow) }
-        unsafe { YGNodeStyleSetFlexShrink(self.0, style.flex_shrink) }
-        set_dim!(self, style.flex_basis; YGNodeStyleSetFlexBasis YGNodeStyleSetFlexBasisPercent YGNodeStyleSetFlexBasisAuto);
-        unsafe { YGNodeStyleSetFlexDirection(self.0, style.flex_direction) }
-        unsafe { YGNodeStyleSetFlexWrap(self.0, style.flex_wrap) }
-        unsafe { YGNodeStyleSetAlignContent(self.0, style.align_content) }
-        unsafe { YGNodeStyleSetAlignItems(self.0, style.align_items) }
-        unsafe { YGNodeStyleSetAlignSelf(self.0, style.align_self) }
-        unsafe { YGNodeStyleSetJustifyContent(self.0, style.justify_content) }
-
         // TODO: overflow
-
-        // other
-        unsafe { YGNodeStyleSetDisplay(self.0, style.display) }
     }
 
     pub fn insert_child(&self, child: &LayoutNode, index: usize) {

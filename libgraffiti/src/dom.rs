@@ -165,7 +165,7 @@ impl NodeRef {
     fn clear_ancestors(&self) {
         for edge in self.store.tree.borrow().traverse(self.id) {
             if let Edge::Start(node) = edge {
-                self.store.tree.borrow().data(self.id).ancestors.take();
+                self.store.tree.borrow().data(node).ancestors.take();
             }
         }
     }
