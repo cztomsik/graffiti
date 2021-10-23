@@ -122,42 +122,6 @@ use graffiti_yoga::*;
 use std::convert::TryInto;
 
 pub struct LayoutStyle {
-    // size
-    pub width: Dimension,
-    pub height: Dimension,
-    pub min_width: Dimension,
-    pub min_height: Dimension,
-    pub max_width: Dimension,
-    pub max_height: Dimension,
-
-    // padding
-    pub padding_top: Dimension,
-    pub padding_right: Dimension,
-    pub padding_bottom: Dimension,
-    pub padding_left: Dimension,
-
-    // margin
-    pub margin_top: Dimension,
-    pub margin_right: Dimension,
-    pub margin_bottom: Dimension,
-    pub margin_left: Dimension,
-
-    // border
-    pub border_top: f32,
-    pub border_right: f32,
-    pub border_bottom: f32,
-    pub border_left: f32,
-
-    // flex
-    pub flex_grow: f32,
-    pub flex_shrink: f32,
-    pub flex_basis: Dimension,
-    pub flex_direction: FlexDirection,
-    pub flex_wrap: FlexWrap,
-    pub align_content: Align,
-    pub align_items: Align,
-    pub align_self: Align,
-    pub justify_content: Justify,
 
     // position
     pub position: Position,
@@ -169,9 +133,6 @@ pub struct LayoutStyle {
     // overflow
     pub overflow_x: Overflow,
     pub overflow_y: Overflow,
-
-    // other
-    pub display: Display,
 }
 
 impl Default for LayoutStyle {
