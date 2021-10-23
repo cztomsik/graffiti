@@ -121,8 +121,12 @@ pub(super) fn dimension<'a>() -> Parser<'a, CssDimension> {
     let percent = (float() - sym("%")).map(CssDimension::Percent);
     let auto = sym("auto").map(|_| CssDimension::Auto);
     let zero = sym("0").map(|_| CssDimension::ZERO);
+    let vw = (float() - sym("vw")).map(CssDimension::Vw);
+    let vh = (float() - sym("vh")).map(CssDimension::Vh);
+    let vmin = sym("vmin").map(|_| CssDimension::Vmin);
+    let vmax = sym("vmax").map(|_| CssDimension::Vmax);
 
-    px | percent | auto | zero
+    px | percent | auto | zero | vw | vh | vmin | vmax
 }
 
 pub(super) fn sides_of<'a, V: Copy + 'a>(parser: Parser<'a, V>) -> Parser<'a, (V, V, V, V)> {
@@ -577,6 +581,10 @@ mod tests {
         assert_eq!(dimension().parse(&["10", "px"]), Ok(CssDimension::Px(10.)));
         assert_eq!(dimension().parse(&["100", "%"]), Ok(CssDimension::Percent(100.)));
         assert_eq!(dimension().parse(&["0"]), Ok(CssDimension::Px(0.)));
+        assert_eq!(dimension().parse(&["100", "vw"]), Ok(CssDimension::Vw(100.)));
+        assert_eq!(dimension().parse(&["100", "vh"]), Ok(CssDimension::Vh(100.)));
+        assert_eq!(dimension().parse(&["vmin"]), Ok(CssDimension::Vmin));
+        assert_eq!(dimension().parse(&["vmax"]), Ok(CssDimension::Vmax));
     }
 
     #[test]
