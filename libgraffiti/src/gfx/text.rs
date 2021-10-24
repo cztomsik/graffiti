@@ -3,14 +3,22 @@
 // x measure(max_width)
 // x for_each_glyph(rect, f)
 
+use std::fmt::{Debug, Formatter};
 use super::{Font, Glyph, GlyphId, ScaleFont, Vec2, AABB, SANS_SERIF_FONT};
 use std::cell::{Ref, RefCell};
 
+#[derive(Clone)]
 pub struct Text {
     text: String,
     style: TextStyle,
 
     single_line: RefCell<Option<SingleLine>>,
+}
+
+impl Debug for Text {
+    fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        fmt.debug_tuple("Text").field(&self.text).finish()
+    }
 }
 
 impl Text {
@@ -168,7 +176,7 @@ fn is_space(ch: char, preserve: bool) -> bool {
     ch == ' ' || !preserve && (ch == '\t' || ch == '\n' || ch == '\r')
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct SingleLine {
     // (x, glyph_id) of each glyph when on single line
     xglyphs: Vec<(f32, GlyphId)>,

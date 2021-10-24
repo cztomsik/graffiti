@@ -1,5 +1,4 @@
 use graffiti::{App, CharacterDataRef, DocumentRef, ElementRef, NodeRef, NodeType, WebView, Window};
-use std::fmt::Write;
 
 fn main() {
     let app = unsafe { App::init() };
@@ -27,30 +26,24 @@ fn main() {
 }
 
 fn html(node: &NodeRef) -> String {
-    let mut res = String::new();
-
     match node.node_type() {
-        NodeType::Document => {
-            write!(res, "{}", html(&node.first_child().unwrap()));
-        }
+        NodeType::Document => html(&node.first_child().unwrap()),
+        NodeType::Text => node.clone().downcast::<CharacterDataRef>().unwrap().data(),
         NodeType::Element => {
             let el = node.clone().downcast::<ElementRef>().unwrap();
-            write!(res, "<{}>", el.local_name());
-
-            let mut next = el.first_child();
-
-            while let Some(node) = next {
-                next = node.next_sibling();
-                write!(res, "{}", html(&node));
-            }
-
-            write!(res, "</{}>", el.local_name());
+            let attrs = el
+                .attribute_names()
+                .iter()
+                .map(|att| format!(" {}={:?}", &att, el.attribute(att).unwrap()))
+                .collect::<String>();
+            format!(
+                "<{} {}>{}</{}>",
+                el.local_name(),
+                attrs,
+                el.child_nodes().iter().map(html).collect::<String>(),
+                el.local_name()
+            )
         }
-        NodeType::Text => {
-            write!(res, "{}", node.clone().downcast::<CharacterDataRef>().unwrap().data());
-        }
-        _ => {}
+        _ => String::new(),
     }
-
-    res
 }

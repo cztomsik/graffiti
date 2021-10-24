@@ -99,7 +99,7 @@ pub(super) fn style<'a>() -> Parser<'a, CssStyleDeclaration> {
     })
 }
 
-pub(super) fn parse_prop_into<'a>(prop: &str, value: &[&str], style: &mut CssStyleDeclaration) {
+pub(super) fn parse_prop_into<'a>(prop: &str, value: &[&str], style: &CssStyleDeclaration) {
     if let Ok(p) = super::prop_parser(prop).parse(value) {
         style.add_prop(p);
     } else if let Ok(props) = super::shorthand_parser(prop).parse(value) {
@@ -121,8 +121,12 @@ pub(super) fn dimension<'a>() -> Parser<'a, CssDimension> {
     let percent = (float() - sym("%")).map(CssDimension::Percent);
     let auto = sym("auto").map(|_| CssDimension::Auto);
     let zero = sym("0").map(|_| CssDimension::ZERO);
+    let vw = (float() - sym("vw")).map(CssDimension::Vw);
+    let vh = (float() - sym("vh")).map(CssDimension::Vh);
+    let vmin = sym("vmin").map(|_| CssDimension::Vmin);
+    let vmax = sym("vmax").map(|_| CssDimension::Vmax);
 
-    px | percent | auto | zero
+    px | percent | auto | zero | vw | vh | vmin | vmax
 }
 
 pub(super) fn sides_of<'a, V: Copy + 'a>(parser: Parser<'a, V>) -> Parser<'a, (V, V, V, V)> {
@@ -361,27 +365,27 @@ mod tests {
         use StyleProp::*;
 
         assert_eq!(
-            &CssStyleDeclaration::from("overflow: hidden").props,
+            &*CssStyleDeclaration::from("overflow: hidden").props(),
             &[OverflowX(CssOverflow::Hidden), OverflowY(CssOverflow::Hidden)]
         );
 
         assert_eq!(
-            &CssStyleDeclaration::from("overflow: visible hidden").props,
+            &*CssStyleDeclaration::from("overflow: visible hidden").props(),
             &[OverflowX(CssOverflow::Visible), OverflowY(CssOverflow::Hidden)]
         );
 
         assert_eq!(
-            &CssStyleDeclaration::from("flex: 1").props,
+            &*CssStyleDeclaration::from("flex: 1").props(),
             &[FlexGrow(1.), FlexShrink(1.), FlexBasis(CssDimension::Auto)]
         );
 
         assert_eq!(
-            &CssStyleDeclaration::from("flex: 2 3 10px").props,
+            &*CssStyleDeclaration::from("flex: 2 3 10px").props(),
             &[FlexGrow(2.), FlexShrink(3.), FlexBasis(CssDimension::Px(10.))]
         );
 
         assert_eq!(
-            &CssStyleDeclaration::from("padding: 0").props,
+            &*CssStyleDeclaration::from("padding: 0").props(),
             &[
                 PaddingTop(CssDimension::ZERO),
                 PaddingRight(CssDimension::ZERO),
@@ -391,7 +395,7 @@ mod tests {
         );
 
         assert_eq!(
-            &CssStyleDeclaration::from("padding: 10px 20px").props,
+            &*CssStyleDeclaration::from("padding: 10px 20px").props(),
             &[
                 PaddingTop(CssDimension::Px(10.)),
                 PaddingRight(CssDimension::Px(20.)),
@@ -401,23 +405,23 @@ mod tests {
         );
 
         assert_eq!(
-            &CssStyleDeclaration::from("background: none").props,
+            &*CssStyleDeclaration::from("background: none").props(),
             &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]
         );
         assert_eq!(
-            &CssStyleDeclaration::from("background: #000").props,
+            &*CssStyleDeclaration::from("background: #000").props(),
             &[StyleProp::BackgroundColor(CssColor::BLACK)]
         );
 
         // override
         let mut s = CssStyleDeclaration::from("background-color: #fff");
         s.set_property("background", "#000");
-        assert_eq!(s.props, &[StyleProp::BackgroundColor(CssColor::BLACK)]);
+        assert_eq!(&*s.props(), &[StyleProp::BackgroundColor(CssColor::BLACK)]);
 
         // remove
         let mut s = CssStyleDeclaration::from("background-color: #fff");
         s.set_property("background", "none");
-        assert_eq!(s.props, &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]);
+        assert_eq!(&*s.props(), &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]);
     }
 
     #[test]
@@ -577,6 +581,10 @@ mod tests {
         assert_eq!(dimension().parse(&["10", "px"]), Ok(CssDimension::Px(10.)));
         assert_eq!(dimension().parse(&["100", "%"]), Ok(CssDimension::Percent(100.)));
         assert_eq!(dimension().parse(&["0"]), Ok(CssDimension::Px(0.)));
+        assert_eq!(dimension().parse(&["100", "vw"]), Ok(CssDimension::Vw(100.)));
+        assert_eq!(dimension().parse(&["100", "vh"]), Ok(CssDimension::Vh(100.)));
+        assert_eq!(dimension().parse(&["vmin"]), Ok(CssDimension::Vmin));
+        assert_eq!(dimension().parse(&["vmax"]), Ok(CssDimension::Vmax));
     }
 
     #[test]

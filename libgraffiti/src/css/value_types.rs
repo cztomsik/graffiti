@@ -331,8 +331,10 @@ pub enum CssDimension {
     Auto,
     Px(f32),
     Percent(f32),
-    //Vw(f32)
-    //Vh(f32)
+    Vw(f32),
+    Vh(f32),
+    Vmin,
+    Vmax
 }
 
 impl CssDimension {
@@ -345,6 +347,10 @@ impl Display for CssDimension {
             Self::Auto => write!(f, "auto"),
             Self::Px(v) => write!(f, "{}px", v),
             Self::Percent(v) => write!(f, "{}%", v),
+            Self::Vw(v) => write!(f, "{}vw", v),
+            Self::Vh(v) => write!(f, "{}vh", v),
+            Self::Vmin => write!(f, "vmin"),
+            Self::Vmax => write!(f, "vmax"),
         }
     }
 }

@@ -1,5 +1,5 @@
 <html>
-<head>
+<head style="display: none">
   <style>
     body > * { background-color: #eee; margin-bottom: 20px }
     body > div > div { background-color: #f008; min-height: 20px }
@@ -9,10 +9,11 @@
   <h1>Layout tests</h1>
 
   <div>
-    <div style="width: 100px"></div>
-    <div style="width: 200px"></div>
+    <div style="width: 100px; height: 20px"></div>
+    <div style="width: 200px; height: 20px"></div>
   </div>
 
+  <!--
   <div style="position: relative; height: 20px">
     <div style="width: 50%">A</div>
     <div style="position: absolute; top: 0; left: 25%; width: 50%">B</div>
@@ -38,5 +39,6 @@
     <div style="line-height: 20px; margin-right: 10px;">XXX</div>
     <div style="line-height: 30px">XXX</div>
   </div>
+  -->
 </body>
 </html>

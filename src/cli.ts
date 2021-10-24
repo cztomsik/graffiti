@@ -24,11 +24,11 @@ async function cli(args) {
     console.log(USAGE)
   } else if (args[0] === 'run') {
     const app = await App.init()
+    app.run()
+
     const w = new AppWindow()
 
     await w.loadURL(new URL(args[1], new URL(`file://${CWD}/`)))
-
-    app.run()
   } else {
     throw new Error('Unknown cmd')
   }

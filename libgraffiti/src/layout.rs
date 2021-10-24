@@ -1,294 +1,266 @@
-// TODO: eventually replace this with own layout engine
-//
-// x independent, easy to test
-// x set all props at once
-// x calculate & provide box bounds for rendering
-// x bounds relative to their parents
-// x node/leaf type cannot be changed
+use crate::gfx::Text;
 
-#![allow(unused)]
+#[derive(Debug, Clone, Copy)]
+pub enum Display { None, Inline, Block, Flex }
 
-use graffiti_yoga::*;
-use std::convert::TryInto;
+#[derive(Debug, Clone, Copy)]
+pub enum Dimension { Auto, Px(f32), /*Fraction*/ Percent(f32) }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Size<T: Copy> { pub width: T, pub height: T }
+
+impl Size<Dimension> {
+    pub const AUTO: Self = Self { width: Dimension::Auto, height: Dimension::Auto };
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Rect<T: Copy> { pub top: T, pub right: T, pub bottom: T, pub left: T }
+
+impl Rect<Dimension> {
+    pub const ZERO: Self = Self { top: Dimension::Px(0.), right: Dimension::Px(0.), bottom: Dimension::Px(0.), left: Dimension::Px(0.) };
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Align { Auto, FlexStart, Center, FlexEnd, Stretch, Baseline, SpaceBetween, SpaceAround }
+
+#[derive(Debug, Clone, Copy)]
+pub enum Justify { FlexStart, Center, FlexEnd, SpaceBetween, SpaceAround, SpaceEvenly }
+
+#[derive(Debug, Clone, Copy)]
+pub enum FlexDirection { Row, Column }
+
+#[derive(Debug, Clone, Copy)]
+pub enum FlexWrap { NoWrap, Wrap }
+
+#[derive(Debug, Clone, Copy)]
 pub struct LayoutStyle {
-    // size
-    pub width: Dimension,
-    pub height: Dimension,
-    pub min_width: Dimension,
-    pub min_height: Dimension,
-    pub max_width: Dimension,
-    pub max_height: Dimension,
+    pub display: Display,
+    pub size: Size<Dimension>,
+    pub min_size: Size<Dimension>,
+    pub max_size: Size<Dimension>,
+    pub padding: Rect<Dimension>,
+    pub margin: Rect<Dimension>,
+    pub border: Rect<Dimension>,
 
-    // padding
-    pub padding_top: Dimension,
-    pub padding_right: Dimension,
-    pub padding_bottom: Dimension,
-    pub padding_left: Dimension,
-
-    // margin
-    pub margin_top: Dimension,
-    pub margin_right: Dimension,
-    pub margin_bottom: Dimension,
-    pub margin_left: Dimension,
-
-    // border
-    pub border_top: f32,
-    pub border_right: f32,
-    pub border_bottom: f32,
-    pub border_left: f32,
+    // flex & grid (not supported ATM)
+    pub align_self: Align,
+    pub align_content: Align,
+    pub align_items: Align,
+    pub justify_content: Justify,
 
     // flex
+    pub flex_direction: FlexDirection,
+    pub flex_wrap: FlexWrap,
     pub flex_grow: f32,
     pub flex_shrink: f32,
     pub flex_basis: Dimension,
-    pub flex_direction: FlexDirection,
-    pub flex_wrap: FlexWrap,
-    pub align_content: Align,
-    pub align_items: Align,
-    pub align_self: Align,
-    pub justify_content: Justify,
-
-    // position
-    pub position: Position,
-    pub top: Dimension,
-    pub right: Dimension,
-    pub bottom: Dimension,
-    pub left: Dimension,
-
-    // overflow
-    pub overflow_x: Overflow,
-    pub overflow_y: Overflow,
-
-    // other
-    pub display: Display,
 }
 
 impl Default for LayoutStyle {
     fn default() -> Self {
         Self {
-            // size
-            width: Dimension::Auto,
-            height: Dimension::Auto,
-            min_width: Dimension::Undefined,
-            min_height: Dimension::Undefined,
-            max_width: Dimension::Undefined,
-            max_height: Dimension::Undefined,
+            // TODO: make it Inline when cascading works
+            display: Display::Block,
+            size: Size::AUTO,
+            min_size: Size::AUTO,
+            max_size: Size::AUTO,
+            padding: Rect::ZERO,
+            margin: Rect::ZERO,
+            border: Rect::ZERO,
+            // TODO: position
+            // TODO: overflow
 
-            // padding
-            padding_top: Dimension::Undefined,
-            padding_right: Dimension::Undefined,
-            padding_bottom: Dimension::Undefined,
-            padding_left: Dimension::Undefined,
+            align_self: Align::Auto,
+            align_items: Align::Stretch,
+            align_content: Align::Stretch,
+            justify_content: Justify::FlexStart,
 
-            // margin
-            margin_top: Dimension::Undefined,
-            margin_right: Dimension::Undefined,
-            margin_bottom: Dimension::Undefined,
-            margin_left: Dimension::Undefined,
-
-            // border
-            border_top: 0.,
-            border_right: 0.,
-            border_bottom: 0.,
-            border_left: 0.,
-
-            // flex
+            flex_direction: FlexDirection::Row,
+            flex_wrap: FlexWrap::NoWrap,
             flex_grow: 0.,
             flex_shrink: 1.,
             flex_basis: Dimension::Auto,
-            flex_direction: FlexDirection::Row,
-            flex_wrap: FlexWrap::NoWrap,
-            align_content: Align::Stretch,
-            align_items: Align::Stretch,
-            align_self: Align::Auto,
-            justify_content: Justify::FlexStart,
-
-            // position
-            position: Position::Relative,
-            top: Dimension::Undefined,
-            right: Dimension::Undefined,
-            bottom: Dimension::Undefined,
-            left: Dimension::Undefined,
-
-            // overflow
-            overflow_x: Overflow::Visible,
-            overflow_y: Overflow::Visible,
-
-            // other
-            // TODO: default should be "inline"
-            display: Display::Flex,
         }
     }
 }
 
-pub type Display = YGDisplay;
-pub type FlexDirection = YGFlexDirection;
-pub type FlexWrap = YGWrap;
-pub type Overflow = YGOverflow;
-pub type Align = YGAlign;
-pub type Justify = YGJustify;
-pub type Position = YGPositionType;
-
-pub enum Dimension {
-    Undefined,
-    Px(f32),
-    Percent(f32),
-    Auto,
+pub(crate) struct LayoutNode {
+    style: LayoutStyle,
+    text: Option<Text>,
+    children: Vec<Self>
 }
-
-#[derive(Debug)]
-pub struct LayoutNode(YGNodeRef);
 
 impl LayoutNode {
-    pub fn new() -> Self {
-        Self(unsafe { YGNodeNew() })
+    pub(crate) fn new(style: LayoutStyle, children: Vec<Self>) -> Self {
+        Self { style, text: None, children }
     }
 
-    pub fn new_leaf<F: Fn(f32) -> (f32, f32)>(measure: F) -> Self {
-        unsafe {
-            let node = YGNodeNew();
-
-            YGNodeSetMeasureFunc(node, Some(measure_node::<F>));
-            // TODO: drop
-            YGNodeSetContext(node, Box::into_raw(Box::new(measure)) as _);
-
-            Self(node)
-        }
+    pub(crate) fn new_text(text: Text) -> Self {
+        Self { style: LayoutStyle::default(), text: Some(text), children: vec![] }
     }
 
-    pub fn mark_dirty(&self) {
-        unsafe { YGNodeMarkDirty(self.0) }
-    }
+    pub(crate) fn calculate(&self, viewport_size: Size<f32>) -> LayoutBox {
+        // create "boxes" first
+        // TODO: this can be incremental, it also should remove hidden/empty parts, join texts together, etc.
+        let mut root = create_box(self);
 
-    pub fn set_style(&self, style: LayoutStyle) {
-        macro_rules! set_dim {
-            ($node:expr, $value:expr; $set:ident $set_perc:ident $($set_auto:ident)*) => (
-                unsafe {
-                    match $value {
-                        Dimension::Px(v) => $set($node.0, v),
-                        Dimension::Percent(v) => $set_perc($node.0, v),
-                        $(Dimension::Auto => $set_auto($node.0),)*
-                        _ => $set($node.0, YGUndefined)
-                    }
-                }
-            )
-        }
-        macro_rules! set_edge_dim {
-            ($node:expr, $edge:expr, $value:expr; $set:ident $set_perc:ident $($set_auto:ident)*) => (
-                unsafe {
-                    match $value {
-                        Dimension::Px(v) => $set($node.0, $edge, v),
-                        Dimension::Percent(v) => $set_perc($node.0, $edge, v),
-                        $(Dimension::Auto => $set_auto($node.0, $edge),)*
-                        _ => $set($node.0, $edge, YGUndefined)
-                    }
-                }
-            )
-        }
+        let ctx = Ctx {};
+        ctx.compute_box(&mut root, viewport_size);
 
-        // size
-        set_dim!(self, style.width; YGNodeStyleSetWidth YGNodeStyleSetWidthPercent YGNodeStyleSetWidthAuto);
-        set_dim!(self, style.height; YGNodeStyleSetHeight YGNodeStyleSetHeightPercent YGNodeStyleSetHeightAuto);
-        set_dim!(self, style.min_width; YGNodeStyleSetMinWidth YGNodeStyleSetMinWidthPercent);
-        set_dim!(self, style.min_height; YGNodeStyleSetMinHeight YGNodeStyleSetMinHeightPercent);
-        set_dim!(self, style.max_width; YGNodeStyleSetMaxWidth YGNodeStyleSetMaxWidthPercent);
-        set_dim!(self, style.max_height; YGNodeStyleSetMaxHeight YGNodeStyleSetMaxHeightPercent);
-
-        // padding
-        set_edge_dim!(self, YGEdge::Top, style.padding_top; YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-        set_edge_dim!(self, YGEdge::Right, style.padding_right; YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-        set_edge_dim!(self, YGEdge::Bottom, style.padding_bottom; YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-        set_edge_dim!(self, YGEdge::Left, style.padding_left; YGNodeStyleSetPadding YGNodeStyleSetPaddingPercent);
-
-        // margin
-        set_edge_dim!(self, YGEdge::Top, style.margin_top; YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-        set_edge_dim!(self, YGEdge::Right, style.margin_right; YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-        set_edge_dim!(self, YGEdge::Bottom, style.margin_bottom; YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-        set_edge_dim!(self, YGEdge::Left, style.margin_left; YGNodeStyleSetMargin YGNodeStyleSetMarginPercent YGNodeStyleSetMarginAuto);
-
-        // border
-        unsafe { YGNodeStyleSetBorder(self.0, YGEdge::Top, style.border_top) }
-        unsafe { YGNodeStyleSetBorder(self.0, YGEdge::Right, style.border_right) }
-        unsafe { YGNodeStyleSetBorder(self.0, YGEdge::Bottom, style.border_bottom) }
-        unsafe { YGNodeStyleSetBorder(self.0, YGEdge::Left, style.border_left) }
-
-        // position
-        unsafe { YGNodeStyleSetPositionType(self.0, style.position) }
-        set_edge_dim!(self, YGEdge::Top, style.top; YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-        set_edge_dim!(self, YGEdge::Right, style.right; YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-        set_edge_dim!(self, YGEdge::Bottom, style.bottom; YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-        set_edge_dim!(self, YGEdge::Left, style.left; YGNodeStyleSetPosition YGNodeStyleSetPositionPercent);
-
-        // flex
-        unsafe { YGNodeStyleSetFlexGrow(self.0, style.flex_grow) }
-        unsafe { YGNodeStyleSetFlexShrink(self.0, style.flex_shrink) }
-        set_dim!(self, style.flex_basis; YGNodeStyleSetFlexBasis YGNodeStyleSetFlexBasisPercent YGNodeStyleSetFlexBasisAuto);
-        unsafe { YGNodeStyleSetFlexDirection(self.0, style.flex_direction) }
-        unsafe { YGNodeStyleSetFlexWrap(self.0, style.flex_wrap) }
-        unsafe { YGNodeStyleSetAlignContent(self.0, style.align_content) }
-        unsafe { YGNodeStyleSetAlignItems(self.0, style.align_items) }
-        unsafe { YGNodeStyleSetAlignSelf(self.0, style.align_self) }
-        unsafe { YGNodeStyleSetJustifyContent(self.0, style.justify_content) }
-
-        // TODO: overflow
-
-        // other
-        unsafe { YGNodeStyleSetDisplay(self.0, style.display) }
-    }
-
-    pub fn insert_child(&self, child: &LayoutNode, index: usize) {
-        unsafe { YGNodeInsertChild(self.0, child.0, index.try_into().unwrap()) }
-    }
-
-    pub fn remove_child(&self, child: &LayoutNode) {
-        unsafe { YGNodeRemoveChild(self.0, child.0) }
-    }
-
-    pub fn calculate(&self, avail_size: (f32, f32)) {
-        unsafe { YGNodeCalculateLayout(self.0, avail_size.0, avail_size.1, YGDirection::LTR) }
-    }
-
-    #[inline]
-    pub fn offset(&self) -> (f32, f32) {
-        unsafe { (YGNodeLayoutGetLeft(self.0), YGNodeLayoutGetTop(self.0)) }
-    }
-
-    #[inline]
-    pub fn size(&self) -> (f32, f32) {
-        unsafe { (YGNodeLayoutGetWidth(self.0), YGNodeLayoutGetHeight(self.0)) }
+        root
     }
 }
 
-impl Drop for LayoutNode {
-    fn drop(&mut self) {
-        // TODO: drop measure
+pub struct LayoutBox {
+    // TODO: &Node? NodeId?
+    style: LayoutStyle,
+    pub(crate) text: Option<Text>,
 
-        unsafe { YGNodeFree(self.0) }
+    x: f32,
+    y: f32,
+    // "inner" size, without padding & border
+    size: Size<f32>,
+    children: Vec<LayoutBox>,
+
+    // helpers
+    // min_size: Size<f32>,
+    // max_size: Size<f32>,
+    padding: Rect<f32>,
+    margin: Rect<f32>,
+    border: Rect<f32>,
+}
+
+impl LayoutBox {
+    pub fn x(&self) -> f32 {
+        self.x
+    }
+
+    pub fn y(&self) -> f32 {
+        self.y
+    }
+
+    pub fn width(&self) -> f32 {
+        self.size.width + self.padding.left + self.padding.right + self.border.left + self.border.right
+    }
+
+    pub fn height(&self) -> f32 {
+        self.size.height + self.padding.top + self.padding.bottom + self.border.top + self.border.bottom
+    }
+
+    pub fn children(&self) -> &[Self] {
+        &self.children
     }
 }
 
-unsafe extern "C" fn measure_node<F: Fn(f32) -> (f32, f32)>(
-    node: YGNodeRef,
-    w: f32,
-    wm: YGMeasureMode,
-    _h: f32,
-    _hm: YGMeasureMode,
-) -> YGSize {
-    let max_width = match wm {
-        YGMeasureMode::Exactly => w,
-        YGMeasureMode::AtMost => w,
-        YGMeasureMode::Undefined => std::f32::MAX,
-    };
+// TODO: vw, vh, vmin, vmax, rem
+struct Ctx {}
 
-    let measure: *mut F = YGNodeGetContext(node) as _;
-    let size = (*measure)(max_width);
+impl Ctx {
+    fn resolve(&self, dim: Dimension, base: f32) -> f32 {
+        match dim {
+            Dimension::Px(v) => v,
+            Dimension::Percent(v) => base * v,
+            _ => f32::NAN
+        }
+    }
 
-    YGSize {
-        width: match wm {
-            YGMeasureMode::Exactly => w,
-            _ => size.0,
-        },
-        height: size.1,
+    fn resolve_size(&self, size: Size<Dimension>, parent_size: Size<f32>) -> Size<f32> {
+        Size { width: self.resolve(size.width, parent_size.width), height: self.resolve(size.height, parent_size.height) }
+    }
+
+    fn resolve_rect(&self, rect: Rect<Dimension>, base: f32) -> Rect<f32> {
+        Rect { top: self.resolve(rect.top, base), right: self.resolve(rect.top, base), bottom: self.resolve(rect.top, base), left: self.resolve(rect.top, base) }
+    }
+
+    fn compute_box(&self, layout_box: &mut LayoutBox, parent_size: Size<f32>) {
+        layout_box.size = self.resolve_size(layout_box.style.size, parent_size);
+        // layout_box.min_size = self.resolve_size(layout_box.style.min_size, parent_size);
+        // layout_box.max_size = self.resolve_size(layout_box.style.max_size, parent_size);
+        layout_box.padding = self.resolve_rect(layout_box.style.padding, parent_size.width);
+        layout_box.margin = self.resolve_rect(layout_box.style.margin, parent_size.width);
+        layout_box.border = self.resolve_rect(layout_box.style.border, parent_size.width);
+
+        //println!("compute_box {:?}", layout_box.style.display);
+        match layout_box.style.display {
+            // TODO: maybe do not create box? is it worth?
+            Display::None => {},
+            Display::Inline => self.compute_inline(layout_box, parent_size),
+            Display::Block => self.compute_block(layout_box, parent_size),
+            Display::Flex => self.compute_flex(layout_box, parent_size),
+        }
+
+        // TODO: this is because of Display::None
+        if layout_box.size.height.is_nan() {
+            layout_box.size.height = 0.;
+        }
+    }
+
+    fn compute_inline(&self, inline: &mut LayoutBox, avail_size: Size<f32>) {
+        if let Some(text) = &inline.text {
+            let (width, height) = text.measure(avail_size.width);
+            inline.size = Size { width, height };
+        }
+    }
+
+    fn compute_block(&self, block: &mut LayoutBox, parent_size: Size<f32>) {
+        if block.size.width.is_nan() {
+            block.size.width = parent_size.width;
+        }
+
+        let mut y = block.padding.top;
+
+        // TODO: filter position != absolute/fixed
+        for child in &mut block.children {
+            self.compute_box(child, parent_size);
+            child.y = y;
+            child.x = block.padding.left;
+
+            y += child.size.height;
+        }
+
+        if block.size.height.is_nan() {
+            block.size.height = block.children.iter().map(|ch| ch.size.height).sum();
+        }
+
+        println!("{:?}", block.size);
+        // // TODO: add padding_x + border_x to defined width/height
+        // block.size.width = self.resolve(block.style.size.width, parent_size.width).unwrap_or(avail_size.width);
+
+        // let avail_size = block.size; // TODO - padding_x - border_x
+        // let mut y = 0.;
+
+        // for ch in &mut block.children {
+        //     // TODO - margin_x
+        //     self.compute_box(ch, avail_size, block.size);
+
+        //     // TODO: collapsing
+        //     // TODO: y += margin.top
+
+        //     // TODO: ch.y = ...
+        // }
+
+        // // TODO: add padding_y + border_y to defined width/height
+        // block.size.height = self.resolve(block.style.size.height, parent_size.height).unwrap_or(inner_size.height)
+    }
+
+    fn compute_flex(&self, flex: &mut LayoutBox, parent_size: Size<f32>) {
+        // TODO: determine_available_space(), distribute_free_space(), etc.
+        self.compute_block(flex, parent_size);
+    }
+}
+
+fn create_box<'a>(node: &'a LayoutNode) -> LayoutBox {
+    LayoutBox {
+        style: node.style,
+        text: node.text.clone(),
+        children: node.children.iter().map(create_box).collect(),
+        x: 0.,
+        y: 0.,
+        size: Size { width: 0., height: 0. },
+        // min_size: Size { width: 0., height: 0. },
+        // max_size: Size { width: 0., height: 0. },
+        padding: Rect { top: 0., right: 0., bottom: 0., left: 0. },
+        margin: Rect { top: 0., right: 0., bottom: 0., left: 0. },
+        border: Rect { top: 0., right: 0., bottom: 0., left: 0. },
     }
 }

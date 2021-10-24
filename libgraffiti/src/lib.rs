@@ -4,7 +4,7 @@ mod util;
 mod app;
 mod css;
 mod dom;
-//mod layout;
+mod layout;
 mod renderer;
 mod webview;
 mod window;
@@ -20,6 +20,3 @@ pub use self::{
 pub mod gfx;
 
 mod ffi;
-
-// /// cbindgen:ignore
-//mod nodejs;

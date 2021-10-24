@@ -108,6 +108,8 @@ impl Drop for App {
     }
 }
 
+// TODO: this is wrong, it should be just an Id and access should only be possible
+//       through with() but some methods on Window are thread-safe so I don't know
 // wrapper for !Send resources
 #[derive(Clone)]
 pub(crate) struct AppOwned<T: Clone>(pub(crate) T);
