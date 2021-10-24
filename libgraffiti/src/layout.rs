@@ -1,4 +1,4 @@
-
+use crate::gfx::Text;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Display { None, Inline, Block, Flex }
@@ -59,13 +59,16 @@ pub struct LayoutStyle {
 impl Default for LayoutStyle {
     fn default() -> Self {
         Self {
-            display: Display::Inline,
+            // TODO: make it Inline when cascading works
+            display: Display::Block,
             size: Size::AUTO,
             min_size: Size::AUTO,
             max_size: Size::AUTO,
             padding: Rect::ZERO,
             margin: Rect::ZERO,
             border: Rect::ZERO,
+            // TODO: position
+            // TODO: overflow
 
             align_self: Align::Auto,
             align_items: Align::Stretch,
@@ -81,6 +84,72 @@ impl Default for LayoutStyle {
     }
 }
 
+pub(crate) struct LayoutNode {
+    style: LayoutStyle,
+    text: Option<Text>,
+    children: Vec<Self>
+}
+
+impl LayoutNode {
+    pub(crate) fn new(style: LayoutStyle, children: Vec<Self>) -> Self {
+        Self { style, text: None, children }
+    }
+
+    pub(crate) fn new_text(text: Text) -> Self {
+        Self { style: LayoutStyle::default(), text: Some(text), children: vec![] }
+    }
+
+    pub(crate) fn calculate(&self, viewport_size: Size<f32>) -> LayoutBox {
+        // create "boxes" first
+        // TODO: this can be incremental, it also should remove hidden/empty parts, join texts together, etc.
+        let mut root = create_box(self);
+
+        let ctx = Ctx {};
+        ctx.compute_box(&mut root, viewport_size);
+
+        root
+    }
+}
+
+pub struct LayoutBox {
+    // TODO: &Node? NodeId?
+    style: LayoutStyle,
+    pub(crate) text: Option<Text>,
+
+    x: f32,
+    y: f32,
+    // "inner" size, without padding & border
+    size: Size<f32>,
+    children: Vec<LayoutBox>,
+
+    // helpers
+    // min_size: Size<f32>,
+    // max_size: Size<f32>,
+    padding: Rect<f32>,
+    margin: Rect<f32>,
+    border: Rect<f32>,
+}
+
+impl LayoutBox {
+    pub fn x(&self) -> f32 {
+        self.x
+    }
+
+    pub fn y(&self) -> f32 {
+        self.y
+    }
+
+    pub fn width(&self) -> f32 {
+        self.size.width + self.padding.left + self.padding.right + self.border.left + self.border.right
+    }
+
+    pub fn height(&self) -> f32 {
+        self.size.height + self.padding.top + self.padding.bottom + self.border.top + self.border.bottom
+    }
+
+    pub fn children(&self) -> &[Self] {
+        &self.children
+    }
 }
 
 // TODO: vw, vh, vmin, vmax, rem
@@ -103,140 +172,95 @@ impl Ctx {
         Rect { top: self.resolve(rect.top, base), right: self.resolve(rect.top, base), bottom: self.resolve(rect.top, base), left: self.resolve(rect.top, base) }
     }
 
-}
+    fn compute_box(&self, layout_box: &mut LayoutBox, parent_size: Size<f32>) {
+        layout_box.size = self.resolve_size(layout_box.style.size, parent_size);
+        // layout_box.min_size = self.resolve_size(layout_box.style.min_size, parent_size);
+        // layout_box.max_size = self.resolve_size(layout_box.style.max_size, parent_size);
+        layout_box.padding = self.resolve_rect(layout_box.style.padding, parent_size.width);
+        layout_box.margin = self.resolve_rect(layout_box.style.margin, parent_size.width);
+        layout_box.border = self.resolve_rect(layout_box.style.border, parent_size.width);
 
-
-
-/*
-// TODO: eventually replace this with own layout engine
-//
-// x independent, easy to test
-// x set all props at once
-// x calculate & provide box bounds for rendering
-// x bounds relative to their parents
-// x node/leaf type cannot be changed
-
-#![allow(unused)]
-
-use graffiti_yoga::*;
-use std::convert::TryInto;
-
-pub struct LayoutStyle {
-
-    // position
-    pub position: Position,
-    pub top: Dimension,
-    pub right: Dimension,
-    pub bottom: Dimension,
-    pub left: Dimension,
-
-    // overflow
-    pub overflow_x: Overflow,
-    pub overflow_y: Overflow,
-}
-
-impl Default for LayoutStyle {
-    fn default() -> Self {
-        Self {
-            // position
-            position: Position::Relative,
-            top: Dimension::Undefined,
-            right: Dimension::Undefined,
-            bottom: Dimension::Undefined,
-            left: Dimension::Undefined,
-
-            // overflow
-            overflow_x: Overflow::Visible,
-            overflow_y: Overflow::Visible,
+        //println!("compute_box {:?}", layout_box.style.display);
+        match layout_box.style.display {
+            // TODO: maybe do not create box? is it worth?
+            Display::None => {},
+            Display::Inline => self.compute_inline(layout_box, parent_size),
+            Display::Block => self.compute_block(layout_box, parent_size),
+            Display::Flex => self.compute_flex(layout_box, parent_size),
         }
-    }
-}
 
-pub type Overflow = YGOverflow;
-pub type Position = YGPositionType;
-
-#[derive(Debug)]
-pub struct LayoutNode(YGNodeRef);
-
-impl LayoutNode {
-    pub fn new() -> Self {
-        Self(unsafe { YGNodeNew() })
-    }
-
-    pub fn new_leaf<F: Fn(f32) -> (f32, f32)>(measure: F) -> Self {
-        unsafe {
-            let node = YGNodeNew();
-
-            YGNodeSetMeasureFunc(node, Some(measure_node::<F>));
-            // TODO: drop
-            YGNodeSetContext(node, Box::into_raw(Box::new(measure)) as _);
-
-            Self(node)
+        // TODO: this is because of Display::None
+        if layout_box.size.height.is_nan() {
+            layout_box.size.height = 0.;
         }
     }
 
-    pub fn mark_dirty(&self) {
-        unsafe { YGNodeMarkDirty(self.0) }
+    fn compute_inline(&self, inline: &mut LayoutBox, avail_size: Size<f32>) {
+        if let Some(text) = &inline.text {
+            let (width, height) = text.measure(avail_size.width);
+            inline.size = Size { width, height };
+        }
     }
 
-    pub fn set_style(&self, style: LayoutStyle) {
-        // TODO: overflow
+    fn compute_block(&self, block: &mut LayoutBox, parent_size: Size<f32>) {
+        if block.size.width.is_nan() {
+            block.size.width = parent_size.width;
+        }
+
+        let mut y = block.padding.top;
+
+        // TODO: filter position != absolute/fixed
+        for child in &mut block.children {
+            self.compute_box(child, parent_size);
+            child.y = y;
+            child.x = block.padding.left;
+
+            y += child.size.height;
+        }
+
+        if block.size.height.is_nan() {
+            block.size.height = block.children.iter().map(|ch| ch.size.height).sum();
+        }
+
+        println!("{:?}", block.size);
+        // // TODO: add padding_x + border_x to defined width/height
+        // block.size.width = self.resolve(block.style.size.width, parent_size.width).unwrap_or(avail_size.width);
+
+        // let avail_size = block.size; // TODO - padding_x - border_x
+        // let mut y = 0.;
+
+        // for ch in &mut block.children {
+        //     // TODO - margin_x
+        //     self.compute_box(ch, avail_size, block.size);
+
+        //     // TODO: collapsing
+        //     // TODO: y += margin.top
+
+        //     // TODO: ch.y = ...
+        // }
+
+        // // TODO: add padding_y + border_y to defined width/height
+        // block.size.height = self.resolve(block.style.size.height, parent_size.height).unwrap_or(inner_size.height)
     }
 
-    pub fn insert_child(&self, child: &LayoutNode, index: usize) {
-        unsafe { YGNodeInsertChild(self.0, child.0, index.try_into().unwrap()) }
-    }
-
-    pub fn remove_child(&self, child: &LayoutNode) {
-        unsafe { YGNodeRemoveChild(self.0, child.0) }
-    }
-
-    pub fn calculate(&self, avail_size: (f32, f32)) {
-        unsafe { YGNodeCalculateLayout(self.0, avail_size.0, avail_size.1, YGDirection::LTR) }
-    }
-
-    #[inline]
-    pub fn offset(&self) -> (f32, f32) {
-        unsafe { (YGNodeLayoutGetLeft(self.0), YGNodeLayoutGetTop(self.0)) }
-    }
-
-    #[inline]
-    pub fn size(&self) -> (f32, f32) {
-        unsafe { (YGNodeLayoutGetWidth(self.0), YGNodeLayoutGetHeight(self.0)) }
-    }
-}
-
-impl Drop for LayoutNode {
-    fn drop(&mut self) {
-        // TODO: drop measure
-
-        unsafe { YGNodeFree(self.0) }
-    }
-}
-
-unsafe extern "C" fn measure_node<F: Fn(f32) -> (f32, f32)>(
-    node: YGNodeRef,
-    w: f32,
-    wm: YGMeasureMode,
-    _h: f32,
-    _hm: YGMeasureMode,
-) -> YGSize {
-    let max_width = match wm {
-        YGMeasureMode::Exactly => w,
-        YGMeasureMode::AtMost => w,
-        YGMeasureMode::Undefined => std::f32::MAX,
-    };
-
-    let measure: *mut F = YGNodeGetContext(node) as _;
-    let size = (*measure)(max_width);
-
-    YGSize {
-        width: match wm {
-            YGMeasureMode::Exactly => w,
-            _ => size.0,
-        },
-        height: size.1,
+    fn compute_flex(&self, flex: &mut LayoutBox, parent_size: Size<f32>) {
+        // TODO: determine_available_space(), distribute_free_space(), etc.
+        self.compute_block(flex, parent_size);
     }
 }
-*/
 
+fn create_box<'a>(node: &'a LayoutNode) -> LayoutBox {
+    LayoutBox {
+        style: node.style,
+        text: node.text.clone(),
+        children: node.children.iter().map(create_box).collect(),
+        x: 0.,
+        y: 0.,
+        size: Size { width: 0., height: 0. },
+        // min_size: Size { width: 0., height: 0. },
+        // max_size: Size { width: 0., height: 0. },
+        padding: Rect { top: 0., right: 0., bottom: 0., left: 0. },
+        margin: Rect { top: 0., right: 0., bottom: 0., left: 0. },
+        border: Rect { top: 0., right: 0., bottom: 0., left: 0. },
+    }
+}
