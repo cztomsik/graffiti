@@ -96,7 +96,7 @@ impl LayoutNode {
     }
 
     pub(crate) fn new_text(text: Text) -> Self {
-        Self { style: LayoutStyle::default(), text: Some(text), children: vec![] }
+        Self { style: LayoutStyle { display: Display::Inline, ..LayoutStyle::default() }, text: Some(text), children: vec![] }
     }
 
     pub(crate) fn calculate(&self, viewport_size: Size<f32>) -> LayoutBox {
@@ -198,6 +198,7 @@ impl Ctx {
     fn compute_inline(&self, inline: &mut LayoutBox, avail_size: Size<f32>) {
         if let Some(text) = &inline.text {
             let (width, height) = text.measure(avail_size.width);
+            println!("measure {} {:?}", text.text(), height);
             inline.size = Size { width, height };
         }
     }
