@@ -548,13 +548,13 @@ mod tests {
         let div = doc.create_element("div");
 
         div.set_attribute("style", "display: block");
-        //assert_eq!(div.style().css_text(), "display: block");
+        assert_eq!(div.style().css_text(), "display:block;");
 
-        //div.style().set_property("width", "100px");
-        assert_eq!(div.attribute("style").as_deref(), Some("display: block; width: 100px"));
+        div.style().set_property("width", "100px");
+        assert_eq!(div.attribute("style").as_deref(), Some("display:block;width:100px;"));
 
         div.remove_attribute("style");
-        //assert_eq!(div.style().css_text(), "");
+        assert_eq!(div.style().css_text(), "");
     }
 
     #[test]

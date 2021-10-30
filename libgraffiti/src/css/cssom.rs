@@ -7,16 +7,15 @@ use std::cell::{Ref, RefCell};
 use std::fmt::Write;
 use std::mem::discriminant;
 
-// TODO: for !important we could be fine with bitflags and 1 << prop.id() as u32 to figure out the bit to flip/check
-// TODO: notify Option<Box<dyn Fn()>>
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct CssStyleSheet {
     pub(super) rules: Vec<CssStyleRule>,
 }
 
 impl CssStyleSheet {
     pub fn new() -> Self {
-        Self { rules: vec![] }
+    pub fn rules(&self) -> &[CssStyleRule] {
+        &self.rules
     }
 
     pub fn insert_rule(&mut self, rule: CssStyleRule, index: usize) {
@@ -38,7 +37,7 @@ impl From<&str> for CssStyleSheet {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CssStyleRule {
     pub(crate) selector: Selector,
     style: CssStyleDeclaration,
@@ -54,6 +53,8 @@ impl CssStyleRule {
     }
 }
 
+// TODO: for !important we could be fine with bitflags and 1 << prop.id() as u32 to figure out the bit to flip/check
+// TODO: notify Option<Box<dyn Fn()>>
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct CssStyleDeclaration {
     pub(super) props: RefCell<Vec<StyleProp>>,
@@ -71,12 +72,12 @@ impl CssStyleDeclaration {
     }
 
     pub fn item(&self, index: usize) -> Option<&str> {
-        self.props.borrow().get(index).map(StyleProp::name)
+        self.props.borrow().get(index).map(StyleProp::css_name)
     }
 
     pub fn property_value(&self, prop: &str) -> Option<String> {
-        if let Some(prop) = self.props.borrow().iter().find(|p| p.name() == prop) {
-            return Some(prop.value_as_string());
+        if let Some(prop) = self.props.borrow().iter().find(|p| p.css_name() == prop) {
+            return Some(prop.css_value());
         }
 
         self.shorthand_value(prop)
@@ -90,12 +91,12 @@ impl CssStyleDeclaration {
     }
 
     pub fn remove_property(&self, prop: &str) {
-        self.props.borrow_mut().retain(|p| p.name() == prop);
+        self.props.borrow_mut().retain(|p| p.css_name() == prop);
     }
 
     pub fn css_text(&self) -> String {
         self.props().iter().fold(String::new(), |mut s, p| {
-            write!(s, "{}: {};", p.name(), p.value_as_string()).unwrap();
+            write!(s, "{}:{};", p.css_name(), p.css_value()).unwrap();
             s
         })
     }
@@ -140,7 +141,7 @@ mod tests {
         let s = CssStyleDeclaration::new();
 
         s.set_css_text("display: block;");
-        assert_eq!(&s.css_text(), "display: block;")
+        assert_eq!(&s.css_text(), "display:block;")
     }
 
     #[test]

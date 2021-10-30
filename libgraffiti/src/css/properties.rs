@@ -17,24 +17,24 @@ macro_rules! css_properties {
         }
 
         #[derive(Debug, Clone, PartialEq)]
-        pub(crate) enum StyleProp {
+        pub enum StyleProp {
             $($variant($value_type),)*
         }
 
         impl StyleProp {
-            pub fn id(&self) -> StylePropId {
+            pub(crate) fn id(&self) -> StylePropId {
                 match self {
                     $(Self::$variant(_) => StylePropId::$variant,)*
                 }
             }
 
-            pub fn name(&self) -> &'static str {
+            pub fn css_name(&self) -> &'static str {
                 match self {
                     $(Self::$variant(_) => $name,)*
                 }
             }
 
-            pub(super) fn value_as_string(&self) -> String {
+            pub fn css_value(&self) -> String {
                 let v: &dyn std::fmt::Display = match self {
                     $(Self::$variant(ref v) => v),*
                 };
