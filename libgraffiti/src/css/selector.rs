@@ -152,37 +152,11 @@ impl From<&str> for Selector {
     }
 }
 
-/*
-pub struct SelectorMask(u32);
 
-impl SelectorMask {
-    const BITS: usize = core::mem::size_of::<usize>() * 8;
 
-    pub fn includes(&self, other: SelectorMask) -> bool {
-        (self.0 & other.0) != 0
-    }
-}
 
-impl<'a, T: IntoIterator<Item = &'a Atom<Tag>>> From<T> for SelectorMask {
-    fn from(tags: T) -> Self {
-        use std::hash::{Hash, Hasher};
 
-        // TODO: maybe it could be oneliner too (fold)
-        let hash = |tag: &Tag| {
-            let mut hasher = fnv::FnvHasher::default();
-            tag.hash(&mut hasher);
-            hasher.finish()
-        };
 
-        // TODO: test
-        // TODO: zero?
-        Self(
-            tags.into_iter()
-                .fold(0, |res, t| res | 1 << (hash(t) as usize - 1) % Self::BITS),
-        )
-    }
-}
-*/
 
 #[cfg(test)]
 mod tests {

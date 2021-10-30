@@ -80,7 +80,12 @@ impl NodeRef {
 
     // TODO: avoid collect(), return impl Iterator<Item = NodeRef>
     pub fn child_nodes(&self) -> Vec<NodeRef> {
-        self.store.tree.borrow().children(self.id).map(move |id| self.store.node_ref(id)).collect()
+        self.store
+            .tree
+            .borrow()
+            .children(self.id)
+            .map(move |id| self.store.node_ref(id))
+            .collect()
     }
 
     pub fn append_child(&self, child: &NodeRef) {
