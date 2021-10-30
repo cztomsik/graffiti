@@ -171,7 +171,6 @@ export abstract class Element extends Node implements globalThis.Element {
   clientLeft
   clientTop
   clientWidth
-  closest
   getAnimations
   getAttributeNode
   getAttributeNodeNS
@@ -183,6 +182,11 @@ export abstract class Element extends Node implements globalThis.Element {
   insertAdjacentHTML
   insertAdjacentText
   msGetRegionContent
+  offsetHeight
+  offsetLeft
+  offsetParent
+  offsetTop
+  offsetWidth
   part
   prefix
   releasePointerCapture

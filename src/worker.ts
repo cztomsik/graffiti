@@ -40,7 +40,7 @@ async function handleMessage(msg) {
       case 'eval':
         return send(eval.call(null, msg.js))
     }
-  } catch (e) {
+  } catch (e: any) {
     send(undefined, `${e}\n${e.stack}`)
   }
 }
