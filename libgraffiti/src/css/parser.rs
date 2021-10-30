@@ -11,7 +11,7 @@
 
 use super::{
     Combinator, Component, CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssOverflow, CssStyleDeclaration,
-    CssStyleRule, CssStyleSheet, Selector, SelectorPart,
+    CssStyleRule, CssStyleSheet, Selector, SelectorPart, NAMED_COLORS
 };
 use crate::util::Atom;
 use pom::char_class::alphanum;
@@ -202,7 +202,7 @@ pub(super) fn color<'a>() -> Parser<'a, CssColor> {
             .map(|(((r, g), b), a)| CssColor::from_rgba8(r, g, b, (255. * a) as _))
         - sym(")");
 
-    let named_color = ident().convert(|name| CssColor::NAMED_COLORS.get(name).copied().ok_or("unknown named color"));
+    let named_color = ident().convert(|name| NAMED_COLORS.get(name).copied().ok_or("unknown named color"));
 
     hex_color | rgb | rgba | named_color
 }
