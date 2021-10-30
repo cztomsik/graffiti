@@ -119,7 +119,7 @@ impl<T, Q> PartialEq<Q> for Atom<T>
 where
     T: 'static + Eq + Hash + Borrow<Q>,
     Q: ?Sized + Eq + Hash,
-    Wrap<T>: Borrow<Q>
+    Wrap<T>: Borrow<Q>,
 {
     fn eq(&self, other: &Q) -> bool {
         Q::eq(self.deref().borrow(), other)
@@ -128,13 +128,19 @@ where
 
 impl<T: Display + Eq + Hash> Display for Atom<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f, "{}", self.0 .0)
+        self.0 .0.fmt(f)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn size() {
+        use std::mem::size_of;
+        assert_eq!(size_of::<Option<Atom<String>>>(), size_of::<usize>())
+    }
 
     #[test]
     fn eq() {
