@@ -1,7 +1,7 @@
 // supported CSS props
 
 use super::parser::{
-    background, box_shadow, color, dimension, flex, float, font_family, outline, overflow, sides_of, try_from,
+    background, box_shadow, color, css_enum, dimension, flex, float, font_family, outline, overflow, sides_of,
 };
 use super::{
     CssAlign, CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap,
@@ -86,16 +86,16 @@ css_properties! {
 
     // border
     ("border-top-width", dimension()) => BorderTopWidth(CssDimension),
-    ("border-top-style", try_from()) => BorderTopStyle(CssBorderStyle),
+    ("border-top-style", css_enum()) => BorderTopStyle(CssBorderStyle),
     ("border-top-color", color()) => BorderTopColor(CssColor),
     ("border-right-width", dimension()) => BorderRightWidth(CssDimension),
-    ("border-right-style", try_from()) => BorderRightStyle(CssBorderStyle),
+    ("border-right-style", css_enum()) => BorderRightStyle(CssBorderStyle),
     ("border-right-color", color()) => BorderRightColor(CssColor),
     ("border-bottom-width", dimension()) => BorderBottomWidth(CssDimension),
-    ("border-bottom-style", try_from()) => BorderBottomStyle(CssBorderStyle),
+    ("border-bottom-style", css_enum()) => BorderBottomStyle(CssBorderStyle),
     ("border-bottom-color", color()) => BorderBottomColor(CssColor),
     ("border-left-width", dimension()) => BorderLeftWidth(CssDimension),
-    ("border-left-style", try_from()) => BorderLeftStyle(CssBorderStyle),
+    ("border-left-style", css_enum()) => BorderLeftStyle(CssBorderStyle),
     ("border-left-color", color()) => BorderLeftColor(CssColor),
 
     // shadow
@@ -105,40 +105,40 @@ css_properties! {
     ("flex-grow", float()) => FlexGrow(f32),
     ("flex-shrink", float()) => FlexShrink(f32),
     ("flex-basis", dimension()) => FlexBasis(CssDimension),
-    ("flex-direction", try_from()) => FlexDirection(CssFlexDirection),
-    ("flex-wrap", try_from()) => FlexWrap(CssFlexWrap),
-    ("align-content", try_from()) => AlignContent(CssAlign),
-    ("align-items", try_from()) => AlignItems(CssAlign),
-    ("align-self", try_from()) => AlignSelf(CssAlign),
-    ("justify-content", try_from()) => JustifyContent(CssJustify),
+    ("flex-direction", css_enum()) => FlexDirection(CssFlexDirection),
+    ("flex-wrap", css_enum()) => FlexWrap(CssFlexWrap),
+    ("align-content", css_enum()) => AlignContent(CssAlign),
+    ("align-items", css_enum()) => AlignItems(CssAlign),
+    ("align-self", css_enum()) => AlignSelf(CssAlign),
+    ("justify-content", css_enum()) => JustifyContent(CssJustify),
 
     // text
     ("font-family", font_family()) => FontFamily(Atom<String>),
     ("font-size", dimension()) => FontSize(CssDimension),
     ("line-height", dimension()) => LineHeight(CssDimension),
-    ("text-align", try_from()) => TextAlign(CssTextAlign),
+    ("text-align", css_enum()) => TextAlign(CssTextAlign),
     ("color", color()) => Color(CssColor),
 
     // outline
     ("outline-color", color()) => OutlineColor(CssColor),
-    ("outline-style", try_from()) => OutlineStyle(CssBorderStyle),
+    ("outline-style", css_enum()) => OutlineStyle(CssBorderStyle),
     ("outline-width", dimension()) => OutlineWidth(CssDimension),
 
     // overflow
-    ("overflow-x", try_from()) => OverflowX(CssOverflow),
-    ("overflow-y", try_from()) => OverflowY(CssOverflow),
+    ("overflow-x", css_enum()) => OverflowX(CssOverflow),
+    ("overflow-y", css_enum()) => OverflowY(CssOverflow),
 
     // position
-    ("position", try_from()) => Position(CssPosition),
+    ("position", css_enum()) => Position(CssPosition),
     ("top", dimension()) => Top(CssDimension),
     ("right", dimension()) => Right(CssDimension),
     ("bottom", dimension()) => Bottom(CssDimension),
     ("left", dimension()) => Left(CssDimension),
 
     // other
-    ("display", try_from()) => Display(CssDisplay),
+    ("display", css_enum()) => Display(CssDisplay),
     ("opacity", float()) => Opacity(f32),
-    ("visibility", try_from()) => Visibility(CssVisibility),
+    ("visibility", css_enum()) => Visibility(CssVisibility),
 }
 
 macro_rules! css_shorthands {
@@ -177,7 +177,7 @@ css_shorthands! {
     // ("border", border()) => (BorderTopWidth, BorderTopStyle, BorderTopColor, BorderRightWidth, BorderRightStyle, BorderRightColor, BorderBottomWidth, BorderBottomStyle, BorderBottomColor, BorderLeftWidth, BorderLeftStyle, BorderLeftColor)
 
     ("border-width", sides_of(dimension())) => (BorderTopWidth, BorderRightWidth, BorderBottomWidth, BorderLeftWidth),
-    ("border-style", sides_of(try_from())) => (BorderTopStyle, BorderRightStyle, BorderBottomStyle, BorderLeftStyle),
+    ("border-style", sides_of(css_enum())) => (BorderTopStyle, BorderRightStyle, BorderBottomStyle, BorderLeftStyle),
     ("border-color", sides_of(color())) => (BorderTopColor, BorderRightColor, BorderBottomColor, BorderLeftColor),
 
     // TODO(maybe): two dimensions

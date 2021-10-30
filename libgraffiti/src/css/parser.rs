@@ -17,7 +17,6 @@ use crate::util::Atom;
 use pom::char_class::alphanum;
 use pom::parser::{any, empty, is_a, list, none_of, one_of, seq, skip, sym};
 use std::convert::TryFrom;
-use std::fmt::Debug;
 
 pub(super) type Parser<'a, T> = pom::parser::Parser<'a, Token<'a>, T>;
 type Token<'a> = &'a str;
@@ -109,10 +108,7 @@ pub(super) fn parse_prop_into<'a>(prop: &str, value: &[&str], style: &CssStyleDe
     }
 }
 
-pub(super) fn try_from<'a, T: 'static + TryFrom<&'a str>>() -> Parser<'a, T>
-where
-    T::Error: Debug,
-{
+pub(super) fn css_enum<'a, T: 'a + TryFrom<&'a str, Error = &'static str>>() -> Parser<'a, T> {
     ident().convert(T::try_from)
 }
 
@@ -148,11 +144,11 @@ pub(super) fn flex<'a>() -> Parser<'a, (f32, f32, CssDimension)> {
 }
 
 pub(super) fn overflow<'a>() -> Parser<'a, (CssOverflow, CssOverflow)> {
-    (try_from() + (sym(" ") * try_from()).opt()).map(|(x, y)| (x, y.unwrap_or(x)))
+    (css_enum() + (sym(" ") * css_enum()).opt()).map(|(x, y)| (x, y.unwrap_or(x)))
 }
 
 pub(super) fn outline<'a>() -> Parser<'a, (CssDimension, CssBorderStyle, CssColor)> {
-    (dimension() + (sym(" ") * try_from()) + (sym(" ") * color())).map(|((dim, style), color)| (dim, style, color))
+    (dimension() + (sym(" ") * css_enum()) + (sym(" ") * color())).map(|((dim, style), color)| (dim, style, color))
 }
 
 pub(super) fn background<'a>() -> Parser<'a, CssColor> {
@@ -550,29 +546,29 @@ mod tests {
 
     #[test]
     fn parse_align() {
-        assert_eq!(try_from().parse(&["auto"]), Ok(CssAlign::Auto));
-        //assert_eq!(try_from().parse(&["start"]), Ok(CssAlign::Start));
-        assert_eq!(try_from().parse(&["flex-start"]), Ok(CssAlign::FlexStart));
-        assert_eq!(try_from().parse(&["center"]), Ok(CssAlign::Center));
-        //assert_eq!(try_from().parse(&["end"]), Ok(CssAlign::End));
-        assert_eq!(try_from().parse(&["flex-end"]), Ok(CssAlign::FlexEnd));
-        assert_eq!(try_from().parse(&["stretch"]), Ok(CssAlign::Stretch));
-        assert_eq!(try_from().parse(&["baseline"]), Ok(CssAlign::Baseline));
-        assert_eq!(try_from().parse(&["space-between"]), Ok(CssAlign::SpaceBetween));
-        assert_eq!(try_from().parse(&["space-around"]), Ok(CssAlign::SpaceAround));
-        //assert_eq!(try_from().parse(&["space-evenly"]), Ok(CssAlign::SpaceEvenly));
+        assert_eq!(css_enum().parse(&["auto"]), Ok(CssAlign::Auto));
+        //assert_eq!(css_enum().parse(&["start"]), Ok(CssAlign::Start));
+        assert_eq!(css_enum().parse(&["flex-start"]), Ok(CssAlign::FlexStart));
+        assert_eq!(css_enum().parse(&["center"]), Ok(CssAlign::Center));
+        //assert_eq!(css_enum().parse(&["end"]), Ok(CssAlign::End));
+        assert_eq!(css_enum().parse(&["flex-end"]), Ok(CssAlign::FlexEnd));
+        assert_eq!(css_enum().parse(&["stretch"]), Ok(CssAlign::Stretch));
+        assert_eq!(css_enum().parse(&["baseline"]), Ok(CssAlign::Baseline));
+        assert_eq!(css_enum().parse(&["space-between"]), Ok(CssAlign::SpaceBetween));
+        assert_eq!(css_enum().parse(&["space-around"]), Ok(CssAlign::SpaceAround));
+        //assert_eq!(css_enum().parse(&["space-evenly"]), Ok(CssAlign::SpaceEvenly));
     }
 
     #[test]
     fn parse_justify() {
-        //assert_eq!(try_from().parse(&["start"]), Ok(CssJustify::Start));
-        assert_eq!(try_from().parse(&["flex-start"]), Ok(CssJustify::FlexStart));
-        assert_eq!(try_from().parse(&["center"]), Ok(CssJustify::Center));
-        //assert_eq!(try_from().parse(&["end"]), Ok(CssJustify::End));
-        assert_eq!(try_from().parse(&["flex-end"]), Ok(CssJustify::FlexEnd));
-        assert_eq!(try_from().parse(&["space-between"]), Ok(CssJustify::SpaceBetween));
-        assert_eq!(try_from().parse(&["space-around"]), Ok(CssJustify::SpaceAround));
-        assert_eq!(try_from().parse(&["space-evenly"]), Ok(CssJustify::SpaceEvenly));
+        //assert_eq!(css_enum().parse(&["start"]), Ok(CssJustify::Start));
+        assert_eq!(css_enum().parse(&["flex-start"]), Ok(CssJustify::FlexStart));
+        assert_eq!(css_enum().parse(&["center"]), Ok(CssJustify::Center));
+        //assert_eq!(css_enum().parse(&["end"]), Ok(CssJustify::End));
+        assert_eq!(css_enum().parse(&["flex-end"]), Ok(CssJustify::FlexEnd));
+        assert_eq!(css_enum().parse(&["space-between"]), Ok(CssJustify::SpaceBetween));
+        assert_eq!(css_enum().parse(&["space-around"]), Ok(CssJustify::SpaceAround));
+        assert_eq!(css_enum().parse(&["space-evenly"]), Ok(CssJustify::SpaceEvenly));
     }
 
     #[test]
@@ -622,72 +618,72 @@ mod tests {
 
     #[test]
     fn parse_border_style() {
-        assert_eq!(try_from().parse(&["none"]), Ok(CssBorderStyle::None));
-        assert_eq!(try_from().parse(&["hidden"]), Ok(CssBorderStyle::Hidden));
-        assert_eq!(try_from().parse(&["dotted"]), Ok(CssBorderStyle::Dotted));
-        assert_eq!(try_from().parse(&["dashed"]), Ok(CssBorderStyle::Dashed));
-        assert_eq!(try_from().parse(&["solid"]), Ok(CssBorderStyle::Solid));
-        assert_eq!(try_from().parse(&["double"]), Ok(CssBorderStyle::Double));
-        assert_eq!(try_from().parse(&["groove"]), Ok(CssBorderStyle::Groove));
-        assert_eq!(try_from().parse(&["ridge"]), Ok(CssBorderStyle::Ridge));
-        assert_eq!(try_from().parse(&["inset"]), Ok(CssBorderStyle::Inset));
-        assert_eq!(try_from().parse(&["outset"]), Ok(CssBorderStyle::Outset));
+        assert_eq!(css_enum().parse(&["none"]), Ok(CssBorderStyle::None));
+        assert_eq!(css_enum().parse(&["hidden"]), Ok(CssBorderStyle::Hidden));
+        assert_eq!(css_enum().parse(&["dotted"]), Ok(CssBorderStyle::Dotted));
+        assert_eq!(css_enum().parse(&["dashed"]), Ok(CssBorderStyle::Dashed));
+        assert_eq!(css_enum().parse(&["solid"]), Ok(CssBorderStyle::Solid));
+        assert_eq!(css_enum().parse(&["double"]), Ok(CssBorderStyle::Double));
+        assert_eq!(css_enum().parse(&["groove"]), Ok(CssBorderStyle::Groove));
+        assert_eq!(css_enum().parse(&["ridge"]), Ok(CssBorderStyle::Ridge));
+        assert_eq!(css_enum().parse(&["inset"]), Ok(CssBorderStyle::Inset));
+        assert_eq!(css_enum().parse(&["outset"]), Ok(CssBorderStyle::Outset));
     }
 
     #[test]
     fn parse_display() {
-        assert_eq!(try_from().parse(&["none"]), Ok(CssDisplay::None));
-        assert_eq!(try_from().parse(&["block"]), Ok(CssDisplay::Block));
-        assert_eq!(try_from().parse(&["inline"]), Ok(CssDisplay::Inline));
-        assert_eq!(try_from().parse(&["flex"]), Ok(CssDisplay::Flex));
+        assert_eq!(css_enum().parse(&["none"]), Ok(CssDisplay::None));
+        assert_eq!(css_enum().parse(&["block"]), Ok(CssDisplay::Block));
+        assert_eq!(css_enum().parse(&["inline"]), Ok(CssDisplay::Inline));
+        assert_eq!(css_enum().parse(&["flex"]), Ok(CssDisplay::Flex));
     }
 
     #[test]
     fn parse_flex_direction() {
-        assert_eq!(try_from().parse(&["row"]), Ok(CssFlexDirection::Row));
-        assert_eq!(try_from().parse(&["column"]), Ok(CssFlexDirection::Column));
-        assert_eq!(try_from().parse(&["row-reverse"]), Ok(CssFlexDirection::RowReverse));
+        assert_eq!(css_enum().parse(&["row"]), Ok(CssFlexDirection::Row));
+        assert_eq!(css_enum().parse(&["column"]), Ok(CssFlexDirection::Column));
+        assert_eq!(css_enum().parse(&["row-reverse"]), Ok(CssFlexDirection::RowReverse));
         assert_eq!(
-            try_from().parse(&["column-reverse"]),
+            css_enum().parse(&["column-reverse"]),
             Ok(CssFlexDirection::ColumnReverse)
         );
     }
 
     #[test]
     fn parse_flex_wrap() {
-        assert_eq!(try_from().parse(&["nowrap"]), Ok(CssFlexWrap::NoWrap));
-        assert_eq!(try_from().parse(&["wrap"]), Ok(CssFlexWrap::Wrap));
-        assert_eq!(try_from().parse(&["wrap-reverse"]), Ok(CssFlexWrap::WrapReverse));
+        assert_eq!(css_enum().parse(&["nowrap"]), Ok(CssFlexWrap::NoWrap));
+        assert_eq!(css_enum().parse(&["wrap"]), Ok(CssFlexWrap::Wrap));
+        assert_eq!(css_enum().parse(&["wrap-reverse"]), Ok(CssFlexWrap::WrapReverse));
     }
 
     #[test]
     fn parse_overflow() {
-        assert_eq!(try_from().parse(&["visible"]), Ok(CssOverflow::Visible));
-        assert_eq!(try_from().parse(&["hidden"]), Ok(CssOverflow::Hidden));
-        assert_eq!(try_from().parse(&["scroll"]), Ok(CssOverflow::Scroll));
-        assert_eq!(try_from().parse(&["auto"]), Ok(CssOverflow::Auto));
+        assert_eq!(css_enum().parse(&["visible"]), Ok(CssOverflow::Visible));
+        assert_eq!(css_enum().parse(&["hidden"]), Ok(CssOverflow::Hidden));
+        assert_eq!(css_enum().parse(&["scroll"]), Ok(CssOverflow::Scroll));
+        assert_eq!(css_enum().parse(&["auto"]), Ok(CssOverflow::Auto));
     }
 
     #[test]
     fn parse_position() {
-        assert_eq!(try_from().parse(&["static"]), Ok(CssPosition::Static));
-        assert_eq!(try_from().parse(&["relative"]), Ok(CssPosition::Relative));
-        assert_eq!(try_from().parse(&["absolute"]), Ok(CssPosition::Absolute));
-        assert_eq!(try_from().parse(&["sticky"]), Ok(CssPosition::Sticky));
+        assert_eq!(css_enum().parse(&["static"]), Ok(CssPosition::Static));
+        assert_eq!(css_enum().parse(&["relative"]), Ok(CssPosition::Relative));
+        assert_eq!(css_enum().parse(&["absolute"]), Ok(CssPosition::Absolute));
+        assert_eq!(css_enum().parse(&["sticky"]), Ok(CssPosition::Sticky));
     }
 
     #[test]
     fn parse_text_align() {
-        assert_eq!(try_from().parse(&["left"]), Ok(CssTextAlign::Left));
-        assert_eq!(try_from().parse(&["center"]), Ok(CssTextAlign::Center));
-        assert_eq!(try_from().parse(&["right"]), Ok(CssTextAlign::Right));
-        assert_eq!(try_from().parse(&["justify"]), Ok(CssTextAlign::Justify));
+        assert_eq!(css_enum().parse(&["left"]), Ok(CssTextAlign::Left));
+        assert_eq!(css_enum().parse(&["center"]), Ok(CssTextAlign::Center));
+        assert_eq!(css_enum().parse(&["right"]), Ok(CssTextAlign::Right));
+        assert_eq!(css_enum().parse(&["justify"]), Ok(CssTextAlign::Justify));
     }
 
     #[test]
     fn parse_visibility() {
-        assert_eq!(try_from().parse(&["visible"]), Ok(CssVisibility::Visible));
-        assert_eq!(try_from().parse(&["hidden"]), Ok(CssVisibility::Hidden));
-        assert_eq!(try_from().parse(&["collapse"]), Ok(CssVisibility::Collapse));
+        assert_eq!(css_enum().parse(&["visible"]), Ok(CssVisibility::Visible));
+        assert_eq!(css_enum().parse(&["hidden"]), Ok(CssVisibility::Hidden));
+        assert_eq!(css_enum().parse(&["collapse"]), Ok(CssVisibility::Collapse));
     }
 }
