@@ -1,7 +1,7 @@
 use crate::gfx::Text;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Display { None, Inline, Block, Flex, Table, TableRow, TableCell }
+pub enum Display { None, Block, Inline, InlineBlock, Flex, Table, TableRow, TableCell }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Dimension { Auto, Px(f32), /*Fraction*/ Percent(f32) }
@@ -100,6 +100,8 @@ impl LayoutNode {
     }
 
     pub(crate) fn calculate(&self, viewport_size: Size<f32>) -> LayoutBox {
+        println!("-- calculate");
+
         // create "boxes" first
         // TODO: this can be incremental, it also should remove hidden/empty parts, join texts together, etc.
         let mut root = create_box(self);
@@ -184,7 +186,7 @@ impl Ctx {
     fn compute_box(&self, layout_box: &mut LayoutBox, parent_size: Size<f32>) {
         self.init_box(layout_box, parent_size);
 
-        //println!("compute_box {:?}", layout_box.style.display);
+        println!("compute_box {:?}", layout_box.style.display);
         match layout_box.style.display {
             // TODO: maybe do not create box? is it worth?
             Display::None => {}
@@ -204,7 +206,7 @@ impl Ctx {
     fn compute_inline(&self, inline: &mut LayoutBox, avail_size: Size<f32>) {
         if let Some(text) = &inline.text {
             let (width, height) = text.measure(avail_size.width);
-            println!("measure {} {:?}", text.text(), (width, height));
+            //println!("measure {} {:?}", text.text(), (width, height));
             inline.size = Size { width, height };
         }
     }
@@ -228,7 +230,7 @@ impl Ctx {
             block.size.height = block.children.iter().map(|ch| ch.size.height).sum();
         }
 
-        println!("{:?}", block.size);
+        //println!("{:?}", block.size);
     }
 
     fn compute_flex(&self, flex: &mut LayoutBox, parent_size: Size<f32>) {
