@@ -3,9 +3,9 @@
 // x measure(max_width)
 // x for_each_glyph(rect, f)
 
-use std::fmt::{Debug, Formatter};
 use super::{Font, Glyph, GlyphId, ScaleFont, Vec2, AABB, SANS_SERIF_FONT};
 use std::cell::{Ref, RefCell};
+use std::fmt::{Debug, Formatter};
 
 #[derive(Clone)]
 pub struct Text {
@@ -52,6 +52,7 @@ impl Text {
     // TODO: start_x for inline-layout (some el follows on the same line)
     pub fn measure(&self, max_width: f32 /* start_x */) -> (f32, f32) {
         let &SingleLine {
+            last_x,
             ref xglyphs,
             ref break_hints,
         } = &*self.single_line();
@@ -81,7 +82,7 @@ impl Text {
         }
 
         if breaks == 0 {
-            return (xglyphs.last().unwrap().0 * self.style.font_size, self.style.line_height);
+            return (last_x * self.style.font_size, self.style.line_height);
         }
 
         (width, (breaks + 1) as f32 * self.style.line_height)
@@ -165,7 +166,11 @@ impl Text {
                 break_hints.push((i, x));
             }
 
-            self.single_line.replace(Some(SingleLine { xglyphs, break_hints }));
+            self.single_line.replace(Some(SingleLine {
+                last_x: x,
+                xglyphs,
+                break_hints,
+            }));
         }
 
         Ref::map(self.single_line.borrow(), |o| o.as_ref().unwrap())
@@ -178,6 +183,9 @@ fn is_space(ch: char, preserve: bool) -> bool {
 
 #[derive(Debug, Clone)]
 struct SingleLine {
+    // x of last glyph + advance
+    last_x: f32,
+
     // (x, glyph_id) of each glyph when on single line
     xglyphs: Vec<(f32, GlyphId)>,
 
