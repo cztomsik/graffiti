@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 pub struct Renderer {
     document: DocumentRef,
+    ua_sheet: CssStyleSheet,
     window: Arc<Window>,
     backend: GlBackend,
 }
@@ -23,14 +24,13 @@ impl Renderer {
         Self {
             window: Window::find_by_id(win.id()).unwrap(),
             document,
+            ua_sheet: CssStyleSheet::default_ua_sheet(),
             backend,
         }
     }
 
     pub fn render(&self) {
-        //let _sheet = CssStyleSheet::from(include_str!("../resources/ua.css"));
-
-        let layout_tree = layout_node(&self.document.as_node());
+        let layout_tree = self.create_layout_node(&self.document.as_node());
         let box_tree = layout_tree.calculate(Size {
             width: 1024.,
             height: 768.,
@@ -49,6 +49,53 @@ impl Renderer {
 
     pub fn resize(&self, width: f32, height: f32) {
         println!("TODO: Renderer::resize({}, {})", width, height);
+    }
+
+    fn create_layout_node(&self, node: &NodeRef) -> LayoutNode {
+        match node.node_type() {
+            NodeType::Document => self.create_layout_node(&node.first_child().unwrap()),
+            NodeType::Element => {
+                let style = self.resolve_style(&node.downcast_ref::<ElementRef>().unwrap());
+
+                LayoutNode::new(
+                    style.layout_style,
+                    node.child_nodes()
+                        .iter()
+                        .map(|ch| self.create_layout_node(ch))
+                        .collect(),
+                )
+            }
+            NodeType::Text => LayoutNode::new_text(Text::new(
+                &node.downcast_ref::<CharacterDataRef>().unwrap().data(),
+                &TextStyle::DEFAULT,
+            )),
+            _ => LayoutNode::new(LayoutStyle::default(), vec![]),
+        }
+    }
+
+    fn resolve_style(&self, el: &ElementRef) -> ResolvedStyle {
+        let mut resolved_style = ResolvedStyle::default();
+
+        // match ua_sheet
+        for rule in self.ua_sheet.rules() {
+            if let Some(_spec) = rule.selector.match_element(el) {
+                for p in rule.style().props().iter() {
+                    resolved_style.apply_style_prop(p);
+                }
+            }
+        }
+
+        // TODO: match document.style_sheets()
+        // for rule in self.style_sheets.flat_map(CssStyleSheet::rules) {
+        //      if let Some(_spec) = rule.selector.match_element(el) { for p in rule.style().props().iter() { resolved_style.apply_style_prop(p) } }
+        // }
+
+        // append el.style()
+        for p in el.style().props().iter() {
+            resolved_style.apply_style_prop(p);
+        }
+
+        resolved_style
     }
 }
 
@@ -135,109 +182,66 @@ impl<'a> RenderContext<'a> {
     */
 }
 
-/*
-fn style(style: &Style) -> RenderStyle {
-    use super::css::*;
-
-    let mut res = RenderStyle::DEFAULT;
-
-    for p in style.props() {
-        use StyleProp as P;
-
-        match p {
-            P::Display(CssDisplay::None) => res.hidden = true,
-            P::BackgroundColor(c) => res.bg_color = Some([c.r, c.g, c.b, c.a]),
-            P::OutlineColor(c) => {
-                if let Some(o) = &mut res.outline {
-                    o.1 = [c.r, c.g, c.b, c.a];
-                } else {
-                    res.outline = Some((0., [c.r, c.g, c.b, c.a]));
-                }
-            }
-            P::OutlineWidth(CssDimension::Px(w)) => {
-                if let Some(o) = &mut res.outline {
-                    o.0 = *w;
-                } else {
-                    res.outline = Some((*w, [0, 0, 0, 0]));
-                }
-            }
-            _ => {}
-        }
-    }
-
-    res
-}
-*/
-
-fn layout_node(node: &NodeRef) -> LayoutNode {
-    match node.node_type() {
-        NodeType::Document => layout_node(&node.first_child().unwrap()),
-        NodeType::Element => LayoutNode::new(
-            layout_style(&node.downcast_ref::<ElementRef>().unwrap().style()),
-            node.child_nodes().iter().map(layout_node).collect(),
-        ),
-        NodeType::Text => LayoutNode::new_text(Text::new(
-            &node.downcast_ref::<CharacterDataRef>().unwrap().data(),
-            &TextStyle::DEFAULT,
-        )),
-        _ => LayoutNode::new(LayoutStyle::default(), vec![]),
-    }
+#[derive(Default)]
+struct ResolvedStyle {
+    layout_style: LayoutStyle,
+    render_style: RenderStyle,
 }
 
-fn layout_style(style: &CssStyleDeclaration) -> LayoutStyle {
-    let mut res = LayoutStyle::default();
+#[derive(Default)]
+struct RenderStyle {
+    bg_color: RGBA8,
+}
 
-    for p in style.props().iter() {
+impl ResolvedStyle {
+    fn apply_style_prop(&mut self, prop: &StyleProp) {
         use StyleProp::*;
-
-        match p {
+        match prop {
             // size
-            &Width(v) => res.size.width = dimension(v),
-            &Height(v) => res.size.height = dimension(v),
-            &MinWidth(v) => res.min_size.width = dimension(v),
-            &MinHeight(v) => res.min_size.height = dimension(v),
-            &MaxWidth(v) => res.max_size.width = dimension(v),
-            &MaxHeight(v) => res.max_size.height = dimension(v),
+            &Width(v) => self.layout_style.size.width = dimension(v),
+            &Height(v) => self.layout_style.size.height = dimension(v),
+            &MinWidth(v) => self.layout_style.min_size.width = dimension(v),
+            &MinHeight(v) => self.layout_style.min_size.height = dimension(v),
+            &MaxWidth(v) => self.layout_style.max_size.width = dimension(v),
+            &MaxHeight(v) => self.layout_style.max_size.height = dimension(v),
 
             // padding
-            &PaddingTop(v) => res.padding.top = dimension(v),
-            &PaddingRight(v) => res.padding.right = dimension(v),
-            &PaddingBottom(v) => res.padding.bottom = dimension(v),
-            &PaddingLeft(v) => res.padding.left = dimension(v),
+            &PaddingTop(v) => self.layout_style.padding.top = dimension(v),
+            &PaddingRight(v) => self.layout_style.padding.right = dimension(v),
+            &PaddingBottom(v) => self.layout_style.padding.bottom = dimension(v),
+            &PaddingLeft(v) => self.layout_style.padding.left = dimension(v),
 
             // margin
-            &MarginTop(v) => res.margin.top = dimension(v),
-            &MarginRight(v) => res.margin.right = dimension(v),
-            &MarginBottom(v) => res.margin.bottom = dimension(v),
-            &MarginLeft(v) => res.margin.left = dimension(v),
+            &MarginTop(v) => self.layout_style.margin.top = dimension(v),
+            &MarginRight(v) => self.layout_style.margin.right = dimension(v),
+            &MarginBottom(v) => self.layout_style.margin.bottom = dimension(v),
+            &MarginLeft(v) => self.layout_style.margin.left = dimension(v),
 
-            // // position
-            // Position(v) => res.position_type = position_type(v),
-            // Top(v) => res.position.top = dimension(v),
-            // Right(v) => res.position.right = dimension(v),
-            // Bottom(v) => res.position.bottom = dimension(v),
-            // Left(v) => res.position.left = dimension(v),
+            // position
+            // Position(v) => self.layout_style.position_type = position_type(v),
+            // Top(v) => self.layout_style.position.top = dimension(v),
+            // Right(v) => self.layout_style.position.right = dimension(v),
+            // Bottom(v) => self.layout_style.position.bottom = dimension(v),
+            // Left(v) => self.layout_style.position.left = dimension(v),
 
-            // // flex
-            &FlexDirection(v) => res.flex_direction = flex_direction(v),
-            &FlexWrap(v) => res.flex_wrap = flex_wrap(v),
-            &FlexGrow(v) => res.flex_grow = v,
-            &FlexShrink(v) => res.flex_shrink = v,
-            &FlexBasis(v) => res.flex_basis = dimension(v),
-            &AlignContent(v) => res.align_content = align(v),
-            &AlignItems(v) => res.align_items = align(v),
-            &AlignSelf(v) => res.align_self = align(v),
-            &JustifyContent(v) => res.justify_content = justify(v),
+            // flex
+            &FlexDirection(v) => self.layout_style.flex_direction = flex_direction(v),
+            &FlexWrap(v) => self.layout_style.flex_wrap = flex_wrap(v),
+            &FlexGrow(v) => self.layout_style.flex_grow = v,
+            &FlexShrink(v) => self.layout_style.flex_shrink = v,
+            &FlexBasis(v) => self.layout_style.flex_basis = dimension(v),
+            &AlignContent(v) => self.layout_style.align_content = align(v),
+            &AlignItems(v) => self.layout_style.align_items = align(v),
+            &AlignSelf(v) => self.layout_style.align_self = align(v),
+            &JustifyContent(v) => self.layout_style.justify_content = justify(v),
 
             // other
-            &Display(v) => res.display = display(v),
-
+            &Display(v) => self.layout_style.display = display(v),
+            &BackgroundColor(v) => self.render_style.bg_color = [v.r, v.g, v.b, v.a],
             // TODO: remove
             _ => {}
         }
     }
-
-    res
 }
 
 fn display(value: CssDisplay) -> Display {
@@ -246,6 +250,7 @@ fn display(value: CssDisplay) -> Display {
         CssDisplay::Flex => Display::Flex,
         CssDisplay::Block => Display::Block,
         CssDisplay::Inline => Display::Inline,
+        _ => Display::Block,
     }
 }
 
