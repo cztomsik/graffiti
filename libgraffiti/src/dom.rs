@@ -2,9 +2,8 @@
 // x holds the data/truth (tree of nodes)
 // x allows changes
 // x qs(a)
-// x weak data
 
-use crate::css::{CssStyleDeclaration, MatchingContext, Selector};
+use crate::css::{CssStyleDeclaration, Selector};
 use crate::util::{Atom, Bloom, Edge, IdTree};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
@@ -80,7 +79,12 @@ impl NodeRef {
 
     // TODO: avoid collect(), return impl Iterator<Item = NodeRef>
     pub fn child_nodes(&self) -> Vec<NodeRef> {
-        self.store.tree.borrow().children(self.id).map(move |id| self.store.node_ref(id)).collect()
+        self.store
+            .tree
+            .borrow()
+            .children(self.id)
+            .map(move |id| self.store.node_ref(id))
+            .collect()
     }
 
     pub fn append_child(&self, child: &NodeRef) {
@@ -112,19 +116,14 @@ impl NodeRef {
     }
 
     pub fn query_selector_all(&self, selector: &str) -> Vec<ElementRef> {
-        let selector = Selector::from(selector);
+        let selector = Selector::parse(selector).unwrap_or(Selector::unsupported());
         let tree = self.store.tree.borrow();
         let els = tree.traverse(self.id).skip(1).filter_map(|edge| match edge {
-            Edge::Start(node) if self.store.tree.borrow().data(node).node_type() == NodeType::Element => Some(node),
+            Edge::Start(node) => self.store.node_ref(node).downcast::<ElementRef>(),
             _ => None,
         });
 
-        self.with_matching_context(|ctx| {
-            els.into_iter()
-                .filter(|&el| ctx.match_selector(&selector, el).is_some())
-                .map(|el| self.store.node_ref(el).downcast::<ElementRef>().unwrap())
-                .collect()
-        })
+        els.filter(|el| selector.match_element(el).is_some()).collect()
     }
 
     pub fn as_node(&self) -> NodeRef {
@@ -181,20 +180,6 @@ impl NodeRef {
 
     fn dec_count(&self) {
         self.store.dec_count(self.id);
-    }
-
-    pub(crate) fn with_matching_context<R, F: FnOnce(MatchingContext<'_, NodeId>) -> R>(&self, f: F) -> R {
-        let tree = self.store.tree.borrow();
-
-        f(MatchingContext {
-            has_local_name: &|el, name| name == &tree.data(el).el().local_name,
-            has_identifier: &|el, id| Some(id) == tree.data(el).el().identifier.as_ref(),
-            has_class: &|el, cls| match &tree.data(el).el().class_name {
-                Some(s) => s.split_ascii_whitespace().any(|part| part == **cls),
-                None => false,
-            },
-            parent: &|el| tree.parent_node(el),
-        })
     }
 }
 
@@ -260,10 +245,8 @@ impl DocumentRef {
     pub fn create_element(&self, local_name: &str) -> ElementRef {
         ElementRef(self.store.create_node(NodeData::Element(ElementData {
             local_name: local_name.into(),
-            identifier: None,
-            class_name: None,
-            style: Rc::new(CssStyleDeclaration::new()),
             attributes: Vec::new(),
+            style: Rc::new(CssStyleDeclaration::new()),
         })))
     }
 
@@ -286,14 +269,6 @@ impl ElementRef {
         let el = tree.data(self.id).el();
         let mut names = Vec::new();
 
-        if el.identifier.is_some() {
-            names.push("id".to_owned());
-        }
-
-        if el.class_name.is_some() {
-            names.push("class".to_owned());
-        }
-
         if el.style.length() > 0 {
             names.push("style".to_owned());
         }
@@ -310,8 +285,6 @@ impl ElementRef {
         let el = tree.data(self.id).el();
 
         match attr {
-            "id" => el.identifier.as_deref().cloned(),
-            "class" => el.class_name.as_deref().cloned(),
             "style" => Some(el.style.css_text()),
             _ => el
                 .attributes
@@ -326,8 +299,6 @@ impl ElementRef {
         let mut el = tree.data_mut(self.id).el_mut();
 
         match attr {
-            "id" => el.identifier = Some(value.into()),
-            "class" => el.class_name = Some(value.into()),
             "style" => el.style.set_css_text(value),
             _ => {
                 if let Some(a) = el.attributes.iter_mut().find(|(a, _)| attr == **a) {
@@ -344,19 +315,40 @@ impl ElementRef {
         let mut el = tree.data_mut(self.id).el_mut();
 
         match attr {
-            "id" => drop(el.identifier.take()),
-            "class" => drop(el.identifier.take()),
             "style" => el.style.set_css_text(""),
             _ => el.attributes.retain(|(a, _)| attr != **a),
         };
     }
 
     pub fn matches(&self, selector: &str) -> bool {
-        self.with_matching_context(|ctx| ctx.match_selector(&Selector::from(selector), self.id).is_some())
+        match Selector::parse(selector) {
+            Ok(sel) => sel.match_element(self).is_some(),
+            _ => false,
+        }
     }
 
     pub fn style(&self) -> Rc<CssStyleDeclaration> {
         self.store.tree.borrow().data(self.id).el().style.clone()
+    }
+}
+
+impl crate::css::Element for ElementRef {
+    fn parent(&self) -> Option<Self> {
+        self.parent_node().and_then(NodeRef::downcast::<ElementRef>)
+    }
+
+    fn local_name(&self) -> Atom<String> {
+        ElementRef::local_name(self)
+    }
+
+    fn attribute(&self, name: &str) -> Option<Atom<String>> {
+        for (a, v) in &self.store.tree.borrow().data(self.id).el().attributes {
+            if a == name {
+                return Some(v.clone());
+            }
+        }
+
+        None
     }
 }
 
@@ -438,10 +430,8 @@ enum NodeData {
 
 struct ElementData {
     local_name: Atom<String>,
-    identifier: Option<Atom<String>>,
-    class_name: Option<Atom<String>>,
-    style: Rc<CssStyleDeclaration>,
     attributes: Vec<(Atom<String>, Atom<String>)>,
+    style: Rc<CssStyleDeclaration>,
 }
 
 impl Node {
@@ -543,13 +533,13 @@ mod tests {
         let div = doc.create_element("div");
 
         div.set_attribute("style", "display: block");
-        //assert_eq!(div.style().css_text(), "display: block");
+        assert_eq!(div.style().css_text(), "display:block;");
 
-        //div.style().set_property("width", "100px");
-        assert_eq!(div.attribute("style").as_deref(), Some("display: block; width: 100px"));
+        div.style().set_property("width", "100px");
+        assert_eq!(div.attribute("style").as_deref(), Some("display:block;width:100px;"));
 
         div.remove_attribute("style");
-        //assert_eq!(div.style().css_text(), "");
+        assert_eq!(div.style().css_text(), "");
     }
 
     #[test]

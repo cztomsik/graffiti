@@ -2,21 +2,34 @@
 // - shorthands (get)
 // - normalize (bold -> 700)
 
-use super::{CssDisplay, Selector, StyleProp};
+use super::{selector::Selector, ParseError, StyleProp};
 use std::cell::{Ref, RefCell};
 use std::fmt::Write;
 use std::mem::discriminant;
 
-// TODO: for !important we could be fine with bitflags and 1 << prop.id() as u32 to figure out the bit to flip/check
-// TODO: notify Option<Box<dyn Fn()>>
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct CssStyleSheet {
     pub(super) rules: Vec<CssStyleRule>,
 }
 
 impl CssStyleSheet {
     pub fn new() -> Self {
-        Self { rules: vec![] }
+        Self::default()
+    }
+
+    pub fn default_ua_sheet() -> Self {
+        CssStyleSheet::parse(include_str!("../../resources/ua.css")).expect("invalid ua.css")
+    }
+
+    pub fn parse(source: &str) -> Result<Self, ParseError> {
+        let tokens = super::parser::tokenize(source.as_bytes());
+        let parser = super::parser::sheet() - pom::parser::end();
+
+        parser.parse(&tokens)
+    }
+
+    pub fn rules(&self) -> &[CssStyleRule] {
+        &self.rules
     }
 
     pub fn insert_rule(&mut self, rule: CssStyleRule, index: usize) {
@@ -28,17 +41,7 @@ impl CssStyleSheet {
     }
 }
 
-// never fails
-impl From<&str> for CssStyleSheet {
-    fn from(sheet: &str) -> Self {
-        let tokens = super::parser::tokenize(sheet.as_bytes());
-        let parser = super::parser::sheet();
-
-        parser.parse(&tokens).unwrap_or_else(|_| Self::new())
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CssStyleRule {
     pub(crate) selector: Selector,
     style: CssStyleDeclaration,
@@ -54,6 +57,8 @@ impl CssStyleRule {
     }
 }
 
+// TODO: for !important we could be fine with bitflags and 1 << prop.id() as u32 to figure out the bit to flip/check
+// TODO: notify Option<Box<dyn Fn()>>
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct CssStyleDeclaration {
     pub(super) props: RefCell<Vec<StyleProp>>,
@@ -64,6 +69,13 @@ impl CssStyleDeclaration {
         Self::default()
     }
 
+    pub fn parse(source: &str) -> Result<Self, ParseError> {
+        let tokens = super::parser::tokenize(source.as_bytes());
+        let parser = super::parser::style() - pom::parser::end();
+
+        parser.parse(&tokens)
+    }
+
     // jsdom squashes longhands into one shorthand (if all are present)
     // but chrome doesn't so I think we don't have to either
     pub fn length(&self) -> usize {
@@ -71,12 +83,12 @@ impl CssStyleDeclaration {
     }
 
     pub fn item(&self, index: usize) -> Option<&str> {
-        self.props.borrow().get(index).map(StyleProp::name)
+        self.props.borrow().get(index).map(StyleProp::css_name)
     }
 
     pub fn property_value(&self, prop: &str) -> Option<String> {
-        if let Some(prop) = self.props.borrow().iter().find(|p| p.name() == prop) {
-            return Some(prop.value_as_string());
+        if let Some(prop) = self.props.borrow().iter().find(|p| p.css_name() == prop) {
+            return Some(prop.css_value());
         }
 
         self.shorthand_value(prop)
@@ -90,18 +102,19 @@ impl CssStyleDeclaration {
     }
 
     pub fn remove_property(&self, prop: &str) {
-        self.props.borrow_mut().retain(|p| p.name() == prop);
+        self.props.borrow_mut().retain(|p| p.css_name() == prop);
     }
 
     pub fn css_text(&self) -> String {
         self.props().iter().fold(String::new(), |mut s, p| {
-            write!(s, "{}: {};", p.name(), p.value_as_string()).unwrap();
+            write!(s, "{}:{};", p.css_name(), p.css_value()).unwrap();
             s
         })
     }
 
     pub fn set_css_text(&self, css_text: &str) {
-        *self.props.borrow_mut() = Self::from(css_text).props.into_inner();
+        let style = CssStyleDeclaration::parse(css_text).unwrap_or_default();
+        *self.props.borrow_mut() = style.props.into_inner();
     }
 
     pub(crate) fn props(&self) -> Ref<[StyleProp]> {
@@ -120,16 +133,6 @@ impl CssStyleDeclaration {
     }
 }
 
-// never fails
-impl From<&str> for CssStyleDeclaration {
-    fn from(style: &str) -> Self {
-        let tokens = super::parser::tokenize(style.as_bytes());
-        let parser = super::parser::style();
-
-        parser.parse(&tokens).unwrap()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::*;
@@ -140,7 +143,7 @@ mod tests {
         let s = CssStyleDeclaration::new();
 
         s.set_css_text("display: block;");
-        assert_eq!(&s.css_text(), "display: block;")
+        assert_eq!(&s.css_text(), "display:block;")
     }
 
     #[test]

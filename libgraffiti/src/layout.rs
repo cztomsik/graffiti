@@ -1,7 +1,7 @@
 use crate::gfx::Text;
 
-#[derive(Debug, Clone, Copy)]
-pub enum Display { None, Inline, Block, Flex }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Display { None, Inline, Block, Flex, Table, TableRow, TableCell }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Dimension { Auto, Px(f32), /*Fraction*/ Percent(f32) }
@@ -96,7 +96,7 @@ impl LayoutNode {
     }
 
     pub(crate) fn new_text(text: Text) -> Self {
-        Self { style: LayoutStyle::default(), text: Some(text), children: vec![] }
+        Self { style: LayoutStyle { display: Display::Inline, ..LayoutStyle::default() }, text: Some(text), children: vec![] }
     }
 
     pub(crate) fn calculate(&self, viewport_size: Size<f32>) -> LayoutBox {
@@ -172,21 +172,27 @@ impl Ctx {
         Rect { top: self.resolve(rect.top, base), right: self.resolve(rect.top, base), bottom: self.resolve(rect.top, base), left: self.resolve(rect.top, base) }
     }
 
-    fn compute_box(&self, layout_box: &mut LayoutBox, parent_size: Size<f32>) {
+    fn init_box(&self, layout_box: &mut LayoutBox, parent_size: Size<f32>) {
         layout_box.size = self.resolve_size(layout_box.style.size, parent_size);
         // layout_box.min_size = self.resolve_size(layout_box.style.min_size, parent_size);
         // layout_box.max_size = self.resolve_size(layout_box.style.max_size, parent_size);
         layout_box.padding = self.resolve_rect(layout_box.style.padding, parent_size.width);
         layout_box.margin = self.resolve_rect(layout_box.style.margin, parent_size.width);
         layout_box.border = self.resolve_rect(layout_box.style.border, parent_size.width);
+    }
+
+    fn compute_box(&self, layout_box: &mut LayoutBox, parent_size: Size<f32>) {
+        self.init_box(layout_box, parent_size);
 
         //println!("compute_box {:?}", layout_box.style.display);
         match layout_box.style.display {
             // TODO: maybe do not create box? is it worth?
-            Display::None => {},
+            Display::None => {}
             Display::Inline => self.compute_inline(layout_box, parent_size),
             Display::Block => self.compute_block(layout_box, parent_size),
             Display::Flex => self.compute_flex(layout_box, parent_size),
+            Display::Table => self.compute_table(layout_box, parent_size),
+            _ => self.compute_block(layout_box, parent_size),
         }
 
         // TODO: this is because of Display::None
@@ -198,6 +204,7 @@ impl Ctx {
     fn compute_inline(&self, inline: &mut LayoutBox, avail_size: Size<f32>) {
         if let Some(text) = &inline.text {
             let (width, height) = text.measure(avail_size.width);
+            println!("measure {} {:?}", text.text(), (width, height));
             inline.size = Size { width, height };
         }
     }
@@ -209,7 +216,6 @@ impl Ctx {
 
         let mut y = block.padding.top;
 
-        // TODO: filter position != absolute/fixed
         for child in &mut block.children {
             self.compute_box(child, parent_size);
             child.y = y;
@@ -223,29 +229,42 @@ impl Ctx {
         }
 
         println!("{:?}", block.size);
-        // // TODO: add padding_x + border_x to defined width/height
-        // block.size.width = self.resolve(block.style.size.width, parent_size.width).unwrap_or(avail_size.width);
-
-        // let avail_size = block.size; // TODO - padding_x - border_x
-        // let mut y = 0.;
-
-        // for ch in &mut block.children {
-        //     // TODO - margin_x
-        //     self.compute_box(ch, avail_size, block.size);
-
-        //     // TODO: collapsing
-        //     // TODO: y += margin.top
-
-        //     // TODO: ch.y = ...
-        // }
-
-        // // TODO: add padding_y + border_y to defined width/height
-        // block.size.height = self.resolve(block.style.size.height, parent_size.height).unwrap_or(inner_size.height)
     }
 
     fn compute_flex(&self, flex: &mut LayoutBox, parent_size: Size<f32>) {
-        // TODO: determine_available_space(), distribute_free_space(), etc.
         self.compute_block(flex, parent_size);
+        // for child in &mut flex.children {
+        //     self.compute_box(child, parent_size)
+        // }
+    }
+
+    fn compute_table(&self, table: &mut LayoutBox, parent_size: Size<f32>) {
+        // TODO: flat_map TableRowGroup(s)
+        let rows = table.children.iter_mut().filter(|ch| ch.style.display == Display::TableRow);
+
+        let mut x;
+        let mut y = 0.;
+
+        for row in rows {
+            x = 0.;
+
+            self.init_box(row, parent_size);
+
+            for cell in &mut row.children.iter_mut().filter(|ch| ch.style.display == Display::TableCell) {
+                self.compute_box(cell, Size { width: 100., height: f32::NAN });
+                cell.x = x;
+                cell.y = y;
+
+                x += cell.size.width;
+                
+                if !cell.size.height.is_nan() {
+                    row.size.height = row.size.height.max(cell.size.height);
+                }
+            }
+
+            y += row.size.height;
+            table.size.height += row.size.height;
+        }
     }
 }
 

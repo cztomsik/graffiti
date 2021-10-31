@@ -78,7 +78,7 @@ function createDataUrl(script: string) {
   script = script.replace(/(import[^"']+["'])(\.\/)/g, (_, imprt) => `${imprt}${document.URL}/`)
   script = script.replace(/(import[^"']+["'])(\.\.\/)/g, (_, imprt) => `${imprt}${document.URL}/../`)
 
-  return `data:text/javascript,base64${btoa(script)}`
+  return `data:text/javascript;base64,${btoa(script)}`
 }
 
 // classic global-scope eval, vars & functions are accumulated

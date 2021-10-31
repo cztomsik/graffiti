@@ -84,62 +84,47 @@ form, fieldset {
 }
 
 input {
+  display: inline-block;
   line-height: 16px;
   padding: 8px;
   min-height: 32px;
 }
 
 textarea {
-  display: block;
+  display: inline-block;
 }
 
 button {
+  display: inline-block;
   background-color: #b8b9f4;
   padding: 0 20px;
   border-radius: 2px;
   font-size: 14px;
   line-height: 32px;
   text-align: center;
-  justify-content: space-around;
 }
 
 table {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
+  display: table;
 }
 
 thead {
-  display: flex;
-  width: 100%;
+  display: table-header-group;
 }
 
 tbody {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
+  display: table-row-group;
 }
 
 tr {
-  display: flex;
-  width: 100%;
+  display: table-row;
 }
 
 td, th {
-  flex-grow: 1;
-  flex-shrink: 1;
-
-  /* TODO: we need real table layout */ 
-  --flex-basis: 200px;
+  display: table-cell;
 }
 
 center {
   display: block;
-  align-items: center;
-}
-
-/* TODO: display: inline (which should be default for all elements) */
-span, a, b, i, em, sub, sup {
-  display: flex;
-  flex-wrap: wrap;
+  text-align: center;
 }

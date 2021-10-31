@@ -1,12 +1,15 @@
 mod cssom;
-mod matching;
 mod parser;
 mod properties;
 mod selector;
 mod value_types;
 
-pub use cssom::*;
-pub(crate) use matching::*;
-pub use properties::*;
-pub use selector::*;
-pub use value_types::*;
+pub(crate) use selector::{Element};
+
+pub use {
+  selector::{Selector},
+  cssom::{CssStyleDeclaration, CssStyleRule, CssStyleSheet},
+  parser::ParseError,
+  properties::StyleProp,
+  value_types::*,
+};
