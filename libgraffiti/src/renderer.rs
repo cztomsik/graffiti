@@ -58,6 +58,8 @@ impl Renderer {
     }
 
     fn create_layout_node(&self, node: &NodeRef) -> LayoutNode {
+        println!("creating layout node for {:?}", node);
+
         match node.node_type() {
             NodeType::Document => self.create_layout_node(&node.first_child().unwrap()),
             NodeType::Element => {
@@ -256,6 +258,7 @@ fn display(value: CssDisplay) -> Display {
         CssDisplay::Flex => Display::Flex,
         CssDisplay::Block => Display::Block,
         CssDisplay::Inline => Display::Inline,
+        CssDisplay::InlineBlock => Display::InlineBlock,
         CssDisplay::Table => Display::Table,
         CssDisplay::TableRow => Display::TableRow,
         CssDisplay::TableCell => Display::TableCell,

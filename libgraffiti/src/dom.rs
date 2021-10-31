@@ -197,7 +197,11 @@ impl Drop for NodeRef {
 
 impl Debug for NodeRef {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
-        fmt.debug_tuple("NodeRef").field(&self.id).finish()
+        match self.node_type() {
+            NodeType::Element => write!(fmt, "<{}>", self.downcast_ref::<ElementRef>().unwrap().local_name()),
+            NodeType::Text => Debug::fmt(&self.downcast_ref::<CharacterDataRef>().unwrap().data(), fmt),
+            t => Debug::fmt(&t, fmt),
+        }
     }
 }
 

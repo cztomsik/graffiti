@@ -98,6 +98,7 @@ impl<T> IdTree<T> {
 
     pub fn insert_before(&mut self, parent: NodeId, child: NodeId, before: NodeId) {
         debug_assert_eq!(self.nodes[child].parent_node, None);
+        debug_assert_eq!(self.nodes[before].parent_node, Some(parent));
 
         let nodes = &mut self.nodes;
 
@@ -105,10 +106,15 @@ impl<T> IdTree<T> {
             nodes[parent].first_child = Some(child);
         }
 
-        nodes[before].previous_sibling = Some(child);
+        if let Some(prev) = nodes[before].previous_sibling {
+            nodes[prev].next_sibling = Some(child);
+        }
 
+        nodes[child].previous_sibling = nodes[before].previous_sibling;
         nodes[child].next_sibling = Some(before);
         nodes[child].parent_node = Some(parent);
+        
+        nodes[before].previous_sibling = Some(child);
     }
 
     pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
@@ -216,6 +222,7 @@ mod tests {
         let ch1 = tree.create_node("ch1");
         let ch2 = tree.create_node("ch2");
         let ch3 = tree.create_node("ch3");
+        let ch4 = tree.create_node("ch4");
 
         tree.append_child(root, ch1);
         assert_eq!(tree.first_child(root), Some(ch1));
@@ -234,8 +241,12 @@ mod tests {
         tree.insert_before(root, ch3, ch1);
         assert_eq!(tree.children(root).collect::<Vec<_>>(), &[ch3, ch1, ch2]);
 
+        tree.insert_before(root, ch4, ch2);
+        assert_eq!(tree.children(root).collect::<Vec<_>>(), &[ch3, ch1, ch4, ch2]);
+
         tree.remove_child(root, ch1);
         tree.remove_child(root, ch2);
+        tree.remove_child(root, ch4);
         assert_eq!(tree.children(root).collect::<Vec<_>>(), &[ch3]);
 
         tree.insert_before(root, ch2, ch3);
