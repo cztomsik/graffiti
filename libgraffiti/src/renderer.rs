@@ -256,6 +256,9 @@ fn display(value: CssDisplay) -> Display {
         CssDisplay::Flex => Display::Flex,
         CssDisplay::Block => Display::Block,
         CssDisplay::Inline => Display::Inline,
+        CssDisplay::Table => Display::Table,
+        CssDisplay::TableRow => Display::TableRow,
+        CssDisplay::TableCell => Display::TableCell,
         _ => Display::Block,
     }
 }
