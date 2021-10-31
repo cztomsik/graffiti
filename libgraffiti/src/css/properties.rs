@@ -11,23 +11,12 @@ use crate::util::Atom;
 
 macro_rules! css_properties {
     ($(($name:literal, $parser:expr) => $variant:ident($value_type:ty),)*) => {
-        #[derive(Debug, Clone, Copy, PartialEq)]
-        pub(crate) enum StylePropId {
-            $($variant,)*
-        }
-
         #[derive(Debug, Clone, PartialEq)]
         pub enum StyleProp {
             $($variant($value_type),)*
         }
 
         impl StyleProp {
-            pub(crate) fn id(&self) -> StylePropId {
-                match self {
-                    $(Self::$variant(_) => StylePropId::$variant,)*
-                }
-            }
-
             pub fn css_name(&self) -> &'static str {
                 match self {
                     $(Self::$variant(_) => $name,)*
@@ -144,7 +133,7 @@ css_properties! {
 macro_rules! css_shorthands {
     ($(($name:literal, $parser:expr) => ($($variant:ident),*),)*) => {
         pub(super) fn shorthand_parser<'a>(prop: &str) -> super::parser::Parser<'a, Vec<StyleProp>> {
-            #[allow(non_snake_case)]
+            #[allow(non_snake_case, unused_parens)]
             match prop {
                 $($name => $parser.map(|($($variant),*)| vec![$(StyleProp::$variant($variant)),*]),)*
                 _ => super::parser::fail("unknown prop")

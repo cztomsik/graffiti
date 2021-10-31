@@ -195,15 +195,14 @@ pub(super) fn color<'a>() -> Parser<'a, CssColor> {
             })
         });
 
-    let rgb = sym("rgb")
-        * sym("(")
-        * (u8() - sym(",") + u8() - sym(",") + u8()).map(|((r, g), b)| CssColor::from_rgb8(r, g, b))
-        - sym(")");
+    let rgb =
+        sym("rgb") * sym("(") * (u8() - sym(",") + u8() - sym(",") + u8()).map(|((r, g), b)| CssColor::rgb(r, g, b))
+            - sym(")");
 
     let rgba = sym("rgba")
         * sym("(")
         * (u8() - sym(",") + u8() - sym(",") + u8() - sym(",") + float())
-            .map(|(((r, g), b), a)| CssColor::from_rgba8(r, g, b, (255. * a) as _))
+            .map(|(((r, g), b), a)| CssColor::rgba(r, g, b, (255. * a) as _))
         - sym(")");
 
     let named_color = ident().convert(|name| NAMED_COLORS.get(name).copied().ok_or("unknown named color"));
@@ -600,12 +599,9 @@ mod tests {
 
         assert_eq!(
             color().parse(&["#", "80808080"]),
-            Ok(CssColor::from_rgba8(128, 128, 128, 128))
+            Ok(CssColor::rgba(128, 128, 128, 128))
         );
-        assert_eq!(
-            color().parse(&["#", "00000080"]),
-            Ok(CssColor::from_rgba8(0, 0, 0, 128))
-        );
+        assert_eq!(color().parse(&["#", "00000080"]), Ok(CssColor::rgba(0, 0, 0, 128)));
 
         assert_eq!(color().parse(&["#", "000"]), Ok(CssColor::BLACK));
         assert_eq!(color().parse(&["#", "f00"]), Ok(CssColor::RED));

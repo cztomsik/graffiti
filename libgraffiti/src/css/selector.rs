@@ -87,7 +87,7 @@ impl Selector {
         let mut current = element.clone();
         let mut parent = false;
         let mut ancestors = false;
-        let mut specificity = 0;
+        let specificity = 0;
 
         // we are always going forward
         'next_part: while let Some(p) = parts_iter.next() {
