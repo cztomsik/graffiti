@@ -2,7 +2,7 @@
 // - shorthands (get)
 // - normalize (bold -> 700)
 
-use super::{CssDisplay, Selector, StyleProp};
+use super::{selector::Selector, ParseError, StyleProp};
 use std::cell::{Ref, RefCell};
 use std::fmt::Write;
 use std::mem::discriminant;
@@ -14,6 +14,20 @@ pub struct CssStyleSheet {
 
 impl CssStyleSheet {
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn default_ua_sheet() -> Self {
+        CssStyleSheet::parse(include_str!("../../resources/ua.css")).expect("invalid ua.css")
+    }
+
+    pub fn parse(source: &str) -> Result<Self, ParseError> {
+        let tokens = super::parser::tokenize(source.as_bytes());
+        let parser = super::parser::sheet() - pom::parser::end();
+
+        parser.parse(&tokens)
+    }
+
     pub fn rules(&self) -> &[CssStyleRule] {
         &self.rules
     }
@@ -24,16 +38,6 @@ impl CssStyleSheet {
 
     pub fn delete_rule(&mut self, index: usize) {
         self.rules.remove(index);
-    }
-}
-
-// never fails
-impl From<&str> for CssStyleSheet {
-    fn from(sheet: &str) -> Self {
-        let tokens = super::parser::tokenize(sheet.as_bytes());
-        let parser = super::parser::sheet();
-
-        parser.parse(&tokens).unwrap_or_else(|_| Self::new())
     }
 }
 
@@ -63,6 +67,13 @@ pub struct CssStyleDeclaration {
 impl CssStyleDeclaration {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn parse(source: &str) -> Result<Self, ParseError> {
+        let tokens = super::parser::tokenize(source.as_bytes());
+        let parser = super::parser::style() - pom::parser::end();
+
+        parser.parse(&tokens)
     }
 
     // jsdom squashes longhands into one shorthand (if all are present)
@@ -102,7 +113,8 @@ impl CssStyleDeclaration {
     }
 
     pub fn set_css_text(&self, css_text: &str) {
-        *self.props.borrow_mut() = Self::from(css_text).props.into_inner();
+        let style = CssStyleDeclaration::parse(css_text).unwrap_or_default();
+        *self.props.borrow_mut() = style.props.into_inner();
     }
 
     pub(crate) fn props(&self) -> Ref<[StyleProp]> {
@@ -118,16 +130,6 @@ impl CssStyleDeclaration {
         } else {
             props.push(new_prop);
         }
-    }
-}
-
-// never fails
-impl From<&str> for CssStyleDeclaration {
-    fn from(style: &str) -> Self {
-        let tokens = super::parser::tokenize(style.as_bytes());
-        let parser = super::parser::style();
-
-        parser.parse(&tokens).unwrap()
     }
 }
 

@@ -12,10 +12,13 @@
 // x combination
 // x decoupled from other systems
 
+use super::parser::ParseError;
 use crate::util::Atom;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Selector {
+    // TODO: Bloom<TailPart>
+    // TODO: Box<[]> because it wont change once parsed
     pub(super) parts: Vec<SelectorPart>,
 }
 
@@ -51,6 +54,21 @@ pub(super) enum Combinator {
     // Adjacent,
     // Sibling,
     Or,
+}
+
+impl Selector {
+    pub fn unsupported() -> Self {
+        Self {
+            parts: vec![SelectorPart::Component(Component::Unsupported)],
+        }
+    }
+
+    pub fn parse(selector: &str) -> Result<Self, ParseError> {
+        let tokens = super::parser::tokenize(selector.as_bytes());
+        let parser = super::parser::selector() - pom::parser::end();
+
+        parser.parse(&tokens)
+    }
 }
 
 pub(crate) struct MatchingContext<'a, E> {
@@ -140,24 +158,6 @@ impl<E: Copy> MatchingContext<'_, E> {
     }
 }
 
-// never fails
-impl From<&str> for Selector {
-    fn from(selector: &str) -> Self {
-        let tokens = super::parser::tokenize(selector.as_bytes());
-        let parser = super::parser::selector() - pom::parser::end();
-
-        parser.parse(&tokens).unwrap_or(Selector {
-            parts: vec![SelectorPart::Component(Component::Unsupported)],
-        })
-    }
-}
-
-
-
-
-
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,10 +186,10 @@ mod tests {
             parent: &|e| parents[e],
         };
 
-        let match_sel = |s, el| ctx.match_selector(&Selector::from(s), el).is_some();
+        let match_sel = |s, el| ctx.match_selector(&Selector::parse(s).unwrap(), el).is_some();
 
         // invalid
-        assert!(!match_sel("", 0));
+        assert!(ctx.match_selector(&Selector::unsupported(), 0).is_none());
 
         // basic
         assert!(match_sel("*", 0));

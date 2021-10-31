@@ -2,7 +2,6 @@
 // x holds the data/truth (tree of nodes)
 // x allows changes
 // x qs(a)
-// x weak data
 
 use crate::css::{CssStyleDeclaration, MatchingContext, Selector};
 use crate::util::{Atom, Bloom, Edge, IdTree};
@@ -117,7 +116,7 @@ impl NodeRef {
     }
 
     pub fn query_selector_all(&self, selector: &str) -> Vec<ElementRef> {
-        let selector = Selector::from(selector);
+        let selector = Selector::parse(selector).unwrap_or(Selector::unsupported());
         let tree = self.store.tree.borrow();
         let els = tree.traverse(self.id).skip(1).filter_map(|edge| match edge {
             Edge::Start(node) if self.store.tree.borrow().data(node).node_type() == NodeType::Element => Some(node),
@@ -357,7 +356,10 @@ impl ElementRef {
     }
 
     pub fn matches(&self, selector: &str) -> bool {
-        self.with_matching_context(|ctx| ctx.match_selector(&Selector::from(selector), self.id).is_some())
+        match Selector::parse(selector) {
+            Ok(sel) => self.with_matching_context(|ctx| ctx.match_selector(&sel, self.id).is_some()),
+            _ => false,
+        }
     }
 
     pub fn style(&self) -> Rc<CssStyleDeclaration> {
