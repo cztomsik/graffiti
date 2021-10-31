@@ -434,7 +434,7 @@ mod tests {
         let tokens = tokenize(ua.as_bytes());
         let sheet = super::sheet().parse(&tokens).unwrap();
 
-        assert_eq!(sheet.rules.len(), 24);
+        assert_eq!(sheet.rules.len(), 23);
     }
 
     #[test]
@@ -643,7 +643,16 @@ mod tests {
         assert_eq!(css_enum().parse(&["none"]), Ok(CssDisplay::None));
         assert_eq!(css_enum().parse(&["block"]), Ok(CssDisplay::Block));
         assert_eq!(css_enum().parse(&["inline"]), Ok(CssDisplay::Inline));
+        assert_eq!(css_enum().parse(&["inline-block"]), Ok(CssDisplay::InlineBlock));
         assert_eq!(css_enum().parse(&["flex"]), Ok(CssDisplay::Flex));
+        assert_eq!(css_enum().parse(&["table"]), Ok(CssDisplay::Table));
+        assert_eq!(
+            css_enum().parse(&["table-header-group"]),
+            Ok(CssDisplay::TableHeaderGroup)
+        );
+        assert_eq!(css_enum().parse(&["table-row-group"]), Ok(CssDisplay::TableRowGroup));
+        assert_eq!(css_enum().parse(&["table-row"]), Ok(CssDisplay::TableRow));
+        assert_eq!(css_enum().parse(&["table-cell"]), Ok(CssDisplay::TableCell));
     }
 
     #[test]

@@ -88,7 +88,13 @@ css_enums! {
         None = "none",
         Block = "block",
         Inline = "inline",
+        InlineBlock = "inline-block",
         Flex = "flex",
+        Table = "table",
+        TableHeaderGroup = "table-header-group",
+        TableRowGroup = "table-row-group",
+        TableRow = "table-row",
+        TableCell = "table-cell",
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
