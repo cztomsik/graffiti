@@ -28,3 +28,7 @@ objc = "0.2"
 # lto = true
 # fix --release for raspi https://github.com/rust-lang/rust/issues/62896
 codegen-units = 1
+
+[features]
+default = []
+profile = []

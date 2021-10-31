@@ -9,3 +9,7 @@ pub use id_tree::*;
 
 mod bloom;
 pub use bloom::*;
+
+#[macro_use]
+mod profile;
+pub use profile::*;

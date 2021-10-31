@@ -30,21 +30,27 @@ impl Renderer {
     }
 
     pub fn render(&self) {
+        profile!();
+
         let layout_tree = self.create_layout_node(&self.document.as_node());
         let box_tree = layout_tree.calculate(Size {
             width: 1024.,
             height: 768.,
         });
+        profile!("layout");
 
         let mut canvas = Canvas::new();
         let mut ctx = RenderContext { canvas: &mut canvas };
 
         ctx.render_box(0., 0., &box_tree);
-
         let frame = ctx.canvas.flush();
+        profile!("frame");
+
         unsafe { self.window.make_current() };
         self.backend.render_frame(frame);
-        self.window.swap_buffers()
+        self.window.swap_buffers();
+
+        profile!("gl + vsync");
     }
 
     pub fn resize(&self, width: f32, height: f32) {
