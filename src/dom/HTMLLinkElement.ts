@@ -47,6 +47,8 @@ export class HTMLLinkElement extends HTMLElement implements globalThis.HTMLLinkE
 }
 
 // for now, we replace <link> with <style> which works surprisingly well
+// TODO: I think we could also replace @import but it would be only supported
+//       for the initial page-load, I don't want to introduce more complexity to native
 export async function loadStyles() {
   for (const link of document.querySelectorAll('link')) {
     if (link.rel === 'stylesheet' && link.href) {
