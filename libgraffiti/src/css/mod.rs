@@ -4,7 +4,7 @@ mod properties;
 mod selector;
 mod value_types;
 
-pub(crate) use selector::{MatchingContext};
+pub(crate) use selector::{Element};
 
 pub use {
   selector::{Selector},

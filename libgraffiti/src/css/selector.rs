@@ -15,6 +15,13 @@
 use super::parser::ParseError;
 use crate::util::Atom;
 
+// TODO: find better name? CssElement? MatchedElement?
+pub trait Element: Clone {
+    fn parent(&self) -> Option<Self>;
+    fn local_name(&self) -> Atom<String>;
+    fn attribute(&self, name: &str) -> Option<Atom<String>>;
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Selector {
     // TODO: Bloom<TailPart>
@@ -56,6 +63,8 @@ pub(super) enum Combinator {
     Or,
 }
 
+type Specificity = u32;
+
 impl Selector {
     pub fn unsupported() -> Self {
         Self {
@@ -69,34 +78,13 @@ impl Selector {
 
         parser.parse(&tokens)
     }
-}
 
-pub(crate) struct MatchingContext<'a, E> {
-    pub has_local_name: &'a dyn Fn(E, &Atom<String>) -> bool,
-    pub has_identifier: &'a dyn Fn(E, &Atom<String>) -> bool,
-    pub has_class: &'a dyn Fn(E, &Atom<String>) -> bool,
-    //has_pseudo_class: &'a dyn Fn(E, &Atom<String>) -> bool,
-    pub parent: &'a dyn Fn(E) -> Option<E>,
-}
-
-impl<E: Copy> MatchingContext<'_, E> {
-    fn match_component(&self, component: &Component, el: E) -> bool {
-        use Component::*;
-
-        match component {
-            LocalName(name) => (self.has_local_name)(el, name),
-            Identifier(id) => (self.has_identifier)(el, id),
-            ClassName(cls) => (self.has_class)(el, cls),
-            Unsupported => false,
-        }
-    }
-
-    pub fn match_selector(&self, selector: &Selector, el: E) -> Option<u32> {
+    pub fn match_element(&self, element: &impl Element) -> Option<Specificity> {
         // so we can fast-forward to next OR
-        let mut parts_iter = selector.parts.iter();
+        let mut parts_iter = self.parts.iter();
 
         // state
-        let mut curr = el;
+        let mut current = element.clone();
         let mut parent = false;
         let mut ancestors = false;
         let mut specificity = 0;
@@ -109,15 +97,15 @@ impl<E: Copy> MatchingContext<'_, E> {
                         if parent || ancestors {
                             parent = false;
 
-                            match (self.parent)(curr) {
-                                Some(p) => curr = p,
+                            match current.parent() {
+                                Some(parent) => current = parent,
 
                                 // nothing left to match
                                 None => break,
                             }
                         }
 
-                        if self.match_component(&comp, curr) {
+                        if Self::match_component(comp, &current) {
                             ancestors = false;
                             continue 'next_part;
                         }
@@ -132,7 +120,7 @@ impl<E: Copy> MatchingContext<'_, E> {
                     while let Some(p) = parts_iter.next() {
                         if p == &SelectorPart::Combinator(Combinator::Or) {
                             // reset stack
-                            curr = el;
+                            current = element.clone();
                             continue 'next_part;
                         }
                     }
@@ -156,6 +144,18 @@ impl<E: Copy> MatchingContext<'_, E> {
         // everything was fine
         Some(specificity)
     }
+
+    fn match_component(comp: &Component, el: &impl Element) -> bool {
+        match comp {
+            Component::LocalName(name) => name == &el.local_name(),
+            Component::Identifier(id) => Some(id) == el.attribute("id").as_ref(),
+            Component::ClassName(cls) => match el.attribute("class") {
+                Some(s) => s.split_ascii_whitespace().any(|part| part == **cls),
+                _ => false,
+            },
+            Component::Unsupported => false,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -174,22 +174,33 @@ mod tests {
 
     #[test]
     fn matching() {
-        let local_names = &vec!["html", "body", "div", "button", "span"];
-        let ids = &vec!["", "app", "panel", "", ""];
-        let class_names = &vec!["", "", "", "btn", ""];
-        let parents = &vec![None, Some(0), Some(1), Some(2), Some(3)];
+        impl Element for usize {
+            fn parent(&self) -> Option<Self> {
+                [None, Some(0), Some(1), Some(2), Some(3)][*self]
+            }
 
-        let ctx = MatchingContext {
-            has_local_name: &|e, n| **n == local_names[e],
-            has_identifier: &|e, id| **id == ids[e],
-            has_class: &|e, cls| **cls == class_names[e],
-            parent: &|e| parents[e],
-        };
+            fn local_name(&self) -> Atom<String> {
+                ["html", "body", "div", "button", "span"][*self].into()
+            }
 
-        let match_sel = |s, el| ctx.match_selector(&Selector::parse(s).unwrap(), el).is_some();
+            fn attribute(&self, name: &str) -> Option<Atom<String>> {
+                let v = match name {
+                    "id" => ["", "app", "panel", "", ""][*self],
+                    "class" => ["", "", "", "btn", ""][*self],
+                    _ => "",
+                };
+
+                match v {
+                    "" => None,
+                    v => Some(Atom::from(v)),
+                }
+            }
+        }
+
+        let match_sel = |s, el| Selector::parse(s).unwrap().match_element(&el).is_some();
 
         // invalid
-        assert!(ctx.match_selector(&Selector::unsupported(), 0).is_none());
+        assert!(Selector::unsupported().match_element(&0).is_none());
 
         // basic
         assert!(match_sel("*", 0));
