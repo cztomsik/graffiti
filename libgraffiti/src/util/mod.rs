@@ -1,3 +1,6 @@
+mod clone_cell;
+pub use clone_cell::*;
+
 mod atom;
 pub use atom::*;
 

@@ -400,6 +400,29 @@ pub unsafe extern "C" fn gft_CssStyleDeclaration_set_property(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn gft_CssStyleDeclaration_remove_property(
+    style: Ref<CssStyleDeclaration>,
+    prop: *const c_char,
+    prop_len: u32,
+) {
+    with_tls(|tls| tls[&style].remove_property(to_str(prop, prop_len)))
+}
+
+#[no_mangle]
+pub extern "C" fn gft_CssStyleDeclaration_css_text(style: Ref<CssStyleDeclaration>) -> Ref<String> {
+    with_tls(|tls| tls[&style].css_text().into())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gft_CssStyleDeclaration_set_css_text(
+    style: Ref<CssStyleDeclaration>,
+    css_text: *const c_char,
+    css_text_len: u32,
+) {
+    with_tls(|tls| tls[&style].set_css_text(to_str(css_text, css_text_len)))
+}
+
+#[no_mangle]
 pub extern "C" fn gft_Renderer_new(doc: Ref<DocumentRef>, win: Ref<Window>) -> Ref<Renderer> {
     let renderer = with_tls(|tls| Renderer::new(tls[&doc].clone(), &tls[&win]));
     Rc::new(renderer).into()

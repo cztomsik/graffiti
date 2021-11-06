@@ -12,7 +12,7 @@ mod window;
 pub use self::{
   app::App,
   css::CssStyleDeclaration,
-  dom::{CharacterDataRef, DocumentRef, ElementRef, NodeId, NodeRef, NodeType},
+  dom::{CharacterDataRef, DocumentRef, DomEvent, ElementRef, NodeId, NodeRef, NodeType},
   renderer::Renderer,
   webview::WebView,
   window::{Event, Window, WindowId},

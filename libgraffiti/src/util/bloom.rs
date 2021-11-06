@@ -11,8 +11,14 @@ pub struct Bloom<T> {
 }
 
 impl<T: Hash> Bloom<T> {
-    pub const EMPTY: Self = Self { bits: 0, marker: PhantomData };
-    pub const MAX: Self = Self { bits: u64::MAX, marker: PhantomData };
+    pub const EMPTY: Self = Self {
+        bits: 0,
+        marker: PhantomData,
+    };
+    pub const MAX: Self = Self {
+        bits: u64::MAX,
+        marker: PhantomData,
+    };
 
     pub fn new() -> Self {
         Self {

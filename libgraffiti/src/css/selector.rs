@@ -50,6 +50,7 @@ pub(super) enum Component {
     // LastChild // (next_element_sibling == None)
     // OnlyChild // (prev_element_sibling == None && next_element_sibling == None)
 
+    // BTW: many are just compound shorthands and can be resolved here (:disabled is like [disabled] & input, select, ...)
     // PseudoClass(Atom<String>) // :root, :hover, :focus, :active, :enabled, :disabled, :valid, :invalid, ...
 }
 

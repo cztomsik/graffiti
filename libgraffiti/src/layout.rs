@@ -1,4 +1,80 @@
+#[allow(unused)]
+
+use std::num::NonZeroU32;
+use crate::util::IdTree;
 use crate::gfx::Text;
+
+pub type LayoutNodeId = NonZeroU32;
+type NodeId = LayoutNodeId;
+
+pub struct LayoutTree {
+    tree: IdTree<LayoutNode>
+}
+
+impl LayoutTree {
+    pub fn new() -> Self {
+        Self { tree: IdTree::new() }
+    }
+
+    pub fn create_node(&mut self) -> NodeId {
+        self.tree.create_node(LayoutNode {
+            style: LayoutStyle::default(),
+            text: None
+        })
+    }
+
+    pub fn set_style(&mut self, node: NodeId, style: LayoutStyle) {
+        self.tree.data_mut(node).style = style;
+    }
+
+    pub fn set_text(&mut self, node: NodeId, text: Option<Text>) {
+        self.tree.data_mut(node).text = text;
+    }
+
+    pub fn append_child(&mut self, parent: NodeId, child: NodeId) {
+        self.tree.append_child(parent, child);
+    }
+
+    pub fn insert_before(&mut self, parent: NodeId, child: NodeId, before: NodeId) {
+        self.tree.insert_before(parent, child, before);
+    }
+
+    pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
+        self.tree.remove_child(parent, child);
+    }
+
+    pub fn calculate(&self, node: NodeId, viewport_size: Size<f32>) -> LayoutBox {
+        println!("-- calculate");
+
+        // create "boxes" first
+        // TODO: this can be incremental, it also could remove hidden/empty parts, join texts together, etc.
+        let mut root = self.create_box(node);
+
+        let ctx = Ctx {};
+        ctx.compute_box(&mut root, viewport_size);
+
+        root
+    }
+
+    fn create_box(&self, node: NodeId) -> LayoutBox {
+        LayoutBox {
+            style: self.tree.data(node).style,
+            text: self.tree.data(node).text.clone(),
+            children: self.tree.children(node).map(|ch| self.create_box(ch)).collect(),
+            x: 0.,
+            y: 0.,
+            size: Size { width: 0., height: 0. },
+            // min_size: Size { width: 0., height: 0. },
+            // max_size: Size { width: 0., height: 0. },
+            padding: Rect { top: 0., right: 0., bottom: 0., left: 0. },
+            margin: Rect { top: 0., right: 0., bottom: 0., left: 0. },
+            border: Rect { top: 0., right: 0., bottom: 0., left: 0. },
+        }
+    }    
+}
+
+
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Display { None, Block, Inline, InlineBlock, Flex, Table, TableRow, TableCell }
@@ -84,33 +160,9 @@ impl Default for LayoutStyle {
     }
 }
 
-pub(crate) struct LayoutNode {
+struct LayoutNode {
     style: LayoutStyle,
     text: Option<Text>,
-    children: Vec<Self>
-}
-
-impl LayoutNode {
-    pub(crate) fn new(style: LayoutStyle, children: Vec<Self>) -> Self {
-        Self { style, text: None, children }
-    }
-
-    pub(crate) fn new_text(text: Text) -> Self {
-        Self { style: LayoutStyle { display: Display::Inline, ..LayoutStyle::default() }, text: Some(text), children: vec![] }
-    }
-
-    pub(crate) fn calculate(&self, viewport_size: Size<f32>) -> LayoutBox {
-        println!("-- calculate");
-
-        // create "boxes" first
-        // TODO: this can be incremental, it also should remove hidden/empty parts, join texts together, etc.
-        let mut root = create_box(self);
-
-        let ctx = Ctx {};
-        ctx.compute_box(&mut root, viewport_size);
-
-        root
-    }
 }
 
 pub struct LayoutBox {
@@ -267,21 +319,5 @@ impl Ctx {
             y += row.size.height;
             table.size.height += row.size.height;
         }
-    }
-}
-
-fn create_box<'a>(node: &'a LayoutNode) -> LayoutBox {
-    LayoutBox {
-        style: node.style,
-        text: node.text.clone(),
-        children: node.children.iter().map(create_box).collect(),
-        x: 0.,
-        y: 0.,
-        size: Size { width: 0., height: 0. },
-        // min_size: Size { width: 0., height: 0. },
-        // max_size: Size { width: 0., height: 0. },
-        padding: Rect { top: 0., right: 0., bottom: 0., left: 0. },
-        margin: Rect { top: 0., right: 0., bottom: 0., left: 0. },
-        border: Rect { top: 0., right: 0., bottom: 0., left: 0. },
     }
 }
