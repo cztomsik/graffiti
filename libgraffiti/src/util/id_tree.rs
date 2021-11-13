@@ -2,6 +2,7 @@
 // x alloc-free inserts/removals
 // - TODO: tree.rebuild() -> (Self, Iterator<(OldId, NewId)>)?
 // - TODO: consider using Cell<> so only create/drop requires &mut?
+//         (but then the whole tree would be !Sync)
 
 use super::SlotMap;
 use std::num::NonZeroU32;

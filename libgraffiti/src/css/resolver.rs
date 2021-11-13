@@ -59,6 +59,9 @@ mod tests {
     fn test() {
         let sheet = CssStyleSheet::default_ua_sheet();
         let resolver = StyleResolver::new(vec![Rc::new(sheet)]);
+
+        // TODO
+        // assert_eq!(resolver.resolve(el, Vec::push), vec![...])
     }
 }
 
