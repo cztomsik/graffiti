@@ -13,7 +13,7 @@
 // x decoupled from other systems
 
 use super::parser::ParseError;
-use crate::util::Atom;
+use crate::util::{Bloom, Atom};
 
 // TODO: find better name? CssElement? MatchedElement?
 pub trait Element: Clone {
@@ -78,6 +78,10 @@ impl Selector {
         let parser = super::parser::selector() - pom::parser::end();
 
         parser.parse(&tokens)
+    }
+
+    pub(super) fn tail_mask(&self) -> Bloom<()> {
+        Bloom::MAX
     }
 
     pub fn match_element(&self, element: &impl Element) -> Option<Specificity> {

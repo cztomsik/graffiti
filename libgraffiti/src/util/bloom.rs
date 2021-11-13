@@ -4,7 +4,9 @@ use fnv::FnvHasher;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
-#[derive(Clone, Copy)]
+const BITS: u64 = 64;
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Bloom<T> {
     bits: u64,
     marker: PhantomData<T>,
@@ -55,7 +57,7 @@ impl<T: Hash> Default for Bloom<T> {
 fn mask<T: Hash>(v: &T) -> u64 {
     let mut hasher = FnvHasher::with_key(1099511628211);
     v.hash(&mut hasher);
-    1 << (hasher.finish() % 64)
+    1 << (hasher.finish() % BITS)
 }
 
 #[cfg(test)]
