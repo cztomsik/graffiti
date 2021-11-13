@@ -6,7 +6,7 @@
 // x provides query_selector()
 
 use crate::css::{CssStyleDeclaration, CssStyleSheet, Selector};
-use crate::util::{Atom, Bloom, Edge, IdTree};
+use crate::util::{Atom, Edge, IdTree};
 use fnv::FnvHashMap;
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
@@ -153,6 +153,7 @@ impl NodeRef {
         }
     }
 
+    /*
     fn update_ancestors(&self) {
         for edge in self.store.tree.borrow().traverse(self.id) {
             if let Edge::Start(node) = edge {
@@ -174,6 +175,7 @@ impl NodeRef {
             }
         }
     }
+    */
 
     fn inc_count(&self) {
         self.store.inc_count(self.id);
@@ -226,8 +228,6 @@ pub struct ElementRef(NodeRef);
 #[derive(Debug, Clone, PartialEq)]
 pub struct CharacterDataRef(NodeRef);
 
-// TODO: move to util?
-// (we might use it for CSS too)
 macro_rules! impl_deref {
     ($struct:ident, $target: ident) => {
         impl Deref for $struct {
@@ -247,11 +247,11 @@ impl DocumentRef {
         DocumentRef(Rc::<Store>::default().create_node(NodeData::Document))
     }
 
-    pub fn add_listener(&mut self, listener: Rc<dyn Fn(&DomEvent)>) {
+    pub fn add_listener(&self, listener: Rc<dyn Fn(&DomEvent)>) {
         self.store.listeners.borrow_mut().push(listener);
     }
 
-    pub fn remove_listener(&mut self, listener: &Rc<dyn Fn(&DomEvent)>) {
+    pub fn remove_listener(&self, listener: &Rc<dyn Fn(&DomEvent)>) {
         self.store.listeners.borrow_mut().retain(|l| Rc::ptr_eq(l, listener));
     }
 
@@ -398,7 +398,6 @@ impl Store {
     fn create_node(self: &Rc<Self>, data: NodeData) -> NodeRef {
         let id = self.tree.borrow_mut().create_node(Node {
             ref_count: Cell::new(1),
-            ancestors: Cell::new(Bloom::new()),
             data,
         });
         NodeRef {
@@ -444,7 +443,6 @@ impl Store {
 
 struct Node {
     ref_count: Cell<u32>,
-    ancestors: Cell<Bloom<NodeId>>,
     data: NodeData,
 }
 
