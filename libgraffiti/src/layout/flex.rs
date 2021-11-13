@@ -1,6 +1,6 @@
 use super::{Ctx, Size};
 
-impl Ctx {
+impl Ctx<'_> {
     // pub(super) fn compute_flex(&self, flex: &mut LayoutBox, parent_size: Size<f32>) {
     //     self.compute_block(flex, parent_size);
     // }

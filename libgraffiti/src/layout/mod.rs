@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::util::IdTree;
+use crate::util::{IdTree, SlotMap};
 use std::num::NonZeroU32;
 
 // LISPish macro
@@ -48,6 +48,13 @@ pub struct LayoutTree {
     //       unless we rebuild it but children: Vec<NodeId> might need more
     //       allocations for inserts & appends
     tree: IdTree<LayoutNode>,
+
+    results: SlotMap<NodeId, LayoutResult>,
+}
+
+#[derive(Default)]
+struct LayoutResult {
+    size: Size<f32>,
 }
 
 impl LayoutTree {
@@ -56,10 +63,12 @@ impl LayoutTree {
     }
 
     pub fn create_node(&mut self) -> NodeId {
-        self.tree.create_node(LayoutNode {
+        let id = self.tree.create_node(LayoutNode {
             style: LayoutStyle::default(),
-            //text: None,
-        })
+        });
+        self.results.put(id, Default::default());
+
+        id
     }
 
     pub fn style(&self, node: NodeId) -> &LayoutStyle {
@@ -89,41 +98,33 @@ impl LayoutTree {
     pub fn calculate(&mut self, node: NodeId, avail_width: f32, avail_height: f32) {
         // println!("-- calculate");
 
-        // // create "boxes" first
-        // // TODO: this can be incremental, it also could remove hidden/empty parts, join texts together, etc.
-        // let mut root = self.create_box(node);
+        let mut ctx = Ctx { tree: &mut self.tree };
 
-        // let ctx = Ctx {};
-        // ctx.compute_box(
-        //     &mut root,
-        //     Size {
-        //         width: avail_width,
-        //         height: avail_height,
-        //     },
-        // );
-
-        // root
+        ctx.compute_node(
+            &mut self.results,
+            node,
+            Size {
+                width: avail_width,
+                height: avail_height,
+            },
+        );
     }
 
     fn debug(&self, node: NodeId) -> String {
-        struct DebugRef<'a>(&'a IdTree<LayoutNode>, NodeId);
+        struct DebugRef<'a>(&'a LayoutTree, NodeId);
         impl std::fmt::Debug for DebugRef<'_> {
             fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-                let (width, height) = (0f32, 0f32);
-                write!(
-                    fmt,
-                    "{:?}({:?}, {:?}) ",
-                    self.0.data(self.1).style.display,
-                    width,
-                    height
-                )?;
+                let node = self.0.tree.data(self.1);
+                let size = self.0.results[self.1].size;
+
+                write!(fmt, "{:?}({:?}, {:?}) ", node.style.display, size.width, size.height)?;
                 fmt.debug_list()
-                    .entries(self.0.children(self.1).map(|id| DebugRef(self.0, id)))
+                    .entries(self.0.tree.children(self.1).map(|id| DebugRef(self.0, id)))
                     .finish()
             }
         }
 
-        format!("{:?}", DebugRef(&self.tree, node))
+        format!("{:?}", DebugRef(self, node))
     }
 }
 
@@ -133,9 +134,11 @@ struct LayoutNode {
 }
 
 // TODO: vw, vh, vmin, vmax, rem
-struct Ctx {}
+struct Ctx<'a> {
+    tree: &'a mut IdTree<LayoutNode>,
+}
 
-impl Ctx {
+impl Ctx<'_> {
     fn resolve(&self, dim: Dimension, base: f32) -> f32 {
         match dim {
             Dimension::Px(v) => v,
@@ -157,6 +160,20 @@ impl Ctx {
             right: self.resolve(rect.top, base),
             bottom: self.resolve(rect.top, base),
             left: self.resolve(rect.top, base),
+        }
+    }
+
+    fn compute_node(&self, results: &mut SlotMap<NodeId, LayoutResult>, node: NodeId, parent_size: Size<f32>) {
+        results[node].size = self.resolve_size(self.tree.data(node).style.size(), parent_size);
+
+        match self.tree.data(node).style.display {
+            // TODO: maybe do not create box? is it worth?
+            Display::None => {}
+            //Display::Inline => self.compute_inline(layout_box, parent_size),
+            Display::Block => self.compute_block(results, node, parent_size),
+            //Display::Flex => self.compute_flex(results, node, parent_size),
+            //Display::Table => self.compute_table(results, node, parent_size),
+            _ => self.compute_block(results, node, parent_size),
         }
     }
 

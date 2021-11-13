@@ -1,35 +1,41 @@
-use super::{Ctx, Size};
+use crate::util::SlotMap;
+use super::{Ctx, NodeId, Size, LayoutResult};
 
-impl Ctx {
-    // pub(super) fn compute_block(&self, block: &mut LayoutBox, parent_size: Size<f32>) {
-    //     if block.size.width.is_nan() {
-    //         block.size.width = parent_size.width;
-    //     }
+impl Ctx<'_> {
+    pub(super) fn compute_block(
+        &self,
+        results: &mut SlotMap<NodeId, LayoutResult>,
+        node: NodeId,
+        parent_size: Size<f32>,
+    ) {
+        //let mut y = block.padding.top;
 
-    //     let mut y = block.padding.top;
+        for child in self.tree.children(node) {
+            self.compute_node(results, child, parent_size);
+            // child.y = y;
+            // child.x = block.padding.left;
 
-    //     for child in &mut block.children {
-    //         self.compute_box(child, parent_size);
-    //         child.y = y;
-    //         child.x = block.padding.left;
+            //y += child.size.height;
+        }
 
-    //         y += child.size.height;
-    //     }
+        if results[node].size.width.is_nan() {
+            results[node].size.width = parent_size.width;
+        }
 
-    //     if block.size.height.is_nan() {
-    //         block.size.height = block.children.iter().map(|ch| ch.size.height).sum();
-    //     }
+        if results[node].size.height.is_nan() {
+            results[node].size.height = self.tree.children(node).map(|ch| results[ch].size.height).sum();
+        }
 
-    //     //println!("{:?}", block.size);
-    // }
+        //println!("{:?}", block.size);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::super::*;
 
-    use Display::Block;
     use Dimension::Px;
+    use Display::Block;
 
     #[test]
     fn fixed_width_height() {

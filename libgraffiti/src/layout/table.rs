@@ -1,6 +1,6 @@
 use super::{Ctx, Size, Display};
 
-impl Ctx {
+impl Ctx<'_> {
 //   pub(super) fn compute_table(&self, table: &mut LayoutBox, parent_size: Size<f32>) {
 //         // TODO: flat_map TableRowGroup(s)
 //         let rows = table.children.iter_mut().filter(|ch| ch.style.display == Display::TableRow);

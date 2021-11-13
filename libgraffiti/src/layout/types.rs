@@ -125,7 +125,7 @@ pub enum FlexWrap {
     Wrap,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Size<T: Copy> {
     pub width: T,
     pub height: T,
