@@ -133,6 +133,7 @@ struct LayoutNode {
     style: LayoutStyle,
 }
 
+// read-only scope available to all layout impls
 // TODO: vw, vh, vmin, vmax, rem
 struct Ctx<'a> {
     tree: &'a mut IdTree<LayoutNode>,
@@ -171,7 +172,7 @@ impl Ctx<'_> {
             Display::None => {}
             //Display::Inline => self.compute_inline(layout_box, parent_size),
             Display::Block => self.compute_block(results, node, parent_size),
-            //Display::Flex => self.compute_flex(results, node, parent_size),
+            Display::Flex => self.compute_flex(results, node, parent_size),
             //Display::Table => self.compute_table(results, node, parent_size),
             _ => self.compute_block(results, node, parent_size),
         }

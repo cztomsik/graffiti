@@ -28,9 +28,11 @@ pub type NodeId = NonZeroU32;
 
 #[derive(Debug)]
 pub enum DomEvent<'a> {
+    NodeCreated(&'a NodeRef),
     AppendChild(&'a NodeRef, &'a NodeRef),
     InsertBefore(&'a NodeRef, &'a NodeRef, &'a NodeRef),
     RemoveChild(&'a NodeRef, &'a NodeRef),
+    NodeDestroyed(NodeId)
 }
 
 pub struct NodeRef {
@@ -81,21 +83,21 @@ impl NodeRef {
         self.store.tree.borrow_mut().append_child(self.id, child.id);
         child.inc_count();
 
-        self.emit(DomEvent::AppendChild(self, child));
+        self.store.emit(DomEvent::AppendChild(self, child));
     }
 
     pub fn insert_before(&self, child: &NodeRef, before: &NodeRef) {
         self.store.tree.borrow_mut().insert_before(self.id, child.id, before.id);
         child.inc_count();
 
-        self.emit(DomEvent::InsertBefore(self, child, before));
+        self.store.emit(DomEvent::InsertBefore(self, child, before));
     }
 
     pub fn remove_child(&self, child: &NodeRef) {
         self.store.tree.borrow_mut().remove_child(self.id, child.id);
         child.dec_count();
 
-        self.emit(DomEvent::RemoveChild(self, child));
+        self.store.emit(DomEvent::RemoveChild(self, child));
     }
 
     pub fn query_selector(&self, selector: &str) -> Option<ElementRef> {
@@ -136,21 +138,27 @@ impl NodeRef {
         }
     }
 
-    pub fn downcast<T: Clone + 'static>(self) -> Option<T> {
+    pub fn as_document(&self) -> Option<DocumentRef> {
+        self.downcast()
+    }
+
+    pub fn as_element(&self) -> Option<ElementRef> {
+        self.downcast()
+    }
+
+    pub fn as_character_data(&self) -> Option<CharacterDataRef> {
+        self.downcast()
+    }
+
+    pub fn downcast<T: Clone + 'static>(&self) -> Option<T> {
         self.downcast_ref().cloned()
     }
 
     // helpers
 
-    // TODO: make public and use nodes.get()
-    fn find_node(&self, id: NodeId) -> Option<NodeRef> {
+    // TODO: use nodes.get()
+    pub fn find_node(&self, id: NodeId) -> Option<NodeRef> {
         Some(self.store.node_ref(id))
-    }
-
-    fn emit(&self, event: DomEvent) {
-        for listener in &*self.store.listeners.borrow() {
-            listener(&event);
-        }
     }
 
     /*
@@ -400,10 +408,15 @@ impl Store {
             ref_count: Cell::new(1),
             data,
         });
-        NodeRef {
+        
+        let node = NodeRef {
             store: Rc::clone(self),
             id,
-        }
+        };
+
+        self.emit(DomEvent::NodeCreated(&node));
+
+        node
     }
 
     fn node_ref(self: &Rc<Self>, id: NodeId) -> NodeRef {
@@ -412,6 +425,12 @@ impl Store {
         NodeRef {
             store: self.clone(),
             id,
+        }
+    }
+
+    fn emit(&self, event: DomEvent) {
+        for listener in &*self.listeners.borrow() {
+            listener(&event);
         }
     }
 
@@ -438,6 +457,8 @@ impl Store {
         }
 
         self.tree.borrow_mut().drop_node(id);
+
+        self.emit(DomEvent::NodeDestroyed(id));
     }
 }
 

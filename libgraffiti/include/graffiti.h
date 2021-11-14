@@ -102,6 +102,8 @@ typedef uint32_t Ref_CssStyleDeclaration;
 
 typedef uint32_t Ref_Renderer;
 
+
+
 void gft_Ref_drop(Ref_Value obj);
 
 unsigned int gft_Vec_len(Ref_Vec_Value vec);
@@ -222,6 +224,8 @@ void gft_Element_remove_attribute(Ref_ElementRef el, const char *att, uint32_t a
 
 bool gft_Element_matches(Ref_ElementRef el, const char *selector, uint32_t selector_len);
 
+Ref_CssStyleDeclaration gft_Element_style(Ref_ElementRef el);
+
 unsigned int gft_CssStyleDeclaration_length(Ref_CssStyleDeclaration style);
 
 Option_Ref_String gft_CssStyleDeclaration_property_value(Ref_CssStyleDeclaration style,
@@ -233,6 +237,16 @@ void gft_CssStyleDeclaration_set_property(Ref_CssStyleDeclaration style,
                                           uint32_t prop_len,
                                           const char *val,
                                           uint32_t val_len);
+
+void gft_CssStyleDeclaration_remove_property(Ref_CssStyleDeclaration style,
+                                             const char *prop,
+                                             uint32_t prop_len);
+
+Ref_String gft_CssStyleDeclaration_css_text(Ref_CssStyleDeclaration style);
+
+void gft_CssStyleDeclaration_set_css_text(Ref_CssStyleDeclaration style,
+                                          const char *css_text,
+                                          uint32_t css_text_len);
 
 Ref_Renderer gft_Renderer_new(Ref_DocumentRef doc, Ref_Window win);
 

@@ -31,6 +31,11 @@ impl BitSet {
         chunk.set(chunk.get() | Self::mask(value));
     }
 
+    pub fn remove(&self, value: NonZeroU32) {
+        let chunk = self.chunk(value);
+        chunk.set(chunk.get() & !Self::mask(value));
+    }
+
     pub fn contains(&self, value: NonZeroU32) -> bool {
         self.chunk(value).get() & Self::mask(value) != 0
     }
@@ -95,8 +100,12 @@ mod tests {
         set.grow(num(64));
 
         assert_eq!(set.contains(num(1)), false);
+
         set.add(num(1));
         assert_eq!(set.contains(num(1)), true);
+
+        set.remove(num(1));
+        assert_eq!(set.contains(num(1)), false);
     }
 
     #[test]
@@ -124,6 +133,11 @@ mod tests {
 
         for n in 1..1000 {
             assert!(set.contains(num(n)));
+        }
+
+        for n in [34, 55, 89, 144] {
+            set.remove(num(n));
+            assert_eq!(set.contains(num(n)), false);
         }
     }
 }

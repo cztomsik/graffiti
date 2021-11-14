@@ -1,9 +1,15 @@
-use super::{Ctx, Size};
+use super::{Ctx, LayoutResult, NodeId, Size};
+use crate::util::SlotMap;
 
 impl Ctx<'_> {
-    // pub(super) fn compute_flex(&self, flex: &mut LayoutBox, parent_size: Size<f32>) {
-    //     self.compute_block(flex, parent_size);
-    // }
+    pub(super) fn compute_flex(
+        &self,
+        results: &mut SlotMap<NodeId, LayoutResult>,
+        node: NodeId,
+        parent_size: Size<f32>,
+    ) {
+        self.compute_block(results, node, parent_size);
+    }
 }
 
 #[cfg(test)]
