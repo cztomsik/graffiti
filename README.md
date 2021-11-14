@@ -18,8 +18,7 @@ HTML/CSS engine for node.js and deno. No electron, no webkit, no servo, all from
 - hit-testing is missing (again)
 - rendering is broken
 - **layout is WIP** (I am currently replacing yoga with custom impl)
-- CSS should be working but it's not currently attached
-- incrementality is not done (performance)
+- CSS is working but <style> is currently not respected
 
 ---
 
