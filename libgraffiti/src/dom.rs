@@ -1,10 +1,13 @@
-// document model
+// observable document model
+// x OO-like api (auto-upcast, on-demand downcast)
 // x holds the data/truth (tree of nodes)
 // x allows changes
-// x qs(a)
+// x notifies listener
+// x provides query_selector()
 
-use crate::css::{CssStyleDeclaration, Selector};
-use crate::util::{Atom, Bloom, Edge, IdTree};
+use crate::css::{CssStyleDeclaration, CssStyleSheet, Selector};
+use crate::util::{Atom, Edge, IdTree};
+use fnv::FnvHashMap;
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Error, Formatter};
@@ -23,6 +26,15 @@ pub enum NodeType {
 
 pub type NodeId = NonZeroU32;
 
+#[derive(Debug)]
+pub enum DomEvent<'a> {
+    NodeCreated(&'a NodeRef),
+    AppendChild(&'a NodeRef, &'a NodeRef),
+    InsertBefore(&'a NodeRef, &'a NodeRef, &'a NodeRef),
+    RemoveChild(&'a NodeRef, &'a NodeRef),
+    NodeDestroyed(NodeId),
+}
+
 pub struct NodeRef {
     store: Rc<Store>,
     id: NodeId,
@@ -38,43 +50,23 @@ impl NodeRef {
     }
 
     pub fn parent_node(&self) -> Option<NodeRef> {
-        self.store
-            .tree
-            .borrow()
-            .parent_node(self.id)
-            .map(|id| self.store.node_ref(id))
+        self.find_node(self.store.tree.borrow().parent_node(self.id)?)
     }
 
     pub fn first_child(&self) -> Option<NodeRef> {
-        self.store
-            .tree
-            .borrow()
-            .first_child(self.id)
-            .map(|id| self.store.node_ref(id))
+        self.find_node(self.store.tree.borrow().first_child(self.id)?)
     }
 
     pub fn last_child(&self) -> Option<NodeRef> {
-        self.store
-            .tree
-            .borrow()
-            .last_child(self.id)
-            .map(|id| self.store.node_ref(id))
+        self.find_node(self.store.tree.borrow().last_child(self.id)?)
     }
 
     pub fn previous_sibling(&self) -> Option<NodeRef> {
-        self.store
-            .tree
-            .borrow()
-            .previous_sibling(self.id)
-            .map(|id| self.store.node_ref(id))
+        self.find_node(self.store.tree.borrow().previous_sibling(self.id)?)
     }
 
     pub fn next_sibling(&self) -> Option<NodeRef> {
-        self.store
-            .tree
-            .borrow()
-            .next_sibling(self.id)
-            .map(|id| self.store.node_ref(id))
+        self.find_node(self.store.tree.borrow().next_sibling(self.id)?)
     }
 
     // TODO: avoid collect(), return impl Iterator<Item = NodeRef>
@@ -89,26 +81,23 @@ impl NodeRef {
 
     pub fn append_child(&self, child: &NodeRef) {
         self.store.tree.borrow_mut().append_child(self.id, child.id);
-
-        // TODO: add to damage
-        child.update_ancestors();
         child.inc_count();
+
+        self.store.emit(DomEvent::AppendChild(self, child));
     }
 
     pub fn insert_before(&self, child: &NodeRef, before: &NodeRef) {
         self.store.tree.borrow_mut().insert_before(self.id, child.id, before.id);
-
-        // TODO: add to damage
-        child.update_ancestors();
         child.inc_count();
+
+        self.store.emit(DomEvent::InsertBefore(self, child, before));
     }
 
     pub fn remove_child(&self, child: &NodeRef) {
         self.store.tree.borrow_mut().remove_child(self.id, child.id);
-
-        // TODO: add to damage
-        child.clear_ancestors();
         child.dec_count();
+
+        self.store.emit(DomEvent::RemoveChild(self, child));
     }
 
     pub fn query_selector(&self, selector: &str) -> Option<ElementRef> {
@@ -130,6 +119,9 @@ impl NodeRef {
         self.store.node_ref(self.id)
     }
 
+    // TODO: as_document(), as_element(), as_character_data() -> Option<XxRef>
+    //       but the problem currently is that Index<> in ffi.rs needs to return &Xxx
+    //       and we also cannot return borrow of newly-created value so this is TODO
     pub fn downcast_ref<T: 'static>(&self) -> Option<&T> {
         let type_id = TypeId::of::<T>();
         let node_type = self.node_type();
@@ -146,12 +138,34 @@ impl NodeRef {
         }
     }
 
-    pub fn downcast<T: Clone + 'static>(self) -> Option<T> {
+    pub fn as_document(&self) -> Option<DocumentRef> {
+        self.downcast()
+    }
+
+    pub fn as_element(&self) -> Option<ElementRef> {
+        self.downcast()
+    }
+
+    pub fn as_character_data(&self) -> Option<CharacterDataRef> {
+        self.downcast()
+    }
+
+    pub fn downcast<T: Clone + 'static>(&self) -> Option<T> {
         self.downcast_ref().cloned()
     }
 
     // helpers
 
+    // TODO: use nodes.get()
+    pub fn find_node(&self, id: NodeId) -> Option<NodeRef> {
+        Some(self.store.node_ref(id))
+    }
+
+    pub(crate) fn traverse(&self) -> Vec<Edge<NodeId>> {
+        self.store.tree.borrow().traverse(self.id).collect()
+    }
+
+    /*
     fn update_ancestors(&self) {
         for edge in self.store.tree.borrow().traverse(self.id) {
             if let Edge::Start(node) = edge {
@@ -173,6 +187,7 @@ impl NodeRef {
             }
         }
     }
+    */
 
     fn inc_count(&self) {
         self.store.inc_count(self.id);
@@ -225,8 +240,6 @@ pub struct ElementRef(NodeRef);
 #[derive(Debug, Clone, PartialEq)]
 pub struct CharacterDataRef(NodeRef);
 
-// TODO: move to util?
-// (we might use it for CSS too)
 macro_rules! impl_deref {
     ($struct:ident, $target: ident) => {
         impl Deref for $struct {
@@ -246,6 +259,14 @@ impl DocumentRef {
         DocumentRef(Rc::<Store>::default().create_node(NodeData::Document))
     }
 
+    pub fn add_listener(&self, listener: Rc<dyn Fn(&DomEvent)>) {
+        self.store.listeners.borrow_mut().push(listener);
+    }
+
+    pub fn remove_listener(&self, listener: &Rc<dyn Fn(&DomEvent)>) {
+        self.store.listeners.borrow_mut().retain(|l| Rc::ptr_eq(l, listener));
+    }
+
     pub fn create_element(&self, local_name: &str) -> ElementRef {
         ElementRef(self.store.create_node(NodeData::Element(ElementData {
             local_name: local_name.into(),
@@ -260,6 +281,26 @@ impl DocumentRef {
 
     pub fn create_comment(&self, data: &str) -> CharacterDataRef {
         CharacterDataRef(self.store.create_node(NodeData::Comment(data.to_owned())))
+    }
+
+    pub fn all_nodes(&self) -> Vec<NodeRef> {
+        self.store
+            .tree
+            .borrow()
+            .iter()
+            .map(|(id, _data)| self.store.node_ref(id))
+            .collect()
+    }
+
+    pub fn style_sheet(&self, style_element: &ElementRef) -> Option<Rc<CssStyleSheet>> {
+        self.store.style_sheets.borrow().get(&style_element.id()).cloned()
+    }
+
+    pub fn style_sheets(&self) -> Vec<Rc<CssStyleSheet>> {
+        self.query_selector_all("style")
+            .iter()
+            .filter_map(|el| self.style_sheet(el))
+            .collect()
     }
 }
 
@@ -338,7 +379,7 @@ impl ElementRef {
 
 impl crate::css::Element for ElementRef {
     fn parent(&self) -> Option<Self> {
-        self.parent_node().and_then(NodeRef::downcast::<ElementRef>)
+        self.parent_node()?.downcast::<ElementRef>()
     }
 
     fn local_name(&self) -> Atom<String> {
@@ -346,6 +387,7 @@ impl crate::css::Element for ElementRef {
     }
 
     fn attribute(&self, name: &str) -> Option<Atom<String>> {
+        // TODO: maybe "style" should not be attribute and then we could just delegate to self.attribute()
         for (a, v) in &self.store.tree.borrow().data(self.id).el().attributes {
             if a == name {
                 return Some(v.clone());
@@ -369,19 +411,25 @@ impl CharacterDataRef {
 #[derive(Default)]
 pub struct Store {
     tree: RefCell<IdTree<Node>>,
+    style_sheets: RefCell<FnvHashMap<NodeId, Rc<CssStyleSheet>>>,
+    listeners: RefCell<Vec<Rc<dyn Fn(&DomEvent)>>>,
 }
 
 impl Store {
     fn create_node(self: &Rc<Self>, data: NodeData) -> NodeRef {
         let id = self.tree.borrow_mut().create_node(Node {
             ref_count: Cell::new(1),
-            ancestors: Cell::new(Bloom::new()),
             data,
         });
-        NodeRef {
+
+        let node = NodeRef {
             store: Rc::clone(self),
             id,
-        }
+        };
+
+        self.emit(DomEvent::NodeCreated(&node));
+
+        node
     }
 
     fn node_ref(self: &Rc<Self>, id: NodeId) -> NodeRef {
@@ -390,6 +438,12 @@ impl Store {
         NodeRef {
             store: self.clone(),
             id,
+        }
+    }
+
+    fn emit(&self, event: DomEvent) {
+        for listener in &*self.listeners.borrow() {
+            listener(&event);
         }
     }
 
@@ -416,12 +470,13 @@ impl Store {
         }
 
         self.tree.borrow_mut().drop_node(id);
+
+        self.emit(DomEvent::NodeDestroyed(id));
     }
 }
 
 struct Node {
     ref_count: Cell<u32>,
-    ancestors: Cell<Bloom<NodeId>>,
     data: NodeData,
 }
 

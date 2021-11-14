@@ -21,7 +21,7 @@ export class Window extends EventTarget implements globalThis.Window {
   }
 
   // TODO (vite needs it)
-  customElements = { define: NOOP } as any
+  customElements = { define: NOOP, get: NOOP } as any
 
   // provided by deno/nodejs
   fetch = fetch

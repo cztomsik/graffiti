@@ -1,3 +1,9 @@
+// id-based linked tree
+// x alloc-free inserts/removals
+// - TODO: tree.rebuild() -> (Self, Iterator<(OldId, NewId)>)?
+// - TODO: consider using Cell<> so only create/drop requires &mut?
+//         (but then the whole tree would be !Sync)
+
 use super::SlotMap;
 use std::num::NonZeroU32;
 
@@ -102,7 +108,7 @@ impl<T> IdTree<T> {
 
         let nodes = &mut self.nodes;
 
-        if nodes[parent].first_child == Some(before) {
+        if nodes[before].previous_sibling == None {
             nodes[parent].first_child = Some(child);
         }
 
@@ -122,11 +128,11 @@ impl<T> IdTree<T> {
 
         let nodes = &mut self.nodes;
 
-        if nodes[parent].first_child == Some(child) {
+        if nodes[child].previous_sibling == None {
             nodes[parent].first_child = nodes[child].next_sibling;
         }
 
-        if nodes[parent].last_child == Some(child) {
+        if nodes[child].next_sibling == None {
             nodes[parent].last_child = nodes[child].previous_sibling;
         }
 
@@ -141,6 +147,10 @@ impl<T> IdTree<T> {
         nodes[child].parent_node = None;
         nodes[child].next_sibling = None;
         nodes[child].previous_sibling = None;
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (NodeId, &T)> + '_ {
+        self.nodes.iter().map(|(id, node)| (id, &node.data))
     }
 }
 

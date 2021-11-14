@@ -266,10 +266,10 @@ pub(super) fn tokenize(input: &[u8]) -> Vec<Token> {
     let ident = is_a(alphanum_dash).repeat(1..).collect();
     let string1 = (sym(b'\'') + none_of(b"'").repeat(0..) + sym(b'\'')).collect();
     let string2 = (sym(b'"') + none_of(b"\"").repeat(0..) + sym(b'"')).collect();
-    let special = any().collect();
+    let other = any().collect();
 
     // spaces are "normalized" but they still can appear multiple times because of stripped comments
-    let token = comment.opt() * (space | hex_or_id | num | ident | string1 | string2 | special);
+    let token = comment.opt() * (space | hex_or_id | num | ident | string1 | string2 | other);
     let tokens = token.convert(std::str::from_utf8).repeat(0..).parse(input).unwrap();
 
     // strip whitespace except for selectors & multi-values

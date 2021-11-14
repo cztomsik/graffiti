@@ -8,18 +8,6 @@ permalink: /
 
 HTML/CSS engine for node.js and deno. No electron, no webkit, no servo, all from scratch.
 
-[Discord](https://discord.gg/zQwyzFb)
-| [Quickstart repo](https://github.com/cztomsik/hello-graffiti/)
-
----
-
-**Work in progress**, [prev version](https://github.com/cztomsik/graffiti/commit/28f9d9d5a24ac7d11bfda3d304e5c8714317f343)
-
-- CSS, events, (p)react/vue/svelte support
-- CLI for running `*.html` files
-
-Follow me on my [twitter](https://twitter.com/cztomsik) for updates.
-
 ---
 
 ## Current status

@@ -13,7 +13,7 @@
 // x decoupled from other systems
 
 use super::parser::ParseError;
-use crate::util::Atom;
+use crate::util::{Bloom, Atom};
 
 // TODO: find better name? CssElement? MatchedElement?
 pub trait Element: Clone {
@@ -50,6 +50,7 @@ pub(super) enum Component {
     // LastChild // (next_element_sibling == None)
     // OnlyChild // (prev_element_sibling == None && next_element_sibling == None)
 
+    // BTW: many are just compound shorthands and can be resolved here (:disabled is like [disabled] & input, select, ...)
     // PseudoClass(Atom<String>) // :root, :hover, :focus, :active, :enabled, :disabled, :valid, :invalid, ...
 }
 
@@ -77,6 +78,10 @@ impl Selector {
         let parser = super::parser::selector() - pom::parser::end();
 
         parser.parse(&tokens)
+    }
+
+    pub(super) fn tail_mask(&self) -> Bloom<()> {
+        Bloom::MAX
     }
 
     pub fn match_element(&self, element: &impl Element) -> Option<Specificity> {

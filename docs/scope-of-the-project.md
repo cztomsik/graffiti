@@ -33,7 +33,7 @@ The table below provides some info about what's left out. Some of those might be
 |-------------------------|------------------------------|
 | values                  | specified-only, no `inherit` |
 | colors                  | hex, rgb(a), lowercase names |
-| layout                  | `flex`, `block` emulation    |
-| transitions             | later                        |
-| CSSOM                   | minimal for CSS-in-JS        |
+| layout                  | `flex`, `block`, no float    |
+| transitions             | maybe later                  |
+| CSSOM                   | subset for CSS-in-JS         |
 | media queries           | use JS                       |
