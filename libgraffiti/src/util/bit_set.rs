@@ -57,7 +57,7 @@ impl BitSet {
     }
 
     fn chunk(&self, value: NonZeroU32) -> &Cell<u32> {
-        &self.chunks[value.get() as usize / BITS]
+        &self.chunks[(value.get() as usize - 1) / BITS]
     }
 
     fn mask(value: NonZeroU32) -> u32 {
@@ -125,9 +125,10 @@ mod tests {
     #[test]
     fn stress() {
         let mut set = BitSet::new();
-        set.grow(num(1000));
+        set.grow(num(10));
 
         for n in 1..1000 {
+            set.grow(num(n));
             set.add(num(n));
         }
 

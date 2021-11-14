@@ -32,7 +32,7 @@ pub enum DomEvent<'a> {
     AppendChild(&'a NodeRef, &'a NodeRef),
     InsertBefore(&'a NodeRef, &'a NodeRef, &'a NodeRef),
     RemoveChild(&'a NodeRef, &'a NodeRef),
-    NodeDestroyed(NodeId)
+    NodeDestroyed(NodeId),
 }
 
 pub struct NodeRef {
@@ -161,6 +161,10 @@ impl NodeRef {
         Some(self.store.node_ref(id))
     }
 
+    pub(crate) fn traverse(&self) -> Vec<Edge<NodeId>> {
+        self.store.tree.borrow().traverse(self.id).collect()
+    }
+
     /*
     fn update_ancestors(&self) {
         for edge in self.store.tree.borrow().traverse(self.id) {
@@ -277,6 +281,15 @@ impl DocumentRef {
 
     pub fn create_comment(&self, data: &str) -> CharacterDataRef {
         CharacterDataRef(self.store.create_node(NodeData::Comment(data.to_owned())))
+    }
+
+    pub fn all_nodes(&self) -> Vec<NodeRef> {
+        self.store
+            .tree
+            .borrow()
+            .iter()
+            .map(|(id, _data)| self.store.node_ref(id))
+            .collect()
     }
 
     pub fn style_sheet(&self, style_element: &ElementRef) -> Option<Rc<CssStyleSheet>> {
@@ -408,7 +421,7 @@ impl Store {
             ref_count: Cell::new(1),
             data,
         });
-        
+
         let node = NodeRef {
             store: Rc::clone(self),
             id,

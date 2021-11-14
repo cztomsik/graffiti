@@ -8,7 +8,7 @@ use crate::gfx::{Canvas, GlBackend, RenderBackend, Text, TextStyle, Vec2, AABB, 
 use crate::layout::{
     Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutNodeId, LayoutStyle, LayoutTree, Size,
 };
-use crate::util::{BitSet, SlotMap};
+use crate::util::{BitSet, Edge, SlotMap};
 use crate::{CharacterDataRef, DocumentRef, DomEvent, ElementRef, NodeId, NodeRef, NodeType, Window};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -27,7 +27,7 @@ pub struct Renderer {
 struct State {
     layout_tree: LayoutTree,
     layout_nodes: SlotMap<NodeId, LayoutNodeId>,
-    dirty_styles: BitSet,
+    dirty_nodes: BitSet,
 }
 
 impl Renderer {
@@ -38,9 +38,27 @@ impl Renderer {
         let state = Rc::new(RefCell::new(State::default()));
         let listener = Self::create_listener(Rc::clone(&state));
 
+        // connect
         document.add_listener(Rc::clone(&listener));
+        for node in document.all_nodes() {
+            listener(&DomEvent::NodeCreated(&node));
+        }
+        let mut parent = document.id();
+        for edge in document.traverse().iter().skip(1) {
+            match *edge {
+                Edge::Start(id) => {
+                    listener(&DomEvent::AppendChild(
+                        &document.find_node(parent).unwrap(),
+                        &document.find_node(id).unwrap(),
+                    ));
+                    parent = id;
+                }
+                Edge::End(id) => parent = id,
+            }
+        }
+        let root_layout_node = state.borrow().layout_nodes[document.id()];
+        state.borrow_mut().layout_tree.set_style(root_layout_node, LayoutStyle { display: Display::Block, ..Default::default() });
 
-        // TODO: traverse doc once and fire events (or init layout_tree somehow)
         Self {
             window: Window::find_by_id(win.id()).unwrap(),
             document,
@@ -56,21 +74,21 @@ impl Renderer {
             let State {
                 layout_tree,
                 layout_nodes,
-                dirty_styles,
+                dirty_nodes,
             } = &mut *state.borrow_mut();
             match event {
                 DomEvent::NodeCreated(node) => {
                     layout_nodes.put(node.id(), layout_tree.create_node());
-                    dirty_styles.grow(node.id());
+                    dirty_nodes.grow(node.id());
                 }
                 &DomEvent::NodeDestroyed(id) => {
                     layout_tree.drop_node(layout_nodes.remove(id).unwrap());
                     // if whole subtree gets freed, it might not be removed at all
-                    dirty_styles.remove(id);
+                    dirty_nodes.remove(id);
                 }
                 DomEvent::AppendChild(parent, child) => {
                     layout_tree.append_child(layout_nodes[parent.id()], layout_nodes[child.id()]);
-                    dirty_styles.add(child.id());
+                    dirty_nodes.add(child.id());
                     // TODO: descendants should be dirty too
                 }
                 DomEvent::InsertBefore(parent, child, before) => {
@@ -79,11 +97,11 @@ impl Renderer {
                         layout_nodes[child.id()],
                         layout_nodes[before.id()],
                     );
-                    dirty_styles.add(child.id());
+                    dirty_nodes.add(child.id());
                 }
                 DomEvent::RemoveChild(parent, child) => {
                     layout_tree.append_child(layout_nodes[parent.id()], layout_nodes[child.id()]);
-                    dirty_styles.remove(child.id());
+                    dirty_nodes.remove(child.id());
                 }
             }
         })
@@ -121,16 +139,20 @@ impl Renderer {
         let State {
             layout_tree,
             layout_nodes,
-            dirty_styles,
+            dirty_nodes,
         } = &mut *self.state.borrow_mut();
 
-        for id in dirty_styles.iter() {
+        for id in dirty_nodes.iter() {
             let node = self.document.find_node(id).unwrap();
             if let Some(el) = node.as_element() {
+                println!("update style {:?}", (el.local_name(), id));
                 let res = self.style_resolver.resolve_style(&el, ResolvedStyle::apply_style_prop);
                 layout_tree.set_style(layout_nodes[id], res.layout_style);
+            } else if let Some(cdata) = node.as_character_data() {
+                println!("TODO: update text/comment");
             }
         }
+        dirty_nodes.clear();
         profile!("css");
 
         layout_tree.calculate(layout_nodes[self.document.id()], 1024., 768.);
@@ -163,7 +185,7 @@ impl<'a> RenderContext<'a> {
         //         self.canvas.fill_text(text, rect, [0, 0, 0, 255]);
         //     }
         // } else {
-            self.canvas.fill_rect(rect, [255, 0, 0, 30]);
+        self.canvas.fill_rect(rect, [255, 0, 0, 30]);
         // }
 
         for ch in self.layout_tree.children(layout_node) {

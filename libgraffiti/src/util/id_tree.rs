@@ -148,6 +148,10 @@ impl<T> IdTree<T> {
         nodes[child].next_sibling = None;
         nodes[child].previous_sibling = None;
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (NodeId, &T)> + '_ {
+        self.nodes.iter().map(|(id, node)| (id, &node.data))
+    }
 }
 
 impl<T> Default for IdTree<T> {

@@ -124,7 +124,7 @@ impl LayoutTree {
     }
 
     pub fn calculate(&mut self, node: NodeId, avail_width: f32, avail_height: f32) {
-        // println!("-- calculate");
+        println!("-- calculate");
 
         let mut ctx = Ctx { tree: &mut self.tree };
 
@@ -193,6 +193,8 @@ impl Ctx<'_> {
     }
 
     fn compute_node(&self, results: &mut SlotMap<NodeId, LayoutResult>, node: NodeId, parent_size: Size<f32>) {
+        println!("compute_node {:?}", (node, self.tree.data(node).style.display, parent_size, ));
+
         results[node].size = self.resolve_size(self.tree.data(node).style.size(), parent_size);
 
         match self.tree.data(node).style.display {
