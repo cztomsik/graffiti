@@ -57,7 +57,13 @@ impl Renderer {
             }
         }
         let root_layout_node = state.borrow().layout_nodes[document.id()];
-        state.borrow_mut().layout_tree.set_style(root_layout_node, LayoutStyle { display: Display::Block, ..Default::default() });
+        state.borrow_mut().layout_tree.set_style(
+            root_layout_node,
+            LayoutStyle {
+                display: Display::Block,
+                ..Default::default()
+            },
+        );
 
         Self {
             window: Window::find_by_id(win.id()).unwrap(),
@@ -146,7 +152,12 @@ impl Renderer {
             let node = self.document.find_node(id).unwrap();
             if let Some(el) = node.as_element() {
                 println!("update style {:?}", (el.local_name(), id));
-                let res = self.style_resolver.resolve_style(&el, ResolvedStyle::apply_style_prop);
+
+                let mut res = self.style_resolver.resolve_style(&el, ResolvedStyle::apply_style_prop);
+                for p in el.style().props().iter() {
+                    res.apply_style_prop(p);
+                }
+
                 layout_tree.set_style(layout_nodes[id], res.layout_style);
             } else if let Some(cdata) = node.as_character_data() {
                 println!("TODO: update text/comment");

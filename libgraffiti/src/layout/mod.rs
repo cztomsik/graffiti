@@ -193,7 +193,10 @@ impl Ctx<'_> {
     }
 
     fn compute_node(&self, results: &mut SlotMap<NodeId, LayoutResult>, node: NodeId, parent_size: Size<f32>) {
-        println!("compute_node {:?}", (node, self.tree.data(node).style.display, parent_size, ));
+        println!(
+            "compute_node {:?}",
+            (node, self.tree.data(node).style.display, parent_size,)
+        );
 
         results[node].size = self.resolve_size(self.tree.data(node).style.size(), parent_size);
 
@@ -205,6 +208,11 @@ impl Ctx<'_> {
             Display::Flex => self.compute_flex(results, node, parent_size),
             //Display::Table => self.compute_table(results, node, parent_size),
             _ => self.compute_block(results, node, parent_size),
+        }
+
+        // TODO: this is because of Display::None (which then breaks sum of children for block)
+        if results[node].size.height.is_nan() {
+            results[node].size.height = 0.;
         }
     }
 

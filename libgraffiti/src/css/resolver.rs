@@ -42,11 +42,6 @@ impl StyleResolver {
             }
         }
 
-        // TODO: apply element.style()
-        //for p in el.style().props().iter() {
-        //    resolved_style.apply_style_prop(p);
-        //}
-
         res
     }
 }

@@ -26,7 +26,7 @@ impl Ctx<'_> {
             results[node].size.height = self.tree.children(node).map(|ch| results[ch].size.height).sum();
         }
 
-        //println!("{:?}", block.size);
+        println!("block res {:?}", (node, results[node].size));
     }
 }
 
