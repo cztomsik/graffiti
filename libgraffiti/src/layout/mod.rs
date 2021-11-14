@@ -53,8 +53,28 @@ pub struct LayoutTree {
 }
 
 #[derive(Default)]
-struct LayoutResult {
+pub struct LayoutResult {
+    x: f32,
+    y: f32,
     size: Size<f32>,
+}
+
+impl LayoutResult {
+    pub fn x(&self) -> f32 {
+        self.x
+    }
+
+    pub fn y(&self) -> f32 {
+        self.y
+    }
+
+    pub fn outer_width(&self) -> f32 {
+        self.size.width
+    }
+
+    pub fn outer_height(&self) -> f32 {
+        self.size.height
+    }
 }
 
 impl LayoutTree {
@@ -71,12 +91,20 @@ impl LayoutTree {
         id
     }
 
+    pub fn drop_node(&mut self, node: NodeId) {
+        self.tree.drop_node(node);
+    }
+
     pub fn style(&self, node: NodeId) -> &LayoutStyle {
         &self.tree.data(node).style
     }
 
     pub fn set_style(&mut self, node: NodeId, style: LayoutStyle) {
         self.tree.data_mut(node).style = style;
+    }
+
+    pub fn children(&self, parent: NodeId) -> impl Iterator<Item = NodeId> + '_ {
+        self.tree.children(parent)
     }
 
     pub fn append_child(&mut self, parent: NodeId, child: NodeId) {
@@ -91,9 +119,9 @@ impl LayoutTree {
         self.tree.remove_child(parent, child);
     }
 
-    // pub fn layout(&self, node: NodeId) -> &LayoutBox {
-    //     todo!()
-    // }
+    pub fn layout_result(&self, node: NodeId) -> &LayoutResult {
+        &self.results[node]
+    }
 
     pub fn calculate(&mut self, node: NodeId, avail_width: f32, avail_height: f32) {
         // println!("-- calculate");

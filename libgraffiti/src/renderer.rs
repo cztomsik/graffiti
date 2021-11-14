@@ -1,19 +1,33 @@
+#![allow(unused)]
+
 use crate::css::{
-    CssAlign, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap, CssJustify, CssStyleDeclaration, CssStyleSheet,
-    StyleProp,
+    CssAlign, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap, CssJustify, CssStyleSheet, StyleProp,
+    StyleResolver,
 };
 use crate::gfx::{Canvas, GlBackend, RenderBackend, Text, TextStyle, Vec2, AABB, RGBA8};
 use crate::layout::{
-    Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutBox, LayoutNode, LayoutStyle, Size,
+    Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutNodeId, LayoutStyle, LayoutTree, Size,
 };
-use crate::{CharacterDataRef, DocumentRef, ElementRef, NodeRef, NodeType, Window};
+use crate::util::{BitSet, SlotMap};
+use crate::{CharacterDataRef, DocumentRef, DomEvent, ElementRef, NodeId, NodeRef, NodeType, Window};
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 pub struct Renderer {
     document: DocumentRef,
-    ua_sheet: CssStyleSheet,
+    style_resolver: StyleResolver,
+    state: Rc<RefCell<State>>,
+    listener: Rc<dyn Fn(&DomEvent)>,
     window: Arc<Window>,
     backend: GlBackend,
+}
+
+#[derive(Default)]
+struct State {
+    layout_tree: LayoutTree,
+    layout_nodes: SlotMap<NodeId, LayoutNodeId>,
+    dirty_styles: BitSet,
 }
 
 impl Renderer {
@@ -21,35 +35,79 @@ impl Renderer {
         // TODO: make this whole fn unsafe?
         let backend = unsafe { GlBackend::new(|s| win.get_proc_address(s) as _) };
 
+        let state = Rc::new(RefCell::new(State::default()));
+        let listener = Self::create_listener(Rc::clone(&state));
+
+        document.add_listener(Rc::clone(&listener));
+
+        // TODO: traverse doc once and fire events (or init layout_tree somehow)
         Self {
             window: Window::find_by_id(win.id()).unwrap(),
             document,
-            ua_sheet: CssStyleSheet::default_ua_sheet(),
+            style_resolver: StyleResolver::new(vec![Rc::new(CssStyleSheet::default_ua_sheet())]),
+            state,
+            listener,
             backend,
         }
     }
 
-    pub fn render(&self) {
-        profile!();
+    fn create_listener(state: Rc<RefCell<State>>) -> Rc<dyn Fn(&DomEvent)> {
+        Rc::new(move |event| {
+            let State {
+                layout_tree,
+                layout_nodes,
+                dirty_styles,
+            } = &mut *state.borrow_mut();
+            match event {
+                DomEvent::NodeCreated(node) => {
+                    layout_nodes.put(node.id(), layout_tree.create_node());
+                    dirty_styles.grow(node.id());
+                }
+                &DomEvent::NodeDestroyed(id) => {
+                    layout_tree.drop_node(layout_nodes.remove(id).unwrap());
+                    // if whole subtree gets freed, it might not be removed at all
+                    dirty_styles.remove(id);
+                }
+                DomEvent::AppendChild(parent, child) => {
+                    layout_tree.append_child(layout_nodes[parent.id()], layout_nodes[child.id()]);
+                    dirty_styles.add(child.id());
+                    // TODO: descendants should be dirty too
+                }
+                DomEvent::InsertBefore(parent, child, before) => {
+                    layout_tree.insert_before(
+                        layout_nodes[parent.id()],
+                        layout_nodes[child.id()],
+                        layout_nodes[before.id()],
+                    );
+                    dirty_styles.add(child.id());
+                }
+                DomEvent::RemoveChild(parent, child) => {
+                    layout_tree.append_child(layout_nodes[parent.id()], layout_nodes[child.id()]);
+                    dirty_styles.remove(child.id());
+                }
+            }
+        })
+    }
 
-        let layout_tree = self.create_layout_node(&self.document.as_node());
-        let box_tree = layout_tree.calculate(Size {
-            width: 1024.,
-            height: 768.,
-        });
-        profile!("layout");
+    pub fn render(&self) {
+        self.update();
+
+        let state = self.state.borrow();
 
         let mut canvas = Canvas::new();
-        let mut ctx = RenderContext { canvas: &mut canvas };
+        let mut ctx = RenderContext {
+            canvas: &mut canvas,
+            layout_tree: &state.layout_tree,
+        };
 
-        ctx.render_box(0., 0., &box_tree);
+        profile!();
+        ctx.render_box(0., 0., state.layout_nodes[self.document.id()]);
         let frame = ctx.canvas.flush();
         profile!("frame");
 
         unsafe { self.window.make_current() };
         self.backend.render_frame(frame);
         self.window.swap_buffers();
-
         profile!("gl + vsync");
     }
 
@@ -57,76 +115,58 @@ impl Renderer {
         println!("TODO: Renderer::resize({}, {})", width, height);
     }
 
-    fn create_layout_node(&self, node: &NodeRef) -> LayoutNode {
-        println!("creating layout node for {:?}", node);
+    pub fn update(&self) {
+        profile!();
 
-        match node.node_type() {
-            NodeType::Document => self.create_layout_node(&node.first_child().unwrap()),
-            NodeType::Element => {
-                let style = self.resolve_style(&node.downcast_ref::<ElementRef>().unwrap());
+        let State {
+            layout_tree,
+            layout_nodes,
+            dirty_styles,
+        } = &mut *self.state.borrow_mut();
 
-                LayoutNode::new(
-                    style.layout_style,
-                    node.child_nodes()
-                        .iter()
-                        .map(|ch| self.create_layout_node(ch))
-                        .collect(),
-                )
+        for id in dirty_styles.iter() {
+            let node = self.document.find_node(id).unwrap();
+            if let Some(el) = node.as_element() {
+                let res = self.style_resolver.resolve_style(&el, ResolvedStyle::apply_style_prop);
+                layout_tree.set_style(layout_nodes[id], res.layout_style);
             }
-            NodeType::Text => LayoutNode::new_text(Text::new(
-                &node.downcast_ref::<CharacterDataRef>().unwrap().data(),
-                &TextStyle::DEFAULT,
-            )),
-            _ => LayoutNode::new(LayoutStyle::default(), vec![]),
         }
+        profile!("css");
+
+        layout_tree.calculate(layout_nodes[self.document.id()], 1024., 768.);
+        profile!("layout");
     }
+}
 
-    fn resolve_style(&self, el: &ElementRef) -> ResolvedStyle {
-        let mut resolved_style = ResolvedStyle::default();
-
-        // match ua_sheet
-        for rule in self.ua_sheet.rules() {
-            if let Some(_spec) = rule.selector.match_element(el) {
-                for p in rule.style().props().iter() {
-                    resolved_style.apply_style_prop(p);
-                }
-            }
-        }
-
-        // TODO: match document.style_sheets()
-        // for rule in self.style_sheets.flat_map(CssStyleSheet::rules) {
-        //      if let Some(_spec) = rule.selector.match_element(el) { for p in rule.style().props().iter() { resolved_style.apply_style_prop(p) } }
-        // }
-
-        // append el.style()
-        for p in el.style().props().iter() {
-            resolved_style.apply_style_prop(p);
-        }
-
-        resolved_style
+impl Drop for Renderer {
+    fn drop(&mut self) {
+        self.document.remove_listener(&self.listener);
     }
 }
 
 struct RenderContext<'a> {
     canvas: &'a mut Canvas,
+    layout_tree: &'a LayoutTree,
 }
 
 impl<'a> RenderContext<'a> {
-    fn render_box(&mut self, x: f32, y: f32, layout_box: &LayoutBox) {
-        let min = Vec2::new(x + layout_box.x(), y + layout_box.y());
-        let max = min + Vec2::new(layout_box.width(), layout_box.height());
+    fn render_box(&mut self, x: f32, y: f32, layout_node: LayoutNodeId) {
+        let res = self.layout_tree.layout_result(layout_node);
+
+        let min = Vec2::new(x + res.x(), y + res.y());
+        let max = min + Vec2::new(res.outer_width(), res.outer_height());
         let rect = AABB::new(min, max);
 
-        if let Some(text) = &layout_box.text {
-            // TODO: skip in layout?
-            if layout_box.width() > 0. {
-                self.canvas.fill_text(text, rect, [0, 0, 0, 255]);
-            }
-        } else {
+        // if let Some(text) = &layout_box.text {
+        //     // TODO: skip in layout?
+        //     if layout_box.width() > 0. {
+        //         self.canvas.fill_text(text, rect, [0, 0, 0, 255]);
+        //     }
+        // } else {
             self.canvas.fill_rect(rect, [255, 0, 0, 30]);
-        }
+        // }
 
-        for ch in layout_box.children() {
+        for ch in self.layout_tree.children(layout_node) {
             self.render_box(min.x, min.y, ch);
         }
     }
@@ -206,12 +246,12 @@ impl ResolvedStyle {
         use StyleProp::*;
         match prop {
             // size
-            &Width(v) => self.layout_style.size.width = dimension(v),
-            &Height(v) => self.layout_style.size.height = dimension(v),
-            &MinWidth(v) => self.layout_style.min_size.width = dimension(v),
-            &MinHeight(v) => self.layout_style.min_size.height = dimension(v),
-            &MaxWidth(v) => self.layout_style.max_size.width = dimension(v),
-            &MaxHeight(v) => self.layout_style.max_size.height = dimension(v),
+            &Width(v) => self.layout_style.width = dimension(v),
+            &Height(v) => self.layout_style.height = dimension(v),
+            &MinWidth(v) => self.layout_style.min_width = dimension(v),
+            &MinHeight(v) => self.layout_style.min_height = dimension(v),
+            &MaxWidth(v) => self.layout_style.max_width = dimension(v),
+            &MaxHeight(v) => self.layout_style.max_height = dimension(v),
 
             // padding
             &PaddingTop(v) => self.layout_style.padding.top = dimension(v),
