@@ -144,7 +144,7 @@ pub(super) fn sides_of<'a, V: Copy + 'a>(parser: Parser<'a, V>) -> Parser<'a, (V
 
 pub(super) fn flex<'a>() -> Parser<'a, (f32, f32, CssDimension)> {
     (float() + (sym(" ") * float()).opt() + (sym(" ") * dimension()).opt())
-        .map(|((grow, shrink), basis)| (grow, shrink.unwrap_or(1.), basis.unwrap_or(CssDimension::Auto)))
+        .map(|((grow, shrink), basis)| (grow, shrink.unwrap_or(1.), basis.unwrap_or(CssDimension::ZERO)))
 }
 
 pub(super) fn overflow<'a>() -> Parser<'a, (CssOverflow, CssOverflow)> {

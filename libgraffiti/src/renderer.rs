@@ -43,17 +43,9 @@ impl Renderer {
         for node in document.all_nodes() {
             listener(&DomEvent::NodeCreated(&node));
         }
-        let mut parent = document.id();
-        for edge in document.traverse().iter().skip(1) {
-            match *edge {
-                Edge::Start(id) => {
-                    listener(&DomEvent::AppendChild(
-                        &document.find_node(parent).unwrap(),
-                        &document.find_node(id).unwrap(),
-                    ));
-                    parent = id;
-                }
-                Edge::End(id) => parent = id,
+        for parent in document.all_nodes() {
+            for child in parent.child_nodes() {
+                listener(&DomEvent::AppendChild(&parent, &child));
             }
         }
         let root_layout_node = state.borrow().layout_nodes[document.id()];
@@ -76,6 +68,17 @@ impl Renderer {
     }
 
     fn create_listener(state: Rc<RefCell<State>>) -> Rc<dyn Fn(&DomEvent)> {
+        fn mark_dirty(dirty_nodes: &mut BitSet, node: &NodeRef) {
+            // recurse but stop early
+            if !dirty_nodes.contains(node.id()) {
+                dirty_nodes.add(node.id());
+
+                for ch in node.child_nodes() {
+                    mark_dirty(dirty_nodes, &ch);
+                }
+            }
+        }
+
         Rc::new(move |event| {
             let State {
                 layout_tree,
@@ -94,8 +97,7 @@ impl Renderer {
                 }
                 DomEvent::AppendChild(parent, child) => {
                     layout_tree.append_child(layout_nodes[parent.id()], layout_nodes[child.id()]);
-                    dirty_nodes.add(child.id());
-                    // TODO: descendants should be dirty too
+                    mark_dirty(dirty_nodes, child);
                 }
                 DomEvent::InsertBefore(parent, child, before) => {
                     layout_tree.insert_before(
@@ -186,9 +188,9 @@ impl<'a> RenderContext<'a> {
     fn render_box(&mut self, x: f32, y: f32, layout_node: LayoutNodeId) {
         let res = self.layout_tree.layout_result(layout_node);
 
-        let min = Vec2::new(x + res.x(), y + res.y());
-        let max = min + Vec2::new(res.outer_width(), res.outer_height());
-        let rect = AABB::new(min, max);
+        let rect = res.outer_rect();
+        let pos = Vec2::new(rect.left, rect.top);
+        let rect = AABB::new(pos, Vec2::new(rect.right, rect.bottom));
 
         // if let Some(text) = &layout_box.text {
         //     // TODO: skip in layout?
@@ -200,7 +202,7 @@ impl<'a> RenderContext<'a> {
         // }
 
         for ch in self.layout_tree.children(layout_node) {
-            self.render_box(min.x, min.y, ch);
+            self.render_box(pos.x, pos.y, ch);
         }
     }
 
@@ -287,10 +289,10 @@ impl ResolvedStyle {
             &MaxHeight(v) => self.layout_style.max_height = dimension(v),
 
             // padding
-            &PaddingTop(v) => self.layout_style.padding.top = dimension(v),
-            &PaddingRight(v) => self.layout_style.padding.right = dimension(v),
-            &PaddingBottom(v) => self.layout_style.padding.bottom = dimension(v),
-            &PaddingLeft(v) => self.layout_style.padding.left = dimension(v),
+            &PaddingTop(v) => self.layout_style.padding_top = dimension(v),
+            &PaddingRight(v) => self.layout_style.padding_right = dimension(v),
+            &PaddingBottom(v) => self.layout_style.padding_bottom = dimension(v),
+            &PaddingLeft(v) => self.layout_style.padding_left = dimension(v),
 
             // margin
             &MarginTop(v) => self.layout_style.margin.top = dimension(v),

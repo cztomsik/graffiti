@@ -8,14 +8,20 @@ impl Ctx<'_> {
         node: NodeId,
         parent_size: Size<f32>,
     ) {
-        //let mut y = block.padding.top;
+        let mut y = results[node].padding.top;
+
+        let avail_inner = Size {
+            width: f32::max(0., parent_size.width - results[node].padding.left - results[node].padding.right),
+            height: f32::max(0., parent_size.height - results[node].padding.top - results[node].padding.bottom),
+        };
 
         for child in self.tree.children(node) {
-            self.compute_node(results, child, parent_size);
-            // child.y = y;
-            // child.x = block.padding.left;
+            self.compute_node(results, child, avail_inner);
 
-            //y += child.size.height;
+            results[child].y = y;
+            results[child].x = results[node].padding.left;
+
+            y += results[child].size.height;
         }
 
         if results[node].size.width.is_nan() {
@@ -25,8 +31,6 @@ impl Ctx<'_> {
         if results[node].size.height.is_nan() {
             results[node].size.height = self.tree.children(node).map(|ch| results[ch].size.height).sum();
         }
-
-        println!("block res {:?}", (node, results[node].size));
     }
 }
 
@@ -83,10 +87,25 @@ mod tests {
 
     #[test]
     fn padding() {
-        todo!()
+        let (mut tree, root) = layout_tree! {
+            (node(display = Block, padding_top = Px(10.), padding_left = Px(10.))
+                (node(display = Block, height = Px(10.)))
+            )
+        };
+
+        tree.calculate(root, 100., 0.);
+        assert_eq!(
+            tree.debug(root),
+            stringify!(
+                Block(100.0, 20.0) [
+                    Block(90.0, 10.0) [],
+                ]
+            )
+        );
     }
 
     #[test]
+    #[ignore]
     fn margin() {
         todo!()
     }

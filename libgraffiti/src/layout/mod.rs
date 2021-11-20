@@ -57,23 +57,19 @@ pub struct LayoutResult {
     x: f32,
     y: f32,
     size: Size<f32>,
+    padding: Rect<f32>,
+    // margin: Rect<f32>,
+    // border: Rect<f32>,
 }
 
 impl LayoutResult {
-    pub fn x(&self) -> f32 {
-        self.x
-    }
-
-    pub fn y(&self) -> f32 {
-        self.y
-    }
-
-    pub fn outer_width(&self) -> f32 {
-        self.size.width
-    }
-
-    pub fn outer_height(&self) -> f32 {
-        self.size.height
+    pub fn outer_rect(&self) -> Rect<f32> {
+        Rect {
+            left: self.x,
+            top: self.y,
+            right: self.x + self.size.width + self.padding.left + self.padding.right,
+            bottom: self.y + self.size.height + self.padding.top + self.padding.top
+        }
     }
 }
 
@@ -86,7 +82,10 @@ impl LayoutTree {
         let id = self.tree.create_node(LayoutNode {
             style: LayoutStyle::default(),
         });
-        self.results.put(id, Default::default());
+        self.results.put(
+            id,
+            LayoutResult::default(),
+        );
 
         id
     }
@@ -198,7 +197,14 @@ impl Ctx<'_> {
             (node, self.tree.data(node).style.display, parent_size,)
         );
 
-        results[node].size = self.resolve_size(self.tree.data(node).style.size(), parent_size);
+        let style = &self.tree.data(node).style;
+
+        results[node].size = self.resolve_size(style.size(), parent_size);
+        // results[node].min_size = self.resolve_size(layout_box.style.min_size, parent_size);
+        // results[node].max_size = self.resolve_size(layout_box.style.max_size, parent_size);
+        results[node].padding = self.resolve_rect(style.padding(), parent_size.width);
+        // results[node].margin = self.resolve_rect(style.margin, parent_size.width);
+        // results[node].border = self.resolve_rect(style.border, parent_size.width);
 
         match self.tree.data(node).style.display {
             // TODO: maybe do not create box? is it worth?
@@ -214,16 +220,9 @@ impl Ctx<'_> {
         if results[node].size.height.is_nan() {
             results[node].size.height = 0.;
         }
-    }
 
-    // fn init_box(&self, layout_box: &mut LayoutBox, parent_size: Size<f32>) {
-    //     layout_box.size = self.resolve_size(layout_box.style.size(), parent_size);
-    //     // layout_box.min_size = self.resolve_size(layout_box.style.min_size, parent_size);
-    //     // layout_box.max_size = self.resolve_size(layout_box.style.max_size, parent_size);
-    //     layout_box.padding = self.resolve_rect(layout_box.style.padding, parent_size.width);
-    //     layout_box.margin = self.resolve_rect(layout_box.style.margin, parent_size.width);
-    //     layout_box.border = self.resolve_rect(layout_box.style.border, parent_size.width);
-    // }
+        println!("res node size {:?}", (self.tree.data(node).style.display, results[node].size));
+    }
 
     // fn compute_box(&self, layout_box: &mut LayoutBox, parent_size: Size<f32>) {
     //     self.init_box(layout_box, parent_size);

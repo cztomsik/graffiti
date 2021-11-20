@@ -161,34 +161,6 @@ impl NodeRef {
         Some(self.store.node_ref(id))
     }
 
-    pub(crate) fn traverse(&self) -> Vec<Edge<NodeId>> {
-        self.store.tree.borrow().traverse(self.id).collect()
-    }
-
-    /*
-    fn update_ancestors(&self) {
-        for edge in self.store.tree.borrow().traverse(self.id) {
-            if let Edge::Start(node) = edge {
-                let parent = self.store.tree.borrow().parent_node(node).unwrap();
-                self.store
-                    .tree
-                    .borrow()
-                    .data(node)
-                    .ancestors
-                    .set(self.store.tree.borrow().data(parent).ancestors.get().with(&parent));
-            }
-        }
-    }
-
-    fn clear_ancestors(&self) {
-        for edge in self.store.tree.borrow().traverse(self.id) {
-            if let Edge::Start(node) = edge {
-                self.store.tree.borrow().data(node).ancestors.take();
-            }
-        }
-    }
-    */
-
     fn inc_count(&self) {
         self.store.inc_count(self.id);
     }

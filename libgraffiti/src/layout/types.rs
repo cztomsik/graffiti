@@ -1,4 +1,5 @@
-#[derive(Debug, Clone, Copy)]
+use std::ops::{Add, Sub};
+
 pub struct LayoutStyle {
     pub display: Display,
 
@@ -11,7 +12,11 @@ pub struct LayoutStyle {
     pub max_width: Dimension,
     pub max_height: Dimension,
 
-    pub padding: Rect<Dimension>,
+    pub padding_top: Dimension,
+    pub padding_right: Dimension,
+    pub padding_left: Dimension,
+    pub padding_bottom: Dimension,
+
     pub margin: Rect<Dimension>,
     pub border: Rect<Dimension>,
 
@@ -36,6 +41,15 @@ impl LayoutStyle {
             height: self.height,
         }
     }
+
+    pub(crate) fn padding(&self) -> Rect<Dimension> {
+        Rect {
+            top: self.padding_top,
+            right: self.padding_right,
+            bottom: self.padding_bottom,
+            left: self.padding_left,
+        }
+    }
 }
 
 impl Default for LayoutStyle {
@@ -52,7 +66,11 @@ impl Default for LayoutStyle {
             max_width: Dimension::Auto,
             max_height: Dimension::Auto,
 
-            padding: Rect::ZERO,
+            padding_top: Dimension::Px(0.),
+            padding_right: Dimension::Px(0.),
+            padding_bottom: Dimension::Px(0.),
+            padding_left: Dimension::Px(0.),
+
             margin: Rect::ZERO,
             border: Rect::ZERO,
 
@@ -131,7 +149,7 @@ pub struct Size<T: Copy> {
     pub height: T,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Rect<T: Copy> {
     pub top: T,
     pub right: T,
@@ -146,4 +164,39 @@ impl Rect<Dimension> {
         bottom: Dimension::Px(0.),
         left: Dimension::Px(0.),
     };
+}
+
+// impl<T: Copy> Rect<T> where T: Add<Output = T> {
+//     fn horiz(&self) -> f32 {
+//         self.left + self.right
+//     }
+// }
+
+// impl<T: Copy> Add for Rect<T> where T: Add<Output = T> {
+//     type Output = Self;
+
+//     fn add(self, other: Self) -> Self {
+//         Self {
+//             top: self.top + other.top,
+//             right: self.right + other.right,
+//             bottom: self.bottom + other.bottom,
+//             left: self.left + other.left,
+//         }
+//     }
+// }
+
+impl<T: Copy> Add<Rect<T>> for Size<T> where T: Add<Output = T> {
+    type Output = Self;
+
+    fn add(self, other: Rect<T>) -> Self {
+        Self { width: self.width + other.left + other.right, height: self.height + other.top + other.bottom }
+    }
+}
+
+impl<T: Copy> Sub<Rect<T>> for Size<T> where T: Sub<Output = T> {
+    type Output = Self;
+
+    fn sub(self, other: Rect<T>) -> Self {
+        Self { width: self.width - other.left - other.right, height: self.height - other.top - other.bottom }
+    }
 }
