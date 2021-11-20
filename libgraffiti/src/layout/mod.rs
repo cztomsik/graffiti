@@ -220,6 +220,8 @@ impl Ctx<'_> {
         if results[node].size.height.is_nan() {
             results[node].size.height = 0.;
         }
+
+        println!("res node size {:?}", (self.tree.data(node).style.display, results[node].size));
     }
 
     // fn compute_box(&self, layout_box: &mut LayoutBox, parent_size: Size<f32>) {

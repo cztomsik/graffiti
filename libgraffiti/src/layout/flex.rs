@@ -11,7 +11,9 @@ impl Ctx<'_> {
         let style = &self.tree.data(node).style;
         let dir = style.flex_direction;
 
+        // TODO: if not defined
         let available_space = self.resolve_size(style.size(), parent_size);
+
         let total_flex_basis: f32 = self.tree.children(node).map(|ch| {
             let mut res = self.resolve(self.tree.data(ch).style.flex_basis, parent_size.main(dir));
             if res.is_nan() {
@@ -30,8 +32,13 @@ impl Ctx<'_> {
         for child in self.tree.children(node) {
             let child_style = &self.tree.data(child).style;
 
-            results[child].size.set_main(dir, (child_style.flex_grow / total_grow) * remaining_space);
-            results[child].size.set_cross(dir, available_space.cross(dir));
+            if child_style.flex_grow > 0. {
+                results[child].size.set_main(dir, (child_style.flex_grow / total_grow) * remaining_space);
+                results[child].size.set_cross(dir, available_space.cross(dir));
+                println!("{:?}", (child_style.flex_grow, results[child].size));
+            } else {
+                println!("TODO: nonflexible items should be already resolved here");
+            }
         }
     }
 }

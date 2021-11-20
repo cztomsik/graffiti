@@ -31,8 +31,6 @@ impl Ctx<'_> {
         if results[node].size.height.is_nan() {
             results[node].size.height = self.tree.children(node).map(|ch| results[ch].size.height).sum();
         }
-
-        println!("block res {:?}", (node, results[node].size));
     }
 }
 
