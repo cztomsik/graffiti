@@ -8,8 +8,8 @@
 
 use crate::util::SlotMap;
 use crate::{
-    App, CharacterDataRef, CssStyleDeclaration, DocumentRef, ElementRef, Event, NodeId, NodeRef, NodeType, Renderer,
-    WebView, Window, WindowId,
+    App, CssStyleDeclaration, DocumentRef, ElementRef, Event, NodeId, NodeRef, NodeType, Renderer, TextRef, WebView,
+    Window, WindowId,
 };
 use std::any::Any;
 use std::cell::RefCell;
@@ -222,19 +222,8 @@ pub unsafe extern "C" fn gft_Document_create_text_node(
     doc: Ref<DocumentRef>,
     data: *const c_char,
     data_len: u32,
-) -> Ref<CharacterDataRef> {
+) -> Ref<TextRef> {
     with_tls(|tls| tls[&doc].create_text_node(to_str(data, data_len)))
-        .as_node()
-        .into()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Document_create_comment(
-    doc: Ref<DocumentRef>,
-    data: *const c_char,
-    data_len: u32,
-) -> Ref<CharacterDataRef> {
-    with_tls(|tls| tls[&doc].create_comment(to_str(data, data_len)))
         .as_node()
         .into()
 }
@@ -317,12 +306,12 @@ pub unsafe extern "C" fn gft_Node_query_selector_all(
 }
 
 #[no_mangle]
-pub extern "C" fn gft_CharacterData_data(node: Ref<CharacterDataRef>) -> Ref<String> {
+pub extern "C" fn gft_Text_data(node: Ref<TextRef>) -> Ref<String> {
     with_tls(|tls| tls[&node].data()).into()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn gft_CharacterData_set_data(node: Ref<CharacterDataRef>, data: *const c_char, data_len: u32) {
+pub unsafe extern "C" fn gft_Text_set_data(node: Ref<TextRef>, data: *const c_char, data_len: u32) {
     with_tls(|tls| tls[&node].set_data(to_str(data, data_len)))
 }
 
@@ -424,7 +413,7 @@ pub unsafe extern "C" fn gft_CssStyleDeclaration_set_css_text(
 
 #[no_mangle]
 pub extern "C" fn gft_Renderer_new(doc: Ref<DocumentRef>, win: Ref<Window>) -> Ref<Renderer> {
-    let renderer = with_tls(|tls| Renderer::new(tls[&doc].clone(), &tls[&win]));
+    let renderer = with_tls(|tls| Renderer::new(&tls[&doc], &tls[&win]));
     Rc::new(renderer).into()
 }
 

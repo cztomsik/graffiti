@@ -1,4 +1,4 @@
-use graffiti::{App, CharacterDataRef, DocumentRef, ElementRef, NodeRef, NodeType, WebView, Window};
+use graffiti::{App, DocumentRef, ElementRef, NodeRef, NodeType, TextRef, WebView, Window};
 
 fn main() {
     let app = unsafe { App::init() };
@@ -28,7 +28,7 @@ fn main() {
 fn html(node: &NodeRef) -> String {
     match node.node_type() {
         NodeType::Document => html(&node.first_child().unwrap()),
-        NodeType::Text => node.clone().downcast::<CharacterDataRef>().unwrap().data(),
+        NodeType::Text => node.clone().downcast::<TextRef>().unwrap().data(),
         NodeType::Element => {
             let el = node.clone().downcast::<ElementRef>().unwrap();
             let attrs = el

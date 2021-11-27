@@ -9,7 +9,7 @@ use crate::layout::{
     Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutNodeId, LayoutStyle, LayoutTree, Size,
 };
 use crate::util::{BitSet, Edge, SlotMap};
-use crate::{CharacterDataRef, DocumentRef, DomEvent, ElementRef, NodeId, NodeRef, NodeType, Window};
+use crate::{DocumentRef, DomEvent, ElementRef, NodeId, NodeRef, NodeType, Window};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -27,11 +27,12 @@ pub struct Renderer {
 struct State {
     layout_tree: LayoutTree,
     layout_nodes: SlotMap<NodeId, LayoutNodeId>,
+    render_styles: SlotMap<NodeId, RenderStyle>,
     dirty_nodes: BitSet,
 }
 
 impl Renderer {
-    pub fn new(document: DocumentRef, win: &Window) -> Self {
+    pub fn new(document: &DocumentRef, win: &Window) -> Self {
         // TODO: make this whole fn unsafe?
         let backend = unsafe { GlBackend::new(|s| win.get_proc_address(s) as _) };
 
@@ -59,7 +60,7 @@ impl Renderer {
 
         Self {
             window: Window::find_by_id(win.id()).unwrap(),
-            document,
+            document: DocumentRef::clone(document),
             style_resolver: StyleResolver::new(vec![Rc::new(CssStyleSheet::default_ua_sheet())]),
             state,
             listener,
@@ -84,6 +85,7 @@ impl Renderer {
                 layout_tree,
                 layout_nodes,
                 dirty_nodes,
+                ..
             } = &mut *state.borrow_mut();
             match event {
                 DomEvent::NodeCreated(node) => {
@@ -148,7 +150,16 @@ impl Renderer {
             layout_tree,
             layout_nodes,
             dirty_nodes,
+            render_styles,
         } = &mut *self.state.borrow_mut();
+
+        let sheets: Vec<_> = self
+            .document
+            .query_selector_all("style")
+            .iter()
+            .map(|s| s.text_content())
+            .filter_map(|s| CssStyleSheet::parse(&s).ok())
+            .collect();
 
         for id in dirty_nodes.iter() {
             let node = self.document.find_node(id).unwrap();
@@ -161,7 +172,8 @@ impl Renderer {
                 }
 
                 layout_tree.set_style(layout_nodes[id], res.layout_style);
-            } else if let Some(cdata) = node.as_character_data() {
+                render_styles.put(id, res.render_style);
+            } else if let Some(text) = node.as_text() {
                 println!("TODO: update text/comment");
             }
         }
@@ -268,15 +280,29 @@ impl<'a> RenderContext<'a> {
 #[derive(Default)]
 struct ResolvedStyle {
     layout_style: LayoutStyle,
+    // text_style: TextStyle,
     render_style: RenderStyle,
 }
 
 #[derive(Default)]
 struct RenderStyle {
+    // - transform
+    // - overflow visible/hidden/scroll
+    // - opacity: f32
+    // - border_radius: [f32; 4]
+    // - outline_shadow(s)
+    // - outline
+    // - clip() from here if overflow hidden
     bg_color: RGBA8,
+    // - bg_image(s) | gradient(s)
+    // - inset_shadow(s)
+    // - children
+    // - border
 }
 
 impl ResolvedStyle {
+    // fn apply_style(&mut self, style: &CssStyleDeclaration) {}
+
     fn apply_style_prop(&mut self, prop: &StyleProp) {
         use StyleProp::*;
         match prop {

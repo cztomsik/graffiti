@@ -4,7 +4,7 @@ fn main() {
     let app = unsafe { App::init() };
     let win = Window::new("Hello", 1024, 768);
     let doc = DocumentRef::new();
-    let renderer = Renderer::new(doc.clone(), &win);
+    let renderer = Renderer::new(&doc, &win);
 
     let h1 = doc.create_element("h1");
     let hello = doc.create_text_node("Hello");
