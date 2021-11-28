@@ -35,7 +35,7 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   }
 
   get cssText(): string {
-    return decode(native.gft_CssStyleDeclaration_css_text(getNativeId(this))) ?? '''
+    return decode(native.gft_CssStyleDeclaration_css_text(getNativeId(this))) ?? ''
   }
 
   set cssText(cssText: string) {
