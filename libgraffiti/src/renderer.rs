@@ -1,22 +1,27 @@
+// TODO: this is likely not final design either, I don't like that we always traverse & interpret whole tree
+//       and I think it should be possible to have something like retained-mesh design (create_mesh() -> Id),
+//       where every mesh/model is updated in .update() and render() can just (sequentially) draw those
+//       which would be hell more complicated so I'm keeping it for later
+
 #![allow(unused)]
 
 use crate::css::{
     CssAlign, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap, CssJustify, CssStyleSheet, StyleProp,
     StyleResolver,
 };
-use crate::gfx::{Canvas, GlBackend, RenderBackend, Text, TextStyle, Vec2, AABB, RGBA8};
+use crate::gfx::{Canvas, GlBackend, PathCmd, RenderBackend, Text, TextStyle, Transform, Vec2, AABB, RGBA8};
 use crate::layout::{
-    Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutNodeId, LayoutStyle, LayoutTree, Size,
+    Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutNodeId, LayoutResult, LayoutStyle, LayoutTree,
+    Size,
 };
 use crate::util::{BitSet, Edge, SlotMap};
-use crate::{CharacterDataRef, DocumentRef, DomEvent, ElementRef, NodeId, NodeRef, NodeType, Window};
+use crate::{DocumentRef, DomEvent, ElementRef, NodeId, NodeRef, NodeType, Window};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
 pub struct Renderer {
     document: DocumentRef,
-    style_resolver: StyleResolver,
     state: Rc<RefCell<State>>,
     listener: Rc<dyn Fn(&DomEvent)>,
     window: Arc<Window>,
@@ -26,12 +31,12 @@ pub struct Renderer {
 #[derive(Default)]
 struct State {
     layout_tree: LayoutTree,
-    layout_nodes: SlotMap<NodeId, LayoutNodeId>,
+    render_nodes: SlotMap<NodeId, RenderNode>,
     dirty_nodes: BitSet,
 }
 
 impl Renderer {
-    pub fn new(document: DocumentRef, win: &Window) -> Self {
+    pub fn new(document: &DocumentRef, win: &Window) -> Self {
         // TODO: make this whole fn unsafe?
         let backend = unsafe { GlBackend::new(|s| win.get_proc_address(s) as _) };
 
@@ -48,19 +53,11 @@ impl Renderer {
                 listener(&DomEvent::AppendChild(&parent, &child));
             }
         }
-        let root_layout_node = state.borrow().layout_nodes[document.id()];
-        state.borrow_mut().layout_tree.set_style(
-            root_layout_node,
-            LayoutStyle {
-                display: Display::Block,
-                ..Default::default()
-            },
-        );
+        state.borrow_mut().dirty_nodes.add(document.id());
 
         Self {
             window: Window::find_by_id(win.id()).unwrap(),
-            document,
-            style_resolver: StyleResolver::new(vec![Rc::new(CssStyleSheet::default_ua_sheet())]),
+            document: DocumentRef::clone(document),
             state,
             listener,
             backend,
@@ -82,33 +79,47 @@ impl Renderer {
         Rc::new(move |event| {
             let State {
                 layout_tree,
-                layout_nodes,
+                render_nodes,
                 dirty_nodes,
+                ..
             } = &mut *state.borrow_mut();
             match event {
                 DomEvent::NodeCreated(node) => {
-                    layout_nodes.put(node.id(), layout_tree.create_node());
+                    render_nodes.put(
+                        node.id(),
+                        RenderNode {
+                            dom_node: NodeRef::clone(node),
+                            layout_node: layout_tree.create_node(),
+                            render_style: None,
+                        },
+                    );
                     dirty_nodes.grow(node.id());
                 }
                 &DomEvent::NodeDestroyed(id) => {
-                    layout_tree.drop_node(layout_nodes.remove(id).unwrap());
+                    layout_tree.drop_node(render_nodes.remove(id).unwrap().layout_node);
                     // if whole subtree gets freed, it might not be removed at all
                     dirty_nodes.remove(id);
                 }
                 DomEvent::AppendChild(parent, child) => {
-                    layout_tree.append_child(layout_nodes[parent.id()], layout_nodes[child.id()]);
+                    layout_tree.append_child(
+                        render_nodes[parent.id()].layout_node,
+                        render_nodes[child.id()].layout_node,
+                    );
                     mark_dirty(dirty_nodes, child);
                 }
                 DomEvent::InsertBefore(parent, child, before) => {
                     layout_tree.insert_before(
-                        layout_nodes[parent.id()],
-                        layout_nodes[child.id()],
-                        layout_nodes[before.id()],
+                        render_nodes[parent.id()].layout_node,
+                        render_nodes[child.id()].layout_node,
+                        render_nodes[before.id()].layout_node,
                     );
                     dirty_nodes.add(child.id());
                 }
                 DomEvent::RemoveChild(parent, child) => {
-                    layout_tree.append_child(layout_nodes[parent.id()], layout_nodes[child.id()]);
+                    layout_tree.remove_child(
+                        render_nodes[parent.id()].layout_node,
+                        render_nodes[child.id()].layout_node,
+                    );
                     dirty_nodes.remove(child.id());
                 }
             }
@@ -123,11 +134,12 @@ impl Renderer {
         let mut canvas = Canvas::new();
         let mut ctx = RenderContext {
             canvas: &mut canvas,
+            render_nodes: &state.render_nodes,
             layout_tree: &state.layout_tree,
         };
 
         profile!();
-        ctx.render_box(0., 0., state.layout_nodes[self.document.id()]);
+        ctx.render_node(Vec2::new(0., 0.), self.document.id());
         let frame = ctx.canvas.flush();
         profile!("frame");
 
@@ -146,29 +158,52 @@ impl Renderer {
 
         let State {
             layout_tree,
-            layout_nodes,
+            render_nodes,
             dirty_nodes,
         } = &mut *self.state.borrow_mut();
+
+        let sheets: Vec<_> = std::iter::once(Rc::new(CssStyleSheet::default_ua_sheet()))
+            .chain(
+                self.document
+                    .query_selector_all("style")
+                    .iter()
+                    .map(|s| s.text_content())
+                    .filter_map(|s| CssStyleSheet::parse(&s).map(Rc::new).ok()),
+            )
+            .collect();
+
+        let style_resolver = StyleResolver::new(sheets);
 
         for id in dirty_nodes.iter() {
             let node = self.document.find_node(id).unwrap();
             if let Some(el) = node.as_element() {
                 println!("update style {:?}", (el.local_name(), id));
 
-                let mut res = self.style_resolver.resolve_style(&el, ResolvedStyle::apply_style_prop);
+                let mut res = style_resolver.resolve_style(&el, ResolvedStyle::apply_style_prop);
                 for p in el.style().props().iter() {
                     res.apply_style_prop(p);
                 }
 
-                layout_tree.set_style(layout_nodes[id], res.layout_style);
-            } else if let Some(cdata) = node.as_character_data() {
+                layout_tree.set_style(render_nodes[id].layout_node, res.layout_style);
+                render_nodes[id].render_style = Some(res.render_style);
+            } else if let Some(text) = node.as_text() {
                 println!("TODO: update text/comment");
+            } else if let Some(doc) = node.as_document() {
+                render_nodes[id].render_style = Some(Default::default());
+                layout_tree.set_style(
+                    render_nodes[id].layout_node,
+                    LayoutStyle {
+                        display: Display::Block,
+                        ..Default::default()
+                    },
+                )
             }
         }
+
         dirty_nodes.clear();
         profile!("css");
 
-        layout_tree.calculate(layout_nodes[self.document.id()], 1024., 768.);
+        layout_tree.calculate(render_nodes[self.document.id()].layout_node, 1024., 768.);
         profile!("layout");
     }
 }
@@ -181,105 +216,175 @@ impl Drop for Renderer {
 
 struct RenderContext<'a> {
     canvas: &'a mut Canvas,
+    render_nodes: &'a SlotMap<NodeId, RenderNode>,
     layout_tree: &'a LayoutTree,
 }
 
 impl<'a> RenderContext<'a> {
-    fn render_box(&mut self, x: f32, y: f32, layout_node: LayoutNodeId) {
-        let res = self.layout_tree.layout_result(layout_node);
+    fn draw_bg_color(&mut self, rect: AABB, radii: [f32; 4], color: RGBA8) {
+        if radii == [0., 0., 0., 0.] {
+            return self.canvas.fill_rect(rect, color);
+        }
 
-        let rect = res.outer_rect();
-        let pos = Vec2::new(rect.left, rect.top);
-        let rect = AABB::new(pos, Vec2::new(rect.right, rect.bottom));
+        let Vec2 { x, y } = rect.min;
+        let [w, h] = [rect.max.x - rect.min.x, rect.max.y - rect.min.y];
+        let [tl, tr, br, bl] = radii;
 
-        // if let Some(text) = &layout_box.text {
-        //     // TODO: skip in layout?
-        //     if layout_box.width() > 0. {
-        //         self.canvas.fill_text(text, rect, [0, 0, 0, 255]);
-        //     }
-        // } else {
-        self.canvas.fill_rect(rect, [255, 0, 0, 30]);
-        // }
+        // TODO: clamping (when r > w/h)
+        let path = [
+            PathCmd::Move(Vec2::new(x + tl, y)),
+            PathCmd::Line(Vec2::new(x + w - tr, y)),
+            PathCmd::Quadratic(Vec2::new(x + w, y), Vec2::new(x + w, y + tr)),
+            PathCmd::Line(Vec2::new(x + w, y + h - br)),
+            PathCmd::Quadratic(Vec2::new(x + w, y + h), Vec2::new(x + w - br, y + h)),
+            PathCmd::Line(Vec2::new(x + bl, y + h)),
+            PathCmd::Quadratic(Vec2::new(x + w, y + h), Vec2::new(x + w - br, y + h)),
+            PathCmd::Line(Vec2::new(x + bl, y + h)),
+            PathCmd::Quadratic(Vec2::new(x, y + h), Vec2::new(x, y + h - bl)),
+            PathCmd::Line(Vec2::new(x, y + tl)),
+            PathCmd::Quadratic(Vec2::new(x, y), Vec2::new(x + tl, y)),
+            PathCmd::Close,
+        ];
 
-        for ch in self.layout_tree.children(layout_node) {
-            self.render_box(pos.x, pos.y, ch);
+        self.canvas.fill_path(&path, color);
+    }
+
+    fn render_node(&mut self, parent_offset: Vec2, node: NodeId) {
+        let render_node = &self.render_nodes[node];
+        let layout_res = self.layout_tree.layout_result(render_node.layout_node);
+
+        match render_node.dom_node.node_type() {
+            NodeType::Element | NodeType::Document => self.render_container(
+                parent_offset,
+                &layout_res,
+                render_node.render_style.as_ref().unwrap(),
+                render_node.dom_node.child_nodes().into_iter(),
+            ),
+            NodeType::Text => self.render_text(
+                parent_offset,
+                &layout_res,
+                &render_node.dom_node.as_text().unwrap().data(),
+            ),
         }
     }
 
-    /*
-    fn render_element(&mut self, rect: AABB, style: &RenderStyle, children: impl Iterator<Item = NodeId>) {
+    fn render_container(
+        &mut self,
+        parent_offset: Vec2,
+        layout: &LayoutResult,
+        style: &RenderStyle,
+        children: impl Iterator<Item = NodeRef>,
+    ) {
         if style.hidden {
             return;
         }
 
-        // TODO: border_radius, clip, scroll, opacity, transform, ...
+        let br = layout.border_rect();
+        let border_rect = AABB::new(Vec2::new(br.left, br.top), Vec2::new(br.right, br.bottom));
 
-        // TODO: outline shadow(s)
+        if style.opacity < 1. {
+            // if style.opacity * current_opacity() < 0.01 {
+            //     return
+            // }
 
-        if let Some((width, color)) = style.outline {
-            self.render_outline(rect, width, color);
+            // TODO: pop
+            // push_opacity(opacity)
         }
 
-        if let Some(bg_color) = style.bg_color {
-            self.canvas.fill_rect(rect, bg_color);
+        if let Some(transform) = style.transform {
+            // TODO: pop
+            // self.push_transform()
         }
 
-        // TODO: image(s)
+        // for outline_shadow in ... {
+        //     self.draw_outline_shadow(border_rect, outline_shadow);
+        // }
 
-        // TODO: inset shadow(s)
+        // if let Some(outline) = ... {
+        //     self.draw_outline(border_rect, outline);
+        // }
+
+        // TODO: clip(padding_rect, border_radii) everything from here if overflow hidden/scroll?
+        //       or maybe just children because everything accepts shape anyway?
+
+        if style.bg_color[3] != 0 {
+            self.draw_bg_color(border_rect, style.border_radii, style.bg_color);
+        }
+
+        // for image in ... {
+        //     self.draw_image(border_rect, border_radii, image)
+        // }
+
+        // for inset_shadow in ... {
+        //     // padding_rect
+        //     self.draw_inset_shadow(padding_rect, border_radii, inset_shadow);
+        // }
+
+        // TODO: overflow: scroll
 
         for ch in children {
-            self.render_node(rect.min, ch);
+            self.render_node(parent_offset + border_rect.min, ch.id());
         }
 
-        // TODO: border
+        // if let Some(border) = ... {
+        //     self.draw_border(border_rect, border_radii, border)
+        // }
     }
 
-    fn render_outline(&mut self, rect: AABB, width: f32, color: RGBA8) {
-        let AABB { min, max } = rect;
+    fn render_text(&mut self, parent_offset: Vec2, layout: &LayoutResult, text: &str) {}
+}
 
-        // top
-        self.canvas.fill_rect(
-            AABB::new(min - Vec2::new(width, width), Vec2::new(max.x + width, min.y)),
-            color,
-        );
-
-        // right
-        self.canvas.fill_rect(
-            AABB::new(Vec2::new(max.x, min.y), Vec2::new(max.x + width, max.y)),
-            color,
-        );
-
-        // bottom
-        self.canvas.fill_rect(
-            AABB::new(Vec2::new(min.x - width, max.y), max + Vec2::new(width, width)),
-            color,
-        );
-
-        // left
-        self.canvas.fill_rect(
-            AABB::new(Vec2::new(min.x - width, min.y), Vec2::new(min.x, max.y)),
-            color,
-        );
-    }
-    */
+struct RenderNode {
+    dom_node: NodeRef,
+    layout_node: LayoutNodeId,
+    render_style: Option<RenderStyle>,
 }
 
 #[derive(Default)]
 struct ResolvedStyle {
     layout_style: LayoutStyle,
+    // text_style: TextStyle,
     render_style: RenderStyle,
 }
 
-#[derive(Default)]
 struct RenderStyle {
+    hidden: bool,
+    transform: Option<Transform>,
+    //overflow: visible/hidden/scroll,
+    opacity: f32,
+    border_radii: [f32; 4],
+    // - outline_shadow(s)
+    //outline: (f32, /*CssBorderStyle,*/ RGBA8),
+    // - clip() from here if overflow hidden
     bg_color: RGBA8,
+    // - bg_image(s) | gradient(s)
+    // - inset_shadow(s)
+    // - children
+    // - border
+}
+
+impl Default for RenderStyle {
+    fn default() -> Self {
+        Self {
+            hidden: false,
+            transform: None,
+            opacity: 1.,
+            border_radii: [0., 0., 0., 0.],
+            bg_color: [0, 0, 0, 0],
+        }
+    }
 }
 
 impl ResolvedStyle {
+    // fn apply_style(&mut self, style: &CssStyleDeclaration) {}
+
     fn apply_style_prop(&mut self, prop: &StyleProp) {
         use StyleProp::*;
         match prop {
+            // first, likely to be animated
+            &Opacity(v) => self.render_style.opacity = v,
+            &BackgroundColor(v) => self.render_style.bg_color = [v.r, v.g, v.b, v.a],
+
             // size
             &Width(v) => self.layout_style.width = dimension(v),
             &Height(v) => self.layout_style.height = dimension(v),
@@ -300,6 +405,18 @@ impl ResolvedStyle {
             &MarginBottom(v) => self.layout_style.margin.bottom = dimension(v),
             &MarginLeft(v) => self.layout_style.margin.left = dimension(v),
 
+            // border
+            &BorderTopWidth(v) => self.layout_style.border.top = dimension(v),
+            &BorderRightWidth(v) => self.layout_style.border.right = dimension(v),
+            &BorderBottomWidth(v) => self.layout_style.border.bottom = dimension(v),
+            &BorderLeftWidth(v) => self.layout_style.border.left = dimension(v),
+
+            // border_radius (px-only)
+            &BorderTopLeftRadius(CssDimension::Px(v)) => self.render_style.border_radii[0] = v,
+            &BorderTopRightRadius(CssDimension::Px(v)) => self.render_style.border_radii[1] = v,
+            &BorderBottomRightRadius(CssDimension::Px(v)) => self.render_style.border_radii[2] = v,
+            &BorderBottomLeftRadius(CssDimension::Px(v)) => self.render_style.border_radii[3] = v,
+
             // position
             // Position(v) => self.layout_style.position_type = position_type(v),
             // Top(v) => self.layout_style.position.top = dimension(v),
@@ -319,9 +436,11 @@ impl ResolvedStyle {
             &JustifyContent(v) => self.layout_style.justify_content = justify(v),
 
             // other
-            &Display(v) => self.layout_style.display = display(v),
-            &BackgroundColor(v) => self.render_style.bg_color = [v.r, v.g, v.b, v.a],
-            // TODO: remove
+            &Display(v) => {
+                self.render_style.hidden = v == CssDisplay::None;
+                self.layout_style.display = display(v)
+            }
+
             _ => {}
         }
     }

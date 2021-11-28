@@ -29,8 +29,11 @@ impl Atlas {
         &self.tex_data
     }
 
+    // TODO: if we set TEXTURE_SIZE uniform, then vertex.uv can be just [u16; 2]
+    //       because we can compute 0-1 in shader, which will save 4 bytes per vertex
+    //       also, currently the texture is fixed to 1024x1024 so that would be super-easy
     pub fn push(&mut self, width: i32, height: i32, f: impl FnOnce(&mut TexData, usize, usize)) -> Option<AABB> {
-        let rect = self.packer.pack(width + PAD, height + PAD, false)?;
+        let rect = self.packer.pack(width, height, false)?;
 
         f(&mut self.tex_data, rect.x as _, rect.y as _);
 

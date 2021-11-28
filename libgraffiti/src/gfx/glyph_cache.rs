@@ -9,7 +9,7 @@ pub struct CachedGlyph {
 
 pub struct GlyphCache {
     glyphs: HashMap<CacheKey, CachedGlyph>,
-    atlas: Atlas,
+    pub(crate) atlas: Atlas,
 }
 
 impl GlyphCache {

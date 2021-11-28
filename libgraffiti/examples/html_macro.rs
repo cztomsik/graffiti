@@ -4,7 +4,7 @@ fn main() {
     let app = unsafe { App::init() };
     let win = Window::new("Hello", 1024, 768);
     let doc = DocumentRef::new();
-    let renderer = Renderer::new(doc.clone(), &win);
+    let renderer = Renderer::new(&doc, &win);
 
     // super-simple prefix macro
     macro_rules! html {

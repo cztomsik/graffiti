@@ -15,7 +15,7 @@ impl Ctx<'_> {
             height: f32::max(0., parent_size.height - results[node].padding.top - results[node].padding.bottom),
         };
 
-        for child in self.tree.children(node) {
+        for &child in &self.nodes[node].children {
             self.compute_node(results, child, avail_inner);
 
             results[child].y = y;
@@ -29,7 +29,7 @@ impl Ctx<'_> {
         }
 
         if results[node].size.height.is_nan() {
-            results[node].size.height = self.tree.children(node).map(|ch| results[ch].size.height).sum();
+            results[node].size.height = self.nodes[node].children.iter().map(|&ch| results[ch].size.height).sum();
         }
     }
 }

@@ -20,7 +20,6 @@ use std::rc::Rc;
 pub enum NodeType {
     Element = 1,
     Text = 3,
-    Comment = 8,
     Document = 9,
 }
 
@@ -100,6 +99,13 @@ impl NodeRef {
         self.store.emit(DomEvent::RemoveChild(self, child));
     }
 
+    pub fn text_content(&self) -> String {
+        match &self.store.tree.borrow().data(self.id).data {
+            NodeData::Text(data) => data.to_string(),
+            _ => self.child_nodes().iter().map(NodeRef::text_content).collect(),
+        }
+    }
+
     pub fn query_selector(&self, selector: &str) -> Option<ElementRef> {
         self.query_selector_all(selector).get(0).cloned()
     }
@@ -119,7 +125,7 @@ impl NodeRef {
         self.store.node_ref(self.id)
     }
 
-    // TODO: as_document(), as_element(), as_character_data() -> Option<XxRef>
+    // TODO: as_document(), as_element(), as_text() -> Option<XxRef>
     //       but the problem currently is that Index<> in ffi.rs needs to return &Xxx
     //       and we also cannot return borrow of newly-created value so this is TODO
     pub fn downcast_ref<T: 'static>(&self) -> Option<&T> {
@@ -127,8 +133,7 @@ impl NodeRef {
         let node_type = self.node_type();
 
         if (type_id == TypeId::of::<ElementRef>() && node_type == NodeType::Element)
-            || (type_id == TypeId::of::<CharacterDataRef>()
-                && (node_type == NodeType::Text || node_type == NodeType::Comment))
+            || (type_id == TypeId::of::<TextRef>() && node_type == NodeType::Text)
             || (type_id == TypeId::of::<DocumentRef>() && node_type == NodeType::Document)
             || (type_id == TypeId::of::<NodeRef>())
         {
@@ -146,7 +151,7 @@ impl NodeRef {
         self.downcast()
     }
 
-    pub fn as_character_data(&self) -> Option<CharacterDataRef> {
+    pub fn as_text(&self) -> Option<TextRef> {
         self.downcast()
     }
 
@@ -186,7 +191,7 @@ impl Debug for NodeRef {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
         match self.node_type() {
             NodeType::Element => write!(fmt, "<{}>", self.downcast_ref::<ElementRef>().unwrap().local_name()),
-            NodeType::Text => Debug::fmt(&self.downcast_ref::<CharacterDataRef>().unwrap().data(), fmt),
+            NodeType::Text => Debug::fmt(&self.downcast_ref::<TextRef>().unwrap().data(), fmt),
             t => Debug::fmt(&t, fmt),
         }
     }
@@ -210,7 +215,7 @@ pub struct DocumentRef(NodeRef);
 pub struct ElementRef(NodeRef);
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct CharacterDataRef(NodeRef);
+pub struct TextRef(NodeRef);
 
 macro_rules! impl_deref {
     ($struct:ident, $target: ident) => {
@@ -224,7 +229,7 @@ macro_rules! impl_deref {
 }
 impl_deref!(DocumentRef, NodeRef);
 impl_deref!(ElementRef, NodeRef);
-impl_deref!(CharacterDataRef, NodeRef);
+impl_deref!(TextRef, NodeRef);
 
 impl DocumentRef {
     pub fn new() -> DocumentRef {
@@ -247,12 +252,8 @@ impl DocumentRef {
         })))
     }
 
-    pub fn create_text_node(&self, data: &str) -> CharacterDataRef {
-        CharacterDataRef(self.store.create_node(NodeData::Text(data.to_owned())))
-    }
-
-    pub fn create_comment(&self, data: &str) -> CharacterDataRef {
-        CharacterDataRef(self.store.create_node(NodeData::Comment(data.to_owned())))
+    pub fn create_text_node(&self, data: &str) -> TextRef {
+        TextRef(self.store.create_node(NodeData::Text(data.to_owned())))
     }
 
     pub fn all_nodes(&self) -> Vec<NodeRef> {
@@ -370,13 +371,13 @@ impl crate::css::Element for ElementRef {
     }
 }
 
-impl CharacterDataRef {
+impl TextRef {
     pub fn data(&self) -> String {
-        self.store.tree.borrow().data(self.id).cdata().clone()
+        self.store.tree.borrow().data(self.id).text().clone()
     }
 
     pub fn set_data(&self, data: &str) {
-        *self.store.tree.borrow_mut().data_mut(self.id).cdata_mut() = data.to_owned()
+        *self.store.tree.borrow_mut().data_mut(self.id).text_mut() = data.to_owned()
     }
 }
 
@@ -454,9 +455,8 @@ struct Node {
 
 enum NodeData {
     Document,
-    Text(String),
-    Comment(String),
     Element(ElementData),
+    Text(String),
 }
 
 struct ElementData {
@@ -470,24 +470,21 @@ impl Node {
         match self.data {
             NodeData::Element(_) => NodeType::Element,
             NodeData::Text(_) => NodeType::Text,
-            NodeData::Comment(_) => NodeType::Comment,
             NodeData::Document => NodeType::Document,
         }
     }
 
-    fn cdata(&self) -> &String {
+    fn text(&self) -> &String {
         match &self.data {
             NodeData::Text(data) => data,
-            NodeData::Comment(data) => data,
-            _ => panic!("not cdata node"),
+            _ => panic!("not text node"),
         }
     }
 
-    fn cdata_mut(&mut self) -> &mut String {
+    fn text_mut(&mut self) -> &mut String {
         match &mut self.data {
             NodeData::Text(data) => data,
-            NodeData::Comment(data) => data,
-            _ => panic!("not cdata node"),
+            _ => panic!("not text node"),
         }
     }
 
@@ -526,19 +523,16 @@ mod tests {
         assert_eq!(hello.data(), "hello");
         hello.set_data("hello world");
 
-        let comment = doc.create_comment("test");
-        assert_eq!(comment.node_type(), NodeType::Comment);
-        assert_eq!(comment.data(), "test");
-        comment.set_data("test2");
+        let other = doc.create_text_node("test");
 
         div.append_child(&hello);
         assert_eq!(div.first_child(), Some(hello.as_node()));
 
-        div.append_child(&comment);
+        div.append_child(&other);
         assert_eq!(div.first_child(), Some(hello.as_node()));
-        assert_eq!(hello.next_sibling(), Some(comment.as_node()));
+        assert_eq!(hello.next_sibling(), Some(other.as_node()));
 
-        div.remove_child(&comment);
+        div.remove_child(&other);
         assert_eq!(div.first_child(), Some(hello.as_node()));
         assert_eq!(div.next_sibling(), None);
     }
