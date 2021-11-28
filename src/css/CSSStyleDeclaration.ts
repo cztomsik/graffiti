@@ -1,4 +1,4 @@
-import { getNativeId, native } from '../native'
+import { getNativeId, native, encode, decode } from '../native'
 import { UNSUPPORTED } from '../util'
 
 // minimal impl just to get something working
@@ -7,7 +7,7 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
   constructor(public readonly parentRule: CSSRule | null) {}
 
   getPropertyValue(propertyName: string): string {
-    return native.CssStyleDeclaration_property_value(getNativeId(this), propertyName)
+    return decode(native.CssStyleDeclaration_property_value(getNativeId(this), ...encode(propertyName))) ?? ''
   }
 
   getPropertyPriority(propertyName: string): string {
@@ -24,22 +24,22 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
       console.warn('!important is not supported')
     }
 
-    native.gft_CssStyleDeclaration_set_property(getNativeId(this), propertyName, value)
+    native.gft_CssStyleDeclaration_set_property(getNativeId(this), ...encode(propertyName), ...encode(value))
   }
 
   removeProperty(propertyName: string): string {
     // TODO: native should return this
     const prev = this.getPropertyValue(propertyName)
-    native.gft_CssStyleDeclaration_remove_property(getNativeId(this), propertyName)
+    native.gft_CssStyleDeclaration_remove_property(getNativeId(this), ...encode(propertyName))
     return prev
   }
 
   get cssText(): string {
-    return native.gft_CssStyleDeclaration_css_text(getNativeId(this))
+    return decode(native.gft_CssStyleDeclaration_css_text(getNativeId(this))) ?? '''
   }
 
   set cssText(cssText: string) {
-    native.gft_CssStyleDeclaration_set_css_text(getNativeId(this), cssText)
+    native.gft_CssStyleDeclaration_set_css_text(getNativeId(this), ...encode(cssText))
   }
 
   // UNSUPPORTED

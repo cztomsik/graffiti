@@ -211,13 +211,15 @@ pub struct TextStyle {
     pub pre: bool,
 }
 
-impl TextStyle {
-    pub const DEFAULT: Self = Self {
-        font_size: 16.,
-        line_height: 20.,
-        align: TextAlign::Left,
-        pre: false,
-    };
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self {
+            font_size: 16.,
+            line_height: 20.,
+            align: TextAlign::Left,
+            pre: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -233,7 +235,7 @@ mod tests {
 
     #[test]
     fn measure() {
-        let text = Text::new("X XX XXX XXXX", &TextStyle::DEFAULT);
+        let text = Text::new("X XX XXX XXXX", &TextStyle::default());
 
         assert_eq!(text.measure(30.).1, 90.);
         assert_eq!(text.measure(60.).1, 60.);
@@ -242,7 +244,7 @@ mod tests {
 
     #[test]
     fn glyphs() {
-        let text = Text::new("Hello", &TextStyle::DEFAULT);
+        let text = Text::new("Hello", &TextStyle::default());
         text.for_each_glyph(AABB::ZERO, |g| println!("{:?}", g));
     }
 }

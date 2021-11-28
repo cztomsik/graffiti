@@ -1,8 +1,8 @@
 import { StyleSheet } from './StyleSheet'
 import { CSSRuleList } from './CSSRuleList'
 import { CSSStyleRule } from './CSSStyleRule'
-import { getNativeId, lookup, native, register } from '../native'
-import { encode } from '../util'
+import { native, encode, getNativeId } from '../native'
+import { TODO } from '../util'
 
 export class CSSStyleSheet extends StyleSheet implements globalThis.CSSStyleSheet {
   readonly cssRules = new CSSRuleList()
@@ -14,7 +14,7 @@ export class CSSStyleSheet extends StyleSheet implements globalThis.CSSStyleShee
   }
 
   insertRule(rule: string, index = 0): number {
-    native.gft_CssStyleSheet_insert_rule(getNativeId(this), encode(rule), index)
+    native.gft_CssStyleSheet_insert_rule(getNativeId(this), ...encode(rule), index)
 
     return index
   }
@@ -28,7 +28,7 @@ export class CSSStyleSheet extends StyleSheet implements globalThis.CSSStyleShee
 
   // deprecated
   addRule(sel, style, index = this.cssRules.length) {
-    this.insertRule(`${sel} { $style }`, index)
+    this.insertRule(`${sel} { ${style} }`, index)
     return -1
   }
 

@@ -44,11 +44,7 @@ type NodeId = LayoutNodeId;
 
 #[derive(Default)]
 pub struct LayoutTree {
-    // TODO: I am not 100% sure about this yet, IdTree<> might get fragmented
-    //       unless we rebuild it but children: Vec<NodeId> might need more
-    //       allocations for inserts & appends
-    tree: IdTree<LayoutNode>,
-
+    nodes: SlotMap<NodeId, LayoutNode>,
     results: SlotMap<NodeId, LayoutResult>,
 }
 
@@ -59,16 +55,20 @@ pub struct LayoutResult {
     size: Size<f32>,
     padding: Rect<f32>,
     // margin: Rect<f32>,
-    // border: Rect<f32>,
+    border: Rect<f32>,
 }
 
 impl LayoutResult {
+    pub fn borders(&self) -> Rect<f32> {
+        self.border
+    }
+
     pub fn outer_rect(&self) -> Rect<f32> {
         Rect {
             left: self.x,
             top: self.y,
             right: self.x + self.size.width + self.padding.left + self.padding.right,
-            bottom: self.y + self.size.height + self.padding.top + self.padding.top
+            bottom: self.y + self.size.height + self.padding.top + self.padding.top,
         }
     }
 }
@@ -79,43 +79,47 @@ impl LayoutTree {
     }
 
     pub fn create_node(&mut self) -> NodeId {
-        let id = self.tree.create_node(LayoutNode {
+        let id = self.nodes.insert(LayoutNode {
             style: LayoutStyle::default(),
+            children: Vec::new(),
         });
-        self.results.put(
-            id,
-            LayoutResult::default(),
-        );
+        self.results.put(id, LayoutResult::default());
 
         id
     }
 
     pub fn drop_node(&mut self, node: NodeId) {
-        self.tree.drop_node(node);
+        self.nodes.remove(node);
+        self.results.remove(node);
     }
 
     pub fn style(&self, node: NodeId) -> &LayoutStyle {
-        &self.tree.data(node).style
+        &self.nodes[node].style
     }
 
     pub fn set_style(&mut self, node: NodeId, style: LayoutStyle) {
-        self.tree.data_mut(node).style = style;
+        self.nodes[node].style = style;
     }
 
-    pub fn children(&self, parent: NodeId) -> impl Iterator<Item = NodeId> + '_ {
-        self.tree.children(parent)
+    pub fn children(&self, node: NodeId) -> impl Iterator<Item = NodeId> + '_ {
+        self.nodes[node].children.iter().copied()
     }
 
     pub fn append_child(&mut self, parent: NodeId, child: NodeId) {
-        self.tree.append_child(parent, child);
+        self.nodes[parent].children.push(child);
     }
 
     pub fn insert_before(&mut self, parent: NodeId, child: NodeId, before: NodeId) {
-        self.tree.insert_before(parent, child, before);
+        let index = self.nodes[parent]
+            .children
+            .iter()
+            .position(|&ch| ch == child)
+            .expect("before not found");
+        self.nodes[parent].children.insert(index, child);
     }
 
     pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
-        self.tree.remove_child(parent, child);
+        self.nodes[parent].children.retain(|&ch| ch != child);
     }
 
     pub fn layout_result(&self, node: NodeId) -> &LayoutResult {
@@ -125,7 +129,7 @@ impl LayoutTree {
     pub fn calculate(&mut self, node: NodeId, avail_width: f32, avail_height: f32) {
         println!("-- calculate");
 
-        let mut ctx = Ctx { tree: &mut self.tree };
+        let mut ctx = Ctx { nodes: &self.nodes };
 
         ctx.compute_node(
             &mut self.results,
@@ -141,12 +145,12 @@ impl LayoutTree {
         struct DebugRef<'a>(&'a LayoutTree, NodeId);
         impl std::fmt::Debug for DebugRef<'_> {
             fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-                let node = self.0.tree.data(self.1);
+                let node = &self.0.nodes[self.1];
                 let size = self.0.results[self.1].size;
 
                 write!(fmt, "{:?}({:?}, {:?}) ", node.style.display, size.width, size.height)?;
                 fmt.debug_list()
-                    .entries(self.0.tree.children(self.1).map(|id| DebugRef(self.0, id)))
+                    .entries(self.0.nodes[self.1].children.iter().map(|&id| DebugRef(self.0, id)))
                     .finish()
             }
         }
@@ -158,12 +162,13 @@ impl LayoutTree {
 // TODO: text
 struct LayoutNode {
     style: LayoutStyle,
+    children: Vec<NodeId>,
 }
 
 // read-only scope available to all layout impls
 // TODO: vw, vh, vmin, vmax, rem
 struct Ctx<'a> {
-    tree: &'a mut IdTree<LayoutNode>,
+    nodes: &'a SlotMap<NodeId, LayoutNode>,
 }
 
 impl Ctx<'_> {
@@ -194,10 +199,10 @@ impl Ctx<'_> {
     fn compute_node(&self, results: &mut SlotMap<NodeId, LayoutResult>, node: NodeId, parent_size: Size<f32>) {
         println!(
             "compute_node {:?}",
-            (node, self.tree.data(node).style.display, parent_size,)
+            (node, self.nodes[node].style.display, parent_size,)
         );
 
-        let style = &self.tree.data(node).style;
+        let style = &self.nodes[node].style;
 
         results[node].size = self.resolve_size(style.size(), parent_size);
         // results[node].min_size = self.resolve_size(layout_box.style.min_size, parent_size);
@@ -206,7 +211,7 @@ impl Ctx<'_> {
         // results[node].margin = self.resolve_rect(style.margin, parent_size.width);
         // results[node].border = self.resolve_rect(style.border, parent_size.width);
 
-        match self.tree.data(node).style.display {
+        match self.nodes[node].style.display {
             // TODO: maybe do not create box? is it worth?
             Display::None => {}
             //Display::Inline => self.compute_inline(layout_box, parent_size),
@@ -221,7 +226,10 @@ impl Ctx<'_> {
             results[node].size.height = 0.;
         }
 
-        println!("res node size {:?}", (self.tree.data(node).style.display, results[node].size));
+        println!(
+            "res node size {:?}",
+            (self.nodes[node].style.display, results[node].size)
+        );
     }
 
     // fn compute_box(&self, layout_box: &mut LayoutBox, parent_size: Size<f32>) {

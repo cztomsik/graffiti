@@ -1,10 +1,15 @@
+// TODO: this is likely not final design either, I don't like that we always traverse & interpret whole tree
+//       and I think it should be possible to have something like retained-mesh design (create_mesh() -> Id),
+//       where every mesh/model is updated in .update() and render() can just (sequentially) draw those
+//       which would be hell more complicated so I'm keeping it for later
+
 #![allow(unused)]
 
 use crate::css::{
     CssAlign, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap, CssJustify, CssStyleSheet, StyleProp,
     StyleResolver,
 };
-use crate::gfx::{Canvas, GlBackend, RenderBackend, Text, TextStyle, Vec2, AABB, RGBA8};
+use crate::gfx::{Canvas, GlBackend, PathCmd, RenderBackend, Text, TextStyle, Transform, Vec2, AABB, RGBA8};
 use crate::layout::{
     Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutNodeId, LayoutStyle, LayoutTree, Size,
 };
@@ -26,8 +31,7 @@ pub struct Renderer {
 #[derive(Default)]
 struct State {
     layout_tree: LayoutTree,
-    layout_nodes: SlotMap<NodeId, LayoutNodeId>,
-    render_styles: SlotMap<NodeId, RenderStyle>,
+    render_nodes: SlotMap<NodeId, RenderNode>,
     dirty_nodes: BitSet,
 }
 
@@ -49,14 +53,6 @@ impl Renderer {
                 listener(&DomEvent::AppendChild(&parent, &child));
             }
         }
-        let root_layout_node = state.borrow().layout_nodes[document.id()];
-        state.borrow_mut().layout_tree.set_style(
-            root_layout_node,
-            LayoutStyle {
-                display: Display::Block,
-                ..Default::default()
-            },
-        );
 
         Self {
             window: Window::find_by_id(win.id()).unwrap(),
@@ -83,34 +79,46 @@ impl Renderer {
         Rc::new(move |event| {
             let State {
                 layout_tree,
-                layout_nodes,
+                render_nodes,
                 dirty_nodes,
                 ..
             } = &mut *state.borrow_mut();
             match event {
                 DomEvent::NodeCreated(node) => {
-                    layout_nodes.put(node.id(), layout_tree.create_node());
+                    render_nodes.put(
+                        node.id(),
+                        RenderNode {
+                            dom_node: NodeRef::clone(node),
+                            layout_node: layout_tree.create_node(),
+                        },
+                    );
                     dirty_nodes.grow(node.id());
                 }
                 &DomEvent::NodeDestroyed(id) => {
-                    layout_tree.drop_node(layout_nodes.remove(id).unwrap());
+                    layout_tree.drop_node(render_nodes.remove(id).unwrap().layout_node);
                     // if whole subtree gets freed, it might not be removed at all
                     dirty_nodes.remove(id);
                 }
                 DomEvent::AppendChild(parent, child) => {
-                    layout_tree.append_child(layout_nodes[parent.id()], layout_nodes[child.id()]);
+                    layout_tree.append_child(
+                        render_nodes[parent.id()].layout_node,
+                        render_nodes[child.id()].layout_node,
+                    );
                     mark_dirty(dirty_nodes, child);
                 }
                 DomEvent::InsertBefore(parent, child, before) => {
                     layout_tree.insert_before(
-                        layout_nodes[parent.id()],
-                        layout_nodes[child.id()],
-                        layout_nodes[before.id()],
+                        render_nodes[parent.id()].layout_node,
+                        render_nodes[child.id()].layout_node,
+                        render_nodes[before.id()].layout_node,
                     );
                     dirty_nodes.add(child.id());
                 }
                 DomEvent::RemoveChild(parent, child) => {
-                    layout_tree.append_child(layout_nodes[parent.id()], layout_nodes[child.id()]);
+                    layout_tree.remove_child(
+                        render_nodes[parent.id()].layout_node,
+                        render_nodes[child.id()].layout_node,
+                    );
                     dirty_nodes.remove(child.id());
                 }
             }
@@ -125,11 +133,12 @@ impl Renderer {
         let mut canvas = Canvas::new();
         let mut ctx = RenderContext {
             canvas: &mut canvas,
+            render_nodes: &state.render_nodes,
             layout_tree: &state.layout_tree,
         };
 
         profile!();
-        ctx.render_box(0., 0., state.layout_nodes[self.document.id()]);
+        ctx.render_node(Vec2::new(0., 0.), self.document.id());
         let frame = ctx.canvas.flush();
         profile!("frame");
 
@@ -148,9 +157,8 @@ impl Renderer {
 
         let State {
             layout_tree,
-            layout_nodes,
+            render_nodes,
             dirty_nodes,
-            render_styles,
         } = &mut *self.state.borrow_mut();
 
         let sheets: Vec<_> = self
@@ -171,16 +179,26 @@ impl Renderer {
                     res.apply_style_prop(p);
                 }
 
-                layout_tree.set_style(layout_nodes[id], res.layout_style);
-                render_styles.put(id, res.render_style);
+                layout_tree.set_style(render_nodes[id].layout_node, res.layout_style);
+                println!("TODO: set render style");
+                //render_styles.put(id, res.render_style);
             } else if let Some(text) = node.as_text() {
                 println!("TODO: update text/comment");
+            } else if let Some(doc) = node.as_document() {
+                layout_tree.set_style(
+                    render_nodes[id].layout_node,
+                    LayoutStyle {
+                        display: Display::Block,
+                        ..Default::default()
+                    },
+                )
             }
         }
+
         dirty_nodes.clear();
         profile!("css");
 
-        layout_tree.calculate(layout_nodes[self.document.id()], 1024., 768.);
+        layout_tree.calculate(render_nodes[self.document.id()].layout_node, 1024., 768.);
         profile!("layout");
     }
 }
@@ -193,12 +211,39 @@ impl Drop for Renderer {
 
 struct RenderContext<'a> {
     canvas: &'a mut Canvas,
+    render_nodes: &'a SlotMap<NodeId, RenderNode>,
     layout_tree: &'a LayoutTree,
 }
 
 impl<'a> RenderContext<'a> {
-    fn render_box(&mut self, x: f32, y: f32, layout_node: LayoutNodeId) {
-        let res = self.layout_tree.layout_result(layout_node);
+    fn draw_bg_color(&mut self, rect: AABB, radii: [f32; 4], color: RGBA8) {
+        if radii == [0., 0., 0., 0.] {
+            return self.canvas.fill_rect(rect, color);
+        }
+
+        let Vec2 { x, y } = rect.min;
+        let [w, h] = [rect.max.x - rect.min.x, rect.max.y - rect.min.y];
+        let [tl, tr, br, bl] = radii;
+
+        // TODO: clamping (when r > w/h)
+        let path = [
+            PathCmd::Move(Vec2::new(x + tl, y)),
+            PathCmd::Line(Vec2::new(x + w - tr, y)),
+            PathCmd::Quadratic(Vec2::new(x + w, y), Vec2::new(x + w, y + tr)),
+            PathCmd::Line(Vec2::new(x + w, y + h - br)),
+            PathCmd::Quadratic(Vec2::new(x + w, y + h), Vec2::new(x + w - br, y + h)),
+            PathCmd::Line(Vec2::new(x + bl, y + h)),
+            PathCmd::Quadratic(Vec2::new(x + w, y + h), Vec2::new(x + w - br, y + h)),
+            PathCmd::Line(Vec2::new(x + bl, y + h)),
+            PathCmd::Quadratic(Vec2::new(x, y + h), Vec2::new(x, y + h - bl)),
+            PathCmd::Line(Vec2::new(x, y + tl)),
+            PathCmd::Quadratic(Vec2::new(x, y), Vec2::new(x + tl, y)),
+            PathCmd::Close,
+        ];
+
+        self.canvas.fill_path(&path, color);
+    }
+
 
         let rect = res.outer_rect();
         let pos = Vec2::new(rect.left, rect.top);
@@ -277,6 +322,11 @@ impl<'a> RenderContext<'a> {
     */
 }
 
+struct RenderNode {
+    dom_node: NodeRef,
+    layout_node: LayoutNodeId,
+}
+
 #[derive(Default)]
 struct ResolvedStyle {
     layout_style: LayoutStyle,
@@ -284,14 +334,13 @@ struct ResolvedStyle {
     render_style: RenderStyle,
 }
 
-#[derive(Default)]
 struct RenderStyle {
-    // - transform
-    // - overflow visible/hidden/scroll
-    // - opacity: f32
-    // - border_radius: [f32; 4]
+    transform: Transform,
+    //overflow: visible/hidden/scroll,
+    opacity: f32,
+    border_radii: [f32; 4],
     // - outline_shadow(s)
-    // - outline
+    //outline: (f32, /*CssBorderStyle,*/ RGBA8),
     // - clip() from here if overflow hidden
     bg_color: RGBA8,
     // - bg_image(s) | gradient(s)
@@ -300,12 +349,27 @@ struct RenderStyle {
     // - border
 }
 
+impl Default for RenderStyle {
+    fn default() -> Self {
+        Self {
+            transform: Transform::id(),
+            opacity: 1.,
+            border_radii: [0., 0., 0., 0.],
+            bg_color: [0, 0, 0, 0],
+        }
+    }
+}
+
 impl ResolvedStyle {
     // fn apply_style(&mut self, style: &CssStyleDeclaration) {}
 
     fn apply_style_prop(&mut self, prop: &StyleProp) {
         use StyleProp::*;
         match prop {
+            // first, likely to be animated
+            &Opacity(v) => self.render_style.opacity = v,
+            &BackgroundColor(v) => self.render_style.bg_color = [v.r, v.g, v.b, v.a],
+
             // size
             &Width(v) => self.layout_style.width = dimension(v),
             &Height(v) => self.layout_style.height = dimension(v),
@@ -325,6 +389,18 @@ impl ResolvedStyle {
             &MarginRight(v) => self.layout_style.margin.right = dimension(v),
             &MarginBottom(v) => self.layout_style.margin.bottom = dimension(v),
             &MarginLeft(v) => self.layout_style.margin.left = dimension(v),
+
+            // border
+            &BorderTopWidth(v) => self.layout_style.border.top = dimension(v),
+            &BorderRightWidth(v) => self.layout_style.border.right = dimension(v),
+            &BorderBottomWidth(v) => self.layout_style.border.bottom = dimension(v),
+            &BorderLeftWidth(v) => self.layout_style.border.left = dimension(v),
+
+            // border_radius (px-only)
+            &BorderTopLeftRadius(CssDimension::Px(v)) => self.render_style.border_radii[0] = v,
+            &BorderTopRightRadius(CssDimension::Px(v)) => self.render_style.border_radii[1] = v,
+            &BorderBottomRightRadius(CssDimension::Px(v)) => self.render_style.border_radii[2] = v,
+            &BorderBottomLeftRadius(CssDimension::Px(v)) => self.render_style.border_radii[3] = v,
 
             // position
             // Position(v) => self.layout_style.position_type = position_type(v),
@@ -346,8 +422,7 @@ impl ResolvedStyle {
 
             // other
             &Display(v) => self.layout_style.display = display(v),
-            &BackgroundColor(v) => self.render_style.bg_color = [v.r, v.g, v.b, v.a],
-            // TODO: remove
+
             _ => {}
         }
     }

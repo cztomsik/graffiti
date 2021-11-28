@@ -18,6 +18,7 @@ fontdb = { git = "https://github.com/cztomsik/fontdb", rev = "f106359" }
 rect_packer = "0.2.1"
 graffiti-glfw = { path = "graffiti-glfw" }
 glow = "0.11.0"
+ochre = "0.2.0"
 crossbeam-channel = "0.5.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]

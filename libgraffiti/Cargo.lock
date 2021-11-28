@@ -95,6 +95,7 @@ dependencies = [
  "glow",
  "graffiti-glfw",
  "objc",
+ "ochre",
  "once_cell",
  "pom",
  "rect_packer",
@@ -163,6 +164,12 @@ checksum = "915b1b472bc21c53464d6c8461c9d3af805ba1ef837e1cac254428f4a77177b1"
 dependencies = [
  "malloc_buf",
 ]
+
+[[package]]
+name = "ochre"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48e253ec015858a8be09cde1d9d9a09e7ba1048df4931b0722634a3b289e11f6"
 
 [[package]]
 name = "once_cell"
