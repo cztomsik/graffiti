@@ -7,7 +7,7 @@ fn main() {
     let renderer = Renderer::new(&doc, &win);
 
     let div = doc.create_element("div");
-    div.set_attribute("style", "width: 100px; padding: 100px; height: 100px; background: #f00; border-radius: 5px; border-radius-top-left: 10px");
+    div.set_attribute("style", "width: 100px; padding: 100px; height: 100px; background: #f00; border-radius: 10px; border-top-left-radius: 50px");
 
     let h1 = doc.create_element("h1");
     let hello = doc.create_text_node("Hello");
