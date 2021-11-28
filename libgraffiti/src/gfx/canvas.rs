@@ -63,8 +63,6 @@ impl Canvas {
     }
 
     pub fn flush(&mut self) -> Frame {
-        println!("{:?}", self.frame);
-
         self.frame
             .draw_ops
             .insert(0, DrawOp::TexData(self.glyph_cache.tex_data().clone()));
@@ -73,6 +71,9 @@ impl Canvas {
     }
 }
 
+// TODO: color
+// TODO: this works fine for non-retina but on retina, there is some
+//       weird spacing issue looks like packing but increasing PAD didnt help
 impl TileBuilder for Canvas {
     fn tile(&mut self, x: i16, y: i16, data: [u8; TILE_SIZE * TILE_SIZE]) {
         let uv = self

@@ -59,17 +59,27 @@ pub struct LayoutResult {
 }
 
 impl LayoutResult {
-    pub fn borders(&self) -> Rect<f32> {
-        self.border
-    }
-
-    pub fn outer_rect(&self) -> Rect<f32> {
+    pub fn border_rect(&self) -> Rect<f32> {
         Rect {
             left: self.x,
             top: self.y,
-            right: self.x + self.size.width + self.padding.left + self.padding.right,
-            bottom: self.y + self.size.height + self.padding.top + self.padding.top,
+            right: self.x
+                + self.size.width
+                + self.padding.left
+                + self.padding.right
+                + self.border.left
+                + self.border.right,
+            bottom: self.y
+                + self.size.height
+                + self.padding.top
+                + self.padding.top
+                + self.border.top
+                + self.border.bottom,
         }
+    }
+
+    pub fn borders(&self) -> Rect<f32> {
+        self.border
     }
 }
 
