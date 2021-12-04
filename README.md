@@ -11,6 +11,7 @@ HTML/CSS engine for node.js and deno. No electron, no webkit, no servo, all from
 ---
 
 ## Current status
+- not production-ready, and it probably doesn't even work currently (ETA Q1/2022)
 - DOM is "done" (in a sense of what I wanted to achieve)
 - `WebView` is macos only (for now)
 - react/preact/vue is working with this
