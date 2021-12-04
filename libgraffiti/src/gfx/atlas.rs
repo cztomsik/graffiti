@@ -20,7 +20,10 @@ impl Atlas {
             tex_data: TexData {
                 width,
                 height,
-                pixels: vec![[0, 0, 0, 0]; (width * height) as _],
+                // Box::new([V; size_expr]) doesn't work and const generics allocate on the stack
+                // so not only it has to be copied but it can also blow the stack
+                // so it's either this or unsafe {}, and it seems compiler can optimize most of this away
+                pixels: vec![[255, 255, 255, 255]; (width * height) as _].into_boxed_slice(),
             },
         }
     }

@@ -131,7 +131,7 @@ pub enum DrawOp {
 pub struct TexData {
     pub width: i32,
     pub height: i32,
-    pub pixels: Vec<RGBA8>,
+    pub pixels: Box<[RGBA8]>,
 }
 
 impl Index<(usize, usize)> for TexData {
