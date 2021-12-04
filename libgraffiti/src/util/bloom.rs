@@ -40,7 +40,6 @@ impl<T: Hash> Bloom<T> {
         }
     }
 
-    #[inline]
     pub fn may_include(&self, value: &T) -> bool {
         let mask = mask(value);
         self.bits & mask == mask
@@ -53,7 +52,6 @@ impl<T: Hash> Default for Bloom<T> {
     }
 }
 
-#[inline]
 fn mask<T: Hash>(v: &T) -> u64 {
     let mut hasher = FnvHasher::with_key(1099511628211);
     v.hash(&mut hasher);

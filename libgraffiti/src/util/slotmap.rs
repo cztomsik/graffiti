@@ -7,6 +7,7 @@ use std::ops::{Index, IndexMut};
 pub struct SlotMap<K, V> {
     slots: Vec<Option<V>>,
     // TODO: free_head: Option<K> + Entry<K, V> { Free { next_free: K }, Occupied { value: V } }
+    //       or BitSet, that might actually be even better
     free_keys: Vec<K>,
 }
 

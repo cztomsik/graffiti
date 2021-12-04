@@ -19,4 +19,5 @@ pub use self::{
 };
 pub mod gfx;
 
+// TODO: feature-flag
 mod ffi;
