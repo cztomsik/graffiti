@@ -2,13 +2,7 @@ import { Node } from './index'
 import { native, encode, getNativeId, decode } from '../native'
 
 export abstract class CharacterData extends Node implements globalThis.CharacterData {
-  get data() {
-    return decode(native.gft_CharacterData_data(getNativeId(this))) ?? ''
-  }
-
-  set data(data) {
-    native.gft_CharacterData_set_data(getNativeId(this), ...encode(normalize(data)))
-  }
+  abstract data: string;
 
   get nodeValue() {
     return this.data

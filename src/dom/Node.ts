@@ -28,6 +28,10 @@ export abstract class Node extends EventTarget
     // should be !== null but some libs pass undefined too
     if (refNode) {
       assert(refNode.parentNode === this, 'invalid refNode')
+
+      while (refNode?.nodeType === Node.COMMENT_NODE) {
+        refNode = refNode!.previousSibling
+      }
     }
 
     // fragment
@@ -43,7 +47,7 @@ export abstract class Node extends EventTarget
     this.childNodes.splice(index, 0, child)
     ;(child as any).parentNode = this
 
-    if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+    if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE && (child.nodeType !== Node.COMMENT_NODE)) {
       if (refNode) {
         native.gft_Node_insert_before(getNativeId(this), getNativeId(child), getNativeId(refNode))
       } else {
