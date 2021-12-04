@@ -1,4 +1,4 @@
-use super::{TexData, Vec2, AABB};
+use super::{TexData, UvRect};
 use rect_packer::Packer;
 
 const PAD: i32 = 1;
@@ -32,23 +32,11 @@ impl Atlas {
         &self.tex_data
     }
 
-    // TODO: if we set TEXTURE_SIZE uniform, then vertex.uv can be just [u16; 2]
-    //       because we can compute 0-1 in shader, which will save 4 bytes per vertex
-    //       also, currently the texture is fixed to 1024x1024 so that would be super-easy
-    pub fn push(&mut self, width: i32, height: i32, f: impl FnOnce(&mut TexData, usize, usize)) -> Option<AABB> {
+    pub fn push(&mut self, width: i32, height: i32, f: impl FnOnce(&mut TexData, usize, usize)) -> Option<UvRect> {
         let rect = self.packer.pack(width, height, false)?;
 
         f(&mut self.tex_data, rect.x as _, rect.y as _);
 
-        Some(AABB::new(
-            Vec2::new(
-                rect.x as f32 / self.tex_data.width as f32,
-                rect.y as f32 / self.tex_data.height as f32,
-            ),
-            Vec2::new(
-                rect.right() as f32 / self.tex_data.width as f32,
-                rect.bottom() as f32 / self.tex_data.height as f32,
-            ),
-        ))
+        Some(UvRect::new([rect.x as _, rect.y as _], [rect.right() as _, rect.bottom() as _]))
     }
 }

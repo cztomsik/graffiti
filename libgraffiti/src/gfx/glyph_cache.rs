@@ -1,28 +1,29 @@
-use super::{Atlas, Font, Glyph, TexData, Vec2, AABB, SANS_SERIF_FONT};
-use std::collections::HashMap;
+use super::{atlas::Atlas, Font, Glyph, TexData, UvRect, Vec2, AABB, SANS_SERIF_FONT};
+use fnv::FnvHashMap;
 use std::hash::Hash;
 
 pub struct CachedGlyph {
     pub rect: AABB,
-    pub uv: AABB,
+    pub uv: UvRect,
+}
+
+impl CachedGlyph {
+    pub const EMPTY: Self = Self {
+        rect: AABB::ZERO,
+        uv: UvRect::MAX,
+    };
 }
 
 pub struct GlyphCache {
-    glyphs: HashMap<CacheKey, CachedGlyph>,
+    glyphs: FnvHashMap<CacheKey, CachedGlyph>,
     pub(crate) atlas: Atlas,
 }
 
 impl GlyphCache {
     pub fn new() -> Self {
-        let mut atlas = Atlas::new(1024, 1024);
-
-        // temp hack for solid_rects (which have uv::ZERO)
-        // TODO: use negative xy or uv or multi-uv or something better
-        atlas.push(1, 1, |tex, _, _| tex[(0, 0)] = [255, 255, 255, 255]);
-
         Self {
-            glyphs: HashMap::new(),
-            atlas,
+            glyphs: FnvHashMap::default(),
+            atlas: Atlas::new(1024, 1024),
         }
     }
 
@@ -35,23 +36,17 @@ impl GlyphCache {
                 let pxb = g.px_bounds();
                 let rect = AABB::new(Vec2::new(pxb.min.x, pxb.min.y), Vec2::new(pxb.max.x, pxb.max.y));
 
-                let uv = atlas
-                    .push(pxb.width() as _, pxb.height() as _, |dest, x1, y1| {
-                        g.draw(|x2, y2, a| {
-                            let a = (a * 255.) as _;
-                            dest[(x1 + x2 as usize, y1 + y2 as usize)] = [a, a, a, a];
-                        })
+                if let Some(uv) = atlas.push(pxb.width() as _, pxb.height() as _, |dest: &mut TexData, x1, y1| {
+                    g.draw(|x2, y2, a| {
+                        let a = (a * 255.) as _;
+                        dest[(x1 + x2 as usize, y1 + y2 as usize)] = [a, a, a, a];
                     })
-                    .unwrap_or(AABB::ZERO);
-
-                return CachedGlyph { rect, uv };
+                }) {
+                    return CachedGlyph { rect, uv };
+                }
             }
 
-            // unlikely, layout should skip empty & unknown glyphs
-            CachedGlyph {
-                rect: AABB::ZERO,
-                uv: AABB::ZERO,
-            }
+            CachedGlyph::EMPTY
         })
     }
 

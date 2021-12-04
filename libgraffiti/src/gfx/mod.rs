@@ -7,7 +7,18 @@ mod text;
 
 pub use ochre::{PathCmd, Transform, Vec2};
 
-pub use {atlas::*, backend::*, canvas::*, font::*, glyph_cache::*, text::*};
+pub use {
+  backend::{GlBackend, RenderBackend},
+  canvas::{Canvas, Frame, TexData, UvRect, DrawOp, Vertex, RGBA8},
+  font::{Font, Glyph, GlyphId, ScaleFont},
+  text::{TextStyle, Text, GlyphPos, Paragraph, ParagraphBuilder}
+};
+
+pub(crate) use font::SANS_SERIF_FONT;
+
+pub trait Drawable {
+  fn draw(&self, canvas: &mut Canvas, origin: Vec2);
+}
 
 use std::ops::Add;
 
