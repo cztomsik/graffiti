@@ -38,7 +38,7 @@ impl Canvas {
 
         let mut rasterizer = Rasterizer::new();
         rasterizer.fill(path, Transform::id());
-        rasterizer.finish(self);
+        rasterizer.finish(&mut CanvasTileBuilder { canvas: self, color });
     }
 
     pub fn fill_text(&mut self, text: &Text, text_rect: AABB, color: RGBA8) {
@@ -78,10 +78,16 @@ impl Canvas {
     }
 }
 
+struct CanvasTileBuilder<'a> {
+    canvas: &'a mut Canvas,
+    color: RGBA8,
+}
+
 // TODO: color
-impl TileBuilder for Canvas {
+impl TileBuilder for CanvasTileBuilder<'_> {
     fn tile(&mut self, x: i16, y: i16, data: [u8; TILE_SIZE * TILE_SIZE]) {
         let uv = self
+            .canvas
             .glyph_cache
             .atlas
             .push(TILE_SIZE as _, TILE_SIZE as _, |tex: &mut TexData, x, y| {
@@ -95,19 +101,17 @@ impl TileBuilder for Canvas {
             .unwrap();
 
         let min = Vec2::new(x as _, y as _);
-        self.push_quad(
+        self.canvas.push_quad(
             AABB::new(min, min + Vec2::new(TILE_SIZE as _, TILE_SIZE as _)),
             uv,
-            [255, 0, 0, 200],
+            self.color,
         );
     }
 
     fn span(&mut self, x: i16, y: i16, width: u16) {
         let min = Vec2::new(x as _, y as _);
-        self.fill_rect(
-            AABB::new(min, min + Vec2::new(width as _, TILE_SIZE as _)),
-            [255, 0, 0, 200],
-        );
+        self.canvas
+            .fill_rect(AABB::new(min, min + Vec2::new(width as _, TILE_SIZE as _)), self.color);
     }
 }
 
