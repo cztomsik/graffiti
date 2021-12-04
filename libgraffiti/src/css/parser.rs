@@ -24,6 +24,8 @@ use std::convert::TryFrom;
 
 pub(super) type Parser<'a, T> = pom::parser::Parser<'a, Token<'a>, T>;
 
+// TODO: maybe we could have a struct (with row/col), it just needs to be Deref<str>
+//       but on the other hand, &str contains offset so we can compute row/col easily anyway
 type Token<'a> = &'a str;
 
 pub type ParseError = pom::Error;

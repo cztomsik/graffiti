@@ -58,8 +58,8 @@ impl GlBackend {
         // one texture
         let tex = gl.create_texture().expect("create tex");
         gl.bind_texture(TEXTURE_2D, Some(tex));
-        gl.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, LINEAR as _);
-        gl.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, LINEAR as _);
+        gl.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, NEAREST as _);
+        gl.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, NEAREST as _);
         gl.tex_parameter_i32(TEXTURE_2D, TEXTURE_WRAP_S, CLAMP_TO_EDGE as _);
         gl.tex_parameter_i32(TEXTURE_2D, TEXTURE_WRAP_T, CLAMP_TO_EDGE as _);
         // needed if RGB
@@ -78,7 +78,7 @@ impl GlBackend {
 
         let a_uv = gl.get_attrib_location(program, "a_uv").unwrap();
         gl.enable_vertex_attrib_array(a_uv);
-        gl.vertex_attrib_pointer_f32(a_uv, 2, FLOAT, false, STRIDE, offsetof!(Vertex.uv) as _);
+        gl.vertex_attrib_pointer_f32(a_uv, 2, UNSIGNED_SHORT, false, STRIDE, offsetof!(Vertex.uv) as _);
         check(&gl, "a_uv");
 
         let a_color = gl.get_attrib_location(program, "a_color").unwrap();
@@ -179,7 +179,8 @@ void main() {
 
     // TODO: Z
     gl_Position = vec4(xy.x, xy.y * -1., 0.5, 1.0);
-    v_uv = a_uv;
+    // TODO: TEXTURE_SIZE uniform
+    v_uv = a_uv / vec2(1024, 1024);
     v_color = a_color;
 }
 "#;

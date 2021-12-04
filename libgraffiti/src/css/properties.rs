@@ -170,7 +170,7 @@ css_shorthands! {
     ("border-color", sides_of(color())) => (BorderTopColor, BorderRightColor, BorderBottomColor, BorderLeftColor),
 
     // TODO(maybe): two dimensions
-    ("border-radius", sides_of(dimension())) => (BorderTopLeftRadius, BorderTopRightRadius, BorderBottomLeftRadius, BorderBottomRightRadius),
+    ("border-radius", sides_of(dimension())) => (BorderTopLeftRadius, BorderTopRightRadius, BorderBottomRightRadius, BorderBottomLeftRadius),
 
     ("overflow", overflow()) => (OverflowX, OverflowY),
     ("outline", outline()) => (OutlineWidth, OutlineStyle, OutlineColor),

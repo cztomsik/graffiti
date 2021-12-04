@@ -1,3 +1,23 @@
+use super::{Canvas, Drawable};
+
+pub struct Paragraph;
+
+pub struct ParagraphBuilder;
+
+impl Drawable for Paragraph {
+    fn draw(&self, canvas: &mut Canvas, pos: Vec2) {
+        // for line in self.lines {
+        //     for run in line.runs {
+        //         for glyph in run.glyphs {
+        //             // TODO
+        //         }
+        //     }
+        // }
+    }
+}
+
+// ------------
+
 // text-layout
 // x two-phase (shape + single-line layout when text/style changes)
 // x measure(max_width)

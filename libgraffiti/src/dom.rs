@@ -1,3 +1,10 @@
+// TODO: we need to know when the inline style changes so either we need to attach listener
+//       to the CssStyleDeclaration (which I'd like to avoid) or we need el.set_style(&style)
+//       and then in JS we need to not only call style.set_property() but also set/clone it
+//       to the element, maybe in raf(() => native.gft_Element_set_style(el.#style))
+//       this would also mean that .style() will be detached and JS will "own" its own copy
+//       which means if we want to do native innerHTML one day, it might be a bit more trickier
+
 // observable document model
 // x OO-like api (auto-upcast, on-demand downcast)
 // x holds the data/truth (tree of nodes)
