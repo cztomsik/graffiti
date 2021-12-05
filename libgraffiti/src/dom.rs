@@ -34,11 +34,9 @@ pub type NodeId = NonZeroU32;
 
 #[derive(Debug)]
 pub enum DomEvent<'a> {
-    NodeCreated(&'a NodeRef),
     AppendChild(&'a NodeRef, &'a NodeRef),
     InsertBefore(&'a NodeRef, &'a NodeRef, &'a NodeRef),
     RemoveChild(&'a NodeRef, &'a NodeRef),
-    NodeDestroyed(NodeId),
 }
 
 pub struct NodeRef {
@@ -174,11 +172,24 @@ impl NodeRef {
     }
 
     fn inc_count(&self) {
-        self.store.inc_count(self.id);
+        let tree = self.store.tree.borrow();
+        let prev = tree.data(self.id).ref_count.get();
+        tree.data(self.id).ref_count.set(prev + 1);
     }
 
     fn dec_count(&self) {
-        self.store.dec_count(self.id);
+        let tree = self.store.tree.borrow();
+        let prev = tree.data(self.id).ref_count.get();
+        tree.data(self.id).ref_count.set(prev - 1);
+        drop(tree);
+
+        if prev == 1 {
+            for ch in self.child_nodes() {
+                self.remove_child(&ch);
+            }
+
+            self.store.tree.borrow_mut().drop_node(self.id);
+        }
     }
 }
 
@@ -402,56 +413,27 @@ impl Store {
             data,
         });
 
-        let node = NodeRef {
+        NodeRef {
             store: Rc::clone(self),
             id,
-        };
-
-        self.emit(DomEvent::NodeCreated(&node));
-
-        node
+        }
     }
 
     fn node_ref(self: &Rc<Self>, id: NodeId) -> NodeRef {
-        self.inc_count(id);
-
-        NodeRef {
+        let node = NodeRef {
             store: self.clone(),
             id,
-        }
+        };
+
+        node.inc_count();
+
+        node
     }
 
     fn emit(&self, event: DomEvent) {
         for listener in &*self.listeners.borrow() {
             listener(&event);
         }
-    }
-
-    fn inc_count(&self, id: NodeId) {
-        let tree = self.tree.borrow();
-        tree.data(id).ref_count.set(tree.data(id).ref_count.get() + 1);
-    }
-
-    fn dec_count(&self, id: NodeId) {
-        let prev = self.tree.borrow().data(id).ref_count.get();
-        self.tree.borrow().data(id).ref_count.set(prev - 1);
-
-        if prev == 1 {
-            self.drop_node(id);
-        }
-    }
-
-    fn drop_node(&self, id: NodeId) {
-        // potentially drop whole subtree (first)
-        let mut next = self.tree.borrow().first_child(id);
-        while let Some(child) = next {
-            next = self.tree.borrow().next_sibling(child);
-            self.dec_count(child);
-        }
-
-        self.tree.borrow_mut().drop_node(id);
-
-        self.emit(DomEvent::NodeDestroyed(id));
     }
 }
 

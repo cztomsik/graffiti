@@ -1,3 +1,6 @@
+// TODO: I'm not 100% sure if Cell<> is a good idea here
+//       because then we might miss some changes called from destructors for example
+
 // like HashSet<u32> but faster
 // x grow-only, insert-only, can be cleared
 // x safe, backed by bounds-checked Vec<Cell<u32>>
@@ -16,6 +19,7 @@ impl BitSet {
     pub fn new() -> Self {
         Self::default()
     }
+
     pub fn capacity(&self) -> usize {
         self.chunks.len() * BITS
     }
