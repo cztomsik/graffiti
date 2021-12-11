@@ -46,7 +46,7 @@ impl Renderer {
         // connect
         document.add_listener(Rc::clone(&listener));
         for node in document.all_nodes() {
-            listener(&DomEvent::NodeCreated(&node));
+            //listener(&DomEvent::NodeCreated(&node));
         }
         for parent in document.all_nodes() {
             for child in parent.child_nodes() {
@@ -84,22 +84,22 @@ impl Renderer {
                 ..
             } = &mut *state.borrow_mut();
             match event {
-                DomEvent::NodeCreated(node) => {
-                    render_nodes.put(
-                        node.id(),
-                        RenderNode {
-                            dom_node: NodeRef::clone(node),
-                            layout_node: layout_tree.create_node(),
-                            render_style: None,
-                        },
-                    );
-                    dirty_nodes.grow(node.id());
-                }
-                &DomEvent::NodeDestroyed(id) => {
-                    layout_tree.drop_node(render_nodes.remove(id).unwrap().layout_node);
-                    // if whole subtree gets freed, it might not be removed at all
-                    dirty_nodes.remove(id);
-                }
+                // DomEvent::NodeCreated(node) => {
+                //     render_nodes.put(
+                //         node.id(),
+                //         RenderNode {
+                //             dom_node: NodeRef::clone(node),
+                //             layout_node: layout_tree.create_node(),
+                //             render_style: None,
+                //         },
+                //     );
+                //     dirty_nodes.grow(node.id());
+                // }
+                // &DomEvent::NodeDestroyed(id) => {
+                //     layout_tree.drop_node(render_nodes.remove(id).unwrap().layout_node);
+                //     // if whole subtree gets freed, it might not be removed at all
+                //     dirty_nodes.remove(id);
+                // }
                 DomEvent::AppendChild(parent, child) => {
                     layout_tree.append_child(
                         render_nodes[parent.id()].layout_node,

@@ -107,6 +107,8 @@ pub enum Dimension {
     Auto,
     Px(f32),
     /*Fraction*/ Percent(f32),
+    Em(f32),
+    Rem(f32),
 }
 
 #[derive(Debug, Clone, Copy)]
