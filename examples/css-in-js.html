@@ -3,11 +3,9 @@
   <div id="app"></div>
   <script type="module">
     import { html, render, h } from 'https://unpkg.com/htm/preact/standalone.module.js'
-    import { setup, styled } from 'https://unpkg.com/goober@2.1.1/dist/goober.esm.js'
+    import { css } from 'https://unpkg.com/goober@2.1.1/dist/goober.esm.js'
 
-    setup(h)
-
-    const Container = styled('div')`
+    const wrapper = css`
       padding: 20px;
       background: #eef;
 
@@ -16,10 +14,10 @@
     `
 
     const App = () => html`
-      <${Container}>
+      <div className=${wrapper}>
         <h1>CSS-in-JS</h1>
         <span>Preact + Goober</span>
-      </${Container}>
+      </div>
     `
 
     render(html`<${App} />`, document.getElementById('app'))
