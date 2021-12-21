@@ -34,7 +34,7 @@ impl WebView {
                 let cfg: id = msg_send![class!(WKWebViewConfiguration), new];
                 let del: id = msg_send![class!(NSObject), alloc];
                 let webview: id = msg_send![class!(WKWebView), alloc];
-                let () = msg_send![webview, initWithFrame:[0f64, 0., 0., 0.] configuration:cfg];
+                let () = msg_send![webview, initWithFrame:[0_f64, 0., 0., 0.] configuration:cfg];
                 let () = msg_send![webview, setUIDelegate: del];
 
                 AppOwned(StrongPtr::retain(webview))

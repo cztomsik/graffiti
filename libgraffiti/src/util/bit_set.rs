@@ -1,5 +1,8 @@
 // TODO: I'm not 100% sure if Cell<> is a good idea here
 //       because then we might miss some changes called from destructors for example
+// TODO: if this ever gets hot it might be a good candidate for vectorization?
+// TODO: par_iter?
+// TODO: bench
 
 // like HashSet<u32> but faster
 // x grow-only, insert-only, can be cleared
@@ -65,7 +68,7 @@ impl BitSet {
     }
 
     fn mask(value: NonZeroU32) -> u32 {
-        1 << value.get() % BITS as u32
+        1 << (value.get() % BITS as u32)
     }
 }
 

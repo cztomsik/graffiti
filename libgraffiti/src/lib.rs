@@ -1,3 +1,5 @@
+#![warn(clippy::all, clippy::pedantic)]
+
 #[macro_use]
 mod util;
 

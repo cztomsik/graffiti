@@ -1,14 +1,41 @@
-// id-based linked tree
-// x alloc-free inserts/removals
-// - TODO: tree.rebuild() -> (Self, Iterator<(OldId, NewId)>)?
-// - TODO: consider using Cell<> so only create/drop requires &mut?
-//         (but then the whole tree would be !Sync)
-
 use super::SlotMap;
 use std::num::NonZeroU32;
+use std::ops::{Index, IndexMut};
 
 pub type NodeId = NonZeroU32;
 
+/// A tree with stable ids, so it can be easily updated later.
+/// ```
+/// let mut tree = IdTree::new();
+/// let node_id = tree.create_node("foo");
+/// assert_eq!(tree[node_id], "foo");
+/// tree[node_id] = "bar";
+/// assert_eq!(tree[node_id], "bar");
+/// ```
+/// 
+/// Inserts/removals are alloc-free but traversal might get a bit slower over
+/// the time and in that case it might be a good idea to rebuild the tree.
+/// Node can only be attached in one parent, append/insert will panic otherwise.
+/// ```
+/// let mut tree = IdTree::new();
+/// let parent = tree.create_node("parent");
+/// let child = tree.create_node("child");
+/// tree.append_child(parent, child);
+/// assert_eq!(parent.first_child(), Some(child));
+/// ```
+/// 
+/// Freeing is explicit and can eventually lead to panic if the node is still
+/// attached somewhere. Also, ids are not generational so you have the
+/// ABA problem.
+/// ```
+/// let mut tree = IdTree::new();
+/// let foo = tree.create_node("foo");
+/// tree.drop_node(foo);
+/// let bar = tree.create_node("bar");
+/// 
+/// // same id, different node
+/// assert_eq!(foo, bar);
+/// ```
 pub struct IdTree<T> {
     nodes: SlotMap<NodeId, Node<T>>,
 }
@@ -87,6 +114,8 @@ impl<T> IdTree<T> {
     }
 
     pub fn append_child(&mut self, parent: NodeId, child: NodeId) {
+        assert_eq!(self.nodes[child].parent_node, None);
+
         let nodes = &mut self.nodes;
 
         if nodes[parent].first_child == None {
@@ -103,8 +132,8 @@ impl<T> IdTree<T> {
     }
 
     pub fn insert_before(&mut self, parent: NodeId, child: NodeId, before: NodeId) {
-        debug_assert_eq!(self.nodes[child].parent_node, None);
-        debug_assert_eq!(self.nodes[before].parent_node, Some(parent));
+        assert_eq!(self.nodes[child].parent_node, None);
+        assert_eq!(self.nodes[before].parent_node, Some(parent));
 
         let nodes = &mut self.nodes;
 
@@ -119,12 +148,12 @@ impl<T> IdTree<T> {
         nodes[child].previous_sibling = nodes[before].previous_sibling;
         nodes[child].next_sibling = Some(before);
         nodes[child].parent_node = Some(parent);
-        
+
         nodes[before].previous_sibling = Some(child);
     }
 
     pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
-        debug_assert_eq!(self.nodes[child].parent_node, Some(parent));
+        assert_eq!(self.nodes[child].parent_node, Some(parent));
 
         let nodes = &mut self.nodes;
 
@@ -157,6 +186,20 @@ impl<T> IdTree<T> {
 impl<T> Default for IdTree<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<V> Index<NodeId> for IdTree<V> {
+    type Output = V;
+
+    fn index(&self, node: NodeId) -> &V {
+        self.data(node)
+    }
+}
+
+impl<V> IndexMut<NodeId> for IdTree<V> {
+    fn index_mut(&mut self, node: NodeId) -> &mut V {
+        self.data_mut(node)
     }
 }
 

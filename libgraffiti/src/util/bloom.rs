@@ -53,7 +53,7 @@ impl<T: Hash> Default for Bloom<T> {
 }
 
 fn mask<T: Hash>(v: &T) -> u64 {
-    let mut hasher = FnvHasher::with_key(1099511628211);
+    let mut hasher = FnvHasher::default();
     v.hash(&mut hasher);
     1 << (hasher.finish() % BITS)
 }

@@ -6,6 +6,7 @@
 //       which means if we want to do native innerHTML one day, it might be a bit more trickier
 
 // observable document model
+// x only doc/el/text nodes are supported
 // x OO-like api (auto-upcast, on-demand downcast)
 // x holds the data/truth (tree of nodes)
 // x allows changes
@@ -18,9 +19,10 @@ use fnv::FnvHashMap;
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Error, Formatter};
-use std::num::NonZeroU32;
 use std::ops::Deref;
 use std::rc::Rc;
+
+pub use crate::util::NodeId;
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,8 +31,6 @@ pub enum NodeType {
     Text = 3,
     Document = 9,
 }
-
-pub type NodeId = NonZeroU32;
 
 #[derive(Debug)]
 pub enum DomEvent<'a> {
@@ -73,14 +73,30 @@ impl NodeRef {
         self.find_node(self.store.tree.borrow().next_sibling(self.id)?)
     }
 
-    // TODO: avoid collect(), return impl Iterator<Item = NodeRef>
-    pub fn child_nodes(&self) -> Vec<NodeRef> {
+    // TODO: avoid collect()
+    pub fn child_nodes(&self) -> impl Iterator<Item = NodeRef> {
         self.store
             .tree
             .borrow()
             .children(self.id)
             .map(move |id| self.store.node_ref(id))
-            .collect()
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
+
+    // TODO: avoid collect()
+    pub fn descendants(&self) -> impl Iterator<Item = NodeRef> {
+        self.store
+            .tree
+            .borrow()
+            .traverse(self.id)
+            .skip(1)
+            .filter_map(|edge| match edge {
+                Edge::Start(node) => self.find_node(node),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
     pub fn append_child(&self, child: &NodeRef) {
@@ -107,7 +123,7 @@ impl NodeRef {
     pub fn text_content(&self) -> String {
         match &self.store.tree.borrow().data(self.id).data {
             NodeData::Text(data) => data.to_string(),
-            _ => self.child_nodes().iter().map(NodeRef::text_content).collect(),
+            _ => self.child_nodes().map(|n| n.text_content()).collect(),
         }
     }
 
@@ -117,11 +133,7 @@ impl NodeRef {
 
     pub fn query_selector_all(&self, selector: &str) -> Vec<ElementRef> {
         let selector = Selector::parse(selector).unwrap_or(Selector::unsupported());
-        let tree = self.store.tree.borrow();
-        let els = tree.traverse(self.id).skip(1).filter_map(|edge| match edge {
-            Edge::Start(node) => self.store.node_ref(node).downcast::<ElementRef>(),
-            _ => None,
-        });
+        let els = self.descendants().filter_map(|node| node.downcast::<ElementRef>());
 
         els.filter(|el| selector.match_element(el).is_some()).collect()
     }
@@ -274,15 +286,6 @@ impl DocumentRef {
         TextRef(self.store.create_node(NodeData::Text(data.to_owned())))
     }
 
-    pub fn all_nodes(&self) -> Vec<NodeRef> {
-        self.store
-            .tree
-            .borrow()
-            .iter()
-            .map(|(id, _data)| self.store.node_ref(id))
-            .collect()
-    }
-
     pub fn style_sheet(&self, style_element: &ElementRef) -> Option<Rc<CssStyleSheet>> {
         self.store.style_sheets.borrow().get(&style_element.id()).cloned()
     }
@@ -332,7 +335,7 @@ impl ElementRef {
 
     pub fn set_attribute(&self, attr: &str, value: &str) {
         let mut tree = self.store.tree.borrow_mut();
-        let mut el = tree.data_mut(self.id).el_mut();
+        let el = tree.data_mut(self.id).el_mut();
 
         match attr {
             "style" => el.style.set_css_text(value),
@@ -348,7 +351,7 @@ impl ElementRef {
 
     pub fn remove_attribute(&self, attr: &str) {
         let mut tree = self.store.tree.borrow_mut();
-        let mut el = tree.data_mut(self.id).el_mut();
+        let el = tree.data_mut(self.id).el_mut();
 
         match attr {
             "style" => el.style.set_css_text(""),
