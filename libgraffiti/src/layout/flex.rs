@@ -1,41 +1,44 @@
-use super::{Ctx, FlexDirection, LayoutResult, NodeId, Size};
-use crate::util::SlotMap;
+use super::{FlexDirection, LayoutContext, LayoutNodeId, LayoutResult, LayoutStyle, Size};
 
-impl Ctx<'_> {
-    pub(super) fn compute_flex(
-        &self,
-        results: &mut SlotMap<NodeId, LayoutResult>,
-        node: NodeId,
+impl LayoutContext<'_> {
+    pub fn compute_flex(
+        &mut self,
+        node: LayoutNodeId,
+        style: &LayoutStyle,
         parent_size: Size<f32>,
     ) {
-        let style = &self.nodes[node].style;
         let dir = style.flex_direction;
 
         // TODO: if not defined
-        let available_space = self.resolve_size(style.size(), parent_size);
+        let available_space = self.resolve_size(style.size, parent_size);
 
-        let total_flex_basis: f32 = self.nodes[node].children.iter().map(|&ch| {
-            let mut res = self.resolve(self.nodes[ch].style.flex_basis, parent_size.main(dir));
-            if res.is_nan() {
-                // compute max-content size?
-                todo!()
-            }
+        let total_flex_basis: f32 = self
+            .tree
+            .children(node)
+            .map(|ch| {
+                let mut res = self.resolve(self.tree.style(ch).flex_basis, parent_size.main(dir));
+                if res.is_nan() {
+                    // compute max-content size?
+                    todo!()
+                }
 
-            res
-        }).sum();
+                res
+            })
+            .sum();
         let remaining_space = available_space.main(dir) - total_flex_basis;
-        
-        let total_grow: f32 = self.nodes[node].children.iter().map(|&ch| self.nodes[ch].style.flex_grow).sum();
+        let total_grow: f32 = self.tree.children(node).map(|ch| self.tree.style(ch).flex_grow).sum();
 
         //println!("{:?}", (available_space, total_flex_basis, remaining_space, total_grow));
-        
-        for &child in self.nodes[node].children.iter() {
-            let child_style = &self.nodes[child].style;
+        for child in self.tree.children(node) {
+            let child_style = self.tree.style(child);
+            let child_res = &mut self.results[child];
 
             if child_style.flex_grow > 0. {
-                results[child].size.set_main(dir, (child_style.flex_grow / total_grow) * remaining_space);
-                results[child].size.set_cross(dir, available_space.cross(dir));
-                println!("{:?}", (child_style.flex_grow, results[child].size));
+                child_res
+                    .size
+                    .set_main(dir, (child_style.flex_grow / total_grow) * remaining_space);
+                child_res.size.set_cross(dir, available_space.cross(dir));
+                println!("{:?}", (child_style.flex_grow, child_res.size));
             } else {
                 println!("TODO: nonflexible items should be already resolved here");
             }
@@ -84,7 +87,7 @@ mod tests {
     #[test]
     fn flex_row_grow() {
         let (mut tree, root) = layout_tree! {
-            (node(display = Flex, width = Px(300.), height = Px(10.))
+            (node(display = Flex, size.width = Px(300.), size.height = Px(10.))
                 (node(flex_grow = 1., flex_basis = Px(0.)))
                 (node(flex_grow = 2., flex_basis = Px(0.)))
             )

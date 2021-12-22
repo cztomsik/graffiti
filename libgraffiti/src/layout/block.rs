@@ -1,35 +1,37 @@
-use crate::util::SlotMap;
-use super::{Ctx, NodeId, Size, LayoutResult};
+use super::{LayoutContext, LayoutNodeId, LayoutResult, LayoutStyle, Size};
 
-impl Ctx<'_> {
-    pub(super) fn compute_block(
-        &self,
-        results: &mut SlotMap<NodeId, LayoutResult>,
-        node: NodeId,
-        parent_size: Size<f32>,
-    ) {
-        let mut y = results[node].padding.top;
+impl LayoutContext<'_> {
+    pub fn compute_block(&mut self, node: LayoutNodeId, style: &LayoutStyle, parent_size: Size<f32>) {
+        let mut y = self.results[node].padding.top;
+        let mut content_height = 0.;
 
         let avail_inner = Size {
-            width: f32::max(0., parent_size.width - results[node].padding.left - results[node].padding.right),
-            height: f32::max(0., parent_size.height - results[node].padding.top - results[node].padding.bottom),
+            width: f32::max(
+                0.,
+                parent_size.width - self.results[node].padding.left - self.results[node].padding.right,
+            ),
+            height: f32::max(
+                0.,
+                parent_size.height - self.results[node].padding.top - self.results[node].padding.bottom,
+            ),
         };
 
-        for &child in &self.nodes[node].children {
-            self.compute_node(results, child, avail_inner);
+        for child in self.tree.children(node) {
+            self.compute_node(child, avail_inner);
 
-            results[child].y = y;
-            results[child].x = results[node].padding.left;
+            self.results[child].y = y;
+            self.results[child].x = self.results[node].padding.left;
 
-            y += results[child].size.height;
+            y += self.results[child].size.height;
+            content_height += self.results[child].size.height;
         }
 
-        if results[node].size.width.is_nan() {
-            results[node].size.width = parent_size.width;
+        if self.results[node].size.width.is_nan() {
+            self.results[node].size.width = parent_size.width;
         }
 
-        if results[node].size.height.is_nan() {
-            results[node].size.height = self.nodes[node].children.iter().map(|&ch| results[ch].size.height).sum();
+        if self.results[node].size.height.is_nan() {
+            self.results[node].size.height = content_height;
         }
     }
 }
@@ -44,7 +46,7 @@ mod tests {
     #[test]
     fn fixed_width_height() {
         let (mut tree, root) = layout_tree! {
-            (node(display = Block, width = Px(10.), height = Px(10.)))
+            (node(display = Block, size.width = Px(10.), size.height = Px(10.)))
         };
 
         tree.calculate(root, 0., 0.);
@@ -54,7 +56,7 @@ mod tests {
     #[test]
     fn fixed_height() {
         let (mut tree, root) = layout_tree! {
-            (node(display = Block, height = Px(10.)))
+            (node(display = Block, size.height = Px(10.)))
         };
 
         tree.calculate(root, 0., 10.);
@@ -68,8 +70,8 @@ mod tests {
     fn content_height() {
         let (mut tree, root) = layout_tree! {
             (node(display = Block)
-                (node(display = Block, width = Px(10.), height = Px(10.)))
-                (node(display = Block, height = Px(10.)))
+                (node(display = Block, size.width = Px(10.), size.height = Px(10.)))
+                (node(display = Block, size.height = Px(10.)))
             )
         };
 
@@ -88,8 +90,8 @@ mod tests {
     #[test]
     fn padding() {
         let (mut tree, root) = layout_tree! {
-            (node(display = Block, padding_top = Px(10.), padding_left = Px(10.))
-                (node(display = Block, height = Px(10.)))
+            (node(display = Block, padding.top = Px(10.), padding.left = Px(10.))
+                (node(display = Block, size.height = Px(10.)))
             )
         };
 
