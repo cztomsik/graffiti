@@ -17,6 +17,7 @@ impl<T: Hash> Bloom<T> {
         bits: 0,
         marker: PhantomData,
     };
+
     pub const MAX: Self = Self {
         bits: u64::MAX,
         marker: PhantomData,

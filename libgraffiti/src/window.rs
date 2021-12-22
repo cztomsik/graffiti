@@ -157,7 +157,7 @@ impl Window {
 
     pub fn set_opacity(&self, opacity: f32) {
         self.glfw_window
-            .with(move |win| unsafe { glfwSetWindowOpacity(win, opacity) })
+            .with(move |win| unsafe { glfwSetWindowOpacity(win, opacity) });
     }
 
     pub fn visible(&self) -> bool {
@@ -166,11 +166,11 @@ impl Window {
     }
 
     pub fn show(&self) {
-        self.glfw_window.with(|win| unsafe { glfwShowWindow(win) })
+        self.glfw_window.with(|win| unsafe { glfwShowWindow(win) });
     }
 
     pub fn hide(&self) {
-        self.glfw_window.with(|win| unsafe { glfwHideWindow(win) })
+        self.glfw_window.with(|win| unsafe { glfwHideWindow(win) });
     }
 
     pub fn focused(&self) -> bool {
@@ -179,7 +179,7 @@ impl Window {
     }
 
     pub fn focus(&self) {
-        self.glfw_window.with(|win| unsafe { glfwFocusWindow(win) })
+        self.glfw_window.with(|win| unsafe { glfwFocusWindow(win) });
     }
 
     pub fn minimized(&self) -> bool {
@@ -197,15 +197,15 @@ impl Window {
     }
 
     pub fn maximize(&self) {
-        self.glfw_window.with(|win| unsafe { glfwMaximizeWindow(win) })
+        self.glfw_window.with(|win| unsafe { glfwMaximizeWindow(win) });
     }
 
     pub fn restore(&self) {
-        self.glfw_window.with(|win| unsafe { glfwRestoreWindow(win) })
+        self.glfw_window.with(|win| unsafe { glfwRestoreWindow(win) });
     }
 
     pub fn request_attention(&self) {
-        self.glfw_window.with(|win| unsafe { glfwRequestWindowAttention(win) })
+        self.glfw_window.with(|win| unsafe { glfwRequestWindowAttention(win) });
     }
 
     // event loop
@@ -217,7 +217,7 @@ impl Window {
 
     pub fn set_should_close(&self, value: bool) {
         self.glfw_window
-            .with(move |win| unsafe { glfwSetWindowShouldClose(win, value as _) })
+            .with(move |win| unsafe { glfwSetWindowShouldClose(win, value as _) });
     }
 
     // note it needs to be processed one by one because each event can cause new changes,

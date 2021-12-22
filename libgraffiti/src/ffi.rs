@@ -38,7 +38,7 @@ pub enum Value {
 }
 
 thread_local! {
-    static REFS: RefCell<SlotMap<NonZeroU32, Value>> = Default::default();
+    static REFS: RefCell<SlotMap<NonZeroU32, Value>> = RefCell::default();
 }
 
 #[no_mangle]
@@ -82,12 +82,12 @@ pub extern "C" fn gft_App_current() -> Option<Ref<App>> {
 
 #[no_mangle]
 pub extern "C" fn gft_App_tick(app: Ref<App>) {
-    with_tls(|tls| tls[&app].tick())
+    with_tls(|tls| tls[&app].tick());
 }
 
 #[no_mangle]
 pub extern "C" fn gft_App_wake_up(app: Ref<App>) {
-    with_tls(|tls| tls[&app].wake_up())
+    with_tls(|tls| tls[&app].wake_up());
 }
 
 #[no_mangle]
@@ -128,7 +128,7 @@ pub extern "C" fn gft_Window_title(win: Ref<Window>) -> Ref<String> {
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_Window_set_title(win: Ref<Window>, title: *const c_char, title_len: u32) {
-    with_tls(|tls| tls[&win].set_title(to_str(title, title_len)))
+    with_tls(|tls| tls[&win].set_title(to_str(title, title_len)));
 }
 
 #[no_mangle]
@@ -143,7 +143,7 @@ pub extern "C" fn gft_Window_height(win: Ref<Window>) -> c_int {
 
 #[no_mangle]
 pub extern "C" fn gft_Window_resize(win: Ref<Window>, width: c_int, height: c_int) {
-    with_tls(|tls| tls[&win].set_size((width, height)))
+    with_tls(|tls| tls[&win].set_size((width, height)));
 }
 
 #[no_mangle]
@@ -153,32 +153,32 @@ pub extern "C" fn gft_Window_should_close(win: Ref<Window>) -> bool {
 
 #[no_mangle]
 pub extern "C" fn gft_Window_show(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].show())
+    with_tls(|tls| tls[&win].show());
 }
 
 #[no_mangle]
 pub extern "C" fn gft_Window_hide(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].hide())
+    with_tls(|tls| tls[&win].hide());
 }
 
 #[no_mangle]
 pub extern "C" fn gft_Window_focus(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].focus())
+    with_tls(|tls| tls[&win].focus());
 }
 
 #[no_mangle]
 pub extern "C" fn gft_Window_minimize(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].minimize())
+    with_tls(|tls| tls[&win].minimize());
 }
 
 #[no_mangle]
 pub extern "C" fn gft_Window_maximize(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].maximize())
+    with_tls(|tls| tls[&win].maximize());
 }
 
 #[no_mangle]
 pub extern "C" fn gft_Window_restore(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].restore())
+    with_tls(|tls| tls[&win].restore());
 }
 
 #[no_mangle]
@@ -188,17 +188,17 @@ pub extern "C" fn gft_WebView_new() -> Ref<WebView> {
 
 #[no_mangle]
 pub extern "C" fn gft_WebView_attach(webview: Ref<WebView>, win: Ref<Window>) {
-    with_tls(|tls| tls[&webview].attach(&tls[&win]))
+    with_tls(|tls| tls[&webview].attach(&tls[&win]));
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_WebView_load_url(webview: Ref<WebView>, url: *const c_char, url_len: u32) {
-    with_tls(|tls| tls[&webview].load_url(to_str(url, url_len)))
+    with_tls(|tls| tls[&webview].load_url(to_str(url, url_len)));
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_WebView_eval(webview: Ref<WebView>, script: *const c_char, script_len: u32) {
-    with_tls(|tls| tls[&webview].eval(to_str(script, script_len)))
+    with_tls(|tls| tls[&webview].eval(to_str(script, script_len)));
 }
 
 #[no_mangle]
@@ -265,17 +265,17 @@ pub extern "C" fn gft_Node_next_sibling(node: Ref<NodeRef>) -> Option<Ref<NodeRe
 
 #[no_mangle]
 pub extern "C" fn gft_Node_append_child(parent: Ref<NodeRef>, child: Ref<NodeRef>) {
-    with_tls(|tls| tls[&parent].append_child(&tls[&child]))
+    with_tls(|tls| tls[&parent].append_child(&tls[&child]));
 }
 
 #[no_mangle]
 pub extern "C" fn gft_Node_insert_before(parent: Ref<NodeRef>, child: Ref<NodeRef>, before: Ref<NodeRef>) {
-    with_tls(|tls| tls[&parent].insert_before(&tls[&child], &tls[&before]))
+    with_tls(|tls| tls[&parent].insert_before(&tls[&child], &tls[&before]));
 }
 
 #[no_mangle]
 pub extern "C" fn gft_Node_remove_child(parent: Ref<NodeRef>, child: Ref<NodeRef>) {
-    with_tls(|tls| tls[&parent].remove_child(&tls[&child]))
+    with_tls(|tls| tls[&parent].remove_child(&tls[&child]));
 }
 
 #[no_mangle]
@@ -312,7 +312,7 @@ pub extern "C" fn gft_Text_data(node: Ref<TextRef>) -> Ref<String> {
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_Text_set_data(node: Ref<TextRef>, data: *const c_char, data_len: u32) {
-    with_tls(|tls| tls[&node].set_data(to_str(data, data_len)))
+    with_tls(|tls| tls[&node].set_data(to_str(data, data_len)));
 }
 
 #[no_mangle]
@@ -345,12 +345,12 @@ pub unsafe extern "C" fn gft_Element_set_attribute(
     val: *const c_char,
     val_len: u32,
 ) {
-    with_tls(|tls| tls[&el].set_attribute(to_str(att, att_len), to_str(val, val_len)))
+    with_tls(|tls| tls[&el].set_attribute(to_str(att, att_len), to_str(val, val_len)));
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_Element_remove_attribute(el: Ref<ElementRef>, att: *const c_char, att_len: u32) {
-    with_tls(|tls| tls[&el].remove_attribute(to_str(att, att_len)))
+    with_tls(|tls| tls[&el].remove_attribute(to_str(att, att_len)));
 }
 
 #[no_mangle]
@@ -394,7 +394,7 @@ pub unsafe extern "C" fn gft_CssStyleDeclaration_remove_property(
     prop: *const c_char,
     prop_len: u32,
 ) {
-    with_tls(|tls| tls[&style].remove_property(to_str(prop, prop_len)))
+    with_tls(|tls| tls[&style].remove_property(to_str(prop, prop_len)));
 }
 
 #[no_mangle]
@@ -408,7 +408,7 @@ pub unsafe extern "C" fn gft_CssStyleDeclaration_set_css_text(
     css_text: *const c_char,
     css_text_len: u32,
 ) {
-    with_tls(|tls| tls[&style].set_css_text(to_str(css_text, css_text_len)))
+    with_tls(|tls| tls[&style].set_css_text(to_str(css_text, css_text_len)));
 }
 
 #[no_mangle]
@@ -419,12 +419,12 @@ pub extern "C" fn gft_Renderer_new(doc: Ref<DocumentRef>, win: Ref<Window>) -> R
 
 #[no_mangle]
 pub extern "C" fn gft_Renderer_render(renderer: Ref<Renderer>) {
-    with_tls(|tls| tls[&renderer].render())
+    with_tls(|tls| tls[&renderer].render());
 }
 
 #[no_mangle]
 pub extern "C" fn gft_Renderer_resize(renderer: Ref<Renderer>, width: f32, height: f32) {
-    with_tls(|tls| tls[&renderer].resize(width, height))
+    with_tls(|tls| tls[&renderer].resize(width, height));
 }
 
 // Viewport_element_from_point: |vp, x: f64, y: f64| get(vp).element_from_point((x as _, y as _))

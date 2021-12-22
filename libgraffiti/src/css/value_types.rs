@@ -172,7 +172,7 @@ impl CssColor {
 }
 
 pub(super) static NAMED_COLORS: Lazy<HashMap<&'static str, CssColor>> = Lazy::new(|| {
-    HashMap::from_iter(IntoIter::new([
+    IntoIter::new([
         ("transparent", CssColor::rgba(0, 0, 0, 0)),
         // https://drafts.csswg.org/css-color/#named-colors
         ("aliceblue", CssColor::rgb(240, 248, 255)),
@@ -323,7 +323,7 @@ pub(super) static NAMED_COLORS: Lazy<HashMap<&'static str, CssColor>> = Lazy::ne
         ("whitesmoke", CssColor::rgb(245, 245, 245)),
         ("yellow", CssColor::rgb(255, 255, 0)),
         ("yellowgreen", CssColor::rgb(154, 205, 50)),
-    ]))
+    ]).collect()
 });
 
 impl Display for CssColor {

@@ -52,7 +52,7 @@ struct Node<T> {
 impl<T> IdTree<T> {
     pub fn new() -> Self {
         Self {
-            nodes: Default::default(),
+            nodes: SlotMap::default(),
         }
     }
 

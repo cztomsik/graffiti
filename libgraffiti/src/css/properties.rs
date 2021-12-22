@@ -192,6 +192,6 @@ mod tests {
         assert_eq!(size_of::<CssDimension>(), size_of::<(u32, f32)>());
 
         // TODO: gets broken when Atom<> or Box<> is added
-        assert_eq!(size_of::<StyleProp>(), size_of::<(u8, CssDimension)>())
+        assert_eq!(size_of::<StyleProp>(), size_of::<(u8, CssDimension)>());
     }
 }

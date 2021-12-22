@@ -22,7 +22,7 @@ pub struct Wrap<T>(Rc<T>);
 //       accepts the syntax but it's shared for all types (WTF)
 //       https://github.com/rust-lang/rust/issues/22991
 thread_local! {
-    static ATOM_STORES: RefCell<Vec<Box<dyn Any>>> = Default::default();
+    static ATOM_STORES: RefCell<Vec<Box<dyn Any>>> = RefCell::default();
 }
 
 impl<T: Eq + Hash + 'static> Atom<T> {
@@ -54,7 +54,7 @@ where
     fn from(v: &'a Q) -> Self {
         Self::with_wraps(|wraps| {
             // beware that Hash for Atom<> is different than the one here
-            if let Some(wrap) = wraps.get(&v) {
+            if let Some(wrap) = wraps.get(v) {
                 return Self(Wrap(wrap.0.clone()));
             }
             let wrap = Wrap(Rc::new(T::from(v)));
@@ -102,7 +102,7 @@ impl<T: Eq + Hash + 'static> Drop for Atom<T> {
 
 impl<T: Eq + Hash> Hash for Atom<T> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
-        Rc::as_ptr(&self.0 .0).hash(hasher)
+        Rc::as_ptr(&self.0 .0).hash(hasher);
     }
 }
 
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn size() {
         use std::mem::size_of;
-        assert_eq!(size_of::<Option<Atom<String>>>(), size_of::<usize>())
+        assert_eq!(size_of::<Option<Atom<String>>>(), size_of::<usize>());
     }
 
     #[test]
