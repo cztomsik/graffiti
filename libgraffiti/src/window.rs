@@ -1,5 +1,3 @@
-#![allow(clippy::missing_safety_doc)]
-
 use super::App;
 use crate::app::AppOwned;
 use crossbeam_channel::{unbounded as channel, Receiver, Sender};
@@ -114,7 +112,7 @@ impl Window {
 
     pub fn set_resizable(&self, resizable: bool) {
         self.glfw_window
-            .with(move |win| unsafe { glfwSetWindowAttrib(win, GLFW_RESIZABLE, resizable as _) })
+            .with(move |win| unsafe { glfwSetWindowAttrib(win, GLFW_RESIZABLE, resizable as _) });
     }
 
     pub fn size(&self) -> (i32, i32) {
@@ -127,7 +125,7 @@ impl Window {
 
     pub fn set_size(&self, (width, height): (i32, i32)) {
         self.glfw_window
-            .with(move |win| unsafe { glfwSetWindowSize(win, width as _, height as _) })
+            .with(move |win| unsafe { glfwSetWindowSize(win, width as _, height as _) });
     }
 
     pub fn framebuffer_size(&self) -> (i32, i32) {
@@ -244,7 +242,7 @@ impl Window {
     // some people say everything related to HDC is tied to the original thread
     // and drivers are free to depend on this
     pub fn swap_buffers(&self) {
-        self.glfw_window.with(|win| unsafe { glfwSwapBuffers(win) })
+        self.glfw_window.with(|win| unsafe { glfwSwapBuffers(win) });
     }
 
     pub fn clipboard_string(&self) -> Option<String> {
@@ -256,7 +254,7 @@ impl Window {
     pub fn set_clipboard_string(&self, string: &str) {
         let string = CString::new(string).unwrap();
         self.glfw_window
-            .with(move |win| unsafe { glfwSetClipboardString(win, string.as_ptr()) })
+            .with(move |win| unsafe { glfwSetClipboardString(win, string.as_ptr()) });
     }
 }
 
@@ -270,7 +268,7 @@ impl Drop for Window {
             glfwDestroyWindow(win);
 
             drop(Box::from_raw(ptr as *mut Sender<Event>));
-        })
+        });
     }
 }
 
@@ -347,7 +345,7 @@ unsafe fn send_event(win: GlfwWindow, event: Event) {
     sender.send(event).unwrap();
 }
 
-// from glfw to js `e.which`
+// from GLFW to JS `event.which`
 // TODO: modifier (left/right for shift/ctrl/alt)
 fn key_code(key: c_int) -> u32 {
     (match key {

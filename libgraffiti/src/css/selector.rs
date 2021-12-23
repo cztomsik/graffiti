@@ -174,7 +174,7 @@ mod tests {
 
         // TODO: either find a way or inline components in SelectorPart
         // TODO: make Atom NonZeroU32 to further push this down
-        assert_eq!(size_of::<SelectorPart>(), 2 * size_of::<Atom<String>>())
+        assert_eq!(size_of::<SelectorPart>(), 2 * size_of::<Atom<String>>());
     }
 
     #[test]

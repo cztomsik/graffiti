@@ -40,7 +40,7 @@ impl GlyphCache {
                     g.draw(|x2, y2, a| {
                         let a = (a * 255.) as _;
                         dest[(x1 + x2 as usize, y1 + y2 as usize)] = [a, a, a, a];
-                    })
+                    });
                 }) {
                     return CachedGlyph { rect, uv };
                 }

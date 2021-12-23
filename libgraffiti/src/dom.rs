@@ -213,7 +213,7 @@ impl PartialEq for NodeRef {
 
 impl Drop for NodeRef {
     fn drop(&mut self) {
-        self.dec_count()
+        self.dec_count();
     }
 }
 
@@ -398,7 +398,7 @@ impl TextRef {
     }
 
     pub fn set_data(&self, data: &str) {
-        *self.store.tree.borrow_mut().data_mut(self.id).text_mut() = data.to_owned()
+        *self.store.tree.borrow_mut().data_mut(self.id).text_mut() = data.to_owned();
     }
 }
 

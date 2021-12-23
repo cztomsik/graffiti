@@ -5,7 +5,6 @@ use std::array::IntoIter;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt::{Display, Error, Formatter};
-use std::iter::FromIterator;
 
 macro_rules! css_enums {
     ($(
@@ -152,7 +151,6 @@ pub struct CssColor {
     pub a: u8,
 }
 
-#[allow(unused)]
 impl CssColor {
     // just a few for easier testing
     pub const TRANSPARENT: Self = Self::rgba(0, 0, 0, 0);

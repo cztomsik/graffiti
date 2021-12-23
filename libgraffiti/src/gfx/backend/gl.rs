@@ -1,5 +1,3 @@
-#![allow(unused, non_snake_case, clippy::similar_names)]
-
 use super::super::{DrawOp, Frame, TexData, Vertex};
 use super::RenderBackend;
 use glow::*;

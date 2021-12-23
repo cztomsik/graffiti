@@ -143,7 +143,7 @@ mod tests {
         let s = CssStyleDeclaration::new();
 
         s.set_css_text("display: block;");
-        assert_eq!(&s.css_text(), "display:block;")
+        assert_eq!(&s.css_text(), "display:block;");
     }
 
     #[test]

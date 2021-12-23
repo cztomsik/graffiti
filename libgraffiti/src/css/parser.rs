@@ -295,7 +295,7 @@ pub(super) fn tokenize(input: &[u8]) -> Vec<Token> {
         }
 
         res.push(t);
-        keep_space = alphanum_dash(t.as_bytes()[0]) || t == "*" || t == "]"
+        keep_space = alphanum_dash(t.as_bytes()[0]) || t == "*" || t == "]";
     }
 
     res

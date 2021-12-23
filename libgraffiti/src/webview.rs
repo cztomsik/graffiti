@@ -83,6 +83,6 @@ impl WebView {
 
             // TODO: pass closure & get the result
             let () = msg_send![*webview, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
-        })
+        });
     }
 }

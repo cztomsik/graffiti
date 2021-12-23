@@ -46,7 +46,7 @@ impl Text {
         Self {
             text: text.to_owned(),
             style: style.clone(),
-            single_line: Default::default(),
+            single_line: RefCell::default(),
         }
     }
 
@@ -134,7 +134,7 @@ impl Text {
             f(GlyphPos {
                 glyph: glyph_id.with_scale(scale_font.scale()),
                 pos: Vec2::new(rect.min.x + x - offset, y),
-            })
+            });
         }
     }
 

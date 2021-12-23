@@ -2,8 +2,6 @@
 // x reports how long it took since previous call
 // x if there is no message, it just resets marker
 
-#![allow(unused)]
-
 use std::cell::Cell;
 use std::time::Instant;
 

@@ -1,5 +1,3 @@
-#![allow(clippy::missing_safety_doc)]
-
 use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use graffiti_glfw::*;
 use once_cell::sync::Lazy;
@@ -22,9 +20,7 @@ impl App {
     pub unsafe fn init() -> Arc<Self> {
         // TODO: check main thread
 
-        if Self::current().is_some() {
-            panic!("already initialized");
-        }
+        assert!(Self::current().is_none(), "already initialized");
 
         assert_eq!(glfwInit(), GLFW_TRUE);
         glfwSetErrorCallback(handle_glfw_error);
@@ -104,7 +100,7 @@ impl Drop for App {
 
         unsafe { glfwTerminate() }
 
-        *APP.lock().unwrap() = Default::default();
+        *APP.lock().unwrap() = Weak::default();
     }
 }
 
@@ -118,7 +114,7 @@ unsafe impl<T: Clone> Send for AppOwned<T> {}
 unsafe impl<T: Clone> Sync for AppOwned<T> {}
 
 impl<T: Clone + 'static> AppOwned<T> {
-    // TODO: find a better name? 
+    // TODO: find a better name?
     // execute task on main thread with clone of T
     // will either block or panic so it should be safe
     pub(crate) fn with<R: 'static + Send>(&self, fun: impl FnOnce(T) -> R + Send + 'static) -> R {

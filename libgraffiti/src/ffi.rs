@@ -66,8 +66,8 @@ pub extern "C" fn gft_String_bytes_len(string: Ref<String>) -> c_uint {
 pub unsafe extern "C" fn gft_String_copy(string: Ref<String>, dest_buf: *mut u8) {
     with_tls(|tls| {
         let bytes = tls[&string].as_bytes();
-        dest_buf.copy_from(bytes.as_ptr(), bytes.len())
-    })
+        dest_buf.copy_from(bytes.as_ptr(), bytes.len());
+    });
 }
 
 #[no_mangle]
@@ -385,7 +385,7 @@ pub unsafe extern "C" fn gft_CssStyleDeclaration_set_property(
     val: *const c_char,
     val_len: u32,
 ) {
-    with_tls(|tls| tls[&style].set_property(to_str(prop, prop_len), to_str(val, val_len)))
+    with_tls(|tls| tls[&style].set_property(to_str(prop, prop_len), to_str(val, val_len)));
 }
 
 #[no_mangle]

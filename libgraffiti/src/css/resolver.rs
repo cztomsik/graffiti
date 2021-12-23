@@ -18,8 +18,8 @@ impl StyleResolver {
             for (j, rule) in sheet.rules().iter().enumerate() {
                 groups
                     .entry(rule.selector.tail_mask())
-                    .or_insert(Vec::new())
-                    .push((i, j))
+                    .or_insert_with(Vec::new)
+                    .push((i, j));
             }
         }
 
