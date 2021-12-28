@@ -35,8 +35,14 @@ fn main() {
                 let path = entry.path();
 
                 if path.is_file() {
-                    if let Some(path) = path.to_str() {
-                        len += load_file(path);
+                    if let Ok(meta) = std::fs::metadata(&path) {
+                        if meta.len() > 10_000_000 {
+                            continue;
+                        }
+
+                        if let Some(path) = path.to_str() {
+                            len += load_file(path);
+                        }
                     }
                 } else if path.is_dir() {
                     if let Some(path) = path.to_str() {

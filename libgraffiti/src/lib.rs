@@ -20,9 +20,7 @@ mod app;
 mod css;
 mod document;
 mod layout;
-// mod render_tree;
 mod renderer;
-// mod updater;
 mod webview;
 mod window;
 

@@ -1,29 +1,21 @@
-// TODO: this is likely not final design either, I don't like that we always traverse & interpret whole tree
-//       and I think it should be possible to have something like retained-mesh design (create_mesh() -> Id),
-//       where every mesh/model is updated in .update() and render() can just (sequentially) draw those
-//       which would be hell more complicated so I'm keeping it for later
-
-#![allow(unused)]
-
 use crate::css::{
-    CssAlign, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap, CssJustify, CssStyleSheet, StyleProp,
-    StyleResolver,
+    CssAlign, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap, CssJustify, CssPosition, CssStyleSheet,
+    StyleProp, StyleResolver,
 };
+use crate::document::{Change, Document, NodeId, NodeType};
 use crate::gfx::{Canvas, GlBackend, PathCmd, RenderBackend, Text, TextStyle, Transform, Vec2, AABB, RGBA8};
 use crate::layout::{
     Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutNodeId, LayoutResult, LayoutStyle, LayoutTree,
-    Size,
+    Position, Size,
 };
-use crate::util::{BitSet, Edge, SlotMap};
-use crate::{DocumentRef, DomEvent, ElementRef, NodeId, NodeRef, NodeType, Window};
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::util::{BitSet, SlotMap};
+use crate::window::Window;
 use std::sync::Arc;
 
 pub struct Renderer {
-    document: DocumentRef,
-    state: Rc<RefCell<State>>,
-    listener: Rc<dyn Fn(&DomEvent)>,
+    document: Document,
+    state: State,
+    canvas: Canvas,
     window: Arc<Window>,
     backend: GlBackend,
 }
@@ -31,193 +23,86 @@ pub struct Renderer {
 #[derive(Default)]
 struct State {
     layout_tree: LayoutTree,
-    render_nodes: SlotMap<NodeId, RenderNode>,
-    dirty_nodes: BitSet,
+    layout_nodes: SlotMap<NodeId, LayoutNodeId>,
+    render_styles: SlotMap<NodeId, RenderStyle>,
+    texts: SlotMap<NodeId, Text>,
 }
 
 impl Renderer {
-    pub fn new(document: &DocumentRef, win: &Window) -> Self {
-        // TODO: make this whole fn unsafe?
-        let backend = unsafe { GlBackend::new(|s| win.get_proc_address(s) as _) };
-
-        let state = Rc::new(RefCell::new(State::default()));
-        let listener = Self::create_listener(Rc::clone(&state));
-
-        // connect
-        document.add_listener(Rc::clone(&listener));
-        for node in document.all_nodes() {
-            //listener(&DomEvent::NodeCreated(&node));
-        }
-        for parent in document.all_nodes() {
-            for child in parent.child_nodes() {
-                listener(&DomEvent::AppendChild(&parent, &child));
-            }
-        }
-        state.borrow_mut().dirty_nodes.add(document.id());
-
+    pub fn new(document: Document, win: &Window) -> Self {
         Self {
+            document,
+            canvas: Canvas::new(),
+            state: State::default(),
+            // TODO: make this whole fn unsafe?
+            backend: unsafe { GlBackend::new(|s| win.get_proc_address(s) as _) },
             window: Window::find_by_id(win.id()).unwrap(),
-            document: DocumentRef::clone(document),
-            state,
-            listener,
-            backend,
         }
     }
 
-    fn create_listener(state: Rc<RefCell<State>>) -> Rc<dyn Fn(&DomEvent)> {
-        fn mark_dirty(dirty_nodes: &mut BitSet, node: &NodeRef) {
-            // recurse but stop early
-            if !dirty_nodes.contains(node.id()) {
-                dirty_nodes.add(node.id());
-
-                for ch in node.child_nodes() {
-                    mark_dirty(dirty_nodes, &ch);
-                }
-            }
-        }
-
-        Rc::new(move |event| {
-            let State {
-                layout_tree,
-                render_nodes,
-                dirty_nodes,
-                ..
-            } = &mut *state.borrow_mut();
-            match event {
-                // DomEvent::NodeCreated(node) => {
-                //     render_nodes.put(
-                //         node.id(),
-                //         RenderNode {
-                //             dom_node: NodeRef::clone(node),
-                //             layout_node: layout_tree.create_node(),
-                //             render_style: None,
-                //         },
-                //     );
-                //     dirty_nodes.grow(node.id());
-                // }
-                // &DomEvent::NodeDestroyed(id) => {
-                //     layout_tree.drop_node(render_nodes.remove(id).unwrap().layout_node);
-                //     // if whole subtree gets freed, it might not be removed at all
-                //     dirty_nodes.remove(id);
-                // }
-                DomEvent::AppendChild(parent, child) => {
-                    layout_tree.append_child(
-                        render_nodes[parent.id()].layout_node,
-                        render_nodes[child.id()].layout_node,
-                    );
-                    mark_dirty(dirty_nodes, child);
-                }
-                DomEvent::InsertBefore(parent, child, before) => {
-                    layout_tree.insert_before(
-                        render_nodes[parent.id()].layout_node,
-                        render_nodes[child.id()].layout_node,
-                        render_nodes[before.id()].layout_node,
-                    );
-                    dirty_nodes.add(child.id());
-                }
-                DomEvent::RemoveChild(parent, child) => {
-                    layout_tree.remove_child(
-                        render_nodes[parent.id()].layout_node,
-                        render_nodes[child.id()].layout_node,
-                    );
-                    dirty_nodes.remove(child.id());
-                }
-            }
-        })
-    }
-
-    pub fn render(&self) {
-        self.update();
-
-        let state = self.state.borrow();
-
-        let mut canvas = Canvas::new();
-        let mut ctx = RenderContext {
-            canvas: &mut canvas,
-            render_nodes: &state.render_nodes,
-            layout_tree: &state.layout_tree,
-        };
-
-        profile!();
-        ctx.render_node(Vec2::new(0., 0.), self.document.id());
-        let frame = ctx.canvas.flush();
-        profile!("frame");
-
-        unsafe { self.window.make_current() };
-        self.backend.render_frame(frame);
-        self.window.swap_buffers();
-        profile!("gl + vsync");
-    }
-
-    pub fn resize(&self, width: f32, height: f32) {
-        println!("TODO: Renderer::resize({}, {})", width, height);
-    }
-
-    pub fn update(&self) {
-        profile!();
-
+    fn update(&mut self) {
+        let changes = self.document.take_changes();
+        let document = &self.document;
         let State {
             layout_tree,
-            render_nodes,
-            dirty_nodes,
-        } = &mut *self.state.borrow_mut();
+            layout_nodes,
+            render_styles,
+            texts,
+        } = &mut self.state;
 
-        let sheets: Vec<_> = std::iter::once(Rc::new(CssStyleSheet::default_ua_sheet()))
-            .chain(
-                self.document
-                    .query_selector_all("style")
-                    .iter()
-                    .map(|s| s.text_content())
-                    .filter_map(|s| CssStyleSheet::parse(&s).map(Rc::new).ok()),
-            )
-            .collect();
-
-        let style_resolver = StyleResolver::new(sheets);
-
-        for id in dirty_nodes.iter() {
-            let node = self.document.find_node(id).unwrap();
-            if let Some(el) = node.as_element() {
-                println!("update style {:?}", (el.local_name(), id));
-
-                let mut res = style_resolver.resolve_style(&el, ResolvedStyle::apply_style_prop);
-                for p in el.style().props().iter() {
-                    res.apply_style_prop(p);
+        for ch in changes {
+            match ch {
+                Change::Created(id) => {
+                    layout_nodes.put(id, layout_tree.create_node());
                 }
-
-                layout_tree.set_style(render_nodes[id].layout_node, res.layout_style);
-                render_nodes[id].render_style = Some(res.render_style);
-            } else if let Some(text) = node.as_text() {
-                println!("TODO: update text/comment");
-            } else if let Some(doc) = node.as_document() {
-                render_nodes[id].render_style = Some(Default::default());
-                layout_tree.set_style(
-                    render_nodes[id].layout_node,
-                    LayoutStyle {
-                        display: Display::Block,
-                        ..Default::default()
-                    },
-                )
+                Change::Destroyed(id) => {
+                    layout_tree.drop_node(layout_nodes[id]);
+                    layout_nodes.remove(id);
+                }
+                Change::Changed(id) => {}
+                Change::Inserted(id) => {
+                    let parent = layout_nodes[document[id].parent_node().unwrap()];
+                    let child = layout_nodes[id];
+                    if let Some(next) = document[id].next_sibling() {
+                        let before = layout_nodes[next];
+                        layout_tree.insert_before(parent, child, before);
+                    } else {
+                        layout_tree.append_child(parent, child);
+                    }
+                }
+                Change::Removed(id) => {
+                    let parent = layout_nodes[document[id].parent_node().unwrap()];
+                    let child = layout_nodes[id];
+                    layout_tree.remove_child(parent, child);
+                }
             }
         }
-
-        dirty_nodes.clear();
-        profile!("css");
-
-        layout_tree.calculate(render_nodes[self.document.id()].layout_node, 1024., 768.);
-        profile!("layout");
     }
-}
 
-impl Drop for Renderer {
-    fn drop(&mut self) {
-        self.document.remove_listener(&self.listener);
+    pub fn render(&mut self) {
+        self.update();
+
+        let mut ctx = RenderContext {
+            canvas: &mut self.canvas,
+        };
+
+        // render_tree.visit(|item| ctx.render_item(item));
+
+        unsafe { self.window.make_current() };
+        self.backend.render_frame(ctx.canvas.flush());
+        self.window.swap_buffers();
+    }
+
+    // pub fn client_rect(&self, ?) -> ? { self.xxx.with_render_state(|| ...) }
+
+    pub fn resize(&mut self, width: f32, height: f32) {
+        println!("TODO: Renderer::resize({}, {})", width, height);
     }
 }
 
 struct RenderContext<'a> {
     canvas: &'a mut Canvas,
-    render_nodes: &'a SlotMap<NodeId, RenderNode>,
-    layout_tree: &'a LayoutTree,
+    // + few context things like color, text-align, ?
 }
 
 impl<'a> RenderContext<'a> {
@@ -249,6 +134,7 @@ impl<'a> RenderContext<'a> {
         self.canvas.fill_path(&path, color);
     }
 
+    /*
     fn render_node(&mut self, parent_offset: Vec2, node: NodeId) {
         let render_node = &self.render_nodes[node];
         let layout_res = self.layout_tree.layout_result(render_node.layout_node);
@@ -332,12 +218,7 @@ impl<'a> RenderContext<'a> {
     }
 
     fn render_text(&mut self, parent_offset: Vec2, layout: &LayoutResult, text: &str) {}
-}
-
-struct RenderNode {
-    dom_node: NodeRef,
-    layout_node: LayoutNodeId,
-    render_style: Option<RenderStyle>,
+    */
 }
 
 #[derive(Default)]
@@ -386,18 +267,18 @@ impl ResolvedStyle {
             &BackgroundColor(v) => self.render_style.bg_color = [v.r, v.g, v.b, v.a],
 
             // size
-            &Width(v) => self.layout_style.width = dimension(v),
-            &Height(v) => self.layout_style.height = dimension(v),
-            &MinWidth(v) => self.layout_style.min_width = dimension(v),
-            &MinHeight(v) => self.layout_style.min_height = dimension(v),
-            &MaxWidth(v) => self.layout_style.max_width = dimension(v),
-            &MaxHeight(v) => self.layout_style.max_height = dimension(v),
+            &Width(v) => self.layout_style.size.width = dimension(v),
+            &Height(v) => self.layout_style.size.height = dimension(v),
+            &MinWidth(v) => self.layout_style.min_size.width = dimension(v),
+            &MinHeight(v) => self.layout_style.min_size.height = dimension(v),
+            &MaxWidth(v) => self.layout_style.max_size.width = dimension(v),
+            &MaxHeight(v) => self.layout_style.max_size.height = dimension(v),
 
             // padding
-            &PaddingTop(v) => self.layout_style.padding_top = dimension(v),
-            &PaddingRight(v) => self.layout_style.padding_right = dimension(v),
-            &PaddingBottom(v) => self.layout_style.padding_bottom = dimension(v),
-            &PaddingLeft(v) => self.layout_style.padding_left = dimension(v),
+            &PaddingTop(v) => self.layout_style.padding.top = dimension(v),
+            &PaddingRight(v) => self.layout_style.padding.right = dimension(v),
+            &PaddingBottom(v) => self.layout_style.padding.bottom = dimension(v),
+            &PaddingLeft(v) => self.layout_style.padding.left = dimension(v),
 
             // margin
             &MarginTop(v) => self.layout_style.margin.top = dimension(v),
@@ -418,11 +299,11 @@ impl ResolvedStyle {
             &BorderBottomLeftRadius(CssDimension::Px(v)) => self.render_style.border_radii[3] = v,
 
             // position
-            // Position(v) => self.layout_style.position_type = position_type(v),
-            // Top(v) => self.layout_style.position.top = dimension(v),
-            // Right(v) => self.layout_style.position.right = dimension(v),
-            // Bottom(v) => self.layout_style.position.bottom = dimension(v),
-            // Left(v) => self.layout_style.position.left = dimension(v),
+            &Position(v) => self.layout_style.position_type = position(v),
+            &Top(v) => self.layout_style.position.top = dimension(v),
+            &Right(v) => self.layout_style.position.right = dimension(v),
+            &Bottom(v) => self.layout_style.position.bottom = dimension(v),
+            &Left(v) => self.layout_style.position.left = dimension(v),
 
             // flex
             &FlexDirection(v) => self.layout_style.flex_direction = flex_direction(v),
@@ -507,5 +388,15 @@ fn justify(value: CssJustify) -> Justify {
         CssJustify::SpaceBetween => Justify::SpaceBetween,
         CssJustify::SpaceAround => Justify::SpaceAround,
         CssJustify::SpaceEvenly => Justify::SpaceEvenly,
+    }
+}
+
+fn position(value: CssPosition) -> Position {
+    match value {
+        CssPosition::Static => Position::Static,
+        CssPosition::Relative => Position::Relative,
+        CssPosition::Absolute => Position::Absolute,
+        // TODO
+        CssPosition::Sticky => Position::Static,
     }
 }

@@ -202,6 +202,11 @@ mod tests {
             }
         }
 
+        // let local_names = &vec!["html", "body", "div", "button", "span"];
+        // let ids = &vec!["", "app", "panel", "", ""];
+        // let class_names = &vec!["", "", "", "btn", ""];
+        // let parents = &vec![None, Some(0), Some(1), Some(2), Some(3)];
+
         let match_sel = |s, el| Selector::parse(s).unwrap().match_element(&el).is_some();
 
         // invalid
