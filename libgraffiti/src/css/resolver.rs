@@ -35,7 +35,7 @@ impl StyleResolver {
         for sheet in &self.sheets {
             for rule in sheet.rules() {
                 if let Some(_spec) = rule.selector.match_element(element) {
-                    for p in rule.style().props().iter() {
+                    for p in rule.style().props() {
                         apply_prop_fn(&mut res, p);
                     }
                 }

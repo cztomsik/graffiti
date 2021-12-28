@@ -3,7 +3,6 @@
 // - normalize (bold -> 700)
 
 use super::{selector::Selector, ParseError, StyleProp};
-use std::cell::{Ref, RefCell};
 use std::fmt::Write;
 use std::mem::discriminant;
 
@@ -61,7 +60,7 @@ impl CssStyleRule {
 // TODO: notify Option<Box<dyn Fn()>>
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct CssStyleDeclaration {
-    pub(super) props: RefCell<Vec<StyleProp>>,
+    pub(super) props: Vec<StyleProp>,
 }
 
 impl CssStyleDeclaration {
@@ -79,15 +78,15 @@ impl CssStyleDeclaration {
     // jsdom squashes longhands into one shorthand (if all are present)
     // but chrome doesn't so I think we don't have to either
     pub fn length(&self) -> usize {
-        self.props.borrow().len()
+        self.props.len()
     }
 
     pub fn item(&self, index: usize) -> Option<&str> {
-        self.props.borrow().get(index).map(StyleProp::css_name)
+        self.props.get(index).map(StyleProp::css_name)
     }
 
     pub fn property_value(&self, prop: &str) -> Option<String> {
-        if let Some(prop) = self.props.borrow().iter().find(|p| p.css_name() == prop) {
+        if let Some(prop) = self.props.iter().find(|p| p.css_name() == prop) {
             return Some(prop.css_value());
         }
 
@@ -95,40 +94,38 @@ impl CssStyleDeclaration {
     }
 
     // TODO: priority
-    pub fn set_property(&self, prop: &str, value: &str) {
+    pub fn set_property(&mut self, prop: &str, value: &str) {
         let tokens = super::parser::tokenize(value.as_bytes());
 
         super::parser::parse_prop_into(prop, &tokens, self);
     }
 
-    pub fn remove_property(&self, prop: &str) {
-        self.props.borrow_mut().retain(|p| p.css_name() == prop);
+    pub fn remove_property(&mut self, prop: &str) {
+        self.props.retain(|p| p.css_name() == prop);
     }
 
     pub fn css_text(&self) -> String {
-        self.props().iter().fold(String::new(), |mut s, p| {
+        self.props().fold(String::new(), |mut s, p| {
             write!(s, "{}:{};", p.css_name(), p.css_value()).unwrap();
             s
         })
     }
 
-    pub fn set_css_text(&self, css_text: &str) {
-        let style = CssStyleDeclaration::parse(css_text).unwrap_or_default();
-        *self.props.borrow_mut() = style.props.into_inner();
+    pub fn set_css_text(&mut self, css_text: &str) {
+        *self = CssStyleDeclaration::parse(css_text).unwrap_or_default();
     }
 
-    pub(crate) fn props(&self) -> Ref<[StyleProp]> {
-        Ref::map(self.props.borrow(), Vec::as_slice)
+    pub fn props(&self) -> impl Iterator<Item = &StyleProp> {
+        self.props.iter()
     }
 
-    pub(crate) fn add_prop(&self, new_prop: StyleProp) {
+    pub(crate) fn add_prop(&mut self, new_prop: StyleProp) {
         let d = discriminant(&new_prop);
-        let mut props = self.props.borrow_mut();
 
-        if let Some(existing) = props.iter_mut().find(|p| d == discriminant(p)) {
+        if let Some(existing) = self.props.iter_mut().find(|p| d == discriminant(p)) {
             *existing = new_prop;
         } else {
-            props.push(new_prop);
+            self.props.push(new_prop);
         }
     }
 }
@@ -140,7 +137,7 @@ mod tests {
 
     #[test]
     fn css_text() {
-        let s = CssStyleDeclaration::new();
+        let mut s = CssStyleDeclaration::new();
 
         s.set_css_text("display: block;");
         assert_eq!(&s.css_text(), "display:block;");
@@ -148,7 +145,7 @@ mod tests {
 
     #[test]
     fn prop_overriding() {
-        let s = CssStyleDeclaration::new();
+        let mut s = CssStyleDeclaration::new();
 
         s.add_prop(StyleProp::Display(CssDisplay::None));
         s.add_prop(StyleProp::Display(CssDisplay::Block));

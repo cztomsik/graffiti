@@ -1,4 +1,4 @@
-use super::{Dimension, Display, LayoutNodeId, LayoutStyle, LayoutTree, Size, Rect};
+use super::{Dimension, Display, LayoutNodeId, LayoutStyle, LayoutTree, Rect, Size};
 use crate::util::SlotMap;
 
 // TODO: em/rem
@@ -104,4 +104,25 @@ pub struct LayoutResult {
     pub border: Rect<f32>,
     pub padding: Rect<f32>,
     pub margin: Rect<f32>,
+}
+
+impl LayoutResult {
+    pub fn border_rect(&self) -> Rect<f32> {
+        Rect {
+            left: self.x,
+            top: self.y,
+            right: self.x
+                + self.size.width
+                + self.padding.left
+                + self.padding.right
+                + self.border.left
+                + self.border.right,
+            bottom: self.y
+                + self.size.height
+                + self.padding.top
+                + self.padding.top
+                + self.border.top
+                + self.border.bottom,
+        }
+    }
 }

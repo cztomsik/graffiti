@@ -9,7 +9,6 @@ use super::{
 use ochre::{Rasterizer, TileBuilder, TILE_SIZE};
 use std::ops::{Index, IndexMut};
 
-#[allow(clippy::upper_case_acronyms)]
 pub type RGBA8 = [u8; 4];
 
 pub struct Canvas {

@@ -1,5 +1,5 @@
 # this is just for FFI testing, python is not supported ATM
-# doesn't work with macos-provided python (relative file-system url)
+# also, it doesn't work with macos-provided python (relative file-system url)
 
 import cffi
 

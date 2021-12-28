@@ -18,16 +18,18 @@ mod util;
 
 mod app;
 mod css;
-mod dom;
+mod document;
 mod layout;
+// mod render_tree;
 mod renderer;
+// mod updater;
 mod webview;
 mod window;
 
 pub use self::{
   app::App,
   css::CssStyleDeclaration,
-  dom::{TextRef, DocumentRef, DomEvent, ElementRef, NodeId, NodeRef, NodeType},
+  document::{Document, NodeId, NodeType},
   renderer::Renderer,
   webview::WebView,
   window::{Event, Window, WindowId},
@@ -35,4 +37,4 @@ pub use self::{
 pub mod gfx;
 
 // TODO: feature-flag
-mod ffi;
+// mod ffi;

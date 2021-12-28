@@ -106,7 +106,7 @@ pub(super) fn style<'a>() -> Parser<'a, CssStyleDeclaration> {
     })
 }
 
-pub(super) fn parse_prop_into<'a>(prop: &str, value: &[&str], style: &CssStyleDeclaration) {
+pub(super) fn parse_prop_into(prop: &str, value: &[&str], style: &mut CssStyleDeclaration) {
     if let Ok(p) = prop_parser(prop).parse(value) {
         style.add_prop(p);
     } else if let Ok(props) = shorthand_parser(prop).parse(value) {
@@ -371,64 +371,66 @@ mod tests {
     fn shorthands() -> Result<(), ParseError> {
         use StyleProp::*;
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("overflow: hidden")?.props(),
-            &[OverflowX(CssOverflow::Hidden), OverflowY(CssOverflow::Hidden)]
+        let assert_eq_props = |style: &CssStyleDeclaration, props: &[StyleProp]| Iterator::eq(style.props(), props);
+
+        assert_eq_props(
+            &CssStyleDeclaration::parse("overflow: hidden")?,
+            &[OverflowX(CssOverflow::Hidden), OverflowY(CssOverflow::Hidden)],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("overflow: visible hidden")?.props(),
-            &[OverflowX(CssOverflow::Visible), OverflowY(CssOverflow::Hidden)]
+        assert_eq_props(
+            &CssStyleDeclaration::parse("overflow: visible hidden")?,
+            &[OverflowX(CssOverflow::Visible), OverflowY(CssOverflow::Hidden)],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("flex: 1")?.props(),
-            &[FlexGrow(1.), FlexShrink(1.), FlexBasis(CssDimension::ZERO)]
+        assert_eq_props(
+            &CssStyleDeclaration::parse("flex: 1")?,
+            &[FlexGrow(1.), FlexShrink(1.), FlexBasis(CssDimension::ZERO)],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("flex: 2 3 10px")?.props(),
-            &[FlexGrow(2.), FlexShrink(3.), FlexBasis(CssDimension::Px(10.))]
+        assert_eq_props(
+            &CssStyleDeclaration::parse("flex: 2 3 10px")?,
+            &[FlexGrow(2.), FlexShrink(3.), FlexBasis(CssDimension::Px(10.))],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("padding: 0")?.props(),
+        assert_eq_props(
+            &CssStyleDeclaration::parse("padding: 0")?,
             &[
                 PaddingTop(CssDimension::ZERO),
                 PaddingRight(CssDimension::ZERO),
                 PaddingBottom(CssDimension::ZERO),
-                PaddingLeft(CssDimension::ZERO)
-            ]
+                PaddingLeft(CssDimension::ZERO),
+            ],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("padding: 10px 20px")?.props(),
+        assert_eq_props(
+            &CssStyleDeclaration::parse("padding: 10px 20px")?,
             &[
                 PaddingTop(CssDimension::Px(10.)),
                 PaddingRight(CssDimension::Px(20.)),
                 PaddingBottom(CssDimension::Px(10.)),
-                PaddingLeft(CssDimension::Px(20.))
-            ]
+                PaddingLeft(CssDimension::Px(20.)),
+            ],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("background: none")?.props(),
-            &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]
+        assert_eq_props(
+            &CssStyleDeclaration::parse("background: none")?,
+            &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)],
         );
-        assert_eq!(
-            &*CssStyleDeclaration::parse("background: #000")?.props(),
-            &[StyleProp::BackgroundColor(CssColor::BLACK)]
+        assert_eq_props(
+            &CssStyleDeclaration::parse("background: #000")?,
+            &[StyleProp::BackgroundColor(CssColor::BLACK)],
         );
 
         // override
-        let s = CssStyleDeclaration::parse("background-color: #fff")?;
+        let mut s = CssStyleDeclaration::parse("background-color: #fff")?;
         s.set_property("background", "#000");
-        assert_eq!(&*s.props(), &[StyleProp::BackgroundColor(CssColor::BLACK)]);
+        assert_eq_props(&s, &[StyleProp::BackgroundColor(CssColor::BLACK)]);
 
         // remove
-        let s = CssStyleDeclaration::parse("background-color: #fff")?;
+        let mut s = CssStyleDeclaration::parse("background-color: #fff")?;
         s.set_property("background", "none");
-        assert_eq!(&*s.props(), &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]);
+        assert_eq_props(&s, &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]);
 
         Ok(())
     }
