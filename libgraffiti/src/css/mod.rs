@@ -1,17 +1,19 @@
-mod cssom;
 mod parser;
 mod properties;
-mod selector;
-mod value_types;
 mod resolver;
-
-pub(crate) use selector::{Element};
+mod rule;
+mod selector;
+mod sheet;
+mod style;
+mod values;
 
 pub use {
-  selector::{Selector},
-  cssom::{CssStyleDeclaration, CssStyleRule, CssStyleSheet},
-  parser::ParseError,
-  resolver::StyleResolver,
-  properties::StyleProp,
-  value_types::*,
+    parser::ParseError,
+    properties::StyleProp,
+    resolver::StyleResolver,
+    rule::CssStyleRule,
+    selector::{Element, Selector},
+    sheet::CssStyleSheet,
+    style::CssStyleDeclaration,
+    values::*,
 };

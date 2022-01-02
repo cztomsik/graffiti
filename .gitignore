@@ -1,6 +1,5 @@
 libgraffiti/target
 libgraffiti/graffiti-glfw/target
-libgraffiti/graffiti-yoga/target
 **/*~
 **/node_modules
 **/.DS_Store

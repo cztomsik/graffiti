@@ -12,8 +12,8 @@
 // x combination
 // x decoupled from other systems
 
-use super::parser::ParseError;
-use crate::util::{Bloom, Atom};
+use super::parser::{selector, tokenize, ParseError};
+use crate::util::{Atom, Bloom};
 
 // TODO: find better name? CssElement? MatchedElement?
 pub trait Element: Clone {
@@ -22,14 +22,14 @@ pub trait Element: Clone {
     fn attribute(&self, name: &str) -> Option<Atom<String>>;
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Selector {
     // TODO: Bloom<TailPart>
     // TODO: Box<[]> because it wont change once parsed
     pub(super) parts: Vec<SelectorPart>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(super) enum SelectorPart {
     // TODO: I think inner discriminant could be squashed but it's not
     //       maybe part.is_component() + inline these?
@@ -37,7 +37,7 @@ pub(super) enum SelectorPart {
     Combinator(Combinator),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(super) enum Component {
     LocalName(Atom<String>),
     Identifier(Atom<String>),
@@ -54,7 +54,7 @@ pub(super) enum Component {
     // PseudoClass(Atom<String>) // :root, :hover, :focus, :active, :enabled, :disabled, :valid, :invalid, ...
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(super) enum Combinator {
     Universal,
     Parent,
@@ -73,9 +73,9 @@ impl Selector {
         }
     }
 
-    pub fn parse(selector: &str) -> Result<Self, ParseError> {
-        let tokens = super::parser::tokenize(selector.as_bytes());
-        let parser = super::parser::selector() - pom::parser::end();
+    pub fn parse(input: &str) -> Result<Self, ParseError> {
+        let tokens = tokenize(input.as_bytes());
+        let parser = selector() - pom::parser::end();
 
         parser.parse(&tokens)
     }
