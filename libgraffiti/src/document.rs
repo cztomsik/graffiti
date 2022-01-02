@@ -35,7 +35,7 @@ impl Document {
             changes: Vec::default(),
         };
 
-        assert_eq!(doc.root(), doc.tree.create_node(DomData::Document));
+        assert_eq!(doc.root(), doc.create_node(DomData::Document));
 
         doc
     }
