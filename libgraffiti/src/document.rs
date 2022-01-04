@@ -1,5 +1,7 @@
 use crate::css::{CssStyleDeclaration, Selector};
 use crate::util::{Atom, Edge, IdTree, Node};
+use std::borrow::Cow;
+use std::fmt;
 use std::ops::{Index, IndexMut};
 
 pub use crate::util::NodeId;
@@ -9,6 +11,7 @@ pub use crate::util::NodeId;
 pub enum NodeType {
     Element = 1,
     Text = 3,
+    Comment = 8,
     Document = 9,
 }
 
@@ -99,11 +102,17 @@ impl Document {
         self.create_node(DomData::Text(data.to_owned()))
     }
 
-    // TODO: fold/scan() -> Cow<String>
-    pub fn text_content(&self, node: NodeId) -> String {
+    pub fn create_comment(&mut self, data: &str) -> NodeId {
+        self.create_node(DomData::Comment(data.to_owned()))
+    }
+
+    pub fn text_content(&self, node: NodeId) -> Cow<'_, str> {
         match &self[node].data() {
-            DomData::Text(data) => data.to_string(),
-            _ => self.children(node).map(|ch| self.text_content(ch)).collect(),
+            DomData::Text(data) => Cow::Borrowed(data),
+            DomData::Comment(_) => Cow::Borrowed(""),
+            _ => self
+                .children(node)
+                .fold(Cow::Borrowed(""), |res, ch| res + self.text_content(ch)),
         }
     }
 
@@ -112,6 +121,7 @@ impl Document {
         self.tree.drop_node(node);
     }
 
+    // private (at leats for now)
     pub(crate) fn take_changes(&mut self) -> Vec<Change> {
         std::mem::take(&mut self.changes)
     }
@@ -122,6 +132,12 @@ impl Document {
         self.changes.push(Change::Created(id));
 
         id
+    }
+}
+
+impl fmt::Debug for Document {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("Document").finish()
     }
 }
 
@@ -148,17 +164,19 @@ impl IndexMut<NodeId> for Document {
 }
 
 pub enum DomData {
-    Document,
     Element(ElementData),
     Text(String),
+    Comment(String),
+    Document,
 }
 
 impl DomData {
     pub fn node_type(&self) -> NodeType {
         match self {
-            DomData::Document => NodeType::Document,
             DomData::Element(_) => NodeType::Element,
             DomData::Text(_) => NodeType::Text,
+            DomData::Comment(_) => NodeType::Comment,
+            DomData::Document => NodeType::Document,
         }
     }
 
@@ -178,15 +196,15 @@ impl DomData {
 
     pub fn text(&self) -> &str {
         match self {
-            DomData::Text(s) => s,
-            _ => panic!("not a text"),
+            DomData::Text(s) | DomData::Comment(s) => s,
+            _ => panic!("not a text/comment"),
         }
     }
 
     pub fn set_text(&mut self, text: &str) {
         match self {
-            DomData::Text(s) => *s = text.to_owned(),
-            _ => panic!("not a text"),
+            DomData::Text(s) | DomData::Comment(s) => *s = text.to_owned(),
+            _ => panic!("not a text/comment"),
         }
     }
 }
@@ -198,8 +216,8 @@ pub struct ElementData {
 }
 
 impl ElementData {
-    pub fn local_name(&self) -> &Atom<String> {
-        &self.local_name
+    pub fn local_name(&self) -> &str {
+        &**self.local_name
     }
 
     pub fn attribute_names(&self) -> impl Iterator<Item = &str> {
@@ -208,14 +226,14 @@ impl ElementData {
         self.attributes.iter().map(|(k, _)| &***k).chain(style.into_iter())
     }
 
-    pub fn attribute(&self, attr: &str) -> Option<String> {
+    pub fn attribute(&self, attr: &str) -> Option<Cow<str>> {
         match attr {
-            "style" => Some(self.style.css_text()),
+            "style" => Some(Cow::Owned(self.style.to_string())),
             _ => self
                 .attributes
                 .iter()
                 .find(|(a, _)| attr == **a)
-                .map(|(_, v)| v.to_string()),
+                .map(|(_, v)| Cow::Borrowed(&***v)),
         }
     }
 
@@ -259,14 +277,15 @@ mod tests {
         assert_eq!(doc[doc.root()].first_child(), None);
 
         let div = doc.create_element("div");
-        // assert_eq!(doc[div].node_type(), NodeType::Element);
+        assert_eq!(doc[div].node_type(), NodeType::Element);
         assert_eq!(doc[div].el().local_name(), "div");
         assert_eq!(doc[div].first_child(), None);
 
         let hello = doc.create_text_node("hello");
-        // assert_eq!(hello.node_type(), NodeType::Text);
+        assert_eq!(doc[hello].node_type(), NodeType::Text);
         assert_eq!(doc[hello].text(), "hello");
         doc[hello].set_text("hello world");
+        assert_eq!(doc[hello].text(), "hello world");
 
         let other = doc.create_text_node("test");
 
