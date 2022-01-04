@@ -1,3 +1,5 @@
+// TODO: single-quote attributes, entities, self-closing, implicit closing? (meta/link)
+
 use pom::char_class::{alphanum, multispace};
 use pom::parser::*;
 
@@ -15,10 +17,14 @@ pub enum HtmlNode<'a> {
 pub type ParseError = pom::Error;
 
 pub fn parse_html<'a>(html: &'a str) -> Result<Vec<HtmlNode<'a>>, ParseError> {
-    nodes().parse(html.as_bytes())
+    (junk() * nodes() - pom::parser::end()).parse(html.as_bytes())
 }
 
 type Parser<'a, T> = pom::parser::Parser<'a, u8, T>;
+
+fn junk<'a>() -> Parser<'a, ()> {
+    space() * (seq(b"<!") * none_of(b">").repeat(0..) * sym(b'>')).opt() * space().discard()
+}
 
 fn nodes<'a>() -> Parser<'a, Vec<HtmlNode<'a>>> {
     node().repeat(0..)
@@ -39,7 +45,7 @@ pub fn comment<'a>() -> Parser<'a, HtmlNode<'a>> {
 }
 
 fn element<'a>() -> Parser<'a, HtmlNode<'a>> {
-    let el_open = sym(b'<') * ident() - is_a(multispace).repeat(0..);
+    let el_open = sym(b'<') * ident() - space();
 
     el_open
         >> |local_name| {
@@ -71,6 +77,10 @@ fn attributes<'a>() -> Parser<'a, Vec<(&'a str, &'a str)>> {
 
 fn ident<'a>() -> Parser<'a, &'a str> {
     is_a(alphanum_dash).repeat(1..).collect().convert(std::str::from_utf8)
+}
+
+fn space<'a>() -> Parser<'a, &'a [u8]> {
+    is_a(multispace).repeat(0..).collect()
 }
 
 fn alphanum_dash(b: u8) -> bool {
@@ -146,14 +156,11 @@ mod tests {
     fn parse_html() {
         assert_eq!(
             super::parse_html(" <div></div>"),
-            Ok(vec![
-                HtmlNode::Text(" "),
-                HtmlNode::Element {
-                    local_name: "div",
-                    attributes: vec![],
-                    children: Vec::new(),
-                }
-            ])
+            Ok(vec![HtmlNode::Element {
+                local_name: "div",
+                attributes: vec![],
+                children: Vec::new(),
+            }])
         );
 
         assert_eq!(
@@ -165,7 +172,6 @@ mod tests {
             "#
             ),
             Ok(vec![
-                HtmlNode::Text("\n                "),
                 HtmlNode::Element {
                     local_name: "div",
                     attributes: vec![("id", "app"), ("class", "container")].into_iter().collect(),
@@ -188,11 +194,11 @@ mod tests {
                 <!DOCTYPE html>
                 <html>
                 <head>
-                    <meta charset="utf-8">
-                    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+                    <meta charset="utf-8"></meta>
+                    <meta http-equiv="X-UA-Compatible" content="IE=edge"></meta>
                     <title>Hello</title>
-                    <meta name="viewport" content="width=device-width, initial-scale=1">
-                    <link rel="stylesheet" type="text/css" media="screen" href="style.css">
+                    <meta name="viewport" content="width=device-width, initial-scale=1"></meta>
+                    <link rel="stylesheet" type="text/css" media="screen" href="style.css"></link>
                     <script src="main.js"></script>
                 </head>
                 <body>
