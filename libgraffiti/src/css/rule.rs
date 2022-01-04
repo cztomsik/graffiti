@@ -1,15 +1,15 @@
 use super::parser::{rule, tokenize, ParseError};
 use super::selector::Selector;
-use super::style::CssStyleDeclaration;
+use super::style::CssStyle;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CssStyleRule {
     selector: Selector,
-    style: CssStyleDeclaration,
+    style: CssStyle,
 }
 
 impl CssStyleRule {
-    pub fn new(selector: Selector, style: CssStyleDeclaration) -> Self {
+    pub fn new(selector: Selector, style: CssStyle) -> Self {
         Self { selector, style }
     }
 
@@ -24,7 +24,7 @@ impl CssStyleRule {
         &self.selector
     }
 
-    pub fn style(&self) -> &CssStyleDeclaration {
+    pub fn style(&self) -> &CssStyle {
         &self.style
     }
 }

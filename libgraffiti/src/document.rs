@@ -1,3 +1,4 @@
+use crate::css::{CssStyle, Selector};
 use crate::html::{parse_html, HtmlNode};
 use crate::util::{Atom, Edge, IdTree, Node};
 use std::borrow::Cow;
@@ -90,7 +91,7 @@ impl Document {
         self.create_node(DomData::Element(ElementData {
             local_name: local_name.into(),
             attributes: Vec::default(),
-            style: CssStyleDeclaration::default(),
+            style: CssStyle::default(),
         }))
     }
 
@@ -119,7 +120,7 @@ impl Document {
 
     pub fn matches(&self, node: NodeId, selector: &str) -> bool {
         match Selector::parse(selector) {
-            Ok(sel) => todo!(),//sel.match_element(self).is_some(),
+            Ok(sel) => todo!(), //sel.match_element(self).is_some(),
             _ => false,
         }
     }
@@ -250,7 +251,7 @@ impl DomData {
 pub struct ElementData {
     local_name: Atom<String>,
     attributes: Vec<(Atom<String>, Atom<String>)>,
-    style: CssStyleDeclaration,
+    style: CssStyle,
 }
 
 impl ElementData {
@@ -277,7 +278,7 @@ impl ElementData {
 
     pub fn set_attribute(&mut self, attr: &str, value: &str) {
         match attr {
-            "style" => self.style.set_css_text(value),
+            "style" => self.style = CssStyle::parse(value).unwrap_or_default(),
             _ => {
                 if let Some(a) = self.attributes.iter_mut().find(|(a, _)| attr == **a) {
                     a.1 = value.into();
@@ -290,16 +291,16 @@ impl ElementData {
 
     pub fn remove_attribute(&mut self, attr: &str) {
         match attr {
-            "style" => self.style.set_css_text(""),
+            "style" => self.style = CssStyle::default(),
             _ => self.attributes.retain(|(a, _)| attr != **a),
         };
     }
 
-    pub fn style(&self) -> &CssStyleDeclaration {
+    pub fn style(&self) -> &CssStyle {
         &self.style
     }
 
-    pub fn style_mut(&mut self) -> &mut CssStyleDeclaration {
+    pub fn style_mut(&mut self) -> &mut CssStyle {
         &mut self.style
     }
 }
@@ -360,7 +361,7 @@ mod tests {
         let div = doc.create_element("div");
 
         doc[div].el_mut().set_attribute("style", "display: block");
-        assert_eq!(doc[div].el().style().css_text(), "display:block;");
+        assert_eq!(doc[div].el().style().to_string(), "display:block;");
 
         doc[div].el_mut().style_mut().set_property("width", "100px");
         assert_eq!(
@@ -369,6 +370,6 @@ mod tests {
         );
 
         doc[div].el_mut().remove_attribute("style");
-        assert_eq!(doc[div].el().style().css_text(), "");
+        assert_eq!(doc[div].el().style().to_string(), "");
     }
 }

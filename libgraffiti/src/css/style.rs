@@ -5,12 +5,12 @@ use std::fmt::Write;
 use std::mem::discriminant;
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct CssStyleDeclaration {
+pub struct CssStyle {
     props: Vec<StyleProp>,
     // TODO: important: u32 + 1 << prop.id() as u32 to figure out the bit to flip/check
 }
 
-impl CssStyleDeclaration {
+impl CssStyle {
     pub fn new(props: Vec<StyleProp>) -> Self {
         Self { props }
     }
@@ -51,17 +51,6 @@ impl CssStyleDeclaration {
         self.props.retain(|p| p.css_name() == prop);
     }
 
-    pub fn css_text(&self) -> String {
-        self.props().fold(String::new(), |mut s, p| {
-            write!(s, "{}:{};", p.css_name(), p.css_value()).unwrap();
-            s
-        })
-    }
-
-    pub fn set_css_text(&mut self, css_text: &str) {
-        *self = Self::parse(css_text).unwrap_or_default();
-    }
-
     pub fn props(&self) -> impl Iterator<Item = &StyleProp> {
         self.props.iter()
     }
@@ -77,7 +66,7 @@ impl CssStyleDeclaration {
     }
 }
 
-impl fmt::Display for CssStyleDeclaration {
+impl fmt::Display for CssStyle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for p in self.props() {
             write!(f, "{}:{};", p.css_name(), p.css_value())?;
@@ -94,13 +83,13 @@ mod tests {
 
     #[test]
     fn css_text() {
-        let s = CssStyleDeclaration::parse("display:block;").unwrap();
+        let s = CssStyle::parse("display:block;").unwrap();
         assert_eq!(s.to_string(), "display:block;");
     }
 
     #[test]
     fn prop_overriding() {
-        let mut s = CssStyleDeclaration::default();
+        let mut s = CssStyle::default();
 
         s.add_prop(StyleProp::Display(CssDisplay::None));
         s.add_prop(StyleProp::Display(CssDisplay::Block));
