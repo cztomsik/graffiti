@@ -14,6 +14,6 @@ pub use {
     rule::CssStyleRule,
     selector::{Element, Selector},
     sheet::CssStyleSheet,
-    style::CssStyleDeclaration,
+    style::CssStyle,
     values::*,
 };
