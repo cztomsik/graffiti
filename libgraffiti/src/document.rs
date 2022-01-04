@@ -1,4 +1,4 @@
-use crate::css::{CssStyleDeclaration, Selector};
+use crate::html::{parse_html, HtmlNode};
 use crate::util::{Atom, Edge, IdTree, Node};
 use std::borrow::Cow;
 use std::fmt;
@@ -39,6 +39,44 @@ impl Document {
         };
 
         assert_eq!(doc.root(), doc.create_node(DomData::Document));
+
+        doc
+    }
+
+    pub fn from_html(html: &str) -> Self {
+        let mut doc = Self::new();
+        let mut stack: Vec<(NodeId, HtmlNode)> = parse_html(html)
+            .unwrap()
+            .into_iter()
+            .map(|n| (doc.root(), n))
+            .rev()
+            .collect();
+
+        while let Some((parent, node)) = stack.pop() {
+            let node = match node {
+                HtmlNode::Text(data) => doc.create_text_node(data),
+                HtmlNode::Comment(data) => doc.create_comment(data),
+                HtmlNode::Element {
+                    local_name,
+                    attributes,
+                    children,
+                } => {
+                    let el = doc.create_element(local_name);
+
+                    for (att, value) in attributes {
+                        doc[el].el_mut().set_attribute(att, value);
+                    }
+
+                    for ch in children.into_iter().rev() {
+                        stack.push((el, ch));
+                    }
+
+                    el
+                }
+            };
+
+            doc.append_child(parent, node);
+        }
 
         doc
     }
