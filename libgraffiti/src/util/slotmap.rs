@@ -1,6 +1,7 @@
-// slotmap without versioning 
+// slotmap without versioning
 // (V8 doesn't like numbers above 2^30)
 
+use super::Id;
 use std::num::NonZeroU32;
 use std::ops::{Index, IndexMut};
 
@@ -19,18 +20,23 @@ impl<K: Key, V> SlotMap<K, V> {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (NonZeroU32, &V)> + '_ {
+    pub fn clear(&mut self) {
+        self.slots.clear();
+        self.free_keys.clear();
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (K, &V)> + '_ {
         self.slots
             .iter()
             .enumerate()
-            .filter_map(|(i, slot)| slot.as_ref().map(|v| (NonZeroU32::new(i as u32 + 1).unwrap(), v)))
+            .filter_map(|(i, slot)| slot.as_ref().map(|v| (K::from_index(i).unwrap(), v)))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (NonZeroU32, &mut V)> + '_ {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (K, &mut V)> + '_ {
         self.slots
             .iter_mut()
             .enumerate()
-            .filter_map(|(i, slot)| slot.as_mut().map(|v| (NonZeroU32::new(i as u32 + 1).unwrap(), v)))
+            .filter_map(|(i, slot)| slot.as_mut().map(|v| (K::from_index(i).unwrap(), v)))
     }
 
     pub fn slot(&self, key: K) -> &Option<V> {
@@ -93,12 +99,12 @@ pub trait Key: Copy {
     fn index(&self) -> usize;
 }
 
-impl Key for NonZeroU32 {
+impl<T> Key for Id<T> {
     fn from_index(index: usize) -> Option<Self> {
-        Self::new(index as u32 + 1)
+        Some(Self::new(NonZeroU32::new(index as u32 + 1)?))
     }
 
     fn index(&self) -> usize {
-        return self.get() as usize - 1
+        self.get() as usize - 1
     }
 }
