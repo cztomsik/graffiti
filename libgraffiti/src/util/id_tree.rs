@@ -1,8 +1,6 @@
-use super::SlotMap;
+use super::{Id, SlotMap};
 use std::num::NonZeroU32;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
-
-pub type NodeId = NonZeroU32;
 
 /// A tree with stable ids, so it can be easily updated later.
 /// ```
@@ -37,15 +35,15 @@ pub type NodeId = NonZeroU32;
 /// assert_eq!(foo, bar);
 /// ```
 pub struct IdTree<T> {
-    nodes: SlotMap<NodeId, Node<T>>,
+    nodes: SlotMap<Id<Node<T>>, Node<T>>,
 }
 
 pub struct Node<T> {
-    parent_node: Option<NodeId>,
-    first_child: Option<NodeId>,
-    next_sibling: Option<NodeId>,
-    previous_sibling: Option<NodeId>,
-    last_child: Option<NodeId>,
+    parent_node: Option<Id<Node<T>>>,
+    first_child: Option<Id<Node<T>>>,
+    next_sibling: Option<Id<Node<T>>>,
+    previous_sibling: Option<Id<Node<T>>>,
+    last_child: Option<Id<Node<T>>>,
     data: T,
 }
 
@@ -69,23 +67,23 @@ impl<T> Node<T> {
         &mut self.data
     }
 
-    pub fn parent_node(&self) -> Option<NodeId> {
+    pub fn parent_node(&self) -> Option<Id<Node<T>>> {
         self.parent_node
     }
 
-    pub fn first_child(&self) -> Option<NodeId> {
+    pub fn first_child(&self) -> Option<Id<Node<T>>> {
         self.first_child
     }
 
-    pub fn last_child(&self) -> Option<NodeId> {
+    pub fn last_child(&self) -> Option<Id<Node<T>>> {
         self.last_child
     }
 
-    pub fn previous_sibling(&self) -> Option<NodeId> {
+    pub fn previous_sibling(&self) -> Option<Id<Node<T>>> {
         self.previous_sibling
     }
 
-    pub fn next_sibling(&self) -> Option<NodeId> {
+    pub fn next_sibling(&self) -> Option<Id<Node<T>>> {
         self.next_sibling
     }
 }
@@ -111,29 +109,29 @@ impl<T> IdTree<T> {
         }
     }
 
-    pub fn create_node(&mut self, data: T) -> NodeId {
+    pub fn create_node(&mut self, data: T) -> Id<Node<T>> {
         self.nodes.insert(Node::new(data))
     }
 
-    pub fn drop_node(&mut self, node: NodeId) {
+    pub fn drop_node(&mut self, node: Id<Node<T>>) {
         self.nodes.remove(node);
     }
 
-    pub fn children(&self, parent: NodeId) -> Children<T> {
+    pub fn children(&self, parent: Id<Node<T>>) -> Children<T> {
         Children {
             tree: self,
             next: self[parent].first_child(),
         }
     }
 
-    pub fn traverse(&self, node: NodeId) -> Traverse<T> {
+    pub fn traverse(&self, node: Id<Node<T>>) -> Traverse<T> {
         Traverse {
             tree: self,
-            next: Some(NodeEdge::Start(node)),
+            next: Some(Edge::Start(node)),
         }
     }
 
-    pub fn append_child(&mut self, parent: NodeId, child: NodeId) {
+    pub fn append_child(&mut self, parent: Id<Node<T>>, child: Id<Node<T>>) {
         assert_eq!(self[child].parent_node, None);
 
         if self[parent].first_child == None {
@@ -149,7 +147,7 @@ impl<T> IdTree<T> {
         self[child].parent_node = Some(parent);
     }
 
-    pub fn insert_before(&mut self, parent: NodeId, child: NodeId, before: NodeId) {
+    pub fn insert_before(&mut self, parent: Id<Node<T>>, child: Id<Node<T>>, before: Id<Node<T>>) {
         assert_eq!(self[child].parent_node, None);
         assert_eq!(self[before].parent_node, Some(parent));
 
@@ -168,7 +166,7 @@ impl<T> IdTree<T> {
         self[before].previous_sibling = Some(child);
     }
 
-    pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
+    pub fn remove_child(&mut self, parent: Id<Node<T>>, child: Id<Node<T>>) {
         assert_eq!(self[child].parent_node, Some(parent));
 
         if self[child].previous_sibling == None {
@@ -192,7 +190,7 @@ impl<T> IdTree<T> {
         self[child].previous_sibling = None;
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (NodeId, &T)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (Id<Node<T>>, &T)> + '_ {
         self.nodes.iter().map(|(id, node)| (id, &node.data))
     }
 }
@@ -203,16 +201,16 @@ impl<T> Default for IdTree<T> {
     }
 }
 
-impl<T> Index<NodeId> for IdTree<T> {
+impl<T> Index<Id<Node<T>>> for IdTree<T> {
     type Output = Node<T>;
 
-    fn index(&self, node: NodeId) -> &Node<T> {
+    fn index(&self, node: Id<Node<T>>) -> &Node<T> {
         &self.nodes[node]
     }
 }
 
-impl<T> IndexMut<NodeId> for IdTree<T> {
-    fn index_mut(&mut self, node: NodeId) -> &mut Node<T> {
+impl<T> IndexMut<Id<Node<T>>> for IdTree<T> {
+    fn index_mut(&mut self, node: Id<Node<T>>) -> &mut Node<T> {
         &mut self.nodes[node]
     }
 }
@@ -223,27 +221,25 @@ pub enum Edge<T> {
     End(T),
 }
 
-pub type NodeEdge = Edge<NodeId>;
-
 pub struct Traverse<'a, T> {
     tree: &'a IdTree<T>,
-    next: Option<NodeEdge>,
+    next: Option<Edge<Id<Node<T>>>>,
 }
 
 impl<T> Iterator for Traverse<'_, T> {
-    type Item = NodeEdge;
+    type Item = Edge<Id<Node<T>>>;
 
-    fn next(&mut self) -> Option<NodeEdge> {
+    fn next(&mut self) -> Option<Self::Item> {
         match self.next.take() {
             Some(next) => {
                 self.next = match next {
-                    NodeEdge::Start(node) => match self.tree[node].first_child {
-                        Some(first_child) => Some(NodeEdge::Start(first_child)),
-                        None => Some(NodeEdge::End(node)),
+                    Edge::Start(node) => match self.tree[node].first_child {
+                        Some(first_child) => Some(Edge::Start(first_child)),
+                        None => Some(Edge::End(node)),
                     },
-                    NodeEdge::End(node) => match self.tree[node].next_sibling {
-                        Some(next_sibling) => Some(NodeEdge::Start(next_sibling)),
-                        None => self.tree[node].parent_node.map(NodeEdge::End),
+                    Edge::End(node) => match self.tree[node].next_sibling {
+                        Some(next_sibling) => Some(Edge::Start(next_sibling)),
+                        None => self.tree[node].parent_node.map(Edge::End),
                     },
                 };
                 Some(next)
@@ -255,13 +251,13 @@ impl<T> Iterator for Traverse<'_, T> {
 
 pub struct Children<'a, T> {
     tree: &'a IdTree<T>,
-    next: Option<NodeId>,
+    next: Option<Id<Node<T>>>,
 }
 
 impl<T> Iterator for Children<'_, T> {
-    type Item = NodeId;
+    type Item = Id<Node<T>>;
 
-    fn next(&mut self) -> Option<NodeId> {
+    fn next(&mut self) -> Option<Id<Node<T>>> {
         match self.next.take() {
             Some(next) => {
                 self.next = self.tree.nodes[next].next_sibling;
