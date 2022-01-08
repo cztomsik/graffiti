@@ -1,15 +1,16 @@
 use crate::css::{CssStyle, Selector};
 use crate::html::{parse_html, HtmlNode};
-use crate::util::{Atom, Edge, IdTree, Node};
+use crate::util::{Atom, Edge, Id, IdTree, Node};
 use std::borrow::Cow;
 use std::fmt;
+use std::num::NonZeroU32;
 use std::ops::{Index, IndexMut};
 
-pub use crate::util::NodeId;
+pub type NodeId = Id<DomNode>;
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NodeType {
+pub enum NodeKind {
     Element = 1,
     Text = 3,
     Comment = 8,
@@ -84,7 +85,16 @@ impl Document {
 
     #[allow(clippy::unused_self)]
     pub fn root(&self) -> NodeId {
-        NodeId::new(1).unwrap()
+        NodeId::new(NonZeroU32::new(1).unwrap())
+    }
+
+    pub fn node(&self, node: NodeId) -> &DomNode {
+        &self.tree[node]
+    }
+
+    pub fn node_mut(&mut self, node: NodeId) -> &mut DomNode {
+        self.changes.push(Change::Changed(node));
+        &mut self.tree[node]
     }
 
     pub fn create_element(&mut self, local_name: &str) -> NodeId {
@@ -190,15 +200,13 @@ impl Index<NodeId> for Document {
     type Output = DomNode;
 
     fn index(&self, node: NodeId) -> &DomNode {
-        &self.tree[node]
+        self.node(node)
     }
 }
 
 impl IndexMut<NodeId> for Document {
     fn index_mut(&mut self, node: NodeId) -> &mut DomNode {
-        self.changes.push(Change::Changed(node));
-
-        &mut self.tree[node]
+        self.node_mut(node)
     }
 }
 
@@ -210,12 +218,12 @@ pub enum DomData {
 }
 
 impl DomData {
-    pub fn node_type(&self) -> NodeType {
+    pub fn kind(&self) -> NodeKind {
         match self {
-            DomData::Element(_) => NodeType::Element,
-            DomData::Text(_) => NodeType::Text,
-            DomData::Comment(_) => NodeType::Comment,
-            DomData::Document => NodeType::Document,
+            DomData::Element(_) => NodeKind::Element,
+            DomData::Text(_) => NodeKind::Text,
+            DomData::Comment(_) => NodeKind::Comment,
+            DomData::Document => NodeKind::Document,
         }
     }
 
@@ -312,16 +320,16 @@ mod tests {
     #[test]
     fn test() {
         let mut doc = Document::new();
-        assert_eq!(doc[doc.root()].node_type(), NodeType::Document);
+        assert_eq!(doc[doc.root()].kind(), NodeKind::Document);
         assert_eq!(doc[doc.root()].first_child(), None);
 
         let div = doc.create_element("div");
-        assert_eq!(doc[div].node_type(), NodeType::Element);
+        assert_eq!(doc[div].kind(), NodeKind::Element);
         assert_eq!(doc[div].el().local_name(), "div");
         assert_eq!(doc[div].first_child(), None);
 
         let hello = doc.create_text_node("hello");
-        assert_eq!(doc[hello].node_type(), NodeType::Text);
+        assert_eq!(doc[hello].kind(), NodeKind::Text);
         assert_eq!(doc[hello].text(), "hello");
         doc[hello].set_text("hello world");
         assert_eq!(doc[hello].text(), "hello world");
