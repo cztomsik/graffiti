@@ -8,8 +8,8 @@
 
 use crate::util::SlotMap;
 use crate::{
-    App, CssStyleDeclaration, DocumentRef, ElementRef, Event, NodeId, NodeRef, NodeType, Renderer, TextRef, WebView,
-    Window, WindowId,
+    App, CssStyleDeclaration, DocumentRef, ElementRef, Event, NodeId, NodeRef, NodeType, Renderer, TextRef, Window,
+    WindowId,
 };
 use std::any::Any;
 use std::cell::RefCell;
@@ -179,26 +179,6 @@ pub extern "C" fn gft_Window_maximize(win: Ref<Window>) {
 #[no_mangle]
 pub extern "C" fn gft_Window_restore(win: Ref<Window>) {
     with_tls(|tls| tls[&win].restore());
-}
-
-#[no_mangle]
-pub extern "C" fn gft_WebView_new() -> Ref<WebView> {
-    Rc::new(WebView::new()).into()
-}
-
-#[no_mangle]
-pub extern "C" fn gft_WebView_attach(webview: Ref<WebView>, win: Ref<Window>) {
-    with_tls(|tls| tls[&webview].attach(&tls[&win]));
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_WebView_load_url(webview: Ref<WebView>, url: *const c_char, url_len: u32) {
-    with_tls(|tls| tls[&webview].load_url(to_str(url, url_len)));
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_WebView_eval(webview: Ref<WebView>, script: *const c_char, script_len: u32) {
-    with_tls(|tls| tls[&webview].eval(to_str(script, script_len)));
 }
 
 #[no_mangle]

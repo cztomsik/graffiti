@@ -27,11 +27,11 @@ pub struct Window {
 
 impl Window {
     pub fn new(title: &str, width: i32, height: i32) -> Arc<Self> {
-        let _app = App::current().expect("no App");
+        let app = App::current().expect("no App");
         let c_title = CString::new(title).unwrap();
         let (events_tx, events) = channel();
 
-        let glfw_window = _app.await_task(move || unsafe {
+        let glfw_window = app.await_task(move || unsafe {
             glfwDefaultWindowHints();
 
             #[cfg(target_os = "macos")]
@@ -65,7 +65,7 @@ impl Window {
 
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         let win = Arc::new(Self {
-            _app,
+            _app: app,
             id,
             title: Mutex::new(title.to_owned()),
             glfw_window,

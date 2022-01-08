@@ -1,4 +1,4 @@
-import { App, AppWindow, WebView } from '../lib/index.js'
+import { App, AppWindow } from '../lib/index.js'
 
 console.log(`
   Note that this example requires some setup first:
@@ -12,17 +12,6 @@ const app = await App.init()
 app.run()
 
 const runner = new AppWindow()
-
-const progress = new AppWindow({ width: 1200, height: 1000 })
-const webview = new WebView()
-webview.attach(progress)
-webview.loadURL(`data:text/html,${encodeURIComponent('Please wait...')}`)
-
-// show progress
-setInterval(async () => {
-  const html = await runner.eval('document.documentElement.innerHTML')
-  webview.loadURL(`data:text/html,${encodeURIComponent(html)}`)
-}, 100)
 
 // TODO: find ../wpt | grep '\.html$' | grep '/dom/'
 const BASE = 'http://web-platform.test:8000'
