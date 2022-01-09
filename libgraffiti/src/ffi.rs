@@ -1,475 +1,293 @@
 // thread-safe FFI
-// - meant to be safe rather than efficient, it is expected to be used with some kind of vdom
-//   to reduce number of calls
-// - the main idea here is that we hold all objects in a thread-local list of values
-//   and we only return/accept indices to that list so we can avoid (unsafe) pointers
-// - each Ref you get has to be dropped (once), even if you are just traversing the tree
-// - two Refs can technically point to the same Rc<>
+// - expected to be used with some kind of vdom to reduce number of calls
+// - the main idea here is that we hold all objects in a thread-local lists of values
+//   and we only return/accept indices to those lists so we can avoid (unsafe) pointers
+// - whatever you create should be freed, using respective `gft_Xxx_drop(id)` fn
 
-use crate::util::SlotMap;
-use crate::{
-    App, CssStyleDeclaration, DocumentRef, ElementRef, Event, NodeId, NodeRef, NodeType, Renderer, TextRef, Window,
-    WindowId,
-};
-use std::any::Any;
+use crate::util::{Id, SlotMap};
+use crate::{App, Document, NodeId, NodeKind, Window};
 use std::cell::RefCell;
-use std::marker::PhantomData;
 use std::num::NonZeroU32;
-use std::ops::Index;
-use std::os::raw::{c_char, c_int, c_uint};
-use std::rc::Rc;
 use std::sync::Arc;
 
-// cbindgen hack for Option<Ref<T>>
+// cbindgen hack for Option<Id<T>>
 #[cfg(cbindgen)]
 #[repr(transparent)]
 struct Option<T>(T);
 
-#[repr(transparent)]
-pub struct Ref<T: ?Sized>(NonZeroU32, PhantomData<*const T>);
-
-#[derive(Debug, Clone)]
-pub enum Value {
-    Node(NodeRef),
-    Rc(Rc<dyn Any>),
-    Arc(Arc<dyn Any>),
-    String(String),
-    Vec(Vec<Value>),
-}
-
-thread_local! {
-    static REFS: RefCell<SlotMap<NonZeroU32, Value>> = RefCell::default();
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Ref_drop(obj: Ref<Value>) {
-    with_tls(|tls| tls.remove(obj.0));
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Vec_len(vec: Ref<Vec<Value>>) -> c_uint {
-    with_tls(|tls| tls[&vec].len()) as _
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Vec_get(vec: Ref<Vec<Value>>, index: c_uint) -> Ref<Value> {
-    let val = with_tls(|tls| tls[&vec].get(index as usize).expect("out of bounds").clone());
-    new_ref(val)
-}
-
-#[no_mangle]
-pub extern "C" fn gft_String_bytes_len(string: Ref<String>) -> c_uint {
-    with_tls(|tls| tls[&string].bytes().len() as _)
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_String_copy(string: Ref<String>, dest_buf: *mut u8) {
-    with_tls(|tls| {
-        let bytes = tls[&string].as_bytes();
-        dest_buf.copy_from(bytes.as_ptr(), bytes.len());
-    });
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_App_init() -> Ref<App> {
-    App::init().into()
-}
-
-#[no_mangle]
-pub extern "C" fn gft_App_current() -> Option<Ref<App>> {
-    App::current().map(Ref::from)
-}
-
-#[no_mangle]
-pub extern "C" fn gft_App_tick(app: Ref<App>) {
-    with_tls(|tls| tls[&app].tick());
-}
-
-#[no_mangle]
-pub extern "C" fn gft_App_wake_up(app: Ref<App>) {
-    with_tls(|tls| tls[&app].wake_up());
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Window_new(
-    title: *const c_char,
-    title_len: u32,
-    width: c_int,
-    height: c_int,
-) -> Ref<Window> {
-    Window::new(to_str(title, title_len), width, height).into()
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_id(win: Ref<Window>) -> WindowId {
-    with_tls(|tls| tls[&win].id())
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Window_find_by_id(id: WindowId) -> Option<Ref<Window>> {
-    Window::find_by_id(id).map(From::from)
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Window_next_event(win: Ref<Window>, event_dest: *mut Event) -> bool {
-    with_tls(|tls| {
-        if let Ok(event) = tls[&win].events().try_recv() {
-            *event_dest = event;
-            return true;
-        }
-        false
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_title(win: Ref<Window>) -> Ref<String> {
-    with_tls(|tls| tls[&win].title().into())
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Window_set_title(win: Ref<Window>, title: *const c_char, title_len: u32) {
-    with_tls(|tls| tls[&win].set_title(to_str(title, title_len)));
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_width(win: Ref<Window>) -> c_int {
-    with_tls(|tls| tls[&win].size().0)
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_height(win: Ref<Window>) -> c_int {
-    with_tls(|tls| tls[&win].size().1)
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_resize(win: Ref<Window>, width: c_int, height: c_int) {
-    with_tls(|tls| tls[&win].set_size((width, height)));
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_should_close(win: Ref<Window>) -> bool {
-    with_tls(|tls| tls[&win].should_close())
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_show(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].show());
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_hide(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].hide());
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_focus(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].focus());
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_minimize(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].minimize());
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_maximize(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].maximize());
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Window_restore(win: Ref<Window>) {
-    with_tls(|tls| tls[&win].restore());
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Document_new() -> Ref<DocumentRef> {
-    DocumentRef::new().as_node().into()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Document_create_element(
-    doc: Ref<DocumentRef>,
-    local_name: *const c_char,
-    local_name_len: u32,
-) -> Ref<ElementRef> {
-    with_tls(|tls| tls[&doc].create_element(to_str(local_name, local_name_len)))
-        .as_node()
-        .into()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Document_create_text_node(
-    doc: Ref<DocumentRef>,
-    data: *const c_char,
-    data_len: u32,
-) -> Ref<TextRef> {
-    with_tls(|tls| tls[&doc].create_text_node(to_str(data, data_len)))
-        .as_node()
-        .into()
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Node_id(node: Ref<NodeRef>) -> NodeId {
-    with_tls(|tls| tls[&node].id())
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Node_node_type(node: Ref<NodeRef>) -> NodeType {
-    with_tls(|tls| tls[&node].node_type())
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Node_parent_node(node: Ref<NodeRef>) -> Option<Ref<NodeRef>> {
-    with_tls(|tls| tls[&node].parent_node()).map(Ref::from)
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Node_first_child(node: Ref<NodeRef>) -> Option<Ref<NodeRef>> {
-    with_tls(|tls| tls[&node].first_child()).map(Ref::from)
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Node_last_child(node: Ref<NodeRef>) -> Option<Ref<NodeRef>> {
-    with_tls(|tls| tls[&node].last_child()).map(Ref::from)
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Node_previous_sibling(node: Ref<NodeRef>) -> Option<Ref<NodeRef>> {
-    with_tls(|tls| tls[&node].previous_sibling()).map(Ref::from)
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Node_next_sibling(node: Ref<NodeRef>) -> Option<Ref<NodeRef>> {
-    with_tls(|tls| tls[&node].next_sibling()).map(Ref::from)
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Node_append_child(parent: Ref<NodeRef>, child: Ref<NodeRef>) {
-    with_tls(|tls| tls[&parent].append_child(&tls[&child]));
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Node_insert_before(parent: Ref<NodeRef>, child: Ref<NodeRef>, before: Ref<NodeRef>) {
-    with_tls(|tls| tls[&parent].insert_before(&tls[&child], &tls[&before]));
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Node_remove_child(parent: Ref<NodeRef>, child: Ref<NodeRef>) {
-    with_tls(|tls| tls[&parent].remove_child(&tls[&child]));
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Node_query_selector(
-    node: Ref<NodeRef>,
-    selector: *const c_char,
-    selector_len: u32,
-) -> Option<Ref<ElementRef>> {
-    with_tls(|tls| tls[&node].query_selector(to_str(selector, selector_len)))
-        .map(|el| el.as_node())
-        .map(Ref::from)
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Node_query_selector_all(
-    node: Ref<NodeRef>,
-    selector: *const c_char,
-    selector_len: u32,
-) -> Ref<Vec<Value>> {
-    let els = with_tls(|tls| tls[&node].query_selector_all(to_str(selector, selector_len)));
-    // TODO: map(Value::from)???
-    //       and maybe we could use it as part of Ref::from() or maybe replace Ref::from entirely with short snippet
-    //       which is repeated over again but also explicit about TLS usage
-    els.iter()
-        .map(|el| Value::Node(el.as_node()))
-        .collect::<Vec<_>>()
-        .into()
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Text_data(node: Ref<TextRef>) -> Ref<String> {
-    with_tls(|tls| tls[&node].data()).into()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Text_set_data(node: Ref<TextRef>, data: *const c_char, data_len: u32) {
-    with_tls(|tls| tls[&node].set_data(to_str(data, data_len)));
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Element_local_name(el: Ref<ElementRef>) -> Ref<String> {
-    with_tls(|tls| tls[&el].local_name().to_string()).into()
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Element_attribute_names(el: Ref<ElementRef>) -> Ref<Vec<Value>> {
-    let names = with_tls(|tls| tls[&el].attribute_names());
-    let values: Vec<_> = names.into_iter().map(Value::String).collect();
-
-    values.into()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Element_attribute(
-    el: Ref<ElementRef>,
-    att: *const c_char,
-    att_len: u32,
-) -> Option<Ref<String>> {
-    with_tls(|tls| tls[&el].attribute(to_str(att, att_len))).map(Ref::from)
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Element_set_attribute(
-    el: Ref<ElementRef>,
-    att: *const c_char,
-    att_len: u32,
-    val: *const c_char,
-    val_len: u32,
-) {
-    with_tls(|tls| tls[&el].set_attribute(to_str(att, att_len), to_str(val, val_len)));
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Element_remove_attribute(el: Ref<ElementRef>, att: *const c_char, att_len: u32) {
-    with_tls(|tls| tls[&el].remove_attribute(to_str(att, att_len)));
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_Element_matches(el: Ref<ElementRef>, selector: *const c_char, selector_len: u32) -> bool {
-    with_tls(|tls| tls[&el].matches(to_str(selector, selector_len)))
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Element_style(el: Ref<ElementRef>) -> Ref<CssStyleDeclaration> {
-    with_tls(|tls| tls[&el].style()).into()
-}
-
-#[no_mangle]
-pub extern "C" fn gft_CssStyleDeclaration_length(style: Ref<CssStyleDeclaration>) -> c_uint {
-    with_tls(|tls| tls[&style].length() as _)
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_CssStyleDeclaration_property_value(
-    style: Ref<CssStyleDeclaration>,
-    prop: *const c_char,
-    prop_len: u32,
-) -> Option<Ref<String>> {
-    with_tls(|tls| tls[&style].property_value(to_str(prop, prop_len)).map(Ref::from))
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_CssStyleDeclaration_set_property(
-    style: Ref<CssStyleDeclaration>,
-    prop: *const c_char,
-    prop_len: u32,
-    val: *const c_char,
-    val_len: u32,
-) {
-    with_tls(|tls| tls[&style].set_property(to_str(prop, prop_len), to_str(val, val_len)));
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_CssStyleDeclaration_remove_property(
-    style: Ref<CssStyleDeclaration>,
-    prop: *const c_char,
-    prop_len: u32,
-) {
-    with_tls(|tls| tls[&style].remove_property(to_str(prop, prop_len)));
-}
-
-#[no_mangle]
-pub extern "C" fn gft_CssStyleDeclaration_css_text(style: Ref<CssStyleDeclaration>) -> Ref<String> {
-    with_tls(|tls| tls[&style].css_text().into())
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn gft_CssStyleDeclaration_set_css_text(
-    style: Ref<CssStyleDeclaration>,
-    css_text: *const c_char,
-    css_text_len: u32,
-) {
-    with_tls(|tls| tls[&style].set_css_text(to_str(css_text, css_text_len)));
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Renderer_new(doc: Ref<DocumentRef>, win: Ref<Window>) -> Ref<Renderer> {
-    let renderer = with_tls(|tls| Renderer::new(&tls[&doc], &tls[&win]));
-    Rc::new(renderer).into()
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Renderer_render(renderer: Ref<Renderer>) {
-    with_tls(|tls| tls[&renderer].render());
-}
-
-#[no_mangle]
-pub extern "C" fn gft_Renderer_resize(renderer: Ref<Renderer>, width: f32, height: f32) {
-    with_tls(|tls| tls[&renderer].resize(width, height));
-}
-
-// Viewport_element_from_point: |vp, x: f64, y: f64| get(vp).element_from_point((x as _, y as _))
-
-// TODO: make it more explicit, into() hides TLS
-impl<T: 'static> From<NodeRef> for Ref<T> {
-    fn from(node: NodeRef) -> Self {
-        new_ref(Value::Node(node))
-    }
-}
-
-impl<T: 'static> From<Rc<T>> for Ref<T> {
-    fn from(rc: Rc<T>) -> Self {
-        new_ref(Value::Rc(rc))
-    }
-}
-
-impl<T: 'static> From<Arc<T>> for Ref<T> {
-    fn from(arc: Arc<T>) -> Self {
-        new_ref(Value::Arc(arc))
-    }
-}
-
-impl From<String> for Ref<String> {
-    fn from(string: String) -> Self {
-        new_ref(Value::String(string))
-    }
-}
-
-impl From<Vec<Value>> for Ref<Vec<Value>> {
-    fn from(vec: Vec<Value>) -> Self {
-        new_ref(Value::Vec(vec))
-    }
-}
-
-fn new_ref<T: ?Sized>(value: Value) -> Ref<T> {
-    REFS.with(|refs| Ref(refs.borrow_mut().insert(value), PhantomData))
-}
-
-unsafe fn to_str<'a>(ptr: *const c_char, len: u32) -> &'a str {
-    // match len {
-    //     0 => CStr::from_ptr(ptr).to_str().expect("invalid string"),
-    //     len => std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr as _, len as _)),
+// wrap all fns in `#[no_mangle] pub extern "C"` with access to defined thread-local vars
+macro_rules! ffi {
+    (
+        $(let $tls:ident: $tls_ty:ty;)*
+        fn $($rest:tt)*
+    ) => (
+        thread_local! { static TLS: RefCell<($($tls_ty),*)> = RefCell::default(); }
+        ffi!(@inner ($($tls),*), fn $($rest)*);
+    );
+
+    (@inner $tls:pat, $(fn $fn:ident( $($arg:ident: $arg_ty:ty),* $(,)* ) $(-> $res:ty)* { $($body:tt)* })*) => (
+        $(#[no_mangle] pub unsafe extern "C" fn $fn($($arg:$arg_ty),*) $( -> $res)* {
+            TLS.with(|tls| {
+                let $tls = &mut *tls.borrow_mut();
+                $($body)*
+            })
+        })*
+    );
+}
+
+// enum DocHandle { Document(Document), Window(Id<Window>) }
+
+ffi! {
+    let app: Option<Arc<App>>;
+    let documents: SlotMap<Id<Document>, Document>;
+    let windows: SlotMap<Id<Window>, Arc<Window>>;
+    let strings: SlotMap<Id<String>, String>;
+
+    // fn gft_Vec_len(vec: Ref<Vec<Value>>) -> c_uint {
+    //     tls[&vec].len() as _
     // }
-    std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr as _, len as _))
-}
 
-fn with_tls<T>(mut fun: impl FnMut(&mut SlotMap<NonZeroU32, Value>) -> T) -> T {
-    REFS.with(|refs| {
-        let mut refs = refs.borrow_mut();
-        fun(&mut *refs)
-    })
-}
+    // fn gft_Vec_get(vec: Ref<Vec<Value>>, index: c_uint) -> Ref<Value> {
+    //     let val = tls[&vec].get(index as usize).expect("out of bounds").clone();
+    //     new_ref(val)
+    // }
 
-impl<T: 'static> Index<&Ref<T>> for SlotMap<NonZeroU32, Value> {
-    type Output = T;
-
-    fn index(&self, index: &Ref<T>) -> &T {
-        match &self[index.0] {
-            Value::Node(node) => node.downcast_ref::<T>(),
-            Value::Rc(rc) => rc.downcast_ref::<T>(),
-            Value::Arc(arc) => arc.downcast_ref::<T>(),
-            Value::String(string) => <dyn Any>::downcast_ref(string),
-            Value::Vec(vec) => <dyn Any>::downcast_ref(vec),
-        }
-        .expect("invalid object type")
+    fn gft_String_bytes_len(string: Id<String>) -> usize {
+        strings[string].bytes().len() as _
     }
+
+    fn gft_String_copy(string: Id<String>, dest_buf: *mut u8) {
+        let bytes = strings[string].as_bytes();
+        dest_buf.copy_from(bytes.as_ptr(), bytes.len());
+    }
+
+    fn gft_String_drop(string: Id<String>) {
+        strings.remove(string);
+    }
+
+    fn gft_App_init() {
+        *app = Some(App::init())
+    }
+
+    fn gft_App_tick(app: Id<App>) {
+        app.as_ref().unwrap().tick()
+    }
+
+    fn gft_App_wake_up(app: Id<App>) {
+        app.as_ref().unwrap().wake_up()
+    }
+
+    fn gft_App_drop(app: Id<App>) {
+        app.take();
+    }
+
+    fn gft_Window_new(title: *const u8, title_len: usize, width: i32, height: i32) -> Id<Window> {
+        windows.insert(Window::new(to_str(title, title_len), width, height))
+    }
+
+    // fn gft_Window_id(win: Id<Window>) -> WindowId {
+    //     windows[win].id()
+    // }
+
+    // fn gft_Window_find_by_id(id: WindowId) -> Option<Id<Window>> {
+    //     Window::find_by_id(id).map(From::from)
+    // }
+
+    // fn gft_Window_next_event(win: Id<Window>, event_dest: *mut Event) -> bool {
+    //     if let Ok(event) = windows[win].events().try_recv() {
+    //         *event_dest = event;
+    //         return true;
+    //     }
+    //     false
+    // }
+
+    fn gft_Window_title(win: Id<Window>) -> Id<String> {
+        strings.insert(windows[win].title())
+    }
+
+    fn gft_Window_set_title(win: Id<Window>, title: *const u8, title_len: usize) {
+        windows[win].set_title(to_str(title, title_len))
+    }
+
+    fn gft_Window_width(win: Id<Window>) -> i32 {
+        windows[win].size().0
+    }
+
+    fn gft_Window_height(win: Id<Window>) -> i32 {
+        windows[win].size().1
+    }
+
+    fn gft_Window_resize(win: Id<Window>, width: i32, height: i32) {
+        windows[win].set_size((width, height))
+    }
+
+    fn gft_Window_should_close(win: Id<Window>) -> bool {
+        windows[win].should_close()
+    }
+
+    fn gft_Window_show(win: Id<Window>) {
+        windows[win].show()
+    }
+
+    fn gft_Window_hide(win: Id<Window>) {
+        windows[win].hide()
+    }
+
+    fn gft_Window_focus(win: Id<Window>) {
+        windows[win].focus()
+    }
+
+    fn gft_Window_minimize(win: Id<Window>) {
+        windows[win].minimize()
+    }
+
+    fn gft_Window_maximize(win: Id<Window>) {
+        windows[win].maximize()
+    }
+
+    fn gft_Window_restore(win: Id<Window>) {
+        windows[win].restore()
+    }
+
+    fn gft_Window_drop(window: Id<Window>) {
+        windows.remove(window);
+    }
+
+    fn gft_Document_new() -> Id<Document> {
+        documents.insert(Document::new())
+    }
+
+    fn gft_Document_root(doc: Id<Document>) -> NodeId {
+        documents[doc].root()
+    }
+
+    fn gft_Document_create_element(doc: Id<Document>, local_name: *const u8, local_name_len: usize) -> NodeId {
+        documents[doc].create_element(to_str(local_name, local_name_len))
+    }
+
+    fn gft_Document_create_text_node(doc: Id<Document>, data: *const u8, data_len: usize) -> NodeId {
+        documents[doc].create_text_node(to_str(data, data_len))
+    }
+
+    fn gft_Document_node_kind(doc: Id<Document>, node: NodeId) -> NodeKind {
+        documents[doc].node(node).kind()
+    }
+
+    fn gft_Document_node_parent_node(doc: Id<Document>, node: NodeId) -> Option<NodeId> {
+        documents[doc].node(node).parent_node()
+    }
+
+    fn gft_Document_node_first_child(doc: Id<Document>, node: NodeId) -> Option<NodeId> {
+        documents[doc].node(node).first_child()
+    }
+
+    fn gft_Document_node_last_child(doc: Id<Document>, node: NodeId) -> Option<NodeId> {
+        documents[doc].node(node).last_child()
+    }
+
+    fn gft_Document_node_previous_sibling(doc: Id<Document>, node: NodeId) -> Option<NodeId> {
+        documents[doc].node(node).previous_sibling()
+    }
+
+    fn gft_Document_node_next_sibling(doc: Id<Document>, node: NodeId) -> Option<NodeId> {
+        documents[doc].node(node).next_sibling()
+    }
+
+    fn gft_Document_append_child(doc: Id<Document>, parent: NodeId, child: NodeId) {
+        documents[doc].append_child(parent, child);
+    }
+
+    fn gft_Document_insert_before(doc: Id<Document>, parent: NodeId, child: NodeId, before: NodeId) {
+        documents[doc].insert_before(parent, child, before);
+    }
+
+    fn gft_Document_remove_child(doc: Id<Document>, parent: NodeId, child: NodeId) {
+        documents[doc].remove_child(parent, child);
+    }
+
+    fn gft_Document_query_selector(doc: Id<Document>, node: NodeId, selector: *const u8, selector_len: usize) -> Option<NodeId> {
+        documents[doc].query_selector(node, to_str(selector, selector_len))
+    }
+
+    // fn gft_Document_query_selector_all(doc: Id<Document>, node: NodeId, selector: *const u8, selector_len: usize) -> Id<Vec<Value>> {
+    //     let els = documents[doc].query_selector_all(node, to_str(selector, selector_len));
+    //     els.iter()
+    //         .map(|el| Value::Node(el.as_node()))
+    //         .collect::<Vec<_>>()
+    //         .into()
+    // }
+
+    // fn gft_Element_local_name(doc: Id<Document>, el: NodeId) -> Id<String> {
+    //     strings.insert(documents[doc].element(el).local_name().to_string())
+    // }
+
+    // fn gft_Element_attribute_names(doc: Id<Document>, el: NodeId) -> Id<Vec<Value>> {
+    //     let names = documents[doc].element(el).attribute_names()
+    //     let values: Vec<_> = names.into_iter().map(Value::String).collect();
+    //     values.into()
+    // }
+
+    // fn gft_Element_attribute(doc: Id<Document>, el: NodeId, att: *const u8, att_len: usize) -> Option<Id<String>> {
+    //     strings.insert(documents[doc].element(el).attribute(to_str(att, att_len).into()))
+    // }
+
+    // fn gft_Element_set_attribute(doc: Id<Document>, el: NodeId, att: *const u8, att_len: usize, val: *const u8, val_len: usize) {
+    //     documents[doc].element(el).set_attribute(to_str(att, att_len), to_str(val, val_len))
+    // }
+
+    // fn gft_Element_remove_attribute(doc: Id<Document>, el: NodeId, att: *const u8, att_len: usize) {
+    //     documents[doc].element(el).remove_attribute(to_str(att, att_len))
+    // }
+
+    // fn gft_Element_matches(doc: Id<Document>, el: NodeId, selector: *const u8, selector_len: usize) -> bool {
+    //     documents[doc].element(el).matches(to_str(selector, selector_len))
+    // }
+
+    // fn gft_Element_style(doc: Id<Document>, el: NodeId) -> Id<CssStyleDeclaration> {
+    //     documents[doc].element(el).style().into()
+    // }
+
+    // fn gft_Text_data(doc: Id<Document>, node: Id<TextRef>) -> Id<String> {
+    //     documents[doc].data().into()
+    // }
+
+    // fn gft_Text_set_data(doc: Id<Document>, node: Id<TextRef>, data: *const u8, data_len: usize) {
+    //     documents[doc].set_data(to_str(data, data_len))
+    // }
+
+    fn gft_Document_drop(doc: Id<Document>) {
+        documents.remove(doc);
+    }
+
+    // fn gft_CssStyleDeclaration_length(style: Id<CssStyleDeclaration>) -> c_uint {
+    //     tls[&style].length() as _
+    // }
+
+    // fn gft_CssStyleDeclaration_property_value(
+    //     style: Id<CssStyleDeclaration>,
+    //     prop: *const u8,
+    //     prop_len: usize,
+    // ) -> Option<Id<String>> {
+    //     tls[&style].property_value(to_str(prop, prop_len)).map(Ref::from)
+    // }
+
+    // fn gft_CssStyleDeclaration_set_property(style: Id<CssStyleDeclaration>, prop: *const u8, prop_len: usize, val: *const u8, val_len: usize) {
+    //     tls[&style].set_property(to_str(prop, prop_len), to_str(val, val_len))
+    // }
+
+    // fn gft_CssStyleDeclaration_remove_property(style: Id<CssStyleDeclaration>, prop: *const u8, prop_len: usize) {
+    //     tls[&style].remove_property(to_str(prop, prop_len))
+    // }
+
+    // fn gft_CssStyleDeclaration_css_text(style: Id<CssStyleDeclaration>) -> Id<String> {
+    //     tls[&style].css_text().into()
+    // }
+
+    // fn gft_CssStyleDeclaration_set_css_text(style: Id<CssStyleDeclaration>, css_text: *const u8, css_text_len: usize) {
+    //     tls[&style].set_css_text(to_str(css_text, css_text_len))
+    // }
+}
+
+unsafe fn to_str<'a>(ptr: *const u8, len: usize) -> &'a str {
+    std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr, len))
 }

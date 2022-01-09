@@ -1,7 +1,7 @@
 use super::{LayoutContext, LayoutResult, LayoutStyle, Size};
-use crate::util::{IdTree, SlotMap};
+use crate::util::{Id, IdTree, Node, SlotMap};
 
-pub use crate::util::NodeId as LayoutNodeId;
+pub type LayoutNodeId = Id<Node<LayoutData>>;
 
 #[derive(Default)]
 pub struct LayoutTree {
@@ -84,7 +84,7 @@ impl LayoutTree {
 }
 
 #[derive(Default)]
-struct LayoutData {
+pub struct LayoutData {
     style: LayoutStyle,
     measure: Option<Box<dyn Fn()>>,
     needs_measure: bool,
