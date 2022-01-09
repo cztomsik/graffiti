@@ -15,14 +15,13 @@ fnv = "1.0.7"
 pom = "3.2.0"
 ab_glyph = "0.2.10"
 fontdb = { git = "https://github.com/cztomsik/fontdb", rev = "f106359" }
+# fontdb = { version = "0.7.0", default_features = false, features = ["fs"] }
+swash = "0.1.4"
 rect_packer = "0.2.1"
 graffiti-glfw = { path = "graffiti-glfw" }
 glow = "0.11.0"
 ochre = "0.2.0"
 crossbeam-channel = "0.5.0"
-
-[target.'cfg(target_os = "macos")'.dependencies]
-objc = "0.2"
 
 [profile.release]
 # panic = 'abort'

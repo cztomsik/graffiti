@@ -29,7 +29,7 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "cargo test --tests --manifest-path ./libgraffiti/Cargo.toml",
-    "codegen": "cd libgraffiti; cbindgen --config cbindgen.toml --output include/graffiti.h",
+    "codegen": "cd libgraffiti; rustup run nightly cbindgen --config cbindgen.toml --output include/graffiti.h",
     "build": "cargo build --manifest-path ./libgraffiti/Cargo.toml",
     "postinstall": "npm run build",
     "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:node-fetch --external:ws --external:https://deno.land --outdir=./lib ./src/cli.ts ./src/index.ts ./src/worker.ts"

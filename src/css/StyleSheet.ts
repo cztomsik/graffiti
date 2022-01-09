@@ -1,15 +1,20 @@
 import { UNSUPPORTED } from '../util'
 
 export class StyleSheet implements globalThis.StyleSheet {
-  constructor(private readonly parent: HTMLStyleElement) {}
+  #parent
+
+  constructor(parent: HTMLStyleElement) {
+    this.#parent = parent
+  }
 
   get type() {
     return 'text/css'
   }
 
+  // should be null after detach or if <style>.textContent has been changed already
+  // but we don't support that
   get ownerNode(): HTMLStyleElement {
-    // can be null (TS is wrong) after detach or if <style>.textContent has been changed already
-    return this.parent.sheet === (this as any) ? this.parent : (null as any)
+    return this.#parent
   }
 
   get title() {
@@ -17,7 +22,7 @@ export class StyleSheet implements globalThis.StyleSheet {
   }
 
   get disabled() {
-    return UNSUPPORTED()
+    return false
   }
 
   get parentStyleSheet(): CSSStyleSheet | null {
@@ -27,8 +32,7 @@ export class StyleSheet implements globalThis.StyleSheet {
   }
 
   get href() {
-    // should be original url but we don't support remote CSS
-    return UNSUPPORTED()
+    return null
   }
 
   get media() {

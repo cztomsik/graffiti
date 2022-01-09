@@ -3,7 +3,7 @@
 // notes:
 // - we are using parser-combinators (for both tokenizing & parsing)
 //   - see https://github.com/J-F-Liu/pom for reference
-//   - tokens are just &str, there no other token types
+//   - tokens are just &str, there are no other token types
 //   - it's probably a bit inefficient but very expressive (~350 lines)
 // - repeat() for skip/discard() should be alloc-free because of zero-sized types
 // - collect() creates slice from start to end regardless of the results "inside"
@@ -14,15 +14,14 @@
 use super::{
     properties::{prop_parser, shorthand_parser},
     selector::{Combinator, Component, Selector, SelectorPart},
-    CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssOverflow, CssStyleDeclaration, CssStyleRule,
-    CssStyleSheet, NAMED_COLORS,
+    CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssOverflow, CssStyle, CssStyleRule, CssStyleSheet,
 };
 use crate::util::Atom;
 use pom::char_class::alphanum;
 use pom::parser::{any, empty, is_a, list, none_of, one_of, seq, skip, sym};
 use std::convert::TryFrom;
 
-pub(super) type Parser<'a, T> = pom::parser::Parser<'a, Token<'a>, T>;
+pub type Parser<'a, T> = pom::parser::Parser<'a, Token<'a>, T>;
 
 // TODO: maybe we could have a struct (with row/col), it just needs to be Deref<str>
 //       but on the other hand, &str contains offset so we can compute row/col easily anyway
@@ -30,7 +29,7 @@ type Token<'a> = &'a str;
 
 pub type ParseError = pom::Error;
 
-pub(super) fn sheet<'a>() -> Parser<'a, CssStyleSheet> {
+pub fn sheet<'a>() -> Parser<'a, CssStyleSheet> {
     // anything until next "}}" (empty media is matched with unknown)
     let media = sym("@") * sym("media") * (!seq(&["}", "}"]) * skip(1)).repeat(1..).map(|_| None) - sym("}") - sym("}");
     // anything until next "}"
@@ -38,18 +37,16 @@ pub(super) fn sheet<'a>() -> Parser<'a, CssStyleSheet> {
 
     (rule().map(Option::Some) | media | unknown)
         .repeat(0..)
-        .map(|maybe_rules| CssStyleSheet {
-            rules: maybe_rules.into_iter().flatten().collect(),
-        })
+        .map(|maybe_rules| CssStyleSheet::new(maybe_rules.into_iter().flatten().collect()))
 }
 
-fn rule<'a>() -> Parser<'a, CssStyleRule> {
+pub fn rule<'a>() -> Parser<'a, CssStyleRule> {
     let rule = selector() - sym("{") + style() - sym("}");
 
     rule.map(|(selector, style)| CssStyleRule::new(selector, style))
 }
 
-pub(super) fn selector<'a>() -> Parser<'a, Selector> {
+pub fn selector<'a>() -> Parser<'a, Selector> {
     let tag = || {
         let ident = || ident().map(Atom::from);
         let local_name = ident().map(Component::LocalName);
@@ -89,13 +86,13 @@ pub(super) fn selector<'a>() -> Parser<'a, Selector> {
     })
 }
 
-pub(super) fn style<'a>() -> Parser<'a, CssStyleDeclaration> {
+pub fn style<'a>() -> Parser<'a, CssStyle> {
     // any chunk of tokens before ";" or "}"
     let prop_value = (!sym(";") * !sym("}") * skip(1)).repeat(1..).collect();
     let prop = any() - sym(":") + prop_value - sym(";").discard().repeat(0..);
 
     prop.repeat(0..).map(|props| {
-        let mut style = CssStyleDeclaration::new();
+        let mut style = CssStyle::default();
 
         for (p, v) in props {
             // skip unknown
@@ -106,7 +103,7 @@ pub(super) fn style<'a>() -> Parser<'a, CssStyleDeclaration> {
     })
 }
 
-pub(super) fn parse_prop_into<'a>(prop: &str, value: &[&str], style: &CssStyleDeclaration) {
+pub fn parse_prop_into(prop: &str, value: &[&str], style: &mut CssStyle) {
     if let Ok(p) = prop_parser(prop).parse(value) {
         style.add_prop(p);
     } else if let Ok(props) = shorthand_parser(prop).parse(value) {
@@ -116,24 +113,26 @@ pub(super) fn parse_prop_into<'a>(prop: &str, value: &[&str], style: &CssStyleDe
     }
 }
 
-pub(super) fn css_enum<'a, T: 'a + TryFrom<&'a str, Error = &'static str>>() -> Parser<'a, T> {
+pub fn css_enum<'a, T: 'a + TryFrom<&'a str, Error = &'static str>>() -> Parser<'a, T> {
     ident().convert(T::try_from)
 }
 
-pub(super) fn dimension<'a>() -> Parser<'a, CssDimension> {
+pub fn dimension<'a>() -> Parser<'a, CssDimension> {
     let px = (float() - sym("px")).map(CssDimension::Px);
     let percent = (float() - sym("%")).map(CssDimension::Percent);
     let auto = sym("auto").map(|_| CssDimension::Auto);
     let zero = sym("0").map(|_| CssDimension::ZERO);
+    let em = (float() - sym("em")).map(CssDimension::Em);
+    let rem = (float() - sym("rem")).map(CssDimension::Rem);
     let vw = (float() - sym("vw")).map(CssDimension::Vw);
     let vh = (float() - sym("vh")).map(CssDimension::Vh);
     let vmin = sym("vmin").map(|_| CssDimension::Vmin);
     let vmax = sym("vmax").map(|_| CssDimension::Vmax);
 
-    px | percent | auto | zero | vw | vh | vmin | vmax
+    px | percent | auto | zero | em | rem | vw | vh | vmin | vmax
 }
 
-pub(super) fn sides_of<'a, V: Copy + 'a>(parser: Parser<'a, V>) -> Parser<'a, (V, V, V, V)> {
+pub fn sides_of<'a, V: Copy + 'a>(parser: Parser<'a, V>) -> Parser<'a, (V, V, V, V)> {
     list(parser, sym(" ")).convert(|sides| {
         #[allow(clippy::match_ref_pats)]
         Ok(match &sides[..] {
@@ -146,24 +145,24 @@ pub(super) fn sides_of<'a, V: Copy + 'a>(parser: Parser<'a, V>) -> Parser<'a, (V
     })
 }
 
-pub(super) fn flex<'a>() -> Parser<'a, (f32, f32, CssDimension)> {
+pub fn flex<'a>() -> Parser<'a, (f32, f32, CssDimension)> {
     (float() + (sym(" ") * float()).opt() + (sym(" ") * dimension()).opt())
         .map(|((grow, shrink), basis)| (grow, shrink.unwrap_or(1.), basis.unwrap_or(CssDimension::ZERO)))
 }
 
-pub(super) fn overflow<'a>() -> Parser<'a, (CssOverflow, CssOverflow)> {
+pub fn overflow<'a>() -> Parser<'a, (CssOverflow, CssOverflow)> {
     (css_enum() + (sym(" ") * css_enum()).opt()).map(|(x, y)| (x, y.unwrap_or(x)))
 }
 
-pub(super) fn outline<'a>() -> Parser<'a, (CssDimension, CssBorderStyle, CssColor)> {
+pub fn outline<'a>() -> Parser<'a, (CssDimension, CssBorderStyle, CssColor)> {
     (dimension() + (sym(" ") * css_enum()) + (sym(" ") * color())).map(|((dim, style), color)| (dim, style, color))
 }
 
-pub(super) fn background<'a>() -> Parser<'a, CssColor> {
+pub fn background<'a>() -> Parser<'a, CssColor> {
     sym("none").map(|_| CssColor::TRANSPARENT) | color()
 }
 
-pub(super) fn color<'a>() -> Parser<'a, CssColor> {
+pub fn color<'a>() -> Parser<'a, CssColor> {
     fn hex_val(byte: u8) -> u8 {
         (byte as char).to_digit(16).unwrap() as u8
     }
@@ -209,23 +208,23 @@ pub(super) fn color<'a>() -> Parser<'a, CssColor> {
             .map(|(((r, g), b), a)| CssColor::rgba(r, g, b, (255. * a) as _))
         - sym(")");
 
-    let named_color = ident().convert(|name| NAMED_COLORS.get(name).copied().ok_or("unknown named color"));
+    let named_color = ident().convert(|name| CssColor::named(name).ok_or("unknown named color"));
 
     hex_color | rgb | rgba | named_color
 }
 
-pub(super) fn font_family<'a>() -> Parser<'a, Atom<String>> {
+pub fn font_family<'a>() -> Parser<'a, Atom<String>> {
     // TODO: multiple, strings
     //       but keep it as Atom<String> because that is easy to
     //       map/cache to FontQuery and I'd like to keep CSS unaware of fonts
     is_a(|t: &str| alphanum_dash(t.as_bytes()[0])).map(Atom::from)
 }
 
-pub(super) fn box_shadow<'a>() -> Parser<'a, Box<CssBoxShadow>> {
+pub fn box_shadow<'a>() -> Parser<'a, Box<CssBoxShadow>> {
     fail("TODO: parse box-shadow")
 }
 
-pub(super) fn float<'a>() -> Parser<'a, f32> {
+pub fn float<'a>() -> Parser<'a, f32> {
     any().convert(str::parse)
 }
 
@@ -237,7 +236,7 @@ fn ident<'a>() -> Parser<'a, &'a str> {
     is_a(|t: &str| alphanum_dash(t.as_bytes()[0]))
 }
 
-pub(super) fn fail<'a, T: 'static>(msg: &'static str) -> Parser<'a, T> {
+pub fn fail<'a, T: 'static>(msg: &'static str) -> Parser<'a, T> {
     empty().convert(move |_| Err(msg))
 }
 
@@ -250,19 +249,16 @@ fn alphanum_dash(b: u8) -> bool {
 pub fn prev<'a, I: Clone>(n: usize) -> pom::parser::Parser<'a, I, ()> {
     pom::parser::Parser::new(move |_, position: usize| {
         if position >= n {
-            return Ok(((), position - n));
+            Ok(((), position - n))
+        } else {
+            Err(pom::Error::Incomplete)
         }
-
-        Err(pom::Error::Mismatch {
-            message: "can't go back".to_owned(),
-            position,
-        })
     })
 }
 
 // different from https://drafts.csswg.org/css-syntax/#tokenization
 // (main purpose here is to strip comments and to keep strings together)
-pub(super) fn tokenize(input: &[u8]) -> Vec<Token> {
+pub fn tokenize(input: &[u8]) -> Vec<Token> {
     let comment = seq(b"/*") * (!seq(b"*/") * skip(1)).repeat(0..) - seq(b"*/");
     let space = one_of(b" \t\r\n").discard().repeat(1..).map(|_| &b" "[..]);
     let hex_or_id = prev(1) * sym(b'#') * is_a(alphanum).repeat(1..).collect();
@@ -293,7 +289,7 @@ pub(super) fn tokenize(input: &[u8]) -> Vec<Token> {
         }
 
         res.push(t);
-        keep_space = alphanum_dash(t.as_bytes()[0]) || t == "*" || t == "]"
+        keep_space = alphanum_dash(t.as_bytes()[0]) || t == "*" || t == "]";
     }
 
     res
@@ -306,9 +302,9 @@ mod tests {
 
     #[test]
     fn test_tokenize() {
-        assert_eq!(tokenize(b""), Vec::<&str>::new());
-        assert_eq!(tokenize(b" "), Vec::<&str>::new());
-        assert_eq!(tokenize(b" /**/ /**/ "), Vec::<&str>::new());
+        assert_eq!(tokenize(b""), Vec::<Token>::new());
+        assert_eq!(tokenize(b" "), Vec::<Token>::new());
+        assert_eq!(tokenize(b" /**/ /**/ "), Vec::<Token>::new());
 
         assert_eq!(tokenize(b"block"), vec!["block"]);
         assert_eq!(tokenize(b"10px"), vec!["10", "px"]);
@@ -321,6 +317,10 @@ mod tests {
 
         assert_eq!(tokenize(b"a b"), vec!["a", " ", "b"]);
         assert_eq!(tokenize(b".a .b"), vec![".", "a", " ", ".", "b"]);
+        assert_eq!(
+            tokenize(b" a .b #c *"),
+            vec!["a", " ", ".", "b", " ", "#", "c", " ", "*"]
+        );
 
         assert_eq!(tokenize(b"-webkit-xxx"), vec!["-webkit-xxx"]);
         assert_eq!(tokenize(b"--var"), vec!["--var"]);
@@ -345,22 +345,36 @@ mod tests {
 
     #[test]
     fn basic() -> Result<(), ParseError> {
+        let style = CssStyle::parse("color: #fff")?;
+        assert_eq!(style, CssStyle::new(vec![StyleProp::Color(CssColor::WHITE)]));
+
+        let selector = Selector::parse("div")?;
+        assert_eq!(
+            selector,
+            Selector {
+                parts: vec![SelectorPart::Component(Component::LocalName(Atom::from("div")))]
+            }
+        );
+
         let sheet = CssStyleSheet::parse("div { color: #fff }")?;
 
-        assert_eq!(
-            sheet.rules[0],
-            CssStyleRule::new(Selector::parse("div")?, CssStyleDeclaration::parse("color: #fff")?)
-        );
-        assert_eq!(sheet.rules[0].style().css_text(), "color:rgba(255, 255, 255, 255);");
+        assert_eq!(sheet.rules()[0], CssStyleRule::new(Selector::parse("div")?, style));
+        assert_eq!(sheet.rules()[0].style().to_string(), "color:rgba(255, 255, 255, 255);");
 
         // white-space
-        assert_eq!(CssStyleSheet::parse(" *{}")?.rules.len(), 1);
-        assert_eq!(CssStyleSheet::parse("\n*{\n}\n")?.rules.len(), 1);
+        assert_eq!(CssStyleSheet::parse(" *{}")?.rules().len(), 1);
+        assert_eq!(CssStyleSheet::parse("\n*{\n}\n")?.rules().len(), 1);
 
         // forgiving/future-compatibility
-        assert_eq!(CssStyleSheet::parse(":root {} a { v: 0 }")?.rules.len(), 2);
-        assert_eq!(CssStyleSheet::parse("a {} @media { a { v: 0 } } b {}")?.rules.len(), 2);
-        assert_eq!(CssStyleSheet::parse("@media { a { v: 0 } } a {} b {}")?.rules.len(), 2);
+        assert_eq!(CssStyleSheet::parse(":root {} a { v: 0 }")?.rules().len(), 2);
+        assert_eq!(
+            CssStyleSheet::parse("a {} @media { a { v: 0 } } b {}")?.rules().len(),
+            2
+        );
+        assert_eq!(
+            CssStyleSheet::parse("@media { a { v: 0 } } a {} b {}")?.rules().len(),
+            2
+        );
 
         Ok(())
     }
@@ -369,64 +383,66 @@ mod tests {
     fn shorthands() -> Result<(), ParseError> {
         use StyleProp::*;
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("overflow: hidden")?.props(),
-            &[OverflowX(CssOverflow::Hidden), OverflowY(CssOverflow::Hidden)]
+        let assert_eq_props = |style: &CssStyle, props: &[StyleProp]| Iterator::eq(style.props(), props);
+
+        assert_eq_props(
+            &CssStyle::parse("overflow: hidden")?,
+            &[OverflowX(CssOverflow::Hidden), OverflowY(CssOverflow::Hidden)],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("overflow: visible hidden")?.props(),
-            &[OverflowX(CssOverflow::Visible), OverflowY(CssOverflow::Hidden)]
+        assert_eq_props(
+            &CssStyle::parse("overflow: visible hidden")?,
+            &[OverflowX(CssOverflow::Visible), OverflowY(CssOverflow::Hidden)],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("flex: 1")?.props(),
-            &[FlexGrow(1.), FlexShrink(1.), FlexBasis(CssDimension::Auto)]
+        assert_eq_props(
+            &CssStyle::parse("flex: 1")?,
+            &[FlexGrow(1.), FlexShrink(1.), FlexBasis(CssDimension::ZERO)],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("flex: 2 3 10px")?.props(),
-            &[FlexGrow(2.), FlexShrink(3.), FlexBasis(CssDimension::Px(10.))]
+        assert_eq_props(
+            &CssStyle::parse("flex: 2 3 10px")?,
+            &[FlexGrow(2.), FlexShrink(3.), FlexBasis(CssDimension::Px(10.))],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("padding: 0")?.props(),
+        assert_eq_props(
+            &CssStyle::parse("padding: 0")?,
             &[
                 PaddingTop(CssDimension::ZERO),
                 PaddingRight(CssDimension::ZERO),
                 PaddingBottom(CssDimension::ZERO),
-                PaddingLeft(CssDimension::ZERO)
-            ]
+                PaddingLeft(CssDimension::ZERO),
+            ],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("padding: 10px 20px")?.props(),
+        assert_eq_props(
+            &CssStyle::parse("padding: 10px 20px")?,
             &[
                 PaddingTop(CssDimension::Px(10.)),
                 PaddingRight(CssDimension::Px(20.)),
                 PaddingBottom(CssDimension::Px(10.)),
-                PaddingLeft(CssDimension::Px(20.))
-            ]
+                PaddingLeft(CssDimension::Px(20.)),
+            ],
         );
 
-        assert_eq!(
-            &*CssStyleDeclaration::parse("background: none")?.props(),
-            &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]
+        assert_eq_props(
+            &CssStyle::parse("background: none")?,
+            &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)],
         );
-        assert_eq!(
-            &*CssStyleDeclaration::parse("background: #000")?.props(),
-            &[StyleProp::BackgroundColor(CssColor::BLACK)]
+        assert_eq_props(
+            &CssStyle::parse("background: #000")?,
+            &[StyleProp::BackgroundColor(CssColor::BLACK)],
         );
 
         // override
-        let s = CssStyleDeclaration::parse("background-color: #fff")?;
+        let mut s = CssStyle::parse("background-color: #fff")?;
         s.set_property("background", "#000");
-        assert_eq!(&*s.props(), &[StyleProp::BackgroundColor(CssColor::BLACK)]);
+        assert_eq_props(&s, &[StyleProp::BackgroundColor(CssColor::BLACK)]);
 
-        // remove
-        let s = CssStyleDeclaration::parse("background-color: #fff")?;
+        // override with shorthand
+        let mut s = CssStyle::parse("background-color: #fff")?;
         s.set_property("background", "none");
-        assert_eq!(&*s.props(), &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]);
+        assert_eq_props(&s, &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]);
 
         Ok(())
     }
@@ -437,7 +453,7 @@ mod tests {
         let tokens = tokenize(ua.as_bytes());
         let sheet = super::sheet().parse(&tokens).unwrap();
 
-        assert_eq!(sheet.rules.len(), 23);
+        assert_eq!(sheet.rules().len(), 23);
     }
 
     #[test]
@@ -587,6 +603,8 @@ mod tests {
         assert_eq!(dimension().parse(&["auto"]), Ok(CssDimension::Auto));
         assert_eq!(dimension().parse(&["10", "px"]), Ok(CssDimension::Px(10.)));
         assert_eq!(dimension().parse(&["100", "%"]), Ok(CssDimension::Percent(100.)));
+        assert_eq!(dimension().parse(&["1.2", "em"]), Ok(CssDimension::Em(1.2)));
+        assert_eq!(dimension().parse(&["2.1", "rem"]), Ok(CssDimension::Rem(2.1)));
         assert_eq!(dimension().parse(&["0"]), Ok(CssDimension::Px(0.)));
         assert_eq!(dimension().parse(&["100", "vw"]), Ok(CssDimension::Vw(100.)));
         assert_eq!(dimension().parse(&["100", "vh"]), Ok(CssDimension::Vh(100.)));

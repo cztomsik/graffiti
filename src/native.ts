@@ -122,10 +122,6 @@ async function loadDenoPlugin(libFile, Deno = globalThis.Deno) {
     gft_Renderer_new: { parameters: ['u32', 'u32'], result: 'u32' },
     gft_Renderer_render: { parameters: ['u32'], result: 'void' },
     gft_Renderer_resize: { parameters: ['u32', 'f32', 'f32'], result: 'void' },
-    gft_WebView_new: { parameters: [], result: 'u32' },
-    gft_WebView_attach: { parameters: ['u32', 'u32'], result: 'void' },
-    gft_WebView_load_url: { parameters: ['u32', 'buffer', 'u32'], result: 'void' },
-    gft_WebView_eval: { parameters: ['u32', 'buffer', 'u32'], result: 'void' },
   })
 
   // debug

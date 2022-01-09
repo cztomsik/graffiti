@@ -14,7 +14,7 @@ pub static FONT_DB: Lazy<Database> = Lazy::new(|| {
                 Family::Name("FreeSans"),
                 Family::Name("Arial"),
             ],
-            ..Default::default()
+            ..Query::default()
         })
         .expect("no sans-serif found");
 
@@ -27,7 +27,7 @@ pub(crate) static SANS_SERIF_FONT: Lazy<FontArc> = Lazy::new(|| {
     let id = FONT_DB
         .query(&Query {
             families: &[Family::SansSerif],
-            ..Default::default()
+            ..Query::default()
         })
         .unwrap();
 

@@ -17,9 +17,9 @@ impl StyleResolver {
         for (i, sheet) in sheets.iter().enumerate() {
             for (j, rule) in sheet.rules().iter().enumerate() {
                 groups
-                    .entry(rule.selector.tail_mask())
-                    .or_insert(Vec::new())
-                    .push((i, j))
+                    .entry(rule.selector().tail_mask())
+                    .or_insert_with(Vec::new)
+                    .push((i, j));
             }
         }
 
@@ -34,8 +34,8 @@ impl StyleResolver {
 
         for sheet in &self.sheets {
             for rule in sheet.rules() {
-                if let Some(_spec) = rule.selector.match_element(element) {
-                    for p in rule.style().props().iter() {
+                if let Some(_spec) = rule.selector().match_element(element) {
+                    for p in rule.style().props() {
                         apply_prop_fn(&mut res, p);
                     }
                 }
@@ -52,7 +52,7 @@ mod tests {
 
     #[test]
     fn test() {
-        let sheet = CssStyleSheet::default_ua_sheet();
+        let sheet = CssStyleSheet::parse(include_str!("../../resources/ua.css")).unwrap();
         let resolver = StyleResolver::new(vec![Rc::new(sheet)]);
 
         // TODO

@@ -9,7 +9,6 @@ The table below provides a bit more info but in general:
   - deprecated/exotic features are generally not supported at all
   - if it can be easily replaced with JS it's probably out-of-scope for now
   - popular libraries are expected to run fine eventually (if not already)
-  - there's always `WebView` if you need it
 
 ## Notable limitations
 The table below provides some info about what's left out. Some of those might be available in deno and/or provided by some external modules.

@@ -1,7 +1,4 @@
-#![allow(clippy::missing_safety_doc)]
-
-use super::App;
-use crate::app::AppOwned;
+use super::app::{App, AppOwned};
 use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use graffiti_glfw::*;
 use once_cell::sync::Lazy;
@@ -29,11 +26,11 @@ pub struct Window {
 
 impl Window {
     pub fn new(title: &str, width: i32, height: i32) -> Arc<Self> {
-        let _app = App::current().expect("no App");
+        let app = App::current().expect("no App");
         let c_title = CString::new(title).unwrap();
         let (events_tx, events) = channel();
 
-        let glfw_window = _app.await_task(move || unsafe {
+        let glfw_window = app.await_task(move || unsafe {
             glfwDefaultWindowHints();
 
             #[cfg(target_os = "macos")]
@@ -67,7 +64,7 @@ impl Window {
 
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         let win = Arc::new(Self {
-            _app,
+            _app: app,
             id,
             title: Mutex::new(title.to_owned()),
             glfw_window,
@@ -114,7 +111,7 @@ impl Window {
 
     pub fn set_resizable(&self, resizable: bool) {
         self.glfw_window
-            .with(move |win| unsafe { glfwSetWindowAttrib(win, GLFW_RESIZABLE, resizable as _) })
+            .with(move |win| unsafe { glfwSetWindowAttrib(win, GLFW_RESIZABLE, resizable as _) });
     }
 
     pub fn size(&self) -> (i32, i32) {
@@ -127,7 +124,7 @@ impl Window {
 
     pub fn set_size(&self, (width, height): (i32, i32)) {
         self.glfw_window
-            .with(move |win| unsafe { glfwSetWindowSize(win, width as _, height as _) })
+            .with(move |win| unsafe { glfwSetWindowSize(win, width as _, height as _) });
     }
 
     pub fn framebuffer_size(&self) -> (i32, i32) {
@@ -157,7 +154,7 @@ impl Window {
 
     pub fn set_opacity(&self, opacity: f32) {
         self.glfw_window
-            .with(move |win| unsafe { glfwSetWindowOpacity(win, opacity) })
+            .with(move |win| unsafe { glfwSetWindowOpacity(win, opacity) });
     }
 
     pub fn visible(&self) -> bool {
@@ -166,11 +163,11 @@ impl Window {
     }
 
     pub fn show(&self) {
-        self.glfw_window.with(|win| unsafe { glfwShowWindow(win) })
+        self.glfw_window.with(|win| unsafe { glfwShowWindow(win) });
     }
 
     pub fn hide(&self) {
-        self.glfw_window.with(|win| unsafe { glfwHideWindow(win) })
+        self.glfw_window.with(|win| unsafe { glfwHideWindow(win) });
     }
 
     pub fn focused(&self) -> bool {
@@ -179,7 +176,7 @@ impl Window {
     }
 
     pub fn focus(&self) {
-        self.glfw_window.with(|win| unsafe { glfwFocusWindow(win) })
+        self.glfw_window.with(|win| unsafe { glfwFocusWindow(win) });
     }
 
     pub fn minimized(&self) -> bool {
@@ -197,15 +194,15 @@ impl Window {
     }
 
     pub fn maximize(&self) {
-        self.glfw_window.with(|win| unsafe { glfwMaximizeWindow(win) })
+        self.glfw_window.with(|win| unsafe { glfwMaximizeWindow(win) });
     }
 
     pub fn restore(&self) {
-        self.glfw_window.with(|win| unsafe { glfwRestoreWindow(win) })
+        self.glfw_window.with(|win| unsafe { glfwRestoreWindow(win) });
     }
 
     pub fn request_attention(&self) {
-        self.glfw_window.with(|win| unsafe { glfwRequestWindowAttention(win) })
+        self.glfw_window.with(|win| unsafe { glfwRequestWindowAttention(win) });
     }
 
     // event loop
@@ -217,7 +214,7 @@ impl Window {
 
     pub fn set_should_close(&self, value: bool) {
         self.glfw_window
-            .with(move |win| unsafe { glfwSetWindowShouldClose(win, value as _) })
+            .with(move |win| unsafe { glfwSetWindowShouldClose(win, value as _) });
     }
 
     // note it needs to be processed one by one because each event can cause new changes,
@@ -244,7 +241,7 @@ impl Window {
     // some people say everything related to HDC is tied to the original thread
     // and drivers are free to depend on this
     pub fn swap_buffers(&self) {
-        self.glfw_window.with(|win| unsafe { glfwSwapBuffers(win) })
+        self.glfw_window.with(|win| unsafe { glfwSwapBuffers(win) });
     }
 
     pub fn clipboard_string(&self) -> Option<String> {
@@ -256,7 +253,7 @@ impl Window {
     pub fn set_clipboard_string(&self, string: &str) {
         let string = CString::new(string).unwrap();
         self.glfw_window
-            .with(move |win| unsafe { glfwSetClipboardString(win, string.as_ptr()) })
+            .with(move |win| unsafe { glfwSetClipboardString(win, string.as_ptr()) });
     }
 }
 
@@ -270,7 +267,7 @@ impl Drop for Window {
             glfwDestroyWindow(win);
 
             drop(Box::from_raw(ptr as *mut Sender<Event>));
-        })
+        });
     }
 }
 
@@ -347,7 +344,7 @@ unsafe fn send_event(win: GlfwWindow, event: Event) {
     sender.send(event).unwrap();
 }
 
-// from glfw to js `e.which`
+// from GLFW to JS `event.which`
 // TODO: modifier (left/right for shift/ctrl/alt)
 fn key_code(key: c_int) -> u32 {
     (match key {
