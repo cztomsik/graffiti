@@ -2,14 +2,14 @@ use crate::css::{
     CssAlign, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap, CssJustify, CssPosition, CssStyleSheet,
     StyleProp, StyleResolver,
 };
-use crate::document::{Change, Document, NodeId, NodeType};
+use crate::document::{Change, Document, NodeId, NodeKind};
 use crate::gfx::{Canvas, GlBackend, PathCmd, RenderBackend, Text, TextStyle, Transform, Vec2, AABB, RGBA8};
 use crate::layout::{
     Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutNodeId, LayoutResult, LayoutStyle, LayoutTree,
     Position, Size,
 };
 use crate::util::{BitSet, SlotMap};
-use crate::window::Window;
+use crate::windowing::Window;
 use std::sync::Arc;
 
 pub struct Renderer {
@@ -140,13 +140,13 @@ impl<'a> RenderContext<'a> {
         let layout_res = self.layout_tree.layout_result(render_node.layout_node);
 
         match render_node.dom_node.node_type() {
-            NodeType::Element | NodeType::Document => self.render_container(
+            NodeKind::Element | NodeKind::Document => self.render_container(
                 parent_offset,
                 &layout_res,
                 render_node.render_style.as_ref().unwrap(),
                 render_node.dom_node.child_nodes().into_iter(),
             ),
-            NodeType::Text => self.render_text(
+            NodeKind::Text => self.render_text(
                 parent_offset,
                 &layout_res,
                 &render_node.dom_node.as_text().unwrap().data(),

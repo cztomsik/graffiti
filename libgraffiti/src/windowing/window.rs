@@ -1,5 +1,4 @@
-use super::App;
-use crate::app::AppOwned;
+use super::app::{App, AppOwned};
 use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use graffiti_glfw::*;
 use once_cell::sync::Lazy;

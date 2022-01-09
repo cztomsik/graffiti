@@ -16,23 +16,20 @@
 #[macro_use]
 mod util;
 
-mod app;
-mod css;
 mod document;
+mod html;
 mod layout;
 mod renderer;
-mod webview;
-mod window;
+mod windowing;
+
+pub mod css;
 
 pub use self::{
-  app::App,
-  css::CssStyleDeclaration,
-  document::{Document, NodeId, NodeType},
-  renderer::Renderer,
-  webview::WebView,
-  window::{Event, Window, WindowId},
+  document::{Document, NodeId, NodeKind},
+  // TODO: feature-flag
+  windowing::*,
 };
 pub mod gfx;
 
 // TODO: feature-flag
-// mod ffi;
+mod ffi;
