@@ -10,7 +10,9 @@
   clippy::cast_precision_loss,
   clippy::cast_lossless,
   clippy::cast_sign_loss,
-  clippy::enum_glob_use
+  clippy::enum_glob_use,
+  clippy::missing_errors_doc,
+  clippy::type_complexity
 )]
 
 #[macro_use]

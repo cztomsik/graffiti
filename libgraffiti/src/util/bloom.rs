@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 
 const BITS: u64 = 64;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Bloom<T> {
     bits: u64,
     marker: PhantomData<T>,

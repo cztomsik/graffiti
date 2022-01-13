@@ -213,9 +213,9 @@ pub fn color<'a>() -> Parser<'a, CssColor> {
     hex_color | rgb | rgba | named_color
 }
 
-pub fn font_family<'a>() -> Parser<'a, Atom<String>> {
+pub fn font_family<'a>() -> Parser<'a, Atom> {
     // TODO: multiple, strings
-    //       but keep it as Atom<String> because that is easy to
+    //       but keep it as Atom because that is easy to
     //       map/cache to FontQuery and I'd like to keep CSS unaware of fonts
     is_a(|t: &str| alphanum_dash(t.as_bytes()[0])).map(Atom::from)
 }
