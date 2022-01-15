@@ -25,6 +25,7 @@ impl CssColor {
         Self { r, g, b, a }
     }
 
+    #[allow(clippy::too_many_lines, clippy::match_same_arms)]
     pub fn named(name: &str) -> Option<Self> {
         Some(match name {
             "transparent" => Self::rgba(0, 0, 0, 0),

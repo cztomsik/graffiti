@@ -1,5 +1,3 @@
-use std::fmt;
-
 mod box_shadow;
 mod color;
 mod dimension;

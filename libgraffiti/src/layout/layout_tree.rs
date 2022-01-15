@@ -50,8 +50,8 @@ impl LayoutTree {
         self.tree.remove_child(parent, child);
     }
 
-    pub fn measure(&mut self, node: LayoutNodeId) -> Option<&Box<dyn Fn()>> {
-        self.tree[node].measure.as_ref()
+    pub fn measure(&mut self, node: LayoutNodeId) -> Option<&dyn Fn()> {
+        self.tree[node].measure.as_deref()
     }
 
     pub fn set_measure(&mut self, node: LayoutNodeId, measure: Option<Box<dyn Fn()>>) {

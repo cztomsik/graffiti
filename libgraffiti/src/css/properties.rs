@@ -102,7 +102,7 @@ css_properties! {
     ("justify-content", css_enum()) => JustifyContent(CssJustify),
 
     // text
-    ("font-family", font_family()) => FontFamily(Atom<String>),
+    ("font-family", font_family()) => FontFamily(Atom),
     ("font-size", dimension()) => FontSize(CssDimension),
     ("line-height", dimension()) => LineHeight(CssDimension),
     ("text-align", css_enum()) => TextAlign(CssTextAlign),
@@ -187,7 +187,7 @@ mod tests {
         use std::mem::size_of;
 
         assert_eq!(size_of::<Box<CssBoxShadow>>(), size_of::<usize>());
-        assert_eq!(size_of::<Atom<String>>(), size_of::<usize>());
+        assert_eq!(size_of::<Atom>(), size_of::<usize>());
 
         assert_eq!(size_of::<CssDimension>(), size_of::<(u32, f32)>());
 
