@@ -19,9 +19,12 @@ struct Store {
 /// expected to be low and/or not to grow significantly over the time.
 ///
 /// ```
-/// let atom = Atom::from("hello")
+/// # use graffiti::Atom;
+///
+/// let atom = Atom::from("hello");
 /// assert_eq!(atom, "hello");
-/// assert_eq!(*atom, "hello");
+/// assert_eq!(atom, "hello");
+/// assert_eq!(format!("{}", atom), "hello");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Atom(NonZeroU32);
@@ -47,9 +50,9 @@ where
     }
 }
 
-impl PartialEq<str> for Atom {
-    fn eq(&self, other: &str) -> bool {
-        other == &**self
+impl PartialEq<&str> for Atom {
+    fn eq(&self, other: &&str) -> bool {
+        *other == &**self
     }
 }
 
@@ -69,7 +72,7 @@ impl Borrow<str> for Atom {
 
 impl fmt::Display for Atom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        fmt::Display::fmt(&**self, f)
     }
 }
 
