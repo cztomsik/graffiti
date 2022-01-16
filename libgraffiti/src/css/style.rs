@@ -1,7 +1,10 @@
+// TODO: there should be prop.id()
+//       so we can first find id for given &str
+//       and then just find the prop with simple eq check
+
 use super::parser::{style, tokenize, ParseError};
 use super::properties::StyleProp;
 use std::fmt;
-use std::fmt::Write;
 use std::mem::discriminant;
 
 #[derive(Debug, Default, Clone, PartialEq)]

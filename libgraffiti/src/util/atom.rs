@@ -19,10 +19,7 @@ struct Store {
 /// expected to be low and/or not to grow significantly over the time.
 ///
 /// ```
-/// # use graffiti::Atom;
-///
 /// let atom = Atom::from("hello");
-/// assert_eq!(atom, "hello");
 /// assert_eq!(atom, "hello");
 /// assert_eq!(format!("{}", atom), "hello");
 /// ```
@@ -98,10 +95,14 @@ mod tests {
     }
 
     #[test]
-    fn from_borrowed() {
-        let _: Atom = Atom::from("foo");
+    fn deref() {
+        let atom = Atom::from("hello");
+        assert_eq!(atom.len(), 5);
+    }
 
-        let foo = Atom::from("foo");
-        assert!(<dyn std::any::Any>::is::<Atom>(&foo));
+    #[test]
+    fn display() {
+        let atom = Atom::from("hello");
+        assert_eq!(format!("{}", atom), "hello");
     }
 }

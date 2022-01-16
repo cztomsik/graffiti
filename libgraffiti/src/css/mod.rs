@@ -12,7 +12,7 @@ pub use {
     properties::StyleProp,
     resolver::StyleResolver,
     rule::CssStyleRule,
-    selector::{Element, Selector},
+    selector::{MatchingContext, Selector, Specificity},
     sheet::CssStyleSheet,
     style::CssStyle,
     values::*,

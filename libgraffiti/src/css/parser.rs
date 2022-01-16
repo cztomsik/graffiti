@@ -82,7 +82,7 @@ pub fn selector<'a>() -> Parser<'a, Selector> {
 
         parts.push(head);
 
-        Selector { parts }
+        Selector::from_parts(parts)
     })
 }
 
@@ -191,7 +191,7 @@ pub fn color<'a>() -> Parser<'a, CssColor> {
                     r: hex_val(hex[0]) * 17,
                     g: hex_val(hex[1]) * 17,
                     b: hex_val(hex[2]) * 17,
-                    a: hex.get(3).map(|&v| hex_val(v) * 17).unwrap_or(255),
+                    a: hex.get(3).map_or(255, |&v| hex_val(v) * 17),
                 },
 
                 _ => return Err("invalid hex color"),
@@ -351,9 +351,7 @@ mod tests {
         let selector = Selector::parse("div")?;
         assert_eq!(
             selector,
-            Selector {
-                parts: vec![SelectorPart::Component(Component::LocalName(Atom::from("div")))]
-            }
+            Selector::from_parts(vec![SelectorPart::Component(Component::LocalName(Atom::from("div")))])
         );
 
         let sheet = CssStyleSheet::parse("div { color: #fff }")?;

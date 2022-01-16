@@ -1,5 +1,4 @@
-use crate::css::{CssStyle, Selector};
-use crate::html::{parse_html, HtmlNode};
+use crate::css::{CssStyle, MatchingContext, Selector};
 use crate::util::{Atom, Edge, Id, IdTree, Node};
 use std::borrow::Cow;
 use std::fmt;
@@ -28,6 +27,7 @@ pub enum Change {
     Removed(NodeId),
 }
 
+/// Parsed tree with stable ids and built-in change-tracking
 pub struct Document {
     tree: IdTree<DomData>,
     changes: Vec<Change>,
@@ -41,44 +41,6 @@ impl Document {
         };
 
         assert_eq!(doc.root(), doc.create_node(DomData::Document));
-
-        doc
-    }
-
-    pub fn from_html(html: &str) -> Self {
-        let mut doc = Self::new();
-        let mut stack: Vec<(NodeId, HtmlNode)> = parse_html(html)
-            .unwrap()
-            .into_iter()
-            .map(|n| (doc.root(), n))
-            .rev()
-            .collect();
-
-        while let Some((parent, node)) = stack.pop() {
-            let node = match node {
-                HtmlNode::Text(data) => doc.create_text_node(data),
-                HtmlNode::Comment(data) => doc.create_comment(data),
-                HtmlNode::Element {
-                    local_name,
-                    attributes,
-                    children,
-                } => {
-                    let el = doc.create_element(local_name);
-
-                    for (att, value) in attributes {
-                        doc[el].el_mut().set_attribute(att, value);
-                    }
-
-                    for ch in children.into_iter().rev() {
-                        stack.push((el, ch));
-                    }
-
-                    el
-                }
-            };
-
-            doc.append_child(parent, node);
-        }
 
         doc
     }
@@ -128,9 +90,9 @@ impl Document {
         self.tree.traverse(node)
     }
 
-    pub fn matches(&self, node: NodeId, selector: &str) -> bool {
+    pub fn element_matches(&self, element: NodeId, selector: &str) -> bool {
         match Selector::parse(selector) {
-            Ok(sel) => todo!(), //sel.match_element(self).is_some(),
+            Ok(sel) => self.match_selector(&sel, element).is_some(),
             _ => false,
         }
     }
@@ -139,12 +101,17 @@ impl Document {
         self.query_selector_all(node, selector).next()
     }
 
-    pub fn query_selector_all(&self, node: NodeId, selector: &str) -> impl Iterator<Item = NodeId> {
-        let selector = Selector::parse(selector).unwrap_or(Selector::unsupported());
-        // let els = self.descendants().into_iter().filter_map(|node| node.downcast::<ElementRef>());
-        // els.filter(|el| selector.match_element(el).is_some()).collect()
-        let res: Vec<NodeId> = todo!();
-        res.into_iter()
+    pub fn query_selector_all(&self, node: NodeId, selector: &str) -> impl Iterator<Item = NodeId> + '_ {
+        let selector = Selector::parse(selector).unwrap_or_else(|_| Selector::unsupported());
+
+        self.traverse(node).filter_map(move |e| match e {
+            Edge::Start(node)
+                if self[node].kind() == NodeKind::Element && self.match_selector(&selector, node).is_some() =>
+            {
+                Some(node)
+            }
+            _ => None,
+        })
     }
 
     pub fn create_text_node(&mut self, data: &str) -> NodeId {
@@ -170,7 +137,7 @@ impl Document {
         self.tree.drop_node(node);
     }
 
-    // private (at leats for now)
+    // private (at least for now)
     pub(crate) fn take_changes(&mut self) -> Vec<Change> {
         std::mem::take(&mut self.changes)
     }
@@ -257,20 +224,20 @@ impl DomData {
 }
 
 pub struct ElementData {
-    local_name: Atom<String>,
-    attributes: Vec<(Atom<String>, Atom<String>)>,
+    local_name: Atom,
+    attributes: Vec<(Atom, Atom)>,
     style: CssStyle,
 }
 
 impl ElementData {
     pub fn local_name(&self) -> &str {
-        &**self.local_name
+        &*self.local_name
     }
 
     pub fn attribute_names(&self) -> impl Iterator<Item = &str> {
         let style = (self.style.length() > 0).then(|| "style");
 
-        self.attributes.iter().map(|(k, _)| &***k).chain(style.into_iter())
+        self.attributes.iter().map(|(k, _)| &**k).chain(style.into_iter())
     }
 
     pub fn attribute(&self, attr: &str) -> Option<Cow<str>> {
@@ -279,8 +246,8 @@ impl ElementData {
             _ => self
                 .attributes
                 .iter()
-                .find(|(a, _)| attr == **a)
-                .map(|(_, v)| Cow::Borrowed(&***v)),
+                .find(|(a, _)| attr == &**a)
+                .map(|(_, v)| Cow::Borrowed(&**v)),
         }
     }
 
@@ -288,7 +255,7 @@ impl ElementData {
         match attr {
             "style" => self.style = CssStyle::parse(value).unwrap_or_default(),
             _ => {
-                if let Some(a) = self.attributes.iter_mut().find(|(a, _)| attr == **a) {
+                if let Some(a) = self.attributes.iter_mut().find(|(a, _)| attr == &**a) {
                     a.1 = value.into();
                 } else {
                     self.attributes.push((attr.into(), value.into()));
@@ -300,7 +267,7 @@ impl ElementData {
     pub fn remove_attribute(&mut self, attr: &str) {
         match attr {
             "style" => self.style = CssStyle::default(),
-            _ => self.attributes.retain(|(a, _)| attr != **a),
+            _ => self.attributes.retain(|(a, _)| attr != &**a),
         };
     }
 

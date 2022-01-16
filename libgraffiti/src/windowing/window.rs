@@ -77,7 +77,7 @@ impl Window {
     }
 
     pub fn find_by_id(id: WindowId) -> Option<Arc<Window>> {
-        WINDOWS.lock().unwrap().get(&id).map(Weak::upgrade).flatten()
+        WINDOWS.lock().unwrap().get(&id).and_then(Weak::upgrade)
     }
 
     pub fn id(&self) -> WindowId {

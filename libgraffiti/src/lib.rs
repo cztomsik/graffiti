@@ -19,7 +19,6 @@
 mod util;
 
 mod document;
-mod html;
 mod layout;
 mod renderer;
 mod windowing;

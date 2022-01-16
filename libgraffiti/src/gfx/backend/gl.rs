@@ -7,7 +7,7 @@ use std::mem;
 use std::os::raw::c_void;
 use std::ptr;
 
-/// Super-simple OpengGL 2.1 backend
+/// Super-simple OpenGL 2.1 backend
 /// - one vbo
 /// - one shader
 /// - one texture
