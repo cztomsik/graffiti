@@ -177,6 +177,30 @@ impl IndexMut<NodeId> for Document {
     }
 }
 
+impl MatchingContext for Document {
+    type ElementRef = NodeId;
+
+    fn parent_element(&self, element: NodeId) -> Option<NodeId> {
+        match self[element].parent_node() {
+            Some(p) if self[p].kind() == NodeKind::Element => Some(p),
+            _ => None,
+        }
+    }
+
+    fn local_name(&self, el: Self::ElementRef) -> &str {
+        &self[el].el().local_name
+    }
+
+    fn attribute(&self, el: Self::ElementRef, attr: &str) -> Option<&str> {
+        self[el]
+            .el()
+            .attributes
+            .iter()
+            .find(|(a, _)| attr == &**a)
+            .map(|(_, v)| &**v)
+    }
+}
+
 pub enum DomData {
     Element(ElementData),
     Text(String),
@@ -324,7 +348,7 @@ mod tests {
         assert_eq!(doc[div].el().attribute("id").as_deref(), Some("panel"));
 
         // even before connecting, browsers do the same
-        assert!(doc.matches(div, "div#panel"));
+        assert!(doc.element_matches(div, "div#panel"));
 
         doc.append_child(doc.root(), div);
         assert_eq!(doc.query_selector(doc.root(), "div#panel"), Some(div));

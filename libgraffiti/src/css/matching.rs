@@ -1,5 +1,4 @@
-use super::selector::{Combinator, Component, Selector, SelectorPart};
-use crate::util::Atom;
+use super::selector::{Combinator, Selector, SelectorPart};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Specificity(u32);
@@ -9,7 +8,7 @@ pub trait MatchingContext: Sized {
     type ElementRef: Copy;
 
     fn parent_element(&self, element: Self::ElementRef) -> Option<Self::ElementRef>;
-    fn local_name(&self, element: Self::ElementRef) -> Atom;
+    fn local_name(&self, element: Self::ElementRef) -> &str;
     fn attribute(&self, element: Self::ElementRef, attribute: &str) -> Option<&str>;
 
     fn match_selector(&self, selector: &Selector, element: Self::ElementRef) -> Option<Specificity> {
@@ -32,7 +31,18 @@ trait MatchingContextExt: MatchingContext {
         // we are always going forward
         'next_part: while let Some(p) = parts_iter.next() {
             match p {
-                SelectorPart::Component(comp) => {
+                SelectorPart::Combinator(comb) => {
+                    match comb {
+                        // state changes
+                        Combinator::Parent => parent = true,
+                        Combinator::Ancestor => ancestors = true,
+
+                        // end-of-branch and we still have a match, no need to check others
+                        Combinator::Or => break 'next_part,
+                    }
+                }
+
+                comp => {
                     loop {
                         if parent || ancestors {
                             parent = false;
@@ -68,16 +78,6 @@ trait MatchingContextExt: MatchingContext {
                     // or fail otherwise
                     return None;
                 }
-
-                // state changes
-                SelectorPart::Combinator(Combinator::Parent) => parent = true,
-                SelectorPart::Combinator(Combinator::Ancestor) => ancestors = true,
-
-                // no-op
-                SelectorPart::Combinator(Combinator::Universal) => {}
-
-                // we still have a match, no need to check others
-                SelectorPart::Combinator(Combinator::Or) => break 'next_part,
             }
         }
 
@@ -85,15 +85,22 @@ trait MatchingContextExt: MatchingContext {
         Some(specificity)
     }
 
-    fn match_component(&self, el: Self::ElementRef, comp: &Component) -> bool {
-        match *comp {
-            Component::LocalName(name) => name == self.local_name(el),
-            Component::Identifier(id) => Some(&*id) == self.attribute(el, "id"),
-            Component::ClassName(cls) => match self.attribute(el, "class") {
-                Some(s) => s.split_ascii_whitespace().any(|part| part == &*cls),
+    fn match_component(&self, el: Self::ElementRef, comp: &SelectorPart) -> bool {
+        match comp {
+            SelectorPart::Universal => true,
+            SelectorPart::LocalName(name) => self.local_name(el) == &**name,
+            SelectorPart::Identifier(id) => self.attribute(el, "id") == Some(id),
+            SelectorPart::ClassName(cls) => match self.attribute(el, "class") {
+                Some(s) => s.split_ascii_whitespace().any(|part| part == &**cls),
                 _ => false,
             },
-            Component::Unsupported => false,
+            SelectorPart::AttrExists(att) => self.attribute(el, att).is_some(),
+            SelectorPart::AttrEq(att, val) => self.attribute(el, att) == Some(val),
+            SelectorPart::AttrStartsWith(att, s) => self.attribute(el, att).map_or(false, |v| v.starts_with(&**s)),
+            SelectorPart::AttrEndsWith(att, s) => self.attribute(el, att).map_or(false, |v| v.ends_with(&**s)),
+            SelectorPart::AttrContains(att, s) => self.attribute(el, att).map_or(false, |v| v.contains(&**s)),
+            SelectorPart::Unsupported => false,
+            SelectorPart::Combinator(_) => unreachable!(),
         }
     }
 }
@@ -115,7 +122,7 @@ mod tests {
                 [None, Some(0), Some(1), Some(2), Some(3)][el]
             }
 
-            fn local_name(&self, el: usize) -> Atom {
+            fn local_name(&self, el: usize) -> &str {
                 ["html", "body", "div", "button", "span"][el].into()
             }
 

@@ -13,7 +13,7 @@
 
 use super::{
     properties::{prop_parser, shorthand_parser},
-    selector::{Combinator, Component, Selector, SelectorPart},
+    selector::{Combinator, Selector, SelectorPart},
     CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssOverflow, CssStyle, CssStyleRule, CssStyleSheet,
 };
 use crate::util::Atom;
@@ -49,21 +49,23 @@ pub fn rule<'a>() -> Parser<'a, CssStyleRule> {
 pub fn selector<'a>() -> Parser<'a, Selector> {
     let tag = || {
         let ident = || ident().map(Atom::from);
-        let local_name = ident().map(Component::LocalName);
-        let id = sym("#") * ident().map(Component::Identifier);
-        let class_name = sym(".") * ident().map(Component::ClassName);
-        let attr = sym("[") * (!sym("]") * skip(1)).repeat(1..).map(|_| Component::Unsupported) - sym("]");
-        let pseudo = sym(":").discard().repeat(1..3) * ident().map(|_| Component::Unsupported);
-        let universal = sym("*").map(|_| SelectorPart::Combinator(Combinator::Universal));
+        let universal = sym("*").map(|_| SelectorPart::Universal);
+        let local_name = ident().map(SelectorPart::LocalName);
+        let id = sym("#") * ident().map(SelectorPart::Identifier);
+        let class_name = sym(".") * ident().map(SelectorPart::ClassName);
+        let attr_exists = sym("[") * ident().map(SelectorPart::AttrExists) - sym("]");
+        let unknown_attr = sym("[") * (!sym("]") * skip(1)).repeat(1..).map(|_| SelectorPart::Unsupported) - sym("]");
+        let attr = attr_exists | unknown_attr;
+        let pseudo = sym(":").discard().repeat(1..3) * ident().map(|_| SelectorPart::Unsupported);
 
-        universal | (id | class_name | local_name | attr | pseudo).map(SelectorPart::Component)
+        universal | local_name | id | class_name | attr | pseudo
     };
 
     // note we parse child/descendant but we flip the final order so it's parent/ancestor
     let child = sym(">").map(|_| Combinator::Parent);
     let descendant = sym(" ").map(|_| Combinator::Ancestor);
     let or = sym(",").map(|_| Combinator::Or);
-    let unsupported = (sym("+") | sym("~")).map(|_| SelectorPart::Component(Component::Unsupported));
+    let unsupported = (sym("+") | sym("~")).map(|_| SelectorPart::Unsupported);
     let comb = (child | descendant | or).map(SelectorPart::Combinator) | unsupported;
 
     let selector = tag() + (comb.opt() + tag()).repeat(0..);
@@ -331,6 +333,12 @@ mod tests {
         );
 
         assert_eq!(
+            tokenize(b"prop: url('foo bar')"),
+            vec!["prop", ":", "url", "(", "'foo bar'", ")"],
+        );
+        assert_eq!(tokenize(b"[foo=\"bar\"]"), vec!["[", "foo", "=", "\"bar\"", "]"]);
+
+        assert_eq!(
             tokenize(b"@media { a b { left: 10% } }"),
             vec!["@", "media", "{", "a", " ", "b", "{", "left", ":", "10", "%", "}", "}"]
         );
@@ -351,7 +359,7 @@ mod tests {
         let selector = Selector::parse("div")?;
         assert_eq!(
             selector,
-            Selector::from_parts(vec![SelectorPart::Component(Component::LocalName(Atom::from("div")))])
+            Selector::from_parts(vec![SelectorPart::LocalName(Atom::from("div"))])
         );
 
         let sheet = CssStyleSheet::parse("div { color: #fff }")?;
@@ -457,36 +465,36 @@ mod tests {
     #[test]
     fn parse_selector() {
         use super::Combinator::*;
-        use super::Component::*;
-        use SelectorPart::{Combinator, Component};
+        use SelectorPart::*;
 
         let s = |s| Selector::parse(s).unwrap().parts;
 
         // simple
-        assert_eq!(s("*"), &[Combinator(Universal)]);
-        assert_eq!(s("body"), &[Component(LocalName("body".into()))]);
-        assert_eq!(s("h2"), &[Component(LocalName("h2".into()))]);
-        assert_eq!(s("#app"), &[Component(Identifier("app".into()))]);
-        assert_eq!(s(".btn"), &[Component(ClassName("btn".into()))]);
+        assert_eq!(s("*"), &[Universal]);
+        assert_eq!(s("body"), &[LocalName("body".into())]);
+        assert_eq!(s("h2"), &[LocalName("h2".into())]);
+        assert_eq!(s("#app"), &[Identifier("app".into())]);
+        assert_eq!(s(".btn"), &[ClassName("btn".into())]);
+
+        // attrs
+        assert_eq!(s(r"[href]"), &[AttrExists("href".into())]);
+        // assert_eq!(s(r#"[href="foo"]"#), &[AttrEq("href".into(), "foo".into())]);
+        // assert_eq!(s(r#"[href^="http"]"#), &[AttrStartsWith("href".into(), "http".into())]);
+        // assert_eq!(s(r#"[href$=".org"]"#), &[AttrEndsWith("href".into(), ".org".into())]);
+        // assert_eq!(s(r#"[href*="foo"]"#), &[AttrContains("href".into(), "foo".into())]);
 
         // combined
         assert_eq!(
             s(".btn.btn-primary"),
-            &[
-                Component(ClassName("btn-primary".into())),
-                Component(ClassName("btn".into()))
-            ]
+            &[ClassName("btn-primary".into()), ClassName("btn".into())]
         );
-        assert_eq!(
-            s("*.test"),
-            &[Component(ClassName("test".into())), Combinator(Universal)]
-        );
+        assert_eq!(s("*.test"), &[ClassName("test".into()), Universal]);
         assert_eq!(
             s("div#app.test"),
             &[
-                Component(ClassName("test".into())),
-                Component(Identifier("app".into())),
-                Component(LocalName("div".into()))
+                ClassName("test".into()),
+                Identifier("app".into()),
+                LocalName("div".into())
             ]
         );
 
@@ -494,50 +502,40 @@ mod tests {
         assert_eq!(
             s("body > div.test div#test"),
             &[
-                Component(Identifier("test".into())),
-                Component(LocalName("div".into())),
+                Identifier("test".into()),
+                LocalName("div".into()),
                 Combinator(Ancestor),
-                Component(ClassName("test".into())),
-                Component(LocalName("div".into())),
+                ClassName("test".into()),
+                LocalName("div".into()),
                 Combinator(Parent),
-                Component(LocalName("body".into()))
+                LocalName("body".into())
             ]
         );
 
         // multi
         assert_eq!(
             s("html, body"),
-            &[
-                Component(LocalName("body".into())),
-                Combinator(Or),
-                Component(LocalName("html".into()))
-            ]
+            &[LocalName("body".into()), Combinator(Or), LocalName("html".into())]
         );
         assert_eq!(
             s("body > div, div button span"),
             &[
-                Component(LocalName("span".into())),
+                LocalName("span".into()),
                 Combinator(Ancestor),
-                Component(LocalName("button".into())),
+                LocalName("button".into()),
                 Combinator(Ancestor),
-                Component(LocalName("div".into())),
+                LocalName("div".into()),
                 Combinator(Or),
-                Component(LocalName("div".into())),
+                LocalName("div".into()),
                 Combinator(Parent),
-                Component(LocalName("body".into())),
+                LocalName("body".into()),
             ]
         );
 
         // unsupported for now
-        assert_eq!(s(":root"), &[Component(Unsupported)]);
-        assert_eq!(
-            s("* + *"),
-            &[Combinator(Universal), Component(Unsupported), Combinator(Universal)]
-        );
-        assert_eq!(
-            s("* ~ *"),
-            &[Combinator(Universal), Component(Unsupported), Combinator(Universal)]
-        );
+        assert_eq!(s(":root"), &[Unsupported]);
+        assert_eq!(s("* + *"), &[Universal, Unsupported, Universal]);
+        assert_eq!(s("* ~ *"), &[Universal, Unsupported, Universal]);
 
         // invalid
         assert!(Selector::parse("").is_err());
@@ -546,10 +544,7 @@ mod tests {
         assert!(Selector::parse("a>>b").is_err());
 
         // bugs & edge-cases
-        assert_eq!(
-            s("input[type=\"submit\"]"),
-            &[Component(Unsupported), Component(LocalName("input".into()))]
-        );
+        assert_eq!(s("input[type=\"submit\"]"), &[Unsupported, LocalName("input".into())]);
     }
 
     #[test]

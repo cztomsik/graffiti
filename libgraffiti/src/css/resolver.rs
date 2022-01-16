@@ -1,3 +1,6 @@
+pub struct StyleResolver;
+
+/*
 use super::{CssStyleSheet, Element, StyleProp};
 use crate::util::Bloom;
 use fnv::FnvHashMap;
@@ -95,4 +98,5 @@ mod tests {
         //assert_eq!(res.css_text(), "display: none");
     }
 }
+*/
 */

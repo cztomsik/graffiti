@@ -1,12 +1,12 @@
 // TODO: check if this actually works
 
 use fnv::FnvHasher;
+use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
 const BITS: u64 = 64;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Bloom<T> {
     bits: u64,
     marker: PhantomData<T>,
@@ -34,22 +34,53 @@ impl<T: Hash> Bloom<T> {
         *self = self.with(value);
     }
 
-    pub fn with(&self, value: &T) -> Self {
+    pub fn with(self, value: &T) -> Self {
         Self {
             bits: self.bits | mask(value),
             marker: PhantomData,
         }
     }
 
-    pub fn may_include(&self, value: &T) -> bool {
+    pub fn may_include(self, value: &T) -> bool {
         let mask = mask(value);
         self.bits & mask == mask
+    }
+}
+
+impl<T> fmt::Debug for Bloom<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("Bloom").finish()
     }
 }
 
 impl<T: Hash> Default for Bloom<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<T> Clone for Bloom<T> {
+    fn clone(&self) -> Self {
+        Self {
+            bits: self.bits,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<T> Copy for Bloom<T> {}
+
+impl<T> PartialEq for Bloom<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.bits == other.bits
+    }
+}
+
+impl<T> Eq for Bloom<T> {}
+
+impl<T> Hash for Bloom<T> {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        self.bits.hash(hasher);
     }
 }
 

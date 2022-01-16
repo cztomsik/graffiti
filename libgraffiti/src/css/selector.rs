@@ -1,16 +1,4 @@
-// subset of CSS selectors
-// x to support CSS-in-JS libs
-// - specificity (TODO, u32-only)
-// x no first/last/nth/siblings
-// x universal
-// x local name
-// x id
-// x class
-// x child
-// x descendant
-// x multiple (div, span)
-// x combination
-// x decoupled from other systems
+// subset of CSS selectors for CSS-in-JS
 
 use super::parser::{selector, tokenize, ParseError};
 use crate::util::Atom;
@@ -22,37 +10,34 @@ pub struct Selector {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) enum SelectorPart {
-    // TODO: I think inner discriminant could be squashed but it's not
-    //       maybe part.is_component() + inline these?
-    Component(Component),
-    Combinator(Combinator),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub(super) enum Component {
+    Universal,
     LocalName(Atom),
     Identifier(Atom),
     ClassName(Atom),
+    AttrExists(Atom),
+    AttrEq(Atom, Atom),
+    AttrStartsWith(Atom, Atom),
+    AttrEndsWith(Atom, Atom),
+    AttrContains(Atom, Atom),
 
-    Unsupported,
-    // AttrExists(Atom),
-    // AttrEq(Atom<(Atom, Atom)>) // deref first, then compare both atoms
+    Combinator(Combinator),
+
     // FirstChild // (prev_element_sibling == None)
     // LastChild // (next_element_sibling == None)
     // OnlyChild // (prev_element_sibling == None && next_element_sibling == None)
 
     // BTW: many are just compound shorthands and can be resolved here (:disabled is like [disabled] & input, select, ...)
     // PseudoClass(Atom) // :root, :hover, :focus, :active, :enabled, :disabled, :valid, :invalid, ...
+    Unsupported,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) enum Combinator {
-    Universal,
     Parent,
     Ancestor,
+    Or,
     // Adjacent,
     // Sibling,
-    Or,
 }
 
 impl Selector {
@@ -61,7 +46,7 @@ impl Selector {
     }
 
     pub fn unsupported() -> Self {
-        Self::from_parts(vec![SelectorPart::Component(Component::Unsupported)])
+        Self::from_parts(vec![SelectorPart::Unsupported])
     }
 
     pub fn parse(input: &str) -> Result<Self, ParseError> {
