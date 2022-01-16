@@ -119,7 +119,7 @@ impl Text {
         let mut hints = single_line.break_hints.iter().copied();
         let mut next_hint = (0, 0.);
 
-        for &(x, glyph_id) in single_line.xglyphs.iter() {
+        for &(x, glyph_id) in &single_line.xglyphs {
             // next word/hint
             if x > next_hint.1 {
                 if (rect.min.x + next_hint.1 - offset) > rect.max.x {

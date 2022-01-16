@@ -123,7 +123,7 @@ mod tests {
             }
 
             fn local_name(&self, el: usize) -> &str {
-                ["html", "body", "div", "button", "span"][el].into()
+                ["html", "body", "div", "button", "span"][el]
             }
 
             fn attribute(&self, el: usize, attr: &str) -> Option<&str> {

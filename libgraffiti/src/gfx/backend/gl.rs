@@ -209,9 +209,11 @@ unsafe fn create_program(gl: &glow::Context, vs: &str, fs: &str) -> NativeProgra
     gl.attach_shader(program, fs);
     gl.link_program(program);
 
-    if !gl.get_program_link_status(program) {
-        panic!("{}", gl.get_program_info_log(program));
-    }
+    assert!(
+        gl.get_program_link_status(program),
+        "{}",
+        gl.get_program_info_log(program)
+    );
 
     program
 }
@@ -221,16 +223,17 @@ unsafe fn shader(gl: &glow::Context, shader_type: u32, source: &str) -> NativeSh
     gl.shader_source(shader, source);
     gl.compile_shader(shader);
 
-    if !gl.get_shader_compile_status(shader) {
-        panic!("{}", gl.get_shader_info_log(shader));
-    }
+    assert!(
+        gl.get_shader_compile_status(shader),
+        "{}",
+        gl.get_shader_info_log(shader)
+    );
 
     shader
 }
 
 unsafe fn check(gl: &glow::Context, hint: &str) {
     let err = gl.get_error();
-    if err != NO_ERROR {
-        panic!("gl err {} near {}", err, hint);
-    }
+
+    assert_eq!(err, NO_ERROR, "gl err {} near {}", err, hint);
 }
