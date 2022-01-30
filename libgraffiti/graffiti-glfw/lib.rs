@@ -24,7 +24,7 @@ extern "C" {}
 extern "C" {}
 
 pub const GLFW_TRUE: c_int = 1;
-//pub const GLFW_FALSE: c_int = 0;
+pub const GLFW_FALSE: c_int = 0;
 
 pub const GLFW_CLIENT_API: c_int = 0x00022001;
 pub const GLFW_NO_API: c_int = 0x00000000;
