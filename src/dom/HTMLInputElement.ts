@@ -17,8 +17,8 @@ export class HTMLInputElement extends HTMLElement implements globalThis.HTMLInpu
   _value = ''
   _textNode: Text = this.ownerDocument.createTextNode('')
 
-  constructor(doc, tagName) {
-    super(doc, tagName)
+  constructor(localName, doc) {
+    super(localName, doc)
 
     this.appendChild(this._textNode)
 

@@ -1,7 +1,7 @@
 // TODO: cyclic
 import { Node } from './Node'
 
-import { native, register, getNativeId } from '../native'
+import { native, ID } from '../native'
 import {
   NodeList,
   Text,
@@ -37,16 +37,11 @@ import { UNSUPPORTED } from '../util'
 
 import { Event } from '../events/Event'
 
-const ELS = Symbol()
-
 export class Document extends Node implements globalThis.Document {
   readonly ownerDocument
-  readonly defaultView: Window & typeof globalThis | null = null
+  readonly defaultView: (Window & typeof globalThis) | null = null
   readonly implementation = new DOMImplementation()
   readonly childNodes = new NodeList<ChildNode>()
-
-  // TODO: getter, should be last focused (from symbol?) or body (which can be null sometimes)
-  readonly activeElement: Element | null = null
 
   constructor() {
     // TS defines Node.ownerDocument as nullable but redefines it on every subclass except Document
@@ -57,9 +52,7 @@ export class Document extends Node implements globalThis.Document {
     // if it's ever a problem we could use child.ownerDocument
     this.ownerDocument = this
 
-    register(this, native.gft_Document_new())
-
-    this[ELS] = new Map()
+    this[ID] = native.gft_Document_new()
   }
 
   get nodeType() {
@@ -103,33 +96,37 @@ export class Document extends Node implements globalThis.Document {
     return this.defaultView?.location ?? (null as any)
   }
 
+  // TODO: this is wrong and it should rather use lookup table
+  //       because string comparison is not O(1)
+  //
   // TODO: basic custom elements (no shadow DOM)
+  // prettier-ignore
   createElement(tagName: string, options?) {
     // happy-case
     // - tagName in lowercase means it's also localName
     // - simple comparison of interned strings
     // - ordered by likelihood
     switch (tagName) {
-      case 'div': return new HTMLDivElement(this, tagName)
-      case 'span': return new HTMLSpanElement(this, tagName)
-      case 'a': return new HTMLAnchorElement(this, tagName)
-      case 'button': return new HTMLButtonElement(this, tagName)
-      case 'input': return new HTMLInputElement(this, tagName)
-      case 'textarea': return new HTMLTextAreaElement(this, tagName)
-      case 'table': return new HTMLTableElement(this, tagName)
-      case 'thead': return new HTMLTableSectionElement(this, tagName)
-      case 'tbody': return new HTMLTableSectionElement(this, tagName)
-      case 'tr': return new HTMLTableRowElement(this, tagName)
-      case 'td': return new HTMLTableCellElement(this, tagName)
-      case 'th': return new HTMLTableHeaderCellElement(this, tagName)
-      case 'style': return new HTMLStyleElement(this, tagName)
-      case 'script': return new HTMLScriptElement(this, tagName)
-      //case 'canvas': return new HTMLCanvasElement(this, tagName)
-      case 'link': return new HTMLLinkElement(this, tagName)
-      case 'iframe': return new HTMLIFrameElement(this, tagName)
-      case 'head': return new HTMLHeadElement(this, tagName)
-      case 'body': return new HTMLBodyElement(this, tagName)
-      case 'html': return new HTMLHtmlElement(this, tagName)
+      case 'div': return new HTMLDivElement(tagName, this)
+      case 'span': return new HTMLSpanElement(tagName, this)
+      case 'a': return new HTMLAnchorElement(tagName, this)
+      case 'button': return new HTMLButtonElement(tagName, this)
+      case 'input': return new HTMLInputElement(tagName, this)
+      case 'textarea': return new HTMLTextAreaElement(tagName, this)
+      case 'table': return new HTMLTableElement(tagName, this)
+      case 'thead': return new HTMLTableSectionElement(tagName, this)
+      case 'tbody': return new HTMLTableSectionElement(tagName, this)
+      case 'tr': return new HTMLTableRowElement(tagName, this)
+      case 'td': return new HTMLTableCellElement(tagName, this)
+      case 'th': return new HTMLTableHeaderCellElement(tagName, this)
+      case 'style': return new HTMLStyleElement(tagName, this)
+      case 'script': return new HTMLScriptElement(tagName, this)
+      //case 'canvas': return new HTMLCanvasElement(tagName, this)
+      case 'link': return new HTMLLinkElement(tagName, this)
+      case 'iframe': return new HTMLIFrameElement(tagName, this)
+      case 'head': return new HTMLHeadElement(tagName, this)
+      case 'body': return new HTMLBodyElement(tagName, this)
+      case 'html': return new HTMLHtmlElement(tagName, this)
 
       // otherwise try lowercase and eventually fall-back to HTMLUnknownElement
       default:
@@ -140,24 +137,25 @@ export class Document extends Node implements globalThis.Document {
         const lower = tagName.toLowerCase()
 
         if (tagName === lower) {
-          return new HTMLUnknownElement(this, tagName)
+          return new HTMLUnknownElement(tagName, this)
         }
 
         return this.createElement(lower as any)
     }
   }
 
+  // prettier-ignore
   createElementNS(ns: string | null, tagName: string, options?): any {
     switch (ns) {
       case 'http://www.w3.org/2000/svg':
         switch (tagName) {
-          case 'svg': return new SVGSVGElement(this, tagName)
-          case 'g': return new SVGGElement(this, tagName)
-          default: return new SVGElement(this, tagName)
+          case 'svg': return new SVGSVGElement(tagName, this)
+          case 'g': return new SVGGElement(tagName, this)
+          default: return new SVGElement(tagName, this)
         }
 
       default:
-        return new HTMLUnknownElement(this, tagName)
+        return new HTMLUnknownElement(tagName, this)
     }
   }
 
@@ -180,6 +178,11 @@ export class Document extends Node implements globalThis.Document {
   hasFocus(): boolean {
     // TODO: not sure if it shouldn't also be !== body
     return !!this.activeElement
+  }
+
+  get activeElement() {
+    console.log('TODO: activeElement')
+    return null
   }
 
   get isConnected(): boolean {
@@ -296,7 +299,7 @@ export class Document extends Node implements globalThis.Document {
 
 export const registerElement = (doc, nodeId, el) => doc[ELS].set(nodeId, new WeakRef(el))
 
-export const lookupElement = (doc, nodeId) => nodeId ?doc[ELS].get(nodeId).deref() :null
+export const lookupElement = (doc, nodeId) => (nodeId ? doc[ELS].get(nodeId).deref() : null)
 
 type Doc = Document
 

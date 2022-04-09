@@ -1,12 +1,17 @@
 import { Worker } from './util'
 import type { WorkerApi } from './worker'
+import { encode, native } from './native'
 
 export class AppWindow {
-  #id = 1
+  #id
   #worker?: Worker
   #port?: MessagePort
 
-  constructor({ title = 'Graffiti', width = 1024, height = 768 } = {}) {}
+  constructor({ title = 'Graffiti', width = 1024, height = 768 } = {}) {
+    this.#id = native.gft_Window_new(encode(title), width, height)
+
+    REGISTRY.register(this, this.#id)
+  }
 
   async loadURL(url: URL) {
     this.#worker?.terminate()
@@ -42,3 +47,5 @@ export class AppWindow {
     this.#worker?.postMessage(msg, options)
   }
 }
+
+const REGISTRY = new FinalizationRegistry(id => native.gft_Window_drop(id))

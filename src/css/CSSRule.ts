@@ -1,12 +1,9 @@
-import { register } from "../native"
-
+// prettier-ignore
 export abstract class CSSRule implements globalThis.CSSRule {
   abstract readonly type: number
   abstract readonly cssText: string
 
-  constructor(private readonly parent: CSSStyleSheet, nativeId) {
-    register(this, nativeId)
-  }
+  constructor(private readonly parent: CSSStyleSheet) {}
 
   get parentStyleSheet(): CSSStyleSheet | null {
     // null if it has been removed already

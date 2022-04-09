@@ -12,7 +12,6 @@ pub type NodeId = Id<DomNode>;
 pub enum NodeKind {
     Element = 1,
     Text = 3,
-    Comment = 8,
     Document = 9,
 }
 
@@ -59,11 +58,11 @@ impl Document {
         &mut self.tree[node]
     }
 
-    pub fn create_element(&mut self, local_name: &str) -> NodeId {
+    pub fn create_element(&mut self, local_name: impl Into<Atom>) -> NodeId {
         self.create_node(DomData::Element(ElementData {
             local_name: local_name.into(),
             attributes: Vec::default(),
-            style: CssStyle::default(),
+            style: Style::default(),
         }))
     }
 
@@ -118,14 +117,9 @@ impl Document {
         self.create_node(DomData::Text(data.to_owned()))
     }
 
-    pub fn create_comment(&mut self, data: &str) -> NodeId {
-        self.create_node(DomData::Comment(data.to_owned()))
-    }
-
     pub fn text_content(&self, node: NodeId) -> Cow<'_, str> {
         match &self[node].data() {
             DomData::Text(data) => Cow::Borrowed(data),
-            DomData::Comment(_) => Cow::Borrowed(""),
             _ => self
                 .children(node)
                 .fold(Cow::Borrowed(""), |res, ch| res + self.text_content(ch)),
@@ -204,7 +198,6 @@ impl MatchingContext for Document {
 pub enum DomData {
     Element(ElementData),
     Text(String),
-    Comment(String),
     Document,
 }
 
@@ -213,7 +206,6 @@ impl DomData {
         match self {
             DomData::Element(_) => NodeKind::Element,
             DomData::Text(_) => NodeKind::Text,
-            DomData::Comment(_) => NodeKind::Comment,
             DomData::Document => NodeKind::Document,
         }
     }
@@ -234,15 +226,15 @@ impl DomData {
 
     pub fn text(&self) -> &str {
         match self {
-            DomData::Text(s) | DomData::Comment(s) => s,
-            _ => panic!("not a text/comment"),
+            DomData::Text(s) => s,
+            _ => panic!("not a text"),
         }
     }
 
     pub fn set_text(&mut self, text: &str) {
         match self {
-            DomData::Text(s) | DomData::Comment(s) => *s = text.to_owned(),
-            _ => panic!("not a text/comment"),
+            DomData::Text(s) => *s = text.to_owned(),
+            _ => panic!("not a text"),
         }
     }
 }
@@ -250,12 +242,12 @@ impl DomData {
 pub struct ElementData {
     local_name: Atom,
     attributes: Vec<(Atom, Atom)>,
-    style: CssStyle,
+    style: Style,
 }
 
 impl ElementData {
-    pub fn local_name(&self) -> &str {
-        &*self.local_name
+    pub fn local_name(&self) -> Atom {
+        self.local_name
     }
 
     pub fn attribute_names(&self) -> impl Iterator<Item = &str> {
@@ -264,22 +256,26 @@ impl ElementData {
         self.attributes.iter().map(|(k, _)| &**k).chain(style.into_iter())
     }
 
-    pub fn attribute(&self, attr: &str) -> Option<Cow<str>> {
-        match attr {
+    pub fn attribute(&self, attr: impl Into<Atom>) -> Option<Cow<str>> {
+        let attr = attr.into();
+
+        match &*attr {
             "style" => Some(Cow::Owned(self.style.to_string())),
             _ => self
                 .attributes
                 .iter()
-                .find(|(a, _)| attr == &**a)
+                .find(|(a, _)| attr == *a)
                 .map(|(_, v)| Cow::Borrowed(&**v)),
         }
     }
 
-    pub fn set_attribute(&mut self, attr: &str, value: &str) {
-        match attr {
-            "style" => self.style = CssStyle::parse(value).unwrap_or_default(),
+    pub fn set_attribute(&mut self, attr: impl Into<Atom>, value: &str) {
+        let attr = attr.into();
+
+        match &*attr {
+            "style" => self.style = Style::parse(value).unwrap_or_default(),
             _ => {
-                if let Some(a) = self.attributes.iter_mut().find(|(a, _)| attr == &**a) {
+                if let Some(a) = self.attributes.iter_mut().find(|(a, _)| attr == *a) {
                     a.1 = value.into();
                 } else {
                     self.attributes.push((attr.into(), value.into()));
@@ -288,18 +284,20 @@ impl ElementData {
         }
     }
 
-    pub fn remove_attribute(&mut self, attr: &str) {
-        match attr {
-            "style" => self.style = CssStyle::default(),
-            _ => self.attributes.retain(|(a, _)| attr != &**a),
+    pub fn remove_attribute(&mut self, attr: impl Into<Atom>) {
+        let attr = attr.into();
+
+        match &*attr {
+            "style" => self.style = Style::default(),
+            _ => self.attributes.retain(|(a, _)| attr != *a),
         };
     }
 
-    pub fn style(&self) -> &CssStyle {
+    pub fn style(&self) -> &Style {
         &self.style
     }
 
-    pub fn style_mut(&mut self) -> &mut CssStyle {
+    pub fn style_mut(&mut self) -> &mut Style {
         &mut self.style
     }
 }

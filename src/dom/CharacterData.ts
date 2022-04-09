@@ -1,8 +1,20 @@
 import { Node } from './index'
-import { native, encode, getNativeId, decode } from '../native'
 
 export abstract class CharacterData extends Node implements globalThis.CharacterData {
-  abstract data: string;
+  #data = ''
+
+  constructor(data = '', doc = document) {
+    super(doc)
+    this.#data = normalize(data)
+  }
+
+  get data() {
+    return this.#data
+  }
+
+  set data(data) {
+    this.#data = normalize(data)
+  }
 
   get nodeValue() {
     return this.data

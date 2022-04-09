@@ -7,4 +7,6 @@ console.log('loaded')
 
 console.log(await win.eval('1 + 1'))
 
-console.log(await win.eval('err()'))
+console.log(await win.eval('document.documentElement.innerHTML'))
+
+//console.log(await win.eval('err()'))

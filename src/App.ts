@@ -1,16 +1,21 @@
 import { EventTarget } from './events/EventTarget'
-import { send } from './native'
+import { native } from './native'
 
 class App extends EventTarget {
-  quit() {
-    send('Quit')
+  constructor() {
+    super()
+
+    native.gft_App_init()
   }
+
+  // TODO
+  // quit() {}
 }
 
 export const app = new App()
 
 const loop = () => {
-  send('Tick')
+  native.gft_App_tick()
 
   // macro-task, we want to let others run too
   // TODO: should be 0 but this makes WPT run much faster
@@ -18,5 +23,4 @@ const loop = () => {
   setTimeout(loop, 1000)
 }
 
-send('Init')
 loop()
