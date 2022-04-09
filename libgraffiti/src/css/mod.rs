@@ -13,9 +13,9 @@ pub use {
     parser::ParseError,
     properties::StyleProp,
     resolver::StyleResolver,
-    rule::CssStyleRule,
+    rule::StyleRule,
     selector::Selector,
-    sheet::CssStyleSheet,
-    style::CssStyle,
+    sheet::StyleSheet,
+    style::Style,
     values::*,
 };

@@ -1,22 +1,15 @@
 use super::app::{App, AppOwned};
 use crossbeam_channel::{unbounded as channel, Receiver, Sender};
 use graffiti_glfw::*;
-use once_cell::sync::Lazy;
-use std::collections::HashMap;
 use std::ffi::CString;
 use std::os::raw::{c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex, Weak};
-
-static NEXT_ID: Lazy<AtomicU32> = Lazy::new(Default::default);
-static WINDOWS: Lazy<Mutex<HashMap<WindowId, Weak<Window>>>> = Lazy::new(Default::default);
+use std::sync::{Arc, Mutex};
 
 pub type WindowId = u32;
 
 pub struct Window {
     _app: Arc<App>,
-    id: WindowId,
     glfw_window: AppOwned<GlfwWindow>,
     events: Receiver<Event>,
 
@@ -62,26 +55,12 @@ impl Window {
             AppOwned(glfw_window)
         });
 
-        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let win = Arc::new(Self {
+        Arc::new(Self {
             _app: app,
-            id,
             title: Mutex::new(title.to_owned()),
             glfw_window,
             events,
-        });
-
-        WINDOWS.lock().unwrap().insert(id, Arc::downgrade(&win));
-
-        win
-    }
-
-    pub fn find_by_id(id: WindowId) -> Option<Arc<Window>> {
-        WINDOWS.lock().unwrap().get(&id).and_then(Weak::upgrade)
-    }
-
-    pub fn id(&self) -> WindowId {
-        self.id
+        })
     }
 
     pub fn native_handle(&self) -> *mut c_void {
@@ -259,8 +238,6 @@ impl Window {
 
 impl Drop for Window {
     fn drop(&mut self) {
-        WINDOWS.lock().unwrap().remove(&self.id);
-
         self.glfw_window.with(|win| unsafe {
             let ptr = glfwGetWindowUserPointer(win);
             glfwSetWindowUserPointer(win, null_mut());

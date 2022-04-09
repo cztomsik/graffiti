@@ -1,7 +1,6 @@
 // internal (this is the "main script" of each window)
 // we need workers because each window needs separate scope
 
-import { send } from './native'
 import { Window, makeGlobal } from './window/Window'
 import { parseIntoDocument } from './dom/DOMParser'
 import { readURL } from './util'
@@ -44,7 +43,7 @@ class WorkerApi {
   }
 
   async eval(code) {
-    eval.call(null, code)
+    return eval.call(null, code)
   }
 }
 

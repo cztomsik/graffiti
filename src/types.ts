@@ -1,0 +1,10 @@
+export type IChildNode = globalThis.ChildNode
+export type ICSSStyleDeclaration = globalThis.CSSStyleDeclaration
+export type IComment = globalThis.Comment
+export type IDocument = globalThis.Document
+export type IElement = globalThis.Element
+export type INode = globalThis.Node
+export type INonDocumentTypeChildNode = globalThis.NonDocumentTypeChildNode
+export type IParentNode = globalThis.ParentNode
+export type ISlottable = globalThis.Slottable
+export type IText = globalThis.Text

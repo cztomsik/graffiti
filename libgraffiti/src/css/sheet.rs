@@ -1,13 +1,13 @@
 use super::parser::{sheet, tokenize, ParseError};
-use super::rule::CssStyleRule;
+use super::rule::StyleRule;
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct CssStyleSheet {
-    rules: Vec<CssStyleRule>,
+pub struct StyleSheet {
+    rules: Vec<StyleRule>,
 }
 
-impl CssStyleSheet {
-    pub fn new(rules: Vec<CssStyleRule>) -> Self {
+impl StyleSheet {
+    pub fn new(rules: Vec<StyleRule>) -> Self {
         Self { rules }
     }
 
@@ -18,11 +18,11 @@ impl CssStyleSheet {
         parser.parse(&tokens)
     }
 
-    pub fn rules(&self) -> &[CssStyleRule] {
+    pub fn rules(&self) -> &[StyleRule] {
         &self.rules
     }
 
-    pub fn insert_rule(&mut self, rule: CssStyleRule, index: usize) {
+    pub fn insert_rule(&mut self, rule: StyleRule, index: usize) {
         self.rules.insert(index, rule);
     }
 

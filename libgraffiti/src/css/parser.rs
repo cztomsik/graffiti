@@ -14,7 +14,7 @@
 use super::{
     properties::{prop_parser, shorthand_parser},
     selector::{Combinator, Selector, SelectorPart},
-    CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssOverflow, CssStyle, CssStyleRule, CssStyleSheet,
+    CssBorderStyle, CssBoxShadow, CssColor, CssDimension, CssOverflow, Style, StyleRule, StyleSheet,
 };
 use crate::util::Atom;
 use pom::char_class::alphanum;
@@ -29,7 +29,7 @@ type Token<'a> = &'a str;
 
 pub type ParseError = pom::Error;
 
-pub fn sheet<'a>() -> Parser<'a, CssStyleSheet> {
+pub fn sheet<'a>() -> Parser<'a, StyleSheet> {
     // anything until next "}}" (empty media is matched with unknown)
     let media = sym("@") * sym("media") * (!seq(&["}", "}"]) * skip(1)).repeat(1..).map(|_| None) - sym("}") - sym("}");
     // anything until next "}"
@@ -37,13 +37,13 @@ pub fn sheet<'a>() -> Parser<'a, CssStyleSheet> {
 
     (rule().map(Option::Some) | media | unknown)
         .repeat(0..)
-        .map(|maybe_rules| CssStyleSheet::new(maybe_rules.into_iter().flatten().collect()))
+        .map(|maybe_rules| StyleSheet::new(maybe_rules.into_iter().flatten().collect()))
 }
 
-pub fn rule<'a>() -> Parser<'a, CssStyleRule> {
+pub fn rule<'a>() -> Parser<'a, StyleRule> {
     let rule = selector() - sym("{") + style() - sym("}");
 
-    rule.map(|(selector, style)| CssStyleRule::new(selector, style))
+    rule.map(|(selector, style)| StyleRule::new(selector, style))
 }
 
 pub fn selector<'a>() -> Parser<'a, Selector> {
@@ -88,13 +88,13 @@ pub fn selector<'a>() -> Parser<'a, Selector> {
     })
 }
 
-pub fn style<'a>() -> Parser<'a, CssStyle> {
+pub fn style<'a>() -> Parser<'a, Style> {
     // any chunk of tokens before ";" or "}"
     let prop_value = (!sym(";") * !sym("}") * skip(1)).repeat(1..).collect();
     let prop = any() - sym(":") + prop_value - sym(";").discard().repeat(0..);
 
     prop.repeat(0..).map(|props| {
-        let mut style = CssStyle::default();
+        let mut style = Style::default();
 
         for (p, v) in props {
             // skip unknown
@@ -105,7 +105,7 @@ pub fn style<'a>() -> Parser<'a, CssStyle> {
     })
 }
 
-pub fn parse_prop_into(prop: &str, value: &[&str], style: &mut CssStyle) {
+pub fn parse_prop_into(prop: &str, value: &[&str], style: &mut Style) {
     if let Ok(p) = prop_parser(prop).parse(value) {
         style.add_prop(p);
     } else if let Ok(props) = shorthand_parser(prop).parse(value) {
@@ -353,8 +353,8 @@ mod tests {
 
     #[test]
     fn basic() -> Result<(), ParseError> {
-        let style = CssStyle::parse("color: #fff")?;
-        assert_eq!(style, CssStyle::new(vec![StyleProp::Color(CssColor::WHITE)]));
+        let style = Style::parse("color: #fff")?;
+        assert_eq!(style, Style::new(vec![StyleProp::Color(CssColor::WHITE)]));
 
         let selector = Selector::parse("div")?;
         assert_eq!(
@@ -362,25 +362,19 @@ mod tests {
             Selector::from_parts(vec![SelectorPart::LocalName(Atom::from("div"))])
         );
 
-        let sheet = CssStyleSheet::parse("div { color: #fff }")?;
+        let sheet = StyleSheet::parse("div { color: #fff }")?;
 
-        assert_eq!(sheet.rules()[0], CssStyleRule::new(Selector::parse("div")?, style));
+        assert_eq!(sheet.rules()[0], StyleRule::new(Selector::parse("div")?, style));
         assert_eq!(sheet.rules()[0].style().to_string(), "color:rgba(255, 255, 255, 255);");
 
         // white-space
-        assert_eq!(CssStyleSheet::parse(" *{}")?.rules().len(), 1);
-        assert_eq!(CssStyleSheet::parse("\n*{\n}\n")?.rules().len(), 1);
+        assert_eq!(StyleSheet::parse(" *{}")?.rules().len(), 1);
+        assert_eq!(StyleSheet::parse("\n*{\n}\n")?.rules().len(), 1);
 
         // forgiving/future-compatibility
-        assert_eq!(CssStyleSheet::parse(":root {} a { v: 0 }")?.rules().len(), 2);
-        assert_eq!(
-            CssStyleSheet::parse("a {} @media { a { v: 0 } } b {}")?.rules().len(),
-            2
-        );
-        assert_eq!(
-            CssStyleSheet::parse("@media { a { v: 0 } } a {} b {}")?.rules().len(),
-            2
-        );
+        assert_eq!(StyleSheet::parse(":root {} a { v: 0 }")?.rules().len(), 2);
+        assert_eq!(StyleSheet::parse("a {} @media { a { v: 0 } } b {}")?.rules().len(), 2);
+        assert_eq!(StyleSheet::parse("@media { a { v: 0 } } a {} b {}")?.rules().len(), 2);
 
         Ok(())
     }
@@ -389,30 +383,30 @@ mod tests {
     fn shorthands() -> Result<(), ParseError> {
         use StyleProp::*;
 
-        let assert_eq_props = |style: &CssStyle, props: &[StyleProp]| Iterator::eq(style.props(), props);
+        let assert_eq_props = |style: &Style, props: &[StyleProp]| Iterator::eq(style.props(), props);
 
         assert_eq_props(
-            &CssStyle::parse("overflow: hidden")?,
+            &Style::parse("overflow: hidden")?,
             &[OverflowX(CssOverflow::Hidden), OverflowY(CssOverflow::Hidden)],
         );
 
         assert_eq_props(
-            &CssStyle::parse("overflow: visible hidden")?,
+            &Style::parse("overflow: visible hidden")?,
             &[OverflowX(CssOverflow::Visible), OverflowY(CssOverflow::Hidden)],
         );
 
         assert_eq_props(
-            &CssStyle::parse("flex: 1")?,
+            &Style::parse("flex: 1")?,
             &[FlexGrow(1.), FlexShrink(1.), FlexBasis(CssDimension::ZERO)],
         );
 
         assert_eq_props(
-            &CssStyle::parse("flex: 2 3 10px")?,
+            &Style::parse("flex: 2 3 10px")?,
             &[FlexGrow(2.), FlexShrink(3.), FlexBasis(CssDimension::Px(10.))],
         );
 
         assert_eq_props(
-            &CssStyle::parse("padding: 0")?,
+            &Style::parse("padding: 0")?,
             &[
                 PaddingTop(CssDimension::ZERO),
                 PaddingRight(CssDimension::ZERO),
@@ -422,7 +416,7 @@ mod tests {
         );
 
         assert_eq_props(
-            &CssStyle::parse("padding: 10px 20px")?,
+            &Style::parse("padding: 10px 20px")?,
             &[
                 PaddingTop(CssDimension::Px(10.)),
                 PaddingRight(CssDimension::Px(20.)),
@@ -432,21 +426,21 @@ mod tests {
         );
 
         assert_eq_props(
-            &CssStyle::parse("background: none")?,
+            &Style::parse("background: none")?,
             &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)],
         );
         assert_eq_props(
-            &CssStyle::parse("background: #000")?,
+            &Style::parse("background: #000")?,
             &[StyleProp::BackgroundColor(CssColor::BLACK)],
         );
 
         // override
-        let mut s = CssStyle::parse("background-color: #fff")?;
+        let mut s = Style::parse("background-color: #fff")?;
         s.set_property("background", "#000");
         assert_eq_props(&s, &[StyleProp::BackgroundColor(CssColor::BLACK)]);
 
         // override with shorthand
-        let mut s = CssStyle::parse("background-color: #fff")?;
+        let mut s = Style::parse("background-color: #fff")?;
         s.set_property("background", "none");
         assert_eq_props(&s, &[StyleProp::BackgroundColor(CssColor::TRANSPARENT)]);
 

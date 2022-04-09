@@ -23,6 +23,7 @@ struct Store {
 /// assert_eq!(atom, "hello");
 /// assert_eq!(format!("{}", atom), "hello");
 /// ```
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Atom(NonZeroU32);
 

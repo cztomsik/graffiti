@@ -8,12 +8,12 @@ use std::fmt;
 use std::mem::discriminant;
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct CssStyle {
+pub struct Style {
     props: Vec<StyleProp>,
     // TODO: important: u32 + 1 << prop.id() as u32 to figure out the bit to flip/check
 }
 
-impl CssStyle {
+impl Style {
     pub fn new(props: Vec<StyleProp>) -> Self {
         Self { props }
     }
@@ -69,7 +69,7 @@ impl CssStyle {
     }
 }
 
-impl fmt::Display for CssStyle {
+impl fmt::Display for Style {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for p in self.props() {
             write!(f, "{}:{};", p.css_name(), p.css_value())?;
@@ -86,13 +86,13 @@ mod tests {
 
     #[test]
     fn css_text() {
-        let s = CssStyle::parse("display:block;").unwrap();
+        let s = Style::parse("display:block;").unwrap();
         assert_eq!(s.to_string(), "display:block;");
     }
 
     #[test]
     fn prop_overriding() {
-        let mut s = CssStyle::default();
+        let mut s = Style::default();
 
         s.add_prop(StyleProp::Display(CssDisplay::None));
         s.add_prop(StyleProp::Display(CssDisplay::Block));

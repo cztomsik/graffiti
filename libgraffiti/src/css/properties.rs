@@ -140,7 +140,7 @@ macro_rules! css_shorthands {
             }
         }
 
-        impl super::CssStyle {
+        impl super::Style {
             pub(super) fn shorthand_value(&self, shorthand_name: &str) -> Option<String> {
                 match shorthand_name {
                     //$($name => todo!(),)*
