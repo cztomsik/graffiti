@@ -24,7 +24,7 @@ struct Store {
 /// assert_eq!(format!("{}", atom), "hello");
 /// ```
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Atom(NonZeroU32);
 
 impl<'a, B: 'a + Borrow<str>> From<B> for Atom
@@ -65,6 +65,12 @@ impl Deref for Atom {
 impl Borrow<str> for Atom {
     fn borrow(&self) -> &str {
         &**self
+    }
+}
+
+impl fmt::Debug for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Atom({:?})", &**self)
     }
 }
 
