@@ -1,8 +1,8 @@
+use super::super::parsing::{float, sym, Parsable, Parser};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-
-pub enum CssDimension {
+pub enum Dimension {
     Auto,
     Px(f32),
     Percent(f32),
@@ -14,11 +14,28 @@ pub enum CssDimension {
     Vmax,
 }
 
-impl CssDimension {
+impl Dimension {
     pub const ZERO: Self = Self::Px(0.);
 }
 
-impl fmt::Display for CssDimension {
+impl Parsable for Dimension {
+    fn parser<'a>() -> Parser<'a, Self> {
+        let px = (float() - sym("px")).map(Self::Px);
+        let percent = (float() - sym("%")).map(Self::Percent);
+        let auto = sym("auto").map(|_| Self::Auto);
+        let zero = sym("0").map(|_| Self::ZERO);
+        let em = (float() - sym("em")).map(Self::Em);
+        let rem = (float() - sym("rem")).map(Self::Rem);
+        let vw = (float() - sym("vw")).map(Self::Vw);
+        let vh = (float() - sym("vh")).map(Self::Vh);
+        let vmin = sym("vmin").map(|_| Self::Vmin);
+        let vmax = sym("vmax").map(|_| Self::Vmax);
+
+        px | percent | auto | zero | em | rem | vw | vh | vmin | vmax
+    }
+}
+
+impl fmt::Display for Dimension {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Auto => write!(f, "auto"),
@@ -31,5 +48,24 @@ impl fmt::Display for CssDimension {
             Self::Vmin => write!(f, "vmin"),
             Self::Vmax => write!(f, "vmax"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_dimension() {
+        assert_eq!(Dimension::parse("auto"), Ok(Dimension::Auto));
+        assert_eq!(Dimension::parse("10px"), Ok(Dimension::Px(10.)));
+        assert_eq!(Dimension::parse("100%"), Ok(Dimension::Percent(100.)));
+        assert_eq!(Dimension::parse("1.2em"), Ok(Dimension::Em(1.2)));
+        assert_eq!(Dimension::parse("2.1rem"), Ok(Dimension::Rem(2.1)));
+        assert_eq!(Dimension::parse("0"), Ok(Dimension::Px(0.)));
+        assert_eq!(Dimension::parse("100vw"), Ok(Dimension::Vw(100.)));
+        assert_eq!(Dimension::parse("100vh"), Ok(Dimension::Vh(100.)));
+        assert_eq!(Dimension::parse("vmin"), Ok(Dimension::Vmin));
+        assert_eq!(Dimension::parse("vmax"), Ok(Dimension::Vmax));
     }
 }

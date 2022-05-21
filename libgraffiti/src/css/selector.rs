@@ -1,6 +1,6 @@
 // subset of CSS selectors for CSS-in-JS
 
-use super::parser::{selector, tokenize, ParseError};
+use super::parsing::{ident, skip, sym, Parsable, ParseError, Parser};
 use crate::util::Atom;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -8,7 +8,7 @@ pub struct Selector {
     pub(super) parts: Vec<SelectorPart>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(super) enum SelectorPart {
     Universal,
     LocalName(Atom),
@@ -31,7 +31,7 @@ pub(super) enum SelectorPart {
     Unsupported,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(super) enum Combinator {
     Parent,
     Ancestor,
@@ -41,19 +41,59 @@ pub(super) enum Combinator {
 }
 
 impl Selector {
-    pub(super) fn from_parts(parts: Vec<SelectorPart>) -> Self {
-        Self { parts }
-    }
-
-    pub fn unsupported() -> Self {
-        Self::from_parts(vec![SelectorPart::Unsupported])
-    }
-
     pub fn parse(input: &str) -> Result<Self, ParseError> {
-        let tokens = tokenize(input.as_bytes());
-        let parser = selector() - pom::parser::end();
+        Parsable::parse(input)
+    }
 
-        parser.parse(&tokens)
+    pub(super) fn unsupported() -> Self {
+        Self {
+            parts: vec![SelectorPart::Unsupported],
+        }
+    }
+}
+
+impl Parsable for Selector {
+    fn parser<'a>() -> Parser<'a, Self> {
+        let tag = || {
+            let ident = || ident().map(Atom::from);
+            let universal = sym("*").map(|_| SelectorPart::Universal);
+            let local_name = ident().map(SelectorPart::LocalName);
+            let id = sym("#") * ident().map(SelectorPart::Identifier);
+            let class_name = sym(".") * ident().map(SelectorPart::ClassName);
+            let attr_exists = sym("[") * ident().map(SelectorPart::AttrExists) - sym("]");
+            let unknown_attr =
+                sym("[") * (!sym("]") * skip(1)).repeat(1..).map(|_| SelectorPart::Unsupported) - sym("]");
+            let attr = attr_exists | unknown_attr;
+            let pseudo = sym(":").discard().repeat(1..3) * ident().map(|_| SelectorPart::Unsupported);
+
+            universal | local_name | id | class_name | attr | pseudo
+        };
+
+        // note we parse child/descendant but we flip the final order so it's parent/ancestor
+        let child = sym(">").map(|_| Combinator::Parent);
+        let descendant = sym(" ").map(|_| Combinator::Ancestor);
+        let or = sym(",").map(|_| Combinator::Or);
+        let unsupported = (sym("+") | sym("~")).map(|_| SelectorPart::Unsupported);
+        let comb = (child | descendant | or).map(SelectorPart::Combinator) | unsupported;
+
+        let selector = tag() + (comb.opt() + tag()).repeat(0..);
+
+        selector.map(|(head, tail)| {
+            let mut parts = Vec::with_capacity(tail.len() + 1);
+
+            // reversed (child/descendant -> parent/ancestor)
+            for (comb, tag) in tail.into_iter().rev() {
+                parts.push(tag);
+
+                if let Some(comb) = comb {
+                    parts.push(comb);
+                }
+            }
+
+            parts.push(head);
+
+            Selector { parts }
+        })
     }
 }
 
@@ -61,13 +101,88 @@ impl Selector {
 mod tests {
     use super::*;
 
-    #[ignore]
     #[test]
-    fn part_size() {
-        use std::mem::size_of;
+    fn parse_selector() {
+        use super::Combinator::*;
+        use SelectorPart::*;
 
-        // TODO: either find a way or inline components in SelectorPart
-        // TODO: make Atom NonZeroU32 to further push this down
-        assert_eq!(size_of::<SelectorPart>(), 2 * size_of::<Atom>());
+        let s = |s| Selector::parse(s).unwrap().parts;
+
+        // simple
+        assert_eq!(s("*"), &[Universal]);
+        assert_eq!(s("body"), &[LocalName("body".into())]);
+        assert_eq!(s("h2"), &[LocalName("h2".into())]);
+        assert_eq!(s("#app"), &[Identifier("app".into())]);
+        assert_eq!(s(".btn"), &[ClassName("btn".into())]);
+
+        // attrs
+        assert_eq!(s(r"[href]"), &[AttrExists("href".into())]);
+        // assert_eq!(s(r#"[href="foo"]"#), &[AttrEq("href".into(), "foo".into())]);
+        // assert_eq!(s(r#"[href^="http"]"#), &[AttrStartsWith("href".into(), "http".into())]);
+        // assert_eq!(s(r#"[href$=".org"]"#), &[AttrEndsWith("href".into(), ".org".into())]);
+        // assert_eq!(s(r#"[href*="foo"]"#), &[AttrContains("href".into(), "foo".into())]);
+
+        // combined
+        assert_eq!(
+            s(".btn.btn-primary"),
+            &[ClassName("btn-primary".into()), ClassName("btn".into())]
+        );
+        assert_eq!(s("*.test"), &[ClassName("test".into()), Universal]);
+        assert_eq!(
+            s("div#app.test"),
+            &[
+                ClassName("test".into()),
+                Identifier("app".into()),
+                LocalName("div".into())
+            ]
+        );
+
+        // combined with combinators
+        assert_eq!(
+            s("body > div.test div#test"),
+            &[
+                Identifier("test".into()),
+                LocalName("div".into()),
+                Combinator(Ancestor),
+                ClassName("test".into()),
+                LocalName("div".into()),
+                Combinator(Parent),
+                LocalName("body".into())
+            ]
+        );
+
+        // multi
+        assert_eq!(
+            s("html, body"),
+            &[LocalName("body".into()), Combinator(Or), LocalName("html".into())]
+        );
+        assert_eq!(
+            s("body > div, div button span"),
+            &[
+                LocalName("span".into()),
+                Combinator(Ancestor),
+                LocalName("button".into()),
+                Combinator(Ancestor),
+                LocalName("div".into()),
+                Combinator(Or),
+                LocalName("div".into()),
+                Combinator(Parent),
+                LocalName("body".into()),
+            ]
+        );
+
+        // unsupported for now
+        assert_eq!(s(":root"), &[Unsupported]);
+        assert_eq!(s("* + *"), &[Universal, Unsupported, Universal]);
+        assert_eq!(s("* ~ *"), &[Universal, Unsupported, Universal]);
+
+        // invalid
+        assert!(Selector::parse("").is_err());
+        assert!(Selector::parse(" ").is_err());
+        assert!(Selector::parse("a,,b").is_err());
+        assert!(Selector::parse("a>>b").is_err());
+
+        // bugs & edge-cases
+        assert_eq!(s("input[type=\"submit\"]"), &[Unsupported, LocalName("input".into())]);
     }
 }

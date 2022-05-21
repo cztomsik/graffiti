@@ -1,14 +1,15 @@
+use super::super::parsing::{any, float, ident, sym, u8, Parsable, Parser};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CssColor {
+pub struct Color {
     pub r: u8,
     pub g: u8,
     pub b: u8,
     pub a: u8,
 }
 
-impl CssColor {
+impl Color {
     // just a few for easier testing
     pub const TRANSPARENT: Self = Self::rgba(0, 0, 0, 0);
     pub const BLACK: Self = Self::rgb(0, 0, 0);
@@ -183,9 +184,91 @@ impl CssColor {
     }
 }
 
-impl fmt::Display for CssColor {
+impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { r, g, b, a } = self;
         write!(f, "rgba({}, {}, {}, {})", r, g, b, a)
+    }
+}
+
+impl Parsable for Color {
+    fn parser<'a>() -> Parser<'a, Self> {
+        fn hex_val(byte: u8) -> u8 {
+            (byte as char).to_digit(16).unwrap() as u8
+        }
+
+        let hex_color = sym("#")
+            * any().convert(|hex: &str| {
+                let hex = hex.as_bytes();
+
+                Ok(match hex.len() {
+                    8 | 6 => {
+                        let mut num = u32::from_str_radix(std::str::from_utf8(hex).unwrap(), 16).unwrap();
+
+                        if hex.len() == 6 {
+                            num = num << 8 | 0xFF;
+                        }
+
+                        Self {
+                            r: ((num >> 24) & 0xFF) as u8,
+                            g: ((num >> 16) & 0xFF) as u8,
+                            b: ((num >> 8) & 0xFF) as u8,
+                            a: (num & 0xFF) as u8,
+                        }
+                    }
+
+                    4 | 3 => Self {
+                        r: hex_val(hex[0]) * 17,
+                        g: hex_val(hex[1]) * 17,
+                        b: hex_val(hex[2]) * 17,
+                        a: hex.get(3).map_or(255, |&v| hex_val(v) * 17),
+                    },
+
+                    _ => return Err("invalid hex color"),
+                })
+            });
+
+        let rgb =
+            sym("rgb") * sym("(") * (u8() - sym(",") + u8() - sym(",") + u8()).map(|((r, g), b)| Self::rgb(r, g, b))
+                - sym(")");
+
+        let rgba = sym("rgba")
+            * sym("(")
+            * (u8() - sym(",") + u8() - sym(",") + u8() - sym(",") + float())
+                .map(|(((r, g), b), a)| Self::rgba(r, g, b, (255. * a) as _))
+            - sym(")");
+
+        let named_color = ident().convert(|name| Self::named(name).ok_or("unknown named color"));
+
+        hex_color | rgb | rgba | named_color
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_color() {
+        assert_eq!(Color::parse("#000000"), Ok(Color::BLACK));
+        assert_eq!(Color::parse("#ff0000"), Ok(Color::RED));
+        assert_eq!(Color::parse("#00ff00"), Ok(Color::GREEN));
+        assert_eq!(Color::parse("#0000ff"), Ok(Color::BLUE));
+
+        assert_eq!(Color::parse("#80808080"), Ok(Color::rgba(128, 128, 128, 128)));
+        assert_eq!(Color::parse("#00000080"), Ok(Color::rgba(0, 0, 0, 128)));
+
+        assert_eq!(Color::parse("#000"), Ok(Color::BLACK));
+        assert_eq!(Color::parse("#f00"), Ok(Color::RED));
+        assert_eq!(Color::parse("#fff"), Ok(Color::WHITE));
+
+        assert_eq!(Color::parse("#0000"), Ok(Color::TRANSPARENT));
+        assert_eq!(Color::parse("#f00f"), Ok(Color::RED));
+
+        assert_eq!(Color::parse("rgb(0, 0, 0)"), Ok(Color::BLACK));
+        assert_eq!(Color::parse("rgba(0, 0, 0, 0)"), Ok(Color::TRANSPARENT));
+
+        assert_eq!(Color::parse("transparent"), Ok(Color::TRANSPARENT));
+        assert_eq!(Color::parse("black"), Ok(Color::BLACK));
     }
 }

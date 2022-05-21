@@ -1,6 +1,5 @@
-use super::parser::{rule, tokenize, ParseError};
-use super::selector::Selector;
-use super::style::Style;
+use super::parsing::{sym, Parsable, ParseError, Parser};
+use super::{Selector, Style};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StyleRule {
@@ -9,15 +8,8 @@ pub struct StyleRule {
 }
 
 impl StyleRule {
-    pub fn new(selector: Selector, style: Style) -> Self {
-        Self { selector, style }
-    }
-
     pub fn parse(input: &str) -> Result<Self, ParseError> {
-        let tokens = tokenize(input.as_bytes());
-        let parser = rule() - pom::parser::end();
-
-        parser.parse(&tokens)
+        Parsable::parse(input)
     }
 
     pub fn selector(&self) -> &Selector {
@@ -26,5 +18,28 @@ impl StyleRule {
 
     pub fn style(&self) -> &Style {
         &self.style
+    }
+}
+
+impl Parsable for StyleRule {
+    fn parser<'a>() -> Parser<'a, Self> {
+        let rule = Selector::parser() - sym("{") + Style::parser() - sym("}");
+
+        rule.map(|(selector, style)| StyleRule { selector, style })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_rule() -> Result<(), ParseError> {
+        let selector = Selector::parse("div")?;
+        let style = Style::parse("color: #fff")?;
+
+        assert_eq!(StyleRule::parse("div { color: #fff }")?, StyleRule { selector, style });
+
+        Ok(())
     }
 }

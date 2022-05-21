@@ -1,18 +1,21 @@
+// TODO: introduce test helper/macro which will also check Display
+
+// TODO: @keyframes xxx { from { .. } to { .. } }
+
 mod matching;
-mod parser;
+mod parsing;
 mod properties;
-mod resolver;
 mod rule;
 mod selector;
 mod sheet;
 mod style;
+mod tokenize;
 mod values;
 
 pub use {
     matching::{MatchingContext, Specificity},
-    parser::ParseError,
+    parsing::ParseError,
     properties::StyleProp,
-    resolver::StyleResolver,
     rule::StyleRule,
     selector::Selector,
     sheet::StyleSheet,

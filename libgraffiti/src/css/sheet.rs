@@ -1,21 +1,18 @@
-use super::parser::{sheet, tokenize, ParseError};
-use super::rule::StyleRule;
+use super::parsing::{seq, skip, sym, Parsable, ParseError, Parser};
+use super::StyleRule;
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default)]
 pub struct StyleSheet {
     rules: Vec<StyleRule>,
 }
 
 impl StyleSheet {
-    pub fn new(rules: Vec<StyleRule>) -> Self {
+    fn new(rules: Vec<StyleRule>) -> Self {
         Self { rules }
     }
 
     pub fn parse(input: &str) -> Result<Self, ParseError> {
-        let tokens = tokenize(input.as_bytes());
-        let parser = sheet() - pom::parser::end();
-
-        parser.parse(&tokens)
+        Parsable::parse(input)
     }
 
     pub fn rules(&self) -> &[StyleRule] {
@@ -28,5 +25,45 @@ impl StyleSheet {
 
     pub fn delete_rule(&mut self, index: usize) {
         self.rules.remove(index);
+    }
+}
+
+impl Parsable for StyleSheet {
+    fn parser<'a>() -> Parser<'a, Self> {
+        // anything until next "}}" (empty media is matched with unknown)
+        let media =
+            sym("@") * sym("media") * (!seq(&["}", "}"]) * skip(1)).repeat(1..).map(|_| None) - sym("}") - sym("}");
+        // anything until next "}"
+        let unknown = (!sym("}") * skip(1)).repeat(1..).map(|_| None) - sym("}").opt();
+
+        (StyleRule::parser().map(Option::Some) | media | unknown)
+            .repeat(0..)
+            .map(|maybe_rules| Self::new(maybe_rules.into_iter().flatten().collect()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{Selector, Style};
+    use super::*;
+
+    #[test]
+    fn parse_sheet() -> Result<(), ParseError> {
+        let sheet = StyleSheet::parse("div { color: #fff }")?;
+
+        assert_eq!(sheet.rules()[0].selector(), &Selector::parse("div")?);
+        assert_eq!(sheet.rules()[0].style(), &Style::parse("color: #fff")?);
+        assert_eq!(sheet.rules()[0].style().to_string(), "color:rgba(255, 255, 255, 255);");
+
+        // white-space
+        assert_eq!(StyleSheet::parse(" *{}")?.rules().len(), 1);
+        assert_eq!(StyleSheet::parse("\n*{\n}\n")?.rules().len(), 1);
+
+        // forgiving/future-compatibility
+        assert_eq!(StyleSheet::parse(":root {} a { v: 0 }")?.rules().len(), 2);
+        assert_eq!(StyleSheet::parse("a {} @media { a { v: 0 } } b {}")?.rules().len(), 2);
+        assert_eq!(StyleSheet::parse("@media { a { v: 0 } } a {} b {}")?.rules().len(), 2);
+
+        Ok(())
     }
 }
