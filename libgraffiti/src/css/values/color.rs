@@ -1,4 +1,4 @@
-use super::super::parsing::{any, float, ident, sym, u8, Parsable, Parser};
+use super::super::parsing::{any, ident, sym, Parsable, Parser};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -228,13 +228,14 @@ impl Parsable for Color {
                 })
             });
 
-        let rgb =
-            sym("rgb") * sym("(") * (u8() - sym(",") + u8() - sym(",") + u8()).map(|((r, g), b)| Self::rgb(r, g, b))
-                - sym(")");
+        let rgb = sym("rgb")
+            * sym("(")
+            * (u8::parser() - sym(",") + u8::parser() - sym(",") + u8::parser()).map(|((r, g), b)| Self::rgb(r, g, b))
+            - sym(")");
 
         let rgba = sym("rgba")
             * sym("(")
-            * (u8() - sym(",") + u8() - sym(",") + u8() - sym(",") + float())
+            * (u8::parser() - sym(",") + u8::parser() - sym(",") + u8::parser() - sym(",") + f32::parser())
                 .map(|(((r, g), b), a)| Self::rgba(r, g, b, (255. * a) as _))
             - sym(")");
 

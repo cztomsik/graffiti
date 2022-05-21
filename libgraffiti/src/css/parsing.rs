@@ -12,6 +12,8 @@
 //   and we also get correct overriding for free (only valid prop will override prev one)
 
 use super::tokenize::tokenize;
+use std::fmt::Debug;
+use std::str::FromStr;
 
 pub use pom::char_class::alphanum;
 pub use pom::parser::{any, empty, is_a, list, none_of, one_of, seq, skip, sym};
@@ -35,12 +37,13 @@ pub(super) trait Parsable: Sized {
     }
 }
 
-pub fn float<'a>() -> Parser<'a, f32> {
-    any().convert(str::parse)
-}
-
-pub fn u8<'a>() -> Parser<'a, u8> {
-    any().convert(str::parse)
+impl<T: 'static + FromStr> Parsable for T
+where
+    <T as FromStr>::Err: Debug,
+{
+    fn parser<'a>() -> Parser<'a, Self> {
+        any().convert(str::parse)
+    }
 }
 
 pub fn ident<'a>() -> Parser<'a, &'a str> {

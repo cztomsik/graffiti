@@ -1,4 +1,4 @@
-use super::super::parsing::{float, sym, Parsable, Parser};
+use super::super::parsing::{sym, Parsable, Parser};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -20,14 +20,14 @@ impl Dimension {
 
 impl Parsable for Dimension {
     fn parser<'a>() -> Parser<'a, Self> {
-        let px = (float() - sym("px")).map(Self::Px);
-        let percent = (float() - sym("%")).map(Self::Percent);
+        let px = (f32::parser() - sym("px")).map(Self::Px);
+        let percent = (f32::parser() - sym("%")).map(Self::Percent);
         let auto = sym("auto").map(|_| Self::Auto);
         let zero = sym("0").map(|_| Self::ZERO);
-        let em = (float() - sym("em")).map(Self::Em);
-        let rem = (float() - sym("rem")).map(Self::Rem);
-        let vw = (float() - sym("vw")).map(Self::Vw);
-        let vh = (float() - sym("vh")).map(Self::Vh);
+        let em = (f32::parser() - sym("em")).map(Self::Em);
+        let rem = (f32::parser() - sym("rem")).map(Self::Rem);
+        let vw = (f32::parser() - sym("vw")).map(Self::Vw);
+        let vh = (f32::parser() - sym("vh")).map(Self::Vh);
         let vmin = sym("vmin").map(|_| Self::Vmin);
         let vmax = sym("vmax").map(|_| Self::Vmax);
 
