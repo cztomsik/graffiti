@@ -1,14 +1,11 @@
 // slotmap without versioning
 // (V8 doesn't like numbers above 2^30)
 
-use super::Id;
 use std::num::NonZeroU32;
 use std::ops::{Index, IndexMut};
 
 pub struct SlotMap<K, V> {
     slots: Vec<Option<V>>,
-    // TODO: free_head: Option<K> + Entry<K, V> { Free { next_free: K }, Occupied { value: V } }
-    //       or BitSet, that might actually be even better
     free_keys: Vec<K>,
 }
 
@@ -96,15 +93,15 @@ impl<K: Key, V> IndexMut<K> for SlotMap<K, V> {
 
 pub trait Key: Copy {
     fn from_index(index: usize) -> Option<Self>;
-    fn index(&self) -> usize;
+    fn index(self) -> usize;
 }
 
-impl<T> Key for Id<T> {
+impl Key for NonZeroU32 {
     fn from_index(index: usize) -> Option<Self> {
-        Some(Self::new(NonZeroU32::new(index as u32 + 1)?))
+        Some(Self::new(index as u32 + 1)?)
     }
 
-    fn index(&self) -> usize {
+    fn index(self) -> usize {
         self.get() as usize - 1
     }
 }
