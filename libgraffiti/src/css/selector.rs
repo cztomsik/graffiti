@@ -2,6 +2,7 @@
 
 use super::parsing::{ident, skip, sym, Parsable, ParseError, Parser};
 use crate::util::Atom;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Selector {
@@ -15,11 +16,10 @@ pub(super) enum SelectorPart {
     Identifier(Atom),
     ClassName(Atom),
     AttrExists(Atom),
-    AttrEq(Atom, Atom),
-    AttrStartsWith(Atom, Atom),
-    AttrEndsWith(Atom, Atom),
-    AttrContains(Atom, Atom),
-
+    // AttrEq(Atom, Atom),
+    // AttrStartsWith(Atom, Atom),
+    // AttrEndsWith(Atom, Atom),
+    // AttrContains(Atom, Atom),
     Combinator(Combinator),
 
     // FirstChild // (prev_element_sibling == None)
@@ -93,6 +93,40 @@ impl Parsable for Selector {
             parts.push(head);
 
             Selector { parts }
+        })
+    }
+}
+
+impl fmt::Display for Selector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for r in self.parts.iter().rev() {
+            write!(f, "{}", r)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for SelectorPart {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Universal => write!(f, "*"),
+            Self::LocalName(name) => write!(f, "{}", name),
+            Self::Identifier(id) => write!(f, "#{}", id),
+            Self::ClassName(clz) => write!(f, ".{}", clz),
+            Self::AttrExists(att) => write!(f, "[{}]", att),
+            Self::Combinator(comb) => write!(f, "{}", comb),
+            Self::Unsupported => write!(f, "???"),
+        }
+    }
+}
+
+impl fmt::Display for Combinator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Parent => " ",
+            Self::Ancestor => ">",
+            Self::Or => ",",
         })
     }
 }

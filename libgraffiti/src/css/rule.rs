@@ -1,5 +1,6 @@
 use super::parsing::{sym, Parsable, ParseError, Parser};
 use super::{Selector, Style};
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StyleRule {
@@ -26,6 +27,12 @@ impl Parsable for StyleRule {
         let rule = Selector::parser() - sym("{") + Style::parser() - sym("}");
 
         rule.map(|(selector, style)| StyleRule { selector, style })
+    }
+}
+
+impl fmt::Display for StyleRule {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {{ {} }}", &self.selector, &self.style)
     }
 }
 

@@ -1,5 +1,6 @@
 use super::parsing::{seq, skip, sym, Parsable, ParseError, Parser};
 use super::StyleRule;
+use std::fmt;
 
 #[derive(Debug, Default)]
 pub struct StyleSheet {
@@ -39,6 +40,16 @@ impl Parsable for StyleSheet {
         (StyleRule::parser().map(Option::Some) | media | unknown)
             .repeat(0..)
             .map(|maybe_rules| Self::new(maybe_rules.into_iter().flatten().collect()))
+    }
+}
+
+impl fmt::Display for StyleSheet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for r in &self.rules {
+            write!(f, "{}\n", r)?;
+        }
+
+        Ok(())
     }
 }
 

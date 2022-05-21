@@ -5,6 +5,7 @@
 use super::parsing::{any, skip, sym, Parsable, ParseError, Parser};
 use super::StyleProp;
 use std::fmt;
+use std::mem::discriminant;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Style {
@@ -50,6 +51,7 @@ impl Style {
     pub fn props(&self) -> impl Iterator<Item = &StyleProp> {
         self.props.iter()
     }
+    */
 
     pub(crate) fn add_prop(&mut self, new_prop: StyleProp) {
         let d = discriminant(&new_prop);
@@ -60,7 +62,6 @@ impl Style {
             self.props.push(new_prop);
         }
     }
-    */
 }
 
 impl Parsable for Style {
@@ -72,14 +73,24 @@ impl Parsable for Style {
         prop.repeat(0..).map(|props| {
             let mut style = Self::default();
 
-            // for (p, v) in props {
-            //     // skip unknown
-            //     parse_prop_into(p, v, &mut style);
-            // }
+            for (p, v) in props {
+                // skip unknown
+                parse_prop_into(p, v, &mut style);
+            }
 
             style
         })
     }
+}
+
+pub fn parse_prop_into(prop: &str, value: &[&str], style: &mut Style) {
+    if let Ok(p) = super::properties::prop_parser(prop).parse(value) {
+        style.add_prop(p);
+    } /* else if let Ok(props) = shorthand_parser(prop).parse(value) {
+          for p in props {
+              style.add_prop(p);
+          }
+      }*/
 }
 
 // impl From<&str> for Style {
@@ -90,9 +101,9 @@ impl Parsable for Style {
 
 impl fmt::Display for Style {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // for p in self.props() {
-        //     write!(f, "{}:{};", p.css_name(), p.css_value())?;
-        // }
+        for p in &self.props {
+            write!(f, "{}:{};", p.css_name(), p.css_value())?;
+        }
 
         Ok(())
     }
