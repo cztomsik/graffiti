@@ -2,8 +2,8 @@
 
 use super::parsing::{fail, Parsable, Parser};
 use super::{
-    Align, BorderStyle, Color, Dimension, Display, FlexDirection, FlexWrap, Justify, Overflow, Position, TextAlign,
-    Visibility,
+    Align, BorderStyle, BoxShadow, Color, Dimension, Display, FlexDirection, FlexWrap, Justify, Overflow, Position,
+    TextAlign, Transform, Visibility,
 };
 
 macro_rules! css_properties {
@@ -85,7 +85,7 @@ css_properties! {
     "border-left-color" => BorderLeftColor(Color),
 
     // shadow
-    "box-shadow" => BoxShadow(String),
+    "box-shadow" => BoxShadow(BoxShadow),
 
     // flex
     "flex-grow" => FlexGrow(f32),
@@ -125,6 +125,7 @@ css_properties! {
     "display" => Display(Display),
     "opacity" => Opacity(f32),
     "visibility" => Visibility(Visibility),
+    "transform" => Transform(Transform),
 }
 
 /*
