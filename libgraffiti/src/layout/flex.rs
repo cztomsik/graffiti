@@ -1,22 +1,17 @@
-use super::{FlexDirection, LayoutContext, LayoutNodeId, LayoutResult, LayoutStyle, Size};
+use super::{FlexDirection, LayoutContext, LayoutStyle, Size};
 
-impl LayoutContext<'_> {
-    pub fn compute_flex(
-        &mut self,
-        node: LayoutNodeId,
-        style: &LayoutStyle,
-        parent_size: Size<f32>,
-    ) {
+impl<K: Copy> LayoutContext<'_, K> {
+    pub fn compute_flex(&mut self, node: K, style: &LayoutStyle, parent_size: Size<f32>) {
         let dir = style.flex_direction;
 
         // TODO: if not defined
         let available_space = self.resolve_size(style.size, parent_size);
 
-        let total_flex_basis: f32 = self
-            .tree
-            .children(node)
-            .map(|ch| {
-                let mut res = self.resolve(self.tree.style(ch).flex_basis, parent_size.main(dir));
+        // skoda, ze nemuzu rict node.total_flex_basis() a mit to cele nekde bokem
+        let total_flex_basis: f32 = self.children[node]
+            .iter()
+            .map(|&ch| {
+                let mut res = self.resolve(self.styles[ch].flex_basis, parent_size.main(dir));
                 if res.is_nan() {
                     // compute max-content size?
                     todo!()
@@ -26,11 +21,11 @@ impl LayoutContext<'_> {
             })
             .sum();
         let remaining_space = available_space.main(dir) - total_flex_basis;
-        let total_grow: f32 = self.tree.children(node).map(|ch| self.tree.style(ch).flex_grow).sum();
+        let total_grow: f32 = self.children[node].iter().map(|&ch| self.styles[ch].flex_grow).sum();
 
         //println!("{:?}", (available_space, total_flex_basis, remaining_space, total_grow));
-        for child in self.tree.children(node) {
-            let child_style = self.tree.style(child);
+        for &child in &self.children[node] {
+            let child_style = &self.styles[child];
             let child_res = &mut self.results[child];
 
             if child_style.flex_grow > 0. {
@@ -86,23 +81,17 @@ mod tests {
 
     #[test]
     fn flex_row_grow() {
-        let (mut tree, root) = layout_tree! {
+        let calculate = layout_tree! {
             (node(display = Flex, size.width = Px(300.), size.height = Px(10.))
                 (node(flex_grow = 1., flex_basis = Px(0.)))
                 (node(flex_grow = 2., flex_basis = Px(0.)))
             )
         };
 
-        tree.calculate(root, 0., 0.);
+        let results = calculate(Size::new(0., 0.));
 
-        assert_eq!(
-            tree.debug(root),
-            stringify!(
-                Flex(300.0, 10.0) [
-                    Inline(100.0, 10.0) [],
-                    Inline(200.0, 10.0) []
-                ]
-            )
-        );
+        assert_eq!(results[0].size, Size::new(300., 10.));
+        assert_eq!(results[1].size, Size::new(100., 10.));
+        assert_eq!(results[2].size, Size::new(200., 10.));
     }
 }

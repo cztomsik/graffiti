@@ -1,22 +1,22 @@
-use super::{LayoutContext, LayoutNodeId, LayoutResult, LayoutStyle, Size};
+use super::{LayoutContext, LayoutStyle, Size};
 
-impl LayoutContext<'_> {
-    pub fn compute_block(&mut self, node: LayoutNodeId, style: &LayoutStyle, parent_size: Size<f32>) {
+impl<K: Copy> LayoutContext<'_, K> {
+    pub fn compute_block(&mut self, node: K, style: &LayoutStyle, parent_size: Size<f32>) {
         let mut y = self.results[node].padding.top;
         let mut content_height = 0.;
 
-        let avail_inner = Size {
-            width: f32::max(
+        let avail_inner = Size::new(
+            f32::max(
                 0.,
                 parent_size.width - self.results[node].padding.left - self.results[node].padding.right,
             ),
-            height: f32::max(
+            f32::max(
                 0.,
                 parent_size.height - self.results[node].padding.top - self.results[node].padding.bottom,
             ),
-        };
+        );
 
-        for child in self.tree.children(node) {
+        for &child in &self.children[node] {
             self.compute_node(child, avail_inner);
 
             self.results[child].y = y;
@@ -45,65 +45,53 @@ mod tests {
 
     #[test]
     fn fixed_width_height() {
-        let (mut tree, root) = layout_tree! {
+        let calculate = layout_tree! {
             (node(display = Block, size.width = Px(10.), size.height = Px(10.)))
         };
 
-        tree.calculate(root, 0., 0.);
-        assert_eq!(tree.debug(root), "Block(10.0, 10.0) []");
+        let results = calculate(Size::new(0., 0.));
+        assert_eq!(results[0].size, Size::new(10., 10.));
     }
 
     #[test]
     fn fixed_height() {
-        let (mut tree, root) = layout_tree! {
+        let calculate = layout_tree! {
             (node(display = Block, size.height = Px(10.)))
         };
 
-        tree.calculate(root, 0., 10.);
-        assert_eq!(tree.debug(root), "Block(0.0, 10.0) []");
+        let results = calculate(Size::new(0., 10.));
+        assert_eq!(results[0].size, Size::new(0., 10.));
 
-        tree.calculate(root, 10., 0.);
-        assert_eq!(tree.debug(root), "Block(10.0, 10.0) []");
+        let results = calculate(Size::new(10., 0.));
+        assert_eq!(results[0].size, Size::new(10., 10.));
     }
 
     #[test]
     fn content_height() {
-        let (mut tree, root) = layout_tree! {
+        let calculate = layout_tree! {
             (node(display = Block)
                 (node(display = Block, size.width = Px(10.), size.height = Px(10.)))
                 (node(display = Block, size.height = Px(10.)))
             )
         };
 
-        tree.calculate(root, 100., 0.);
-        assert_eq!(
-            tree.debug(root),
-            stringify!(
-                Block(100.0, 20.0) [
-                    Block(10.0, 10.0) [],
-                    Block(100.0, 10.0) []
-                ]
-            )
-        );
+        let results = calculate(Size::new(100., 0.));
+        assert_eq!(results[0].size, Size::new(100., 20.));
+        assert_eq!(results[1].size, Size::new(10., 10.));
+        assert_eq!(results[2].size, Size::new(100., 10.));
     }
 
     #[test]
     fn padding() {
-        let (mut tree, root) = layout_tree! {
+        let calculate = layout_tree! {
             (node(display = Block, padding.top = Px(10.), padding.left = Px(10.))
                 (node(display = Block, size.height = Px(10.)))
             )
         };
 
-        tree.calculate(root, 100., 0.);
-        assert_eq!(
-            tree.debug(root),
-            stringify!(
-                Block(100.0, 20.0) [
-                    Block(90.0, 10.0) [],
-                ]
-            )
-        );
+        let results = calculate(Size::new(100., 0.));
+        assert_eq!(results[0].size, Size::new(100., 20.));
+        assert_eq!(results[1].size, Size::new(90., 10.));
     }
 
     #[test]

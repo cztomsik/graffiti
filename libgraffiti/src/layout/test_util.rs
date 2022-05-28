@@ -1,49 +1,42 @@
-use super::{LayoutNodeId, LayoutTree};
-
-// LISPish macro
+// helper macro for layout testing
 //
-// let (tree, root) = layout_tree! (node(style_prop = val, ...)
+// let calculate = layout_tree! (node(style_prop = val, ...)
 //   (node(...) ...)
 //   (text "hello")
 //   ...
 // )
+//
+// let results = calculate(Size::new(400., 300.))
+// assert_eq!(results[0], ...)
 macro_rules! layout_tree {
-  ($root:tt) => ({
-      let mut tree = crate::layout::LayoutTree::new();
-      let root = layout_tree!(tree, $root);
-      (tree, root)
-  });
-  // TODO: text
-  ($tree:expr, ( text $text:literal )) => ($tree.create_node());
-  ($tree:expr, ( $tag:ident ($($($prop:ident).+ = $val:expr),*) $($inner:tt)* )) => ({
-      let node = $tree.create_node();
-      let mut style = crate::layout::LayoutStyle::default();
-      $(style.$($prop).+ = $val;)*
-      $tree.set_style(node, style);
+    ($root:tt) => ({
+        |avail_size: Size<f32>| {
+            let layout_engine = LayoutEngine::new();
+            let mut styles: Vec<LayoutStyle> = Vec::new();
+            let mut children: Vec<Vec<usize>> = Vec::new();
 
-      for child in [ $(layout_tree!($tree, $inner)),* ] {
-          $tree.append_child(node, child);
-      }
+            layout_tree!(styles, children, $root);
 
-      node
-  });
-}
+            let mut results: Vec<LayoutResult> = Vec::new();
+            results.resize_with(styles.len(), Default::default);
 
-impl LayoutTree {
-    pub(super) fn debug(&self, node: LayoutNodeId) -> String {
-        struct DebugRef<'a>(&'a LayoutTree, LayoutNodeId);
-        impl std::fmt::Debug for DebugRef<'_> {
-            fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-                let style = &self.0.style(self.1);
-                let size = self.0.layout_result(self.1).size;
-
-                write!(fmt, "{:?}({:?}, {:?}) ", style.display, size.width, size.height)?;
-                fmt.debug_list()
-                    .entries(self.0.children(self.1).map(|id| DebugRef(self.0, id)))
-                    .finish()
-            }
+            layout_engine.calculate(avail_size, 0, &crate::util::index_with(&children, |chs, node: usize| &chs[node][..]), &styles, &mut results);
+            results
         }
+    });
+    // TODO: text
+    ($styles:expr, $children:expr, ( text $text:literal )) => ($tree.create_node());
+    ($styles:expr, $children:expr, ( $tag:ident ($($($prop:ident).+ = $val:expr),*) $($inner:tt)* )) => ({
+        let mut style = crate::layout::LayoutStyle::default();
+        $(style.$($prop).+ = $val;)*
 
-        format!("{:?}", DebugRef(self, node))
-    }
+        let id = $styles.len();
+        $styles.push(style);
+        $children.push(Vec::new());
+
+        let children = vec![ $(layout_tree!($styles, $children, $inner)),* ];
+        $children[id] = children;
+
+        id
+    });
 }
