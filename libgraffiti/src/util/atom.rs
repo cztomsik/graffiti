@@ -1,161 +1,115 @@
-// super-simple, unsync value interning
-// TODO: NonZeroU32 (so more selector parts could be stored inline)
-
-use fnv::FnvHashSet;
-use std::any::Any;
+use fnv::FnvHashMap;
+use once_cell::sync::Lazy;
 use std::borrow::Borrow;
-use std::cell::RefCell;
-use std::fmt::{Display, Error, Formatter};
-use std::hash::{Hash, Hasher};
+use std::fmt;
+use std::num::NonZeroU32;
 use std::ops::Deref;
-use std::rc::Rc;
+use std::sync::RwLock;
 
-#[derive(Debug, Eq)]
-pub struct Atom<T: Eq + Hash + 'static>(Wrap<T>);
+static STORE: Lazy<RwLock<Store>> = Lazy::new(RwLock::default);
 
-// pub because of trait bounds for From<>
-#[doc(hidden)]
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct Wrap<T>(Rc<T>);
-
-// TODO: per-type static wouldn't work, rust
-//       accepts the syntax but it's shared for all types (WTF)
-//       https://github.com/rust-lang/rust/issues/22991
-thread_local! {
-    static ATOM_STORES: RefCell<Vec<Box<dyn Any>>> = RefCell::default();
+#[derive(Default)]
+struct Store {
+    atoms: FnvHashMap<&'static str, Atom>,
+    strings: Vec<&'static str>,
 }
 
-impl<T: Eq + Hash + 'static> Atom<T> {
-    fn with_wraps<F, R>(f: F) -> R
-    where
-        T: 'static,
-        F: FnOnce(&mut FnvHashSet<Wrap<T>>) -> R,
-    {
-        ATOM_STORES.with(|stores| {
-            for any in &mut *stores.borrow_mut() {
-                if let Some(wraps) = any.downcast_mut() {
-                    return f(wraps);
-                }
-            }
-            let mut wraps = FnvHashSet::default();
-            let res = f(&mut wraps);
-            stores.borrow_mut().push(Box::new(wraps));
-            res
-        })
-    }
-}
+/// Forever-interned string. Useful for identifiers and other symbols
+/// which are not known in advance but the number of unique items is
+/// expected to be low and/or not to grow significantly over the time.
+///
+/// ```
+/// let atom = Atom::from("hello");
+/// assert_eq!(atom, "hello");
+/// assert_eq!(format!("{}", atom), "hello");
+/// ```
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Atom(NonZeroU32);
 
-impl<'a, T, Q> From<&'a Q> for Atom<T>
+impl<'a, B: 'a + Borrow<str>> From<B> for Atom
 where
-    T: 'static + Eq + Hash + Borrow<Q> + From<&'a Q>,
-    Q: ?Sized + Eq + Hash,
-    Wrap<T>: Borrow<Q>,
+    &'a str: PartialEq<B>,
 {
-    fn from(v: &'a Q) -> Self {
-        Self::with_wraps(|wraps| {
-            // beware that Hash for Atom<> is different than the one here
-            if let Some(wrap) = wraps.get(v) {
-                return Self(Wrap(wrap.0.clone()));
-            }
-            let wrap = Wrap(Rc::new(T::from(v)));
-            wraps.insert(Wrap(wrap.0.clone()));
-            Self(wrap)
-        })
-    }
-}
+    fn from(v: B) -> Self {
+        let Store { atoms, strings } = &mut *STORE.write().unwrap();
 
-// derive caused some weird type errors, I think it requires T: Clone which is wrong
-impl<T: Eq + Hash> Clone for Atom<T> {
-    fn clone(&self) -> Self {
-        Self(Wrap(Rc::clone(&self.0 .0)))
-    }
-}
-
-impl<T: Eq + Hash> Borrow<T> for Wrap<T> {
-    fn borrow(&self) -> &T {
-        &self.0
-    }
-}
-
-impl Borrow<str> for Wrap<String> {
-    fn borrow(&self) -> &str {
-        &self.0
-    }
-}
-
-impl<T: Eq + Hash> Deref for Atom<T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        self.0 .0.as_ref()
-    }
-}
-
-impl<T: Eq + Hash + 'static> Drop for Atom<T> {
-    fn drop(&mut self) {
-        // the one which is dropped + one shared in hashset
-        if Rc::strong_count(&self.0 .0) == 2 {
-            Self::with_wraps(|wraps| wraps.remove(&self.0));
+        if let Some(atom) = atoms.get(v.borrow()) {
+            return *atom;
         }
+
+        let s = Box::leak(Box::<str>::from(v.borrow()));
+        strings.push(s);
+
+        let atom = Self(NonZeroU32::new(strings.len() as _).unwrap());
+        atoms.insert(s, atom);
+
+        atom
     }
 }
 
-impl<T: Eq + Hash> Hash for Atom<T> {
-    fn hash<H: Hasher>(&self, hasher: &mut H) {
-        Rc::as_ptr(&self.0 .0).hash(hasher);
+impl PartialEq<&str> for Atom {
+    fn eq(&self, other: &&str) -> bool {
+        *other == &**self
     }
 }
 
-impl<T: Eq + Hash> PartialEq for Atom<T> {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::as_ptr(&self.0 .0) == Rc::as_ptr(&other.0 .0)
+impl Deref for Atom {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        STORE.read().unwrap().strings[self.0.get() as usize - 1]
     }
 }
 
-/// ```
-/// assert_eq!("foo", Atom::from("foo"))
-/// ```
-impl<T, Q> PartialEq<Q> for Atom<T>
-where
-    T: 'static + Eq + Hash + Borrow<Q>,
-    Q: ?Sized + Eq + Hash,
-    Wrap<T>: Borrow<Q>,
-{
-    fn eq(&self, other: &Q) -> bool {
-        Q::eq(self.deref().borrow(), other)
+impl Borrow<str> for Atom {
+    fn borrow(&self) -> &str {
+        &**self
     }
 }
 
-impl<T: Display + Eq + Hash> Display for Atom<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        self.0 .0.fmt(f)
+impl fmt::Debug for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Atom({:?})", &**self)
+    }
+}
+
+impl fmt::Display for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&**self, f)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::borrow::Cow;
 
     #[test]
     fn size() {
         use std::mem::size_of;
-        assert_eq!(size_of::<Option<Atom<String>>>(), size_of::<usize>());
+        assert_eq!(size_of::<Option<Atom>>(), size_of::<u32>());
     }
 
     #[test]
     fn eq() {
-        let a: Atom<String> = Atom::from("foo");
-        let b: Atom<String> = Atom::from(&"foo".to_owned());
+        let a: Atom = Atom::from("foo");
+        let b: Atom = Atom::from("foo".to_string());
+        let c: Atom = Atom::from(Cow::Borrowed("foo"));
 
         assert_eq!(a, b);
-        assert_eq!(a.0 .0.as_ptr(), b.0 .0.as_ptr());
+        assert_eq!(b, c);
     }
 
     #[test]
-    fn from_borrowed() {
-        let _: Atom<String> = Atom::from("foo");
+    fn deref() {
+        let atom = Atom::from("hello");
+        assert_eq!(atom.len(), 5);
+    }
 
-        let foo = Atom::from("foo");
-        assert!(<dyn std::any::Any>::is::<Atom<String>>(&foo));
+    #[test]
+    fn display() {
+        let atom = Atom::from("hello");
+        assert_eq!(format!("{}", atom), "hello");
     }
 }

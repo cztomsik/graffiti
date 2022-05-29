@@ -1,27 +1,24 @@
-use super::parser::{style, tokenize, ParseError};
-use super::properties::StyleProp;
+// TODO: there should be prop.id()
+//       so we can first find id for given &str
+//       and then just find the prop with simple eq check
+
+use super::parsing::{any, skip, sym, Parsable, ParseError, Parser};
+use super::StyleProp;
 use std::fmt;
-use std::fmt::Write;
 use std::mem::discriminant;
 
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct CssStyle {
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Style {
     props: Vec<StyleProp>,
     // TODO: important: u32 + 1 << prop.id() as u32 to figure out the bit to flip/check
 }
 
-impl CssStyle {
-    pub fn new(props: Vec<StyleProp>) -> Self {
-        Self { props }
-    }
-
+impl Style {
     pub fn parse(input: &str) -> Result<Self, ParseError> {
-        let tokens = tokenize(input.as_bytes());
-        let parser = style() - pom::parser::end();
-
-        parser.parse(&tokens)
+        Parsable::parse(input)
     }
 
+    /*
     // jsdom squashes longhands into one shorthand (if all are present)
     // but chrome doesn't so I think we don't have to either
     pub fn length(&self) -> usize {
@@ -51,6 +48,7 @@ impl CssStyle {
         self.props.retain(|p| p.css_name() == prop);
     }
 
+    */
     pub fn props(&self) -> impl Iterator<Item = &StyleProp> {
         self.props.iter()
     }
@@ -66,9 +64,44 @@ impl CssStyle {
     }
 }
 
-impl fmt::Display for CssStyle {
+impl Parsable for Style {
+    fn parser<'a>() -> Parser<'a, Self> {
+        // any chunk of tokens before ";" or "}"
+        let prop_value = (!sym(";") * !sym("}") * skip(1)).repeat(1..).collect();
+        let prop = any() - sym(":") + prop_value - sym(";").discard().repeat(0..);
+
+        prop.repeat(0..).map(|props| {
+            let mut style = Self::default();
+
+            for (p, v) in props {
+                // skip unknown
+                parse_prop_into(p, v, &mut style);
+            }
+
+            style
+        })
+    }
+}
+
+pub fn parse_prop_into(prop: &str, value: &[&str], style: &mut Style) {
+    if let Ok(p) = super::properties::prop_parser(prop).parse(value) {
+        style.add_prop(p);
+    } /* else if let Ok(props) = shorthand_parser(prop).parse(value) {
+          for p in props {
+              style.add_prop(p);
+          }
+      }*/
+}
+
+// impl From<&str> for Style {
+//     fn from(s: &str) -> Self {
+//         Self::parse(s).unwrap_or_default()
+//     }
+// }
+
+impl fmt::Display for Style {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for p in self.props() {
+        for p in &self.props {
             write!(f, "{}:{};", p.css_name(), p.css_value())?;
         }
 
@@ -76,6 +109,7 @@ impl fmt::Display for CssStyle {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::super::CssDisplay;
@@ -83,13 +117,13 @@ mod tests {
 
     #[test]
     fn css_text() {
-        let s = CssStyle::parse("display:block;").unwrap();
+        let s = Style::parse("display:block;").unwrap();
         assert_eq!(s.to_string(), "display:block;");
     }
 
     #[test]
     fn prop_overriding() {
-        let mut s = CssStyle::default();
+        let mut s = Style::default();
 
         s.add_prop(StyleProp::Display(CssDisplay::None));
         s.add_prop(StyleProp::Display(CssDisplay::Block));
@@ -97,3 +131,4 @@ mod tests {
         assert!(s.props().eq(&vec![StyleProp::Display(CssDisplay::Block)]));
     }
 }
+*/

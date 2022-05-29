@@ -317,7 +317,7 @@ mod tests {
         assert_eq!(tree.children(root).collect::<Vec<_>>(), &[ch1, ch2, ch3]);
         assert_eq!(
             format!("{:?}", tree.traverse(root).collect::<Vec<_>>()),
-            "[Start(1), Start(2), End(2), Start(3), End(3), Start(4), End(4), End(1)]"
+            "[Start(Id(1)), Start(Id(2)), End(Id(2)), Start(Id(3)), End(Id(3)), Start(Id(4)), End(Id(4)), End(Id(1))]"
         );
     }
 }

@@ -1,28 +1,25 @@
 import { Node, NodeList, XMLSerializer } from './index'
-import { ERR } from '../util'
+import { IElement } from '../types'
 import { parseFragment } from './DOMParser'
-import { native, encode, getNativeId, register, decode, getRefs } from '../native'
+import { native, ID, atom, encode } from '../native'
 import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
 import { DOMTokenList } from './DOMTokenList'
-import { registerElement } from './Document'
 
-export abstract class Element extends Node implements globalThis.Element {
-  abstract readonly tagName: string
+export abstract class Element extends Node implements IElement {
   readonly childNodes = new NodeList<ChildNode>()
   #localName: string
+  #attributes = {}
 
   // both lazy-created
   #classList?: DOMTokenList
   #style?: CSSStyleDeclaration
 
-  constructor(doc = document, localName: string = ERR('new Element() is not supported')) {
+  constructor(localName: string, doc = document) {
     super(doc)
 
     this.#localName = localName
 
-    const ref = native.gft_Document_create_element(getNativeId(doc), ...encode(localName))
-    register(this, ref)
-    registerElement(doc, native.gft_Node_id(ref), this)
+    this[ID] = native.gft_Document_create_element(doc[ID], atom(localName))
   }
 
   get nodeType() {
@@ -31,6 +28,10 @@ export abstract class Element extends Node implements globalThis.Element {
 
   get nodeName() {
     return this.tagName
+  }
+
+  get tagName() {
+    return this.localName
   }
 
   get localName() {
@@ -54,20 +55,15 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   getAttribute(name: string): string | null {
-    return decode(native.gft_Element_attribute(getNativeId(this), ...encode(name)))
+    return this.#attributes[name] ?? null
   }
 
   getAttributeNames(): string[] {
-    const refs = getRefs(native.gft_Element_attribute_names(getNativeId(this)))
-
-    // decode() does the drop here
-    const names = refs.map(decode)
-
-    return names as any
+    return Object.keys(this.#attributes)
   }
 
   hasAttribute(name: string): boolean {
-    return this.getAttribute(name) !== null
+    return name in this.#attributes
   }
 
   hasAttributes(): boolean {
@@ -75,13 +71,15 @@ export abstract class Element extends Node implements globalThis.Element {
   }
 
   setAttribute(name: string, value: string) {
-    value = (typeof value === 'string' ? value : '' + value).toLowerCase()
+    this.#attributes[name] = value = typeof value === 'string' ? value : '' + value
 
-    native.gft_Element_set_attribute(getNativeId(this), ...encode(name), ...encode(value))
+    native.gft_Element_set_attribute(this[ID], atom(name), encode(value))
   }
 
   removeAttribute(name: string) {
-    native.gft_Element_remove_attribute(getNativeId(this), ...encode(name))
+    delete this.#attributes[name]
+
+    native.gft_Element_remove_attribute(this[ID], atom(name))
   }
 
   toggleAttribute(name: string, force?: boolean): boolean {

@@ -1,50 +1,33 @@
-use super::{Dimension, Display, LayoutNodeId, LayoutStyle, LayoutTree, Rect, Size};
-use crate::util::SlotMap;
+use super::{Dimension, Display, LayoutStyle, Rect, Size};
+use std::ops::{Index, IndexMut};
 
 // TODO: em/rem
-pub(super) struct LayoutContext<'a> {
-    vw: f32,
-    vh: f32,
-    vmin: f32,
-    vmax: f32,
-
-    pub(super) tree: &'a LayoutTree,
-    pub(super) results: &'a mut SlotMap<LayoutNodeId, LayoutResult>,
+pub(super) struct LayoutContext<'a, K> {
+    pub(super) viewport_size: Size<f32>,
+    pub(super) children: &'a dyn Index<K, Output = [K]>,
+    pub(super) styles: &'a dyn Index<K, Output = LayoutStyle>,
+    pub(super) results: &'a mut dyn IndexMut<K, Output = LayoutResult>,
 }
 
-impl<'a> LayoutContext<'a> {
-    pub fn new(tree: &'a LayoutTree, results: &'a mut SlotMap<LayoutNodeId, LayoutResult>, size: Size<f32>) -> Self {
-        let Size { width: vw, height: vh } = size;
-
-        Self {
-            vw,
-            vh,
-            vmin: f32::min(vw, vh),
-            vmax: f32::max(vw, vh),
-
-            tree,
-            results,
-        }
-    }
-
+impl<K: Copy> LayoutContext<'_, K> {
     pub fn resolve(&self, dim: Dimension, base: f32) -> f32 {
         match dim {
             Dimension::Px(v) => v,
             Dimension::Percent(v) => base * 0.01 * v,
-            Dimension::Vw(v) => self.vw * v,
-            Dimension::Vh(v) => self.vh * v,
-            Dimension::Vmin(v) => self.vmin * v,
-            Dimension::Vmax(v) => self.vmax * v,
+            Dimension::Vw(v) => self.viewport_size.width * v,
+            Dimension::Vh(v) => self.viewport_size.height * v,
+            Dimension::Vmin(v) => self.viewport_size.min() * v,
+            Dimension::Vmax(v) => self.viewport_size.max() * v,
             // TODO: em/rem
             _ => f32::NAN,
         }
     }
 
     pub fn resolve_size(&self, size: Size<Dimension>, parent_size: Size<f32>) -> Size<f32> {
-        Size {
-            width: self.resolve(size.width, parent_size.width),
-            height: self.resolve(size.height, parent_size.height),
-        }
+        Size::new(
+            self.resolve(size.width, parent_size.width),
+            self.resolve(size.height, parent_size.height),
+        )
     }
 
     pub fn resolve_rect(&self, rect: Rect<Dimension>, base: f32) -> Rect<f32> {
@@ -56,8 +39,8 @@ impl<'a> LayoutContext<'a> {
         }
     }
 
-    pub fn compute_node(&mut self, node: LayoutNodeId, parent_size: Size<f32>) {
-        let style = self.tree.style(node);
+    pub fn compute_node(&mut self, node: K, parent_size: Size<f32>) {
+        let style = &self.styles[node];
 
         self.results[node].size = self.resolve_size(style.size, parent_size);
         // self.results[node].min_size = self.resolve_size(layout_box.style.min_size, parent_size);
@@ -91,7 +74,7 @@ impl<'a> LayoutContext<'a> {
     //     if let Some(text) = &inline.text {
     //         let (width, height) = text.measure(avail_size.width);
     //         //println!("measure {} {:?}", text.text(), (width, height));
-    //         inline.size = Size { width, height };
+    //         inline.size = Size::new(width, height);
     //     }
     // }
 }

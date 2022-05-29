@@ -1,5 +1,3 @@
-// TODO: move to native?
-//
 // - based on https://github.com/kangax/html-minifier/blob/gh-pages/src/htmlparser.js (MIT License)
 // - createMap() is inline
 // - removed exports.HTMLtoXML, exports.HTMLtoDOM

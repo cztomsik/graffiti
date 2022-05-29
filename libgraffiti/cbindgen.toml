@@ -1,4 +1,0 @@
-language = "C"
-
-[parse.expand]
-crates = ["graffiti"]

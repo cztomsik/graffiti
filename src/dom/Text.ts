@@ -1,20 +1,22 @@
+import { IText } from '../types'
 import { Node, CharacterData } from './index'
-import { normalize } from './CharacterData'
-import { native, encode, decode, getNativeId, register } from '../native'
+import { encode, native, ID } from '../native'
 
-export class Text extends CharacterData implements globalThis.Text {
+export class Text extends CharacterData implements IText {
   constructor(data = '', doc = document) {
-    super(doc)
+    super(data, doc)
 
-    register(this, native.gft_Document_create_text_node(getNativeId(doc), ...encode(normalize(data))))
+    this[ID] = native.gft_Document_create_text_node(doc[ID], encode(data))
   }
 
   get data() {
-    return decode(native.gft_Text_data(getNativeId(this))) ?? ''
+    return super.data
   }
 
   set data(data) {
-    native.gft_Text_set_data(getNativeId(this), ...encode(normalize(data)))
+    super.data = data
+
+    native.Text_set_data(this[ID], this.data)
   }
 
   get nodeType() {

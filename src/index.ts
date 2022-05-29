@@ -1,2 +1,2 @@
-export { App } from './App'
+export { app } from './App'
 export { AppWindow } from './AppWindow'

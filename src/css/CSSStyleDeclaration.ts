@@ -1,22 +1,24 @@
-import { getNativeId, native, encode, decode } from '../native'
+import { ICSSStyleDeclaration } from '../types'
+import { native, ID, atom, encode, decode } from '../native'
 import { UNSUPPORTED } from '../util'
 
 // minimal impl just to get something working
 // (many props are missing)
-export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
+// prettier-ignore
+export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   constructor(public readonly parentRule: CSSRule | null) {}
 
-  getPropertyValue(propertyName: string): string {
-    return decode(native.CssStyleDeclaration_property_value(getNativeId(this), ...encode(propertyName))) ?? ''
+  getPropertyValue(prop: string): string {
+    return decode(native.gft_CssStyleDeclaration_property_value(this[ID], atom(prop))) ?? ''
   }
 
-  getPropertyPriority(propertyName: string): string {
+  getPropertyPriority(prop: string): string {
     return UNSUPPORTED()
   }
 
-  setProperty(propertyName: string, value: string | null, priority?: string | null) {
+  setProperty(prop: string, value: string | null, priority?: string | null) {
     if (value === '' || value === null) {
-      this.removeProperty(propertyName)
+      this.removeProperty(prop)
       return
     }
 
@@ -24,33 +26,32 @@ export class CSSStyleDeclaration implements globalThis.CSSStyleDeclaration {
       console.warn('!important is not supported')
     }
 
-    native.gft_CssStyleDeclaration_set_property(getNativeId(this), ...encode(propertyName), ...encode(value))
+    native.gft_CssStyleDeclaration_set_property(this[ID], atom(prop), encode(value))
   }
 
-  removeProperty(propertyName: string): string {
-    // TODO: native should return this
-    const prev = this.getPropertyValue(propertyName)
-    native.gft_CssStyleDeclaration_remove_property(getNativeId(this), ...encode(propertyName))
+  removeProperty(prop: string): string {
+    const prev = this.getPropertyValue(prop)
+    native.gft_CssStyleDeclaration_remove_property(this[ID], atom(prop))
     return prev
   }
 
   get cssText(): string {
-    return decode(native.gft_CssStyleDeclaration_css_text(getNativeId(this))) ?? ''
+    return decode(native.gft_CssStyleDeclaration_css_text(this[ID])) ?? ''
   }
 
   set cssText(cssText: string) {
-    native.gft_CssStyleDeclaration_set_css_text(getNativeId(this), ...encode(cssText))
+    native.gft_CssStyleDeclaration_set_css_text(this[ID], encode(cssText))
   }
 
   // UNSUPPORTED
   [index: number]: string
 
   get length() {
-    return native.gft_CssStyleDeclaration_length(getNativeId(this))
+    return native.gft_CssStyleDeclaration_length(this[ID])
   }
 
   item(index: number): string {
-    return native.gft_CssStyleDeclaration_item(getNativeId(this), index)
+    return native.gft_CssStyleDeclaration_item(this[ID], index)
   }
 
   get alignContent() { return this.getPropertyValue('align-content') }

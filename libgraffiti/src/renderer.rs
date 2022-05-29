@@ -1,402 +1,251 @@
-use crate::css::{
-    CssAlign, CssDimension, CssDisplay, CssFlexDirection, CssFlexWrap, CssJustify, CssPosition, CssStyleSheet,
-    StyleProp, StyleResolver,
+// turns render tree into series of skia calls
+//
+// maybe we can get rid of skia one day or make it an optional feature/backend
+// but it's not a priority right now and there are no good alternatives
+// at the moment anyway (clip radii, filters)
+//
+// notes:
+// - render tree is just a slice of `RenderEdge`(s) which means it should be prefetch-friendly
+//   and the `ContainerStyle` doesn't need to be <64b
+// - incrementality will be handled elsewhere, this should be as simple and stateless as possible
+//   except of maybe using some LRU caches for managing mid-lived resources, etc.
+
+use skia_safe::textlayout::Paragraph;
+use skia_safe::{
+    gpu::{gl::FramebufferInfo, BackendRenderTarget, DirectContext},
+    Canvas, ColorType, Paint, RRect, Surface,
 };
-use crate::document::{Change, Document, NodeId, NodeKind};
-use crate::gfx::{Canvas, GlBackend, PathCmd, RenderBackend, Text, TextStyle, Transform, Vec2, AABB, RGBA8};
-use crate::layout::{
-    Align, Dimension, Display, FlexDirection, FlexWrap, Justify, LayoutNodeId, LayoutResult, LayoutStyle, LayoutTree,
-    Position, Size,
-};
-use crate::util::{BitSet, SlotMap};
-use crate::windowing::Window;
-use std::sync::Arc;
+use skia_safe::{ClipOp, MaskFilter};
+use std::ops::Deref;
+
+// for now we just re-export some skia primitives
+pub use skia_safe::{Color, Matrix, Point, Rect};
+
+pub enum RenderEdge<P: Deref<Target = Paragraph>> {
+    OpenContainer(Rect, ContainerStyle),
+    CloseContainer,
+    Text(Rect, P),
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ContainerStyle {
+    pub transform: Option<Matrix>,
+    pub opacity: Option<f32>,
+    pub border_radii: Option<[f32; 4]>,
+    pub shadow: Option<Shadow>,
+    pub outline: Option<Outline>,
+    pub clip: bool,
+    pub bg_color: Option<Color>,
+    // pub images/gradients: Vec<?>
+    pub border: Option<Border>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Shadow(pub (f32, f32), pub f32, pub f32, pub Color);
+
+#[derive(Debug, Clone, Copy)]
+pub struct Outline(pub f32, pub Option<StrokeStyle>, pub Color);
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StrokeStyle {
+    Solid,
+    Dashed,
+    Dotted,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Border {
+    top: BorderSide,
+    right: BorderSide,
+    bottom: BorderSide,
+    left: BorderSide,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct BorderSide(pub f32, pub Option<StrokeStyle>, pub Color);
 
 pub struct Renderer {
-    document: Document,
-    state: State,
-    canvas: Canvas,
-    window: Arc<Window>,
-    backend: GlBackend,
-}
-
-#[derive(Default)]
-struct State {
-    layout_tree: LayoutTree,
-    layout_nodes: SlotMap<NodeId, LayoutNodeId>,
-    render_styles: SlotMap<NodeId, RenderStyle>,
-    texts: SlotMap<NodeId, Text>,
-}
-
-impl Renderer {
-    pub fn new(document: Document, win: &Window) -> Self {
-        Self {
-            document,
-            canvas: Canvas::new(),
-            state: State::default(),
-            // TODO: make this whole fn unsafe?
-            backend: unsafe { GlBackend::new(|s| win.get_proc_address(s) as _) },
-            window: Window::find_by_id(win.id()).unwrap(),
-        }
-    }
-
-    fn update(&mut self) {
-        let changes = self.document.take_changes();
-        let document = &self.document;
-        let State {
-            layout_tree,
-            layout_nodes,
-            render_styles,
-            texts,
-        } = &mut self.state;
-
-        for ch in changes {
-            match ch {
-                Change::Created(id) => {
-                    layout_nodes.put(id, layout_tree.create_node());
-                }
-                Change::Destroyed(id) => {
-                    layout_tree.drop_node(layout_nodes[id]);
-                    layout_nodes.remove(id);
-                }
-                Change::Changed(id) => {}
-                Change::Inserted(id) => {
-                    let parent = layout_nodes[document[id].parent_node().unwrap()];
-                    let child = layout_nodes[id];
-                    if let Some(next) = document[id].next_sibling() {
-                        let before = layout_nodes[next];
-                        layout_tree.insert_before(parent, child, before);
-                    } else {
-                        layout_tree.append_child(parent, child);
-                    }
-                }
-                Change::Removed(id) => {
-                    let parent = layout_nodes[document[id].parent_node().unwrap()];
-                    let child = layout_nodes[id];
-                    layout_tree.remove_child(parent, child);
-                }
-            }
-        }
-    }
-
-    pub fn render(&mut self) {
-        self.update();
-
-        let mut ctx = RenderContext {
-            canvas: &mut self.canvas,
-        };
-
-        // render_tree.visit(|item| ctx.render_item(item));
-
-        unsafe { self.window.make_current() };
-        self.backend.render_frame(ctx.canvas.flush());
-        self.window.swap_buffers();
-    }
-
-    // pub fn client_rect(&self, ?) -> ? { self.xxx.with_render_state(|| ...) }
-
-    pub fn resize(&mut self, width: f32, height: f32) {
-        println!("TODO: Renderer::resize({}, {})", width, height);
-    }
+    gr_ctx: DirectContext,
+    surface: Surface,
 }
 
 struct RenderContext<'a> {
     canvas: &'a mut Canvas,
-    // + few context things like color, text-align, ?
 }
 
-impl<'a> RenderContext<'a> {
-    fn draw_bg_color(&mut self, rect: AABB, radii: [f32; 4], color: RGBA8) {
-        if radii == [0., 0., 0., 0.] {
-            return self.canvas.fill_rect(rect, color);
-        }
+enum Shape {
+    Rect(Rect),
+    RRect(RRect),
+}
 
-        let Vec2 { x, y } = rect.min;
-        let [w, h] = [rect.max.x - rect.min.x, rect.max.y - rect.min.y];
-        let [tl, tr, br, bl] = radii;
+impl Renderer {
+    pub fn new(size: (i32, i32)) -> Self {
+        let mut gr_ctx = DirectContext::new_gl(None, None).unwrap();
+        let surface = Self::create_surface(&mut gr_ctx, size);
 
-        // TODO: clamping (when r > w/h)
-        let path = [
-            PathCmd::Move(Vec2::new(x + tl, y)),
-            PathCmd::Line(Vec2::new(x + w - tr, y)),
-            PathCmd::Quadratic(Vec2::new(x + w, y), Vec2::new(x + w, y + tr)),
-            PathCmd::Line(Vec2::new(x + w, y + h - br)),
-            PathCmd::Quadratic(Vec2::new(x + w, y + h), Vec2::new(x + w - br, y + h)),
-            PathCmd::Line(Vec2::new(x + bl, y + h)),
-            PathCmd::Quadratic(Vec2::new(x + w, y + h), Vec2::new(x + w - br, y + h)),
-            PathCmd::Line(Vec2::new(x + bl, y + h)),
-            PathCmd::Quadratic(Vec2::new(x, y + h), Vec2::new(x, y + h - bl)),
-            PathCmd::Line(Vec2::new(x, y + tl)),
-            PathCmd::Quadratic(Vec2::new(x, y), Vec2::new(x + tl, y)),
-            PathCmd::Close,
-        ];
-
-        self.canvas.fill_path(&path, color);
+        Self { gr_ctx, surface }
     }
 
-    /*
-    fn render_node(&mut self, parent_offset: Vec2, node: NodeId) {
-        let render_node = &self.render_nodes[node];
-        let layout_res = self.layout_tree.layout_result(render_node.layout_node);
+    pub fn render<P: Deref<Target = Paragraph>>(&mut self, render_tree: &[RenderEdge<P>]) {
+        let canvas = self.surface.canvas();
+        canvas.clear(Color::WHITE);
 
-        match render_node.dom_node.node_type() {
-            NodeKind::Element | NodeKind::Document => self.render_container(
-                parent_offset,
-                &layout_res,
-                render_node.render_style.as_ref().unwrap(),
-                render_node.dom_node.child_nodes().into_iter(),
-            ),
-            NodeKind::Text => self.render_text(
-                parent_offset,
-                &layout_res,
-                &render_node.dom_node.as_text().unwrap().data(),
-            ),
+        let mut ctx = RenderContext { canvas };
+
+        for edge in render_tree {
+            ctx.draw_edge(edge);
+        }
+
+        self.surface.flush();
+    }
+
+    pub fn resize(&mut self, size: (i32, i32)) {
+        self.surface = Self::create_surface(&mut self.gr_ctx, size);
+    }
+
+    fn create_surface(gr_ctx: &mut DirectContext, size: (i32, i32)) -> Surface {
+        let target = BackendRenderTarget::new_gl(
+            size,
+            None,
+            8,
+            FramebufferInfo {
+                fboid: 0,
+                format: skia_safe::gpu::gl::Format::RGBA8.into(),
+            },
+        );
+
+        Surface::from_backend_render_target(
+            gr_ctx,
+            &target,
+            skia_safe::gpu::SurfaceOrigin::BottomLeft,
+            ColorType::RGBA8888,
+            None,
+            None,
+        )
+        .unwrap()
+    }
+}
+
+impl RenderContext<'_> {
+    fn draw_edge<P: Deref<Target = Paragraph>>(&mut self, edge: &RenderEdge<P>) {
+        match edge {
+            RenderEdge::OpenContainer(rect, style) => self.open_container(*rect, style),
+            RenderEdge::CloseContainer => self.close_container(),
+            RenderEdge::Text(rect, paragraph) => self.draw_text(*rect, paragraph),
         }
     }
 
-    fn render_container(
-        &mut self,
-        parent_offset: Vec2,
-        layout: &LayoutResult,
-        style: &RenderStyle,
-        children: impl Iterator<Item = NodeRef>,
-    ) {
-        if style.hidden {
-            return;
+    fn open_container(&mut self, rect: Rect, style: &ContainerStyle) {
+        self.canvas.save();
+
+        let shape = match &style.border_radii {
+            None => Shape::Rect(rect),
+            Some(radii) => {
+                let mut rrect = RRect::default();
+                let &[a, b, c, d] = radii;
+                rrect.set_rect_radii(rect, &[(a, a).into(), (b, b).into(), (c, c).into(), (d, d).into()]);
+
+                Shape::RRect(rrect)
+            }
+        };
+
+        if let Some(matrix) = &style.transform {
+            self.canvas.concat(matrix);
         }
 
-        let br = layout.border_rect();
-        let border_rect = AABB::new(Vec2::new(br.left, br.top), Vec2::new(br.right, br.bottom));
-
-        if style.opacity < 1. {
-            // if style.opacity * current_opacity() < 0.01 {
-            //     return
-            // }
-
-            // TODO: pop
-            // push_opacity(opacity)
+        if let Some(opacity) = style.opacity {
+            // TODO
         }
 
-        if let Some(transform) = style.transform {
-            // TODO: pop
-            // self.push_transform()
+        if let Some(shadow) = &style.shadow {
+            self.draw_shadow(rect, shadow);
         }
 
-        // for outline_shadow in ... {
-        //     self.draw_outline_shadow(border_rect, outline_shadow);
-        // }
-
-        // if let Some(outline) = ... {
-        //     self.draw_outline(border_rect, outline);
-        // }
-
-        // TODO: clip(padding_rect, border_radii) everything from here if overflow hidden/scroll?
-        //       or maybe just children because everything accepts shape anyway?
-
-        if style.bg_color[3] != 0 {
-            self.draw_bg_color(border_rect, style.border_radii, style.bg_color);
+        if let Some(outline) = &style.outline {
+            self.draw_outline(rect, outline);
         }
 
-        // for image in ... {
-        //     self.draw_image(border_rect, border_radii, image)
-        // }
-
-        // for inset_shadow in ... {
-        //     // padding_rect
-        //     self.draw_inset_shadow(padding_rect, border_radii, inset_shadow);
-        // }
-
-        // TODO: overflow: scroll
-
-        for ch in children {
-            self.render_node(parent_offset + border_rect.min, ch.id());
+        if style.clip {
+            // TODO: subtract borders?
+            self.clip_shape(&shape, ClipOp::Intersect, style.transform.is_some());
         }
 
-        // if let Some(border) = ... {
+        if let Some(color) = style.bg_color {
+            self.draw_bg_color(&shape, color);
+        }
+
+        // TODO: image(s)
+
+        // TODO: scroll
+        self.canvas.translate((rect.x(), rect.y()));
+    }
+
+    fn close_container(&mut self) {
+        //let (border,) = ctx.stack.pop().unwrap();
+
+        // if let Some(border) = ctx.stack.pop {
         //     self.draw_border(border_rect, border_radii, border)
         // }
+
+        self.canvas.restore();
     }
 
-    fn render_text(&mut self, parent_offset: Vec2, layout: &LayoutResult, text: &str) {}
-    */
-}
-
-#[derive(Default)]
-struct ResolvedStyle {
-    layout_style: LayoutStyle,
-    // text_style: TextStyle,
-    render_style: RenderStyle,
-}
-
-struct RenderStyle {
-    hidden: bool,
-    transform: Option<Transform>,
-    //overflow: visible/hidden/scroll,
-    opacity: f32,
-    border_radii: [f32; 4],
-    // - outline_shadow(s)
-    //outline: (f32, /*CssBorderStyle,*/ RGBA8),
-    // - clip() from here if overflow hidden
-    bg_color: RGBA8,
-    // - bg_image(s) | gradient(s)
-    // - inset_shadow(s)
-    // - children
-    // - border
-}
-
-impl Default for RenderStyle {
-    fn default() -> Self {
-        Self {
-            hidden: false,
-            transform: None,
-            opacity: 1.,
-            border_radii: [0., 0., 0., 0.],
-            bg_color: [0, 0, 0, 0],
-        }
+    fn draw_text(&mut self, rect: Rect, paragraph: &Paragraph) {
+        paragraph.paint(self.canvas, Point::new(rect.x(), rect.y()));
     }
-}
 
-impl ResolvedStyle {
-    // fn apply_style(&mut self, style: &CssStyleDeclaration) {}
+    fn draw_outline(&mut self, rect: Rect, outline: &Outline) {
+        let &Outline(width, style, color) = outline;
 
-    fn apply_style_prop(&mut self, prop: &StyleProp) {
-        use StyleProp::*;
-        match prop {
-            // first, likely to be animated
-            &Opacity(v) => self.render_style.opacity = v,
-            &BackgroundColor(v) => self.render_style.bg_color = [v.r, v.g, v.b, v.a],
+        let mut paint = Paint::default();
+        paint.set_stroke(true);
+        paint.set_stroke_width(width);
+        paint.set_color(color);
 
-            // size
-            &Width(v) => self.layout_style.size.width = dimension(v),
-            &Height(v) => self.layout_style.size.height = dimension(v),
-            &MinWidth(v) => self.layout_style.min_size.width = dimension(v),
-            &MinHeight(v) => self.layout_style.min_size.height = dimension(v),
-            &MaxWidth(v) => self.layout_style.max_size.width = dimension(v),
-            &MaxHeight(v) => self.layout_style.max_size.height = dimension(v),
+        // TODO: stroke styles
 
-            // padding
-            &PaddingTop(v) => self.layout_style.padding.top = dimension(v),
-            &PaddingRight(v) => self.layout_style.padding.right = dimension(v),
-            &PaddingBottom(v) => self.layout_style.padding.bottom = dimension(v),
-            &PaddingLeft(v) => self.layout_style.padding.left = dimension(v),
+        let d = width / 2.;
 
-            // margin
-            &MarginTop(v) => self.layout_style.margin.top = dimension(v),
-            &MarginRight(v) => self.layout_style.margin.right = dimension(v),
-            &MarginBottom(v) => self.layout_style.margin.bottom = dimension(v),
-            &MarginLeft(v) => self.layout_style.margin.left = dimension(v),
+        self.canvas.draw_rect(rect.with_outset((d, d)), &paint);
+    }
 
-            // border
-            &BorderTopWidth(v) => self.layout_style.border.top = dimension(v),
-            &BorderRightWidth(v) => self.layout_style.border.right = dimension(v),
-            &BorderBottomWidth(v) => self.layout_style.border.bottom = dimension(v),
-            &BorderLeftWidth(v) => self.layout_style.border.left = dimension(v),
+    fn draw_bg_color(&mut self, shape: &Shape, color: Color) {
+        let mut paint = Paint::default();
+        paint.set_color(color);
 
-            // border_radius (px-only)
-            &BorderTopLeftRadius(CssDimension::Px(v)) => self.render_style.border_radii[0] = v,
-            &BorderTopRightRadius(CssDimension::Px(v)) => self.render_style.border_radii[1] = v,
-            &BorderBottomRightRadius(CssDimension::Px(v)) => self.render_style.border_radii[2] = v,
-            &BorderBottomLeftRadius(CssDimension::Px(v)) => self.render_style.border_radii[3] = v,
+        self.draw_shape(shape, &paint);
+    }
 
-            // position
-            &Position(v) => self.layout_style.position_type = position(v),
-            &Top(v) => self.layout_style.position.top = dimension(v),
-            &Right(v) => self.layout_style.position.right = dimension(v),
-            &Bottom(v) => self.layout_style.position.bottom = dimension(v),
-            &Left(v) => self.layout_style.position.left = dimension(v),
+    // TODO: radii
+    fn draw_shadow(&mut self, rect: Rect, shadow: &Shadow) {
+        let &Shadow(offset, blur, spread, color) = shadow;
 
-            // flex
-            &FlexDirection(v) => self.layout_style.flex_direction = flex_direction(v),
-            &FlexWrap(v) => self.layout_style.flex_wrap = flex_wrap(v),
-            &FlexGrow(v) => self.layout_style.flex_grow = v,
-            &FlexShrink(v) => self.layout_style.flex_shrink = v,
-            &FlexBasis(v) => self.layout_style.flex_basis = dimension(v),
-            &AlignContent(v) => self.layout_style.align_content = align(v),
-            &AlignItems(v) => self.layout_style.align_items = align(v),
-            &AlignSelf(v) => self.layout_style.align_self = align(v),
-            &JustifyContent(v) => self.layout_style.justify_content = justify(v),
+        let mut paint = Paint::default();
+        paint.set_color(color);
+        paint.set_mask_filter(MaskFilter::blur(skia_safe::BlurStyle::Outer, sigma(blur), false));
 
-            // other
-            &Display(v) => {
-                self.render_style.hidden = v == CssDisplay::None;
-                self.layout_style.display = display(v)
-            }
+        // TODO: fix negative spread (visible with transparent background)
+        //       maybe draw those with inverse clip?
+        self.canvas
+            .draw_rect(rect.with_offset(offset).with_outset((spread, spread)), &paint);
+    }
 
-            _ => {}
-        }
+    fn draw_shape(&mut self, shape: &Shape, paint: &Paint) {
+        match shape {
+            Shape::Rect(rect) => self.canvas.draw_rect(rect, paint),
+            Shape::RRect(rrect) => self.canvas.draw_rrect(rrect, paint),
+        };
+    }
+
+    fn clip_shape(&mut self, shape: &Shape, op: ClipOp, antialias: bool) {
+        match shape {
+            Shape::Rect(rect) => self.canvas.clip_rect(rect, op, antialias),
+            Shape::RRect(rrect) => self.canvas.clip_rrect(rrect, op, antialias),
+        };
     }
 }
 
-fn display(value: CssDisplay) -> Display {
-    match value {
-        CssDisplay::None => Display::None,
-        CssDisplay::Flex => Display::Flex,
-        CssDisplay::Block => Display::Block,
-        CssDisplay::Inline => Display::Inline,
-        CssDisplay::InlineBlock => Display::InlineBlock,
-        CssDisplay::Table => Display::Table,
-        CssDisplay::TableRow => Display::TableRow,
-        CssDisplay::TableCell => Display::TableCell,
-        _ => Display::Block,
-    }
-}
-
-fn flex_direction(value: CssFlexDirection) -> FlexDirection {
-    match value {
-        CssFlexDirection::Row => FlexDirection::Row,
-        CssFlexDirection::Column => FlexDirection::Column,
-        CssFlexDirection::RowReverse => todo!(),
-        CssFlexDirection::ColumnReverse => todo!(),
-    }
-}
-
-fn flex_wrap(value: CssFlexWrap) -> FlexWrap {
-    match value {
-        CssFlexWrap::NoWrap => FlexWrap::NoWrap,
-        CssFlexWrap::Wrap => FlexWrap::Wrap,
-        CssFlexWrap::WrapReverse => todo!(),
-    }
-}
-
-fn dimension(value: CssDimension) -> Dimension {
-    match value {
-        CssDimension::Px(v) => Dimension::Px(v),
-        CssDimension::Percent(v) => Dimension::Percent(v / 100.),
-        CssDimension::Auto => Dimension::Auto,
-        _ => todo!(),
-    }
-}
-
-fn align(value: CssAlign) -> Align {
-    match value {
-        CssAlign::Auto => Align::Auto,
-        CssAlign::FlexStart => Align::FlexStart,
-        CssAlign::Center => Align::Center,
-        CssAlign::FlexEnd => Align::FlexEnd,
-        CssAlign::Stretch => Align::Stretch,
-        CssAlign::Baseline => Align::Baseline,
-        CssAlign::SpaceBetween => Align::SpaceBetween,
-        CssAlign::SpaceAround => Align::SpaceAround,
-    }
-}
-
-fn justify(value: CssJustify) -> Justify {
-    match value {
-        CssJustify::FlexStart => Justify::FlexStart,
-        CssJustify::Center => Justify::Center,
-        CssJustify::FlexEnd => Justify::FlexEnd,
-        CssJustify::SpaceBetween => Justify::SpaceBetween,
-        CssJustify::SpaceAround => Justify::SpaceAround,
-        CssJustify::SpaceEvenly => Justify::SpaceEvenly,
-    }
-}
-
-fn position(value: CssPosition) -> Position {
-    match value {
-        CssPosition::Static => Position::Static,
-        CssPosition::Relative => Position::Relative,
-        CssPosition::Absolute => Position::Absolute,
-        // TODO
-        CssPosition::Sticky => Position::Static,
-    }
+fn sigma(radius: f32) -> f32 {
+    // (1 / sqrt(3))
+    0.5773502692 * radius + 0.5
 }

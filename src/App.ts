@@ -1,28 +1,26 @@
-import { native, register, getNativeId } from './native'
+import { EventTarget } from './events/EventTarget'
+import { native } from './native'
 
-export class App {
-  private constructor() {
-    register(this, native.gft_App_init())
+class App extends EventTarget {
+  constructor() {
+    super()
+
+    native.gft_App_init()
   }
 
-  run() {
-    const loop = () => {
-      this.tick()
-
-      // macro-task, we want to let others run too
-      // TODO: should be 0 but this makes WPT run much faster
-      setTimeout(loop, 1)
-    }
-
-    loop()
-  }
-
-  // useful for testing/debugging
-  tick() {
-    native.gft_App_tick(getNativeId(this))
-  }
-
-  static async init() {
-    return new App()
-  }
+  // TODO
+  // quit() {}
 }
+
+export const app = new App()
+
+const loop = () => {
+  native.gft_App_tick()
+
+  // macro-task, we want to let others run too
+  // TODO: should be 0 but this makes WPT run much faster
+  //setTimeout(loop, 1)
+  setTimeout(loop, 1000)
+}
+
+loop()

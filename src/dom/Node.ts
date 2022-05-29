@@ -4,11 +4,13 @@
 import { EventTarget } from '../events/index'
 import { NodeList, HTMLElement } from './index'
 import { assert, last, UNSUPPORTED } from '../util'
-import { native, encode, getNativeId, getRefs } from '../native'
+import { native, ID } from '../native'
 import { lookupElement } from './Document'
+import { IChildNode, IDocument, INode, INonDocumentTypeChildNode, IParentNode, ISlottable } from '../types'
 
+// prettier-ignore
 export abstract class Node extends EventTarget
-  implements G.Node, G.ParentNode, G.ChildNode, G.NonDocumentTypeChildNode, G.Slottable {
+  implements INode, IParentNode, IChildNode, INonDocumentTypeChildNode, ISlottable {
   abstract readonly nodeType: number
   abstract readonly nodeName: string
   readonly parentNode: Element | null = null
@@ -16,15 +18,15 @@ export abstract class Node extends EventTarget
   readonly childNodes
 
   // nodes should only be created by document
-  protected constructor(public readonly ownerDocument: G.Document) {
+  protected constructor(public readonly ownerDocument: IDocument) {
     super()
   }
 
-  appendChild<T extends G.Node>(child: T): T {
+  appendChild<T extends INode>(child: T): T {
     return this.insertBefore(child, null)
   }
 
-  insertBefore<T extends G.Node>(child: T, refNode: G.Node | null): T {
+  insertBefore<T extends INode>(child: T, refNode: INode | null): T {
     // should be !== null but some libs pass undefined too
     if (refNode) {
       assert(refNode.parentNode === this, 'invalid refNode')
@@ -49,29 +51,29 @@ export abstract class Node extends EventTarget
 
     if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE && (child.nodeType !== Node.COMMENT_NODE)) {
       if (refNode) {
-        native.gft_Node_insert_before(getNativeId(this), getNativeId(child), getNativeId(refNode))
+        native.gft_Node_insert_before(this[ID], child[ID], refNode[ID])
       } else {
-        native.gft_Node_append_child(getNativeId(this), getNativeId(child))
+        native.gft_Node_append_child(this[ID], child[ID])
       }
     }
 
     return child
   }
 
-  removeChild<T extends G.Node>(child: T): T {
+  removeChild<T extends INode>(child: T): T {
     assert(child.parentNode === this, 'not a child')
 
     ;(child as any).parentNode = null
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
 
     if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
-      native.gft_Node_remove_child(getNativeId(this), getNativeId(child))
+      native.gft_Node_remove_child(this.ownerDocument[ID], this[ID], child[ID])
     }
 
     return child
   }
 
-  replaceChild<T extends G.Node>(child: G.Node, oldChild: T): T {
+  replaceChild<T extends INode>(child: INode, oldChild: T): T {
     this.insertBefore(child, oldChild)
 
     return this.removeChild(oldChild)
@@ -81,11 +83,11 @@ export abstract class Node extends EventTarget
     return this.childNodes.length > 0
   }
 
-  get firstChild(): G.ChildNode | null {
+  get firstChild(): IChildNode | null {
     return this.childNodes[0] ?? null
   }
 
-  get lastChild(): G.ChildNode | null {
+  get lastChild(): IChildNode | null {
     return last(this.childNodes) ?? null
   }
 
@@ -93,11 +95,11 @@ export abstract class Node extends EventTarget
     return this.parentNode instanceof HTMLElement ? this.parentNode : null
   }
 
-  get nextSibling(): G.ChildNode | null {
+  get nextSibling(): IChildNode | null {
     return sibling(this.parentNode?.childNodes, this, 1)
   }
 
-  get previousSibling(): G.ChildNode | null {
+  get previousSibling(): IChildNode | null {
     return sibling(this.parentNode?.childNodes, this, -1)
   }
 
@@ -125,7 +127,7 @@ export abstract class Node extends EventTarget
     this.appendChild(this.ownerDocument.createTextNode('' + v))
   }
 
-  getRootNode(options?: GetRootNodeOptions): G.Node {
+  getRootNode(options?: GetRootNodeOptions): INode {
     return this.ownerDocument
   }
 
@@ -161,20 +163,20 @@ export abstract class Node extends EventTarget
     UNSUPPORTED()
   }
 
-  isEqualNode(otherNode: G.Node | null): boolean {
+  isEqualNode(otherNode: INode | null): boolean {
     return UNSUPPORTED()
   }
 
-  cloneNode(deep?: boolean): G.Node {
+  cloneNode(deep?: boolean): INode {
     return UNSUPPORTED()
   }
 
-  compareDocumentPosition(other: G.Node): number {
+  compareDocumentPosition(other: INode): number {
     return UNSUPPORTED()
   }
 
   // prefresh calls this
-  contains(other: G.Node | null): boolean {
+  contains(other: INode | null): boolean {
     // go through other parents and check if one of them is us
     while (other) {
       if (other === this) {
@@ -244,15 +246,15 @@ export abstract class Node extends EventTarget
     return last(this.children) ?? null
   }
 
-  append(...nodes: (G.Node | string)[]) {
+  append(...nodes: (INode | string)[]) {
     nodes.forEach(n => this.appendChild(strToNode(this, n)))
   }
 
-  prepend(...nodes: (G.Node | string)[]) {
+  prepend(...nodes: (INode | string)[]) {
     nodes.forEach(n => this.insertBefore(strToNode(this, n), this.firstChild))
   }
 
-  replaceChildren(...nodes: (G.Node | string)[]) {
+  replaceChildren(...nodes: (INode | string)[]) {
     this.childNodes.forEach(n => this.removeChild(n))
     this.append(...nodes)
   }
@@ -293,7 +295,7 @@ export abstract class Node extends EventTarget
   // ---
   // ChildNode:
 
-  after(...nodes: (G.Node | string)[]) {
+  after(...nodes: (INode | string)[]) {
     const refNode = this.nextSibling
 
     if (this.parentNode) {
@@ -301,13 +303,13 @@ export abstract class Node extends EventTarget
     }
   }
 
-  before(...nodes: (G.Node | string)[]) {
+  before(...nodes: (INode | string)[]) {
     if (this.parentNode) {
       nodes.forEach(n => this.parentNode!.insertBefore(strToNode(this, n), this))
     }
   }
 
-  replaceWith(...nodes: (G.Node | string)[]) {
+  replaceWith(...nodes: (INode | string)[]) {
     this.before(...nodes)
     this.remove()
   }
@@ -342,13 +344,3 @@ Object.defineProperty(Node.prototype, 'childNodes', { value: Object.freeze(new N
 const sibling = (nodes, child, offset) => (nodes && nodes[nodes.indexOf(child) + offset]) ?? null
 
 const strToNode = (parent, n) => (typeof n === 'string' ? parent.ownerDocument.createTextNode('' + n) : n)
-
-// shorthands for globalThis.*
-namespace G {
-  export type Document = globalThis.Document
-  export type Slottable = globalThis.Slottable
-  export type Node = globalThis.Node
-  export type ChildNode = globalThis.ChildNode
-  export type NonDocumentTypeChildNode = globalThis.NonDocumentTypeChildNode
-  export type ParentNode = globalThis.ParentNode
-}

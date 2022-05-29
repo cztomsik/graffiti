@@ -3,10 +3,10 @@ import { HTMLElement } from './index'
 export class HTMLTextAreaElement extends HTMLElement implements globalThis.HTMLTextAreaElement {
   type = 'textarea'
 
-  _input = this.ownerDocument.createElement('input') as unknown as HTMLInputElement
+  _input = (this.ownerDocument.createElement('input') as unknown) as HTMLInputElement
 
-  constructor(doc, tagName) {
-    super(doc, tagName)
+  constructor(localName, doc) {
+    super(localName, doc)
 
     this.appendChild(this._input)
 

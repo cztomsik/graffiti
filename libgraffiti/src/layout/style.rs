@@ -82,21 +82,39 @@ pub enum Dimension {
     Vmax(f32),
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Size<T: Copy> {
     pub width: T,
     pub height: T,
 }
 
+impl<T: Copy> Size<T> {
+    pub const fn new(width: T, height: T) -> Self {
+        Self { width, height }
+    }
+}
+
+impl<T: Copy + PartialOrd> Size<T> {
+    pub fn min(self) -> T {
+        if self.width < self.height {
+            self.width
+        } else {
+            self.height
+        }
+    }
+
+    pub fn max(self) -> T {
+        if self.width > self.height {
+            self.width
+        } else {
+            self.height
+        }
+    }
+}
+
 impl Size<Dimension> {
-    pub const AUTO: Self = Self {
-        width: Dimension::Auto,
-        height: Dimension::Auto,
-    };
-    pub const ZERO: Self = Self {
-        width: Dimension::Px(0.),
-        height: Dimension::Px(0.),
-    };
+    pub const AUTO: Self = Self::new(Dimension::Auto, Dimension::Auto);
+    pub const ZERO: Self = Self::new(Dimension::Px(0.), Dimension::Px(0.));
 }
 
 #[derive(Debug, Clone, Copy, Default)]

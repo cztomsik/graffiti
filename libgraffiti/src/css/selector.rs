@@ -1,165 +1,133 @@
-// subset of CSS selectors
-// x to support CSS-in-JS libs
-// - specificity (TODO, u32-only)
-// x no first/last/nth/siblings
-// x universal
-// x local name
-// x id
-// x class
-// x child
-// x descendant
-// x multiple (div, span)
-// x combination
-// x decoupled from other systems
+// subset of CSS selectors for CSS-in-JS
 
-use super::parser::{selector, tokenize, ParseError};
-use crate::util::{Atom, Bloom};
-
-// TODO: find better name? CssElement? MatchedElement?
-pub trait Element: Clone {
-    fn parent(&self) -> Option<Self>;
-    fn local_name(&self) -> Atom<String>;
-    fn attribute(&self, name: &str) -> Option<Atom<String>>;
-}
+use super::parsing::{ident, skip, sym, Parsable, ParseError, Parser};
+use crate::util::Atom;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Selector {
-    // TODO: Bloom<TailPart>
-    // TODO: Box<[]> because it wont change once parsed
     pub(super) parts: Vec<SelectorPart>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(super) enum SelectorPart {
-    // TODO: I think inner discriminant could be squashed but it's not
-    //       maybe part.is_component() + inline these?
-    Component(Component),
+    Universal,
+    LocalName(Atom),
+    Identifier(Atom),
+    ClassName(Atom),
+    AttrExists(Atom),
+    // AttrEq(Atom, Atom),
+    // AttrStartsWith(Atom, Atom),
+    // AttrEndsWith(Atom, Atom),
+    // AttrContains(Atom, Atom),
     Combinator(Combinator),
-}
 
-#[derive(Clone, Debug, PartialEq)]
-pub(super) enum Component {
-    LocalName(Atom<String>),
-    Identifier(Atom<String>),
-    ClassName(Atom<String>),
-
-    Unsupported,
-    // AttrExists(Atom<String>),
-    // AttrEq(Atom<(Atom<String>, Atom<String>)>) // deref first, then compare both atoms
     // FirstChild // (prev_element_sibling == None)
     // LastChild // (next_element_sibling == None)
     // OnlyChild // (prev_element_sibling == None && next_element_sibling == None)
 
     // BTW: many are just compound shorthands and can be resolved here (:disabled is like [disabled] & input, select, ...)
-    // PseudoClass(Atom<String>) // :root, :hover, :focus, :active, :enabled, :disabled, :valid, :invalid, ...
+    // PseudoClass(Atom) // :root, :hover, :focus, :active, :enabled, :disabled, :valid, :invalid, ...
+    Unsupported,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(super) enum Combinator {
-    Universal,
     Parent,
     Ancestor,
+    Or,
     // Adjacent,
     // Sibling,
-    Or,
 }
 
-type Specificity = u32;
-
 impl Selector {
-    pub fn unsupported() -> Self {
-        Self {
-            parts: vec![SelectorPart::Component(Component::Unsupported)],
-        }
-    }
-
     pub fn parse(input: &str) -> Result<Self, ParseError> {
-        let tokens = tokenize(input.as_bytes());
-        let parser = selector() - pom::parser::end();
-
-        parser.parse(&tokens)
+        Parsable::parse(input)
     }
 
-    pub(super) fn tail_mask(&self) -> Bloom<()> {
-        Bloom::MAX
+    pub(crate) fn unsupported() -> Self {
+        Self {
+            parts: vec![SelectorPart::Unsupported],
+        }
     }
+}
 
-    pub fn match_element(&self, element: &impl Element) -> Option<Specificity> {
-        // so we can fast-forward to next OR
-        let mut parts_iter = self.parts.iter();
+impl Parsable for Selector {
+    fn parser<'a>() -> Parser<'a, Self> {
+        let tag = || {
+            let ident = || ident().map(Atom::from);
+            let universal = sym("*").map(|_| SelectorPart::Universal);
+            let local_name = ident().map(SelectorPart::LocalName);
+            let id = sym("#") * ident().map(SelectorPart::Identifier);
+            let class_name = sym(".") * ident().map(SelectorPart::ClassName);
+            let attr_exists = sym("[") * ident().map(SelectorPart::AttrExists) - sym("]");
+            let unknown_attr =
+                sym("[") * (!sym("]") * skip(1)).repeat(1..).map(|_| SelectorPart::Unsupported) - sym("]");
+            let attr = attr_exists | unknown_attr;
+            let pseudo = sym(":").discard().repeat(1..3) * ident().map(|_| SelectorPart::Unsupported);
 
-        // state
-        let mut current = element.clone();
-        let mut parent = false;
-        let mut ancestors = false;
-        let specificity = 0;
+            universal | local_name | id | class_name | attr | pseudo
+        };
 
-        // we are always going forward
-        'next_part: while let Some(p) = parts_iter.next() {
-            match p {
-                SelectorPart::Component(comp) => {
-                    loop {
-                        if parent || ancestors {
-                            parent = false;
+        // note we parse child/descendant but we flip the final order so it's parent/ancestor
+        let child = sym(">").map(|_| Combinator::Parent);
+        let descendant = sym(" ").map(|_| Combinator::Ancestor);
+        let or = sym(",").map(|_| Combinator::Or);
+        let unsupported = (sym("+") | sym("~")).map(|_| SelectorPart::Unsupported);
+        let comb = (child | descendant | or).map(SelectorPart::Combinator) | unsupported;
 
-                            match current.parent() {
-                                Some(parent) => current = parent,
+        let selector = tag() + (comb.opt() + tag()).repeat(0..);
 
-                                // nothing left to match
-                                None => break,
-                            }
-                        }
+        selector.map(|(head, tail)| {
+            let mut parts = Vec::with_capacity(tail.len() + 1);
 
-                        if Self::match_component(comp, &current) {
-                            ancestors = false;
-                            continue 'next_part;
-                        }
+            // reversed (child/descendant -> parent/ancestor)
+            for (comb, tag) in tail.into_iter().rev() {
+                parts.push(tag);
 
-                        // we got no match on parent
-                        if !ancestors {
-                            break;
-                        }
-                    }
-
-                    // no match, fast-forward to next OR
-                    while let Some(p) = parts_iter.next() {
-                        if p == &SelectorPart::Combinator(Combinator::Or) {
-                            // reset stack
-                            current = element.clone();
-                            continue 'next_part;
-                        }
-                    }
-
-                    // or fail otherwise
-                    return None;
+                if let Some(comb) = comb {
+                    parts.push(comb);
                 }
-
-                // state changes
-                SelectorPart::Combinator(Combinator::Parent) => parent = true,
-                SelectorPart::Combinator(Combinator::Ancestor) => ancestors = true,
-
-                // no-op
-                SelectorPart::Combinator(Combinator::Universal) => {}
-
-                // we still have a match, no need to check others
-                SelectorPart::Combinator(Combinator::Or) => break 'next_part,
             }
-        }
 
-        // everything was fine
-        Some(specificity)
+            parts.push(head);
+
+            Selector { parts }
+        })
     }
+}
 
-    fn match_component(comp: &Component, el: &impl Element) -> bool {
-        match comp {
-            Component::LocalName(name) => name == &el.local_name(),
-            Component::Identifier(id) => Some(id) == el.attribute("id").as_ref(),
-            Component::ClassName(cls) => match el.attribute("class") {
-                Some(s) => s.split_ascii_whitespace().any(|part| part == **cls),
-                _ => false,
-            },
-            Component::Unsupported => false,
+impl fmt::Display for Selector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for r in self.parts.iter().rev() {
+            write!(f, "{}", r)?;
         }
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for SelectorPart {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Universal => write!(f, "*"),
+            Self::LocalName(name) => write!(f, "{}", name),
+            Self::Identifier(id) => write!(f, "#{}", id),
+            Self::ClassName(clz) => write!(f, ".{}", clz),
+            Self::AttrExists(att) => write!(f, "[{}]", att),
+            Self::Combinator(comb) => write!(f, "{}", comb),
+            Self::Unsupported => write!(f, "???"),
+        }
+    }
+}
+
+impl fmt::Display for Combinator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Parent => " ",
+            Self::Ancestor => ">",
+            Self::Or => ",",
+        })
     }
 }
 
@@ -167,83 +135,88 @@ impl Selector {
 mod tests {
     use super::*;
 
-    #[ignore]
     #[test]
-    fn part_size() {
-        use std::mem::size_of;
+    fn parse_selector() {
+        use super::Combinator::*;
+        use SelectorPart::*;
 
-        // TODO: either find a way or inline components in SelectorPart
-        // TODO: make Atom NonZeroU32 to further push this down
-        assert_eq!(size_of::<SelectorPart>(), 2 * size_of::<Atom<String>>());
-    }
+        let s = |s| Selector::parse(s).unwrap().parts;
 
-    #[test]
-    fn matching() {
-        impl Element for usize {
-            fn parent(&self) -> Option<Self> {
-                [None, Some(0), Some(1), Some(2), Some(3)][*self]
-            }
+        // simple
+        assert_eq!(s("*"), &[Universal]);
+        assert_eq!(s("body"), &[LocalName("body".into())]);
+        assert_eq!(s("h2"), &[LocalName("h2".into())]);
+        assert_eq!(s("#app"), &[Identifier("app".into())]);
+        assert_eq!(s(".btn"), &[ClassName("btn".into())]);
 
-            fn local_name(&self) -> Atom<String> {
-                ["html", "body", "div", "button", "span"][*self].into()
-            }
-
-            fn attribute(&self, name: &str) -> Option<Atom<String>> {
-                let v = match name {
-                    "id" => ["", "app", "panel", "", ""][*self],
-                    "class" => ["", "", "", "btn", ""][*self],
-                    _ => "",
-                };
-
-                match v {
-                    "" => None,
-                    v => Some(Atom::from(v)),
-                }
-            }
-        }
-
-        // let local_names = &vec!["html", "body", "div", "button", "span"];
-        // let ids = &vec!["", "app", "panel", "", ""];
-        // let class_names = &vec!["", "", "", "btn", ""];
-        // let parents = &vec![None, Some(0), Some(1), Some(2), Some(3)];
-
-        let match_sel = |s, el| Selector::parse(s).unwrap().match_element(&el).is_some();
-
-        // invalid
-        assert!(Selector::unsupported().match_element(&0).is_none());
-
-        // basic
-        assert!(match_sel("*", 0));
-        assert!(match_sel("html", 0));
-        assert!(match_sel("body", 1));
-        assert!(match_sel("#app", 1));
-        assert!(match_sel("div", 2));
-        assert!(match_sel("#panel", 2));
-        assert!(match_sel("button", 3));
-        assert!(match_sel(".btn", 3));
-        assert!(match_sel("span", 4));
+        // attrs
+        assert_eq!(s(r"[href]"), &[AttrExists("href".into())]);
+        // assert_eq!(s(r#"[href="foo"]"#), &[AttrEq("href".into(), "foo".into())]);
+        // assert_eq!(s(r#"[href^="http"]"#), &[AttrStartsWith("href".into(), "http".into())]);
+        // assert_eq!(s(r#"[href$=".org"]"#), &[AttrEndsWith("href".into(), ".org".into())]);
+        // assert_eq!(s(r#"[href*="foo"]"#), &[AttrContains("href".into(), "foo".into())]);
 
         // combined
-        assert!(match_sel("body#app", 1));
-        assert!(match_sel("div#panel", 2));
-        assert!(match_sel("button.btn", 3));
+        assert_eq!(
+            s(".btn.btn-primary"),
+            &[ClassName("btn-primary".into()), ClassName("btn".into())]
+        );
+        assert_eq!(s("*.test"), &[ClassName("test".into()), Universal]);
+        assert_eq!(
+            s("div#app.test"),
+            &[
+                ClassName("test".into()),
+                Identifier("app".into()),
+                LocalName("div".into())
+            ]
+        );
 
-        // parent
-        assert!(match_sel("button > span", 4));
-        assert!(match_sel("div#panel > button.btn > span", 4));
+        // combined with combinators
+        assert_eq!(
+            s("body > div.test div#test"),
+            &[
+                Identifier("test".into()),
+                LocalName("div".into()),
+                Combinator(Ancestor),
+                ClassName("test".into()),
+                LocalName("div".into()),
+                Combinator(Parent),
+                LocalName("body".into())
+            ]
+        );
 
-        // ancestor
-        assert!(match_sel("button span", 4));
-        assert!(match_sel("div#panel span", 4));
-        assert!(match_sel("body div .btn span", 4));
+        // multi
+        assert_eq!(
+            s("html, body"),
+            &[LocalName("body".into()), Combinator(Or), LocalName("html".into())]
+        );
+        assert_eq!(
+            s("body > div, div button span"),
+            &[
+                LocalName("span".into()),
+                Combinator(Ancestor),
+                LocalName("button".into()),
+                Combinator(Ancestor),
+                LocalName("div".into()),
+                Combinator(Or),
+                LocalName("div".into()),
+                Combinator(Parent),
+                LocalName("body".into()),
+            ]
+        );
 
-        // OR
-        assert!(match_sel("div, span", 4));
-        assert!(match_sel("a, b, c, span, d", 4));
-        assert!(match_sel("html, body", 1));
+        // unsupported for now
+        assert_eq!(s(":root"), &[Unsupported]);
+        assert_eq!(s("* + *"), &[Universal, Unsupported, Universal]);
+        assert_eq!(s("* ~ *"), &[Universal, Unsupported, Universal]);
 
-        // complex
-        assert!(match_sel("div, span.foo, #panel span", 4));
-        assert!(match_sel("a b c d e f g, span", 4));
+        // invalid
+        assert!(Selector::parse("").is_err());
+        assert!(Selector::parse(" ").is_err());
+        assert!(Selector::parse("a,,b").is_err());
+        assert!(Selector::parse("a>>b").is_err());
+
+        // bugs & edge-cases
+        assert_eq!(s("input[type=\"submit\"]"), &[Unsupported, LocalName("input".into())]);
     }
 }

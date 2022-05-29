@@ -106,13 +106,13 @@ mod tests {
         let mut set = BitSet::new();
         set.grow(num(64));
 
-        assert_eq!(set.contains(num(1)), false);
+        assert!(!set.contains(num(1)));
 
         set.add(num(1));
-        assert_eq!(set.contains(num(1)), true);
+        assert!(set.contains(num(1)));
 
         set.remove(num(1));
-        assert_eq!(set.contains(num(1)), false);
+        assert!(!set.contains(num(1)));
     }
 
     #[test]
@@ -145,7 +145,7 @@ mod tests {
 
         for n in [34, 55, 89, 144] {
             set.remove(num(n));
-            assert_eq!(set.contains(num(n)), false);
+            assert!(!set.contains(num(n)));
         }
     }
 }

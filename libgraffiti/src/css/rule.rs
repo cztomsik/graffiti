@@ -1,30 +1,52 @@
-use super::parser::{rule, tokenize, ParseError};
-use super::selector::Selector;
-use super::style::CssStyle;
+use super::parsing::{sym, Parsable, ParseError, Parser};
+use super::{Selector, Style};
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct CssStyleRule {
+pub struct StyleRule {
     selector: Selector,
-    style: CssStyle,
+    style: Style,
 }
 
-impl CssStyleRule {
-    pub fn new(selector: Selector, style: CssStyle) -> Self {
-        Self { selector, style }
-    }
-
+impl StyleRule {
     pub fn parse(input: &str) -> Result<Self, ParseError> {
-        let tokens = tokenize(input.as_bytes());
-        let parser = rule() - pom::parser::end();
-
-        parser.parse(&tokens)
+        Parsable::parse(input)
     }
 
     pub fn selector(&self) -> &Selector {
         &self.selector
     }
 
-    pub fn style(&self) -> &CssStyle {
+    pub fn style(&self) -> &Style {
         &self.style
+    }
+}
+
+impl Parsable for StyleRule {
+    fn parser<'a>() -> Parser<'a, Self> {
+        let rule = Selector::parser() - sym("{") + Style::parser() - sym("}");
+
+        rule.map(|(selector, style)| StyleRule { selector, style })
+    }
+}
+
+impl fmt::Display for StyleRule {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {{ {} }}", &self.selector, &self.style)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_rule() -> Result<(), ParseError> {
+        let selector = Selector::parse("div")?;
+        let style = Style::parse("color: #fff")?;
+
+        assert_eq!(StyleRule::parse("div { color: #fff }")?, StyleRule { selector, style });
+
+        Ok(())
     }
 }

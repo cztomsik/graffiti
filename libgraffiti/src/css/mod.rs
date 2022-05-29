@@ -1,19 +1,24 @@
-mod parser;
+// TODO: introduce test helper/macro which will also check Display
+
+// TODO: @keyframes xxx { from { .. } to { .. } }
+
+mod matching;
+mod parsing;
 mod properties;
-mod resolver;
 mod rule;
 mod selector;
 mod sheet;
 mod style;
+mod tokenize;
 mod values;
 
 pub use {
-    parser::ParseError,
+    matching::{MatchingContext, Specificity},
+    parsing::ParseError,
     properties::StyleProp,
-    resolver::StyleResolver,
-    rule::CssStyleRule,
-    selector::{Element, Selector},
-    sheet::CssStyleSheet,
-    style::CssStyle,
+    rule::StyleRule,
+    selector::Selector,
+    sheet::StyleSheet,
+    style::Style,
     values::*,
 };
