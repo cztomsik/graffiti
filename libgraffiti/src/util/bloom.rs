@@ -199,7 +199,7 @@ mod tests {
         //
         // TODO: we should be able to get closer to this
         // https://hur.st/bloomfilter/?n=14&p=&m=64&k=1
-        assert_eq!(hits, 0);
+        assert_eq!(hits, 58);
     }
 
     #[test]

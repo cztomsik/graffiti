@@ -1,21 +1,19 @@
 #![warn(clippy::all, clippy::pedantic)]
 
+// TODO: all 3 should be private
 #[macro_use]
-mod util;
+pub mod util;
+pub mod layout;
+pub mod renderer;
 
 mod document;
-mod layout;
-mod renderer;
-mod windowing;
+//mod windowing;
 
 pub mod css;
 
-pub use self::{
-    document::{Document, NodeId, NodeKind},
-    // TODO: feature-flag
-    windowing::*,
-};
-pub mod gfx;
+// TODO: feature-flag
+// windowing::*,
+pub use self::document::{Document, NodeId, NodeKind};
 
 // TODO: feature-flag
 mod ffi;

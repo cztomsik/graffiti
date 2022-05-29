@@ -48,10 +48,10 @@ impl Style {
         self.props.retain(|p| p.css_name() == prop);
     }
 
+    */
     pub fn props(&self) -> impl Iterator<Item = &StyleProp> {
         self.props.iter()
     }
-    */
 
     pub(crate) fn add_prop(&mut self, new_prop: StyleProp) {
         let d = discriminant(&new_prop);

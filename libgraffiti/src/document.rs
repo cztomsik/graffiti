@@ -1,11 +1,10 @@
-use crate::css::{CssStyle, MatchingContext, Selector};
-use crate::util::{Atom, Edge, Id, IdTree, Node};
+use crate::css::{MatchingContext, Selector, Style};
+use crate::util::Atom;
 use std::borrow::Cow;
 use std::fmt;
-use std::num::NonZeroU32;
 use std::ops::{Index, IndexMut};
 
-pub type NodeId = Id<DomNode>;
+pub type NodeId = usize;
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,47 +14,33 @@ pub enum NodeKind {
     Document = 9,
 }
 
-type DomNode = Node<DomData>;
-
-#[derive(Clone, Copy)]
-pub enum Change {
-    Created(NodeId),
-    Destroyed(NodeId),
-    Changed(NodeId),
-    Inserted(NodeId),
-    Removed(NodeId),
-}
-
-/// Parsed tree with stable ids and built-in change-tracking
 pub struct Document {
-    tree: IdTree<DomData>,
-    changes: Vec<Change>,
+    nodes: Vec<DomData>,
+    parents: Vec<Option<NodeId>>,
+    children: Vec<Vec<NodeId>>,
 }
 
 impl Document {
+    pub const ROOT: NodeId = 0;
+
     pub fn new() -> Self {
         let mut doc = Document {
-            tree: IdTree::default(),
-            changes: Vec::default(),
+            nodes: Vec::default(),
+            parents: Vec::default(),
+            children: Vec::default(),
         };
 
-        assert_eq!(doc.root(), doc.create_node(DomData::Document));
+        assert_eq!(Self::ROOT, doc.create_node(DomData::Document));
 
         doc
     }
 
-    #[allow(clippy::unused_self)]
-    pub fn root(&self) -> NodeId {
-        NodeId::new(NonZeroU32::new(1).unwrap())
+    pub fn node(&self, node: NodeId) -> &DomData {
+        &self.nodes[node]
     }
 
-    pub fn node(&self, node: NodeId) -> &DomNode {
-        &self.tree[node]
-    }
-
-    pub fn node_mut(&mut self, node: NodeId) -> &mut DomNode {
-        self.changes.push(Change::Changed(node));
-        &mut self.tree[node]
+    pub fn node_mut(&mut self, node: NodeId) -> &mut DomData {
+        &mut self.nodes[node]
     }
 
     pub fn create_element(&mut self, local_name: impl Into<Atom>) -> NodeId {
@@ -66,27 +51,29 @@ impl Document {
         }))
     }
 
-    pub fn children(&self, node: NodeId) -> impl Iterator<Item = NodeId> + '_ {
-        self.tree.children(node)
+    pub fn children(&self, node: NodeId) -> &[NodeId] {
+        &self.children[node]
     }
 
     pub fn append_child(&mut self, parent: NodeId, child: NodeId) {
-        self.changes.push(Change::Inserted(child));
-        self.tree.append_child(parent, child);
+        assert_eq!(self.parents[child], None);
+        self.children[parent].push(child);
+        self.parents[child] = Some(parent);
     }
 
     pub fn insert_before(&mut self, parent: NodeId, child: NodeId, before: NodeId) {
-        self.changes.push(Change::Inserted(child));
-        self.tree.insert_before(parent, child, before);
+        assert_eq!(self.parents[child], None);
+        assert_eq!(self.parents[before], Some(parent));
+
+        let index = self.children[parent].iter().position(|ch| *ch == before).unwrap();
+        self.children[parent].insert(index, child);
+        self.parents[child] = Some(parent);
     }
 
     pub fn remove_child(&mut self, parent: NodeId, child: NodeId) {
-        self.changes.push(Change::Removed(child));
-        self.tree.remove_child(parent, child);
-    }
-
-    pub fn traverse(&self, node: NodeId) -> impl Iterator<Item = Edge<NodeId>> + '_ {
-        self.tree.traverse(node)
+        assert_eq!(self.parents[child], Some(parent));
+        self.children[parent].retain(|ch| *ch != child);
+        self.parents[child] = None;
     }
 
     pub fn element_matches(&self, element: NodeId, selector: &str) -> bool {
@@ -101,16 +88,12 @@ impl Document {
     }
 
     pub fn query_selector_all(&self, node: NodeId, selector: &str) -> impl Iterator<Item = NodeId> + '_ {
-        let selector = Selector::parse(selector).unwrap_or_else(|_| Selector::unsupported());
+        todo!();
+        Vec::new().iter().copied()
+        // let selector = Selector::parse(selector).unwrap_or_else(|_| Selector::unsupported());
 
-        self.traverse(node).filter_map(move |e| match e {
-            Edge::Start(node)
-                if self[node].kind() == NodeKind::Element && self.match_selector(&selector, node).is_some() =>
-            {
-                Some(node)
-            }
-            _ => None,
-        })
+        // self.descendant_elements(node)
+        //     .filter(|e| self.match_selector(&selector, node).is_some())
     }
 
     pub fn create_text_node(&mut self, data: &str) -> NodeId {
@@ -118,28 +101,26 @@ impl Document {
     }
 
     pub fn text_content(&self, node: NodeId) -> Cow<'_, str> {
-        match &self[node].data() {
+        match &self[node] {
             DomData::Text(data) => Cow::Borrowed(data),
             _ => self
                 .children(node)
-                .fold(Cow::Borrowed(""), |res, ch| res + self.text_content(ch)),
+                .iter()
+                .fold(Cow::Borrowed(""), |res, &ch| res + self.text_content(ch)),
         }
     }
 
     pub fn drop_node(&mut self, node: NodeId) {
-        self.changes.push(Change::Destroyed(node));
-        self.tree.drop_node(node);
-    }
-
-    // private (at least for now)
-    pub(crate) fn take_changes(&mut self) -> Vec<Change> {
-        std::mem::take(&mut self.changes)
+        self.nodes.remove(node);
     }
 
     // helpers
     fn create_node(&mut self, data: DomData) -> NodeId {
-        let id = self.tree.create_node(data);
-        self.changes.push(Change::Created(id));
+        let id = self.nodes.len();
+
+        self.nodes.push(data);
+        self.parents.push(None);
+        self.children.push(Vec::new());
 
         id
     }
@@ -158,15 +139,15 @@ impl Default for Document {
 }
 
 impl Index<NodeId> for Document {
-    type Output = DomNode;
+    type Output = DomData;
 
-    fn index(&self, node: NodeId) -> &DomNode {
+    fn index(&self, node: NodeId) -> &DomData {
         self.node(node)
     }
 }
 
 impl IndexMut<NodeId> for Document {
-    fn index_mut(&mut self, node: NodeId) -> &mut DomNode {
+    fn index_mut(&mut self, node: NodeId) -> &mut DomData {
         self.node_mut(node)
     }
 }
@@ -175,7 +156,7 @@ impl MatchingContext for Document {
     type ElementRef = NodeId;
 
     fn parent_element(&self, element: NodeId) -> Option<NodeId> {
-        match self[element].parent_node() {
+        match self.parents[element] {
             Some(p) if self[p].kind() == NodeKind::Element => Some(p),
             _ => None,
         }
@@ -250,58 +231,40 @@ impl ElementData {
         self.local_name
     }
 
-    pub fn attribute_names(&self) -> impl Iterator<Item = &str> {
-        let style = (self.style.length() > 0).then(|| "style");
-
-        self.attributes.iter().map(|(k, _)| &**k).chain(style.into_iter())
+    pub fn attribute_names(&self) -> impl Iterator<Item = Atom> + '_ {
+        self.attributes.iter().map(|(k, _)| *k)
     }
 
-    pub fn attribute(&self, attr: impl Into<Atom>) -> Option<Cow<str>> {
+    pub fn attribute(&self, attr: impl Into<Atom>) -> Option<&str> {
         let attr = attr.into();
-
-        match &*attr {
-            "style" => Some(Cow::Owned(self.style.to_string())),
-            _ => self
-                .attributes
-                .iter()
-                .find(|(a, _)| attr == *a)
-                .map(|(_, v)| Cow::Borrowed(&**v)),
-        }
+        self.attributes.iter().find(|(a, _)| attr == *a).map(|(_, v)| &**v)
     }
 
     pub fn set_attribute(&mut self, attr: impl Into<Atom>, value: &str) {
         let attr = attr.into();
 
-        match &*attr {
-            "style" => self.style = Style::parse(value).unwrap_or_default(),
-            _ => {
-                if let Some(a) = self.attributes.iter_mut().find(|(a, _)| attr == *a) {
-                    a.1 = value.into();
-                } else {
-                    self.attributes.push((attr.into(), value.into()));
-                }
-            }
+        if let Some(a) = self.attributes.iter_mut().find(|(a, _)| attr == *a) {
+            a.1 = value.into();
+        } else {
+            self.attributes.push((attr.into(), value.into()));
         }
     }
 
     pub fn remove_attribute(&mut self, attr: impl Into<Atom>) {
         let attr = attr.into();
-
-        match &*attr {
-            "style" => self.style = Style::default(),
-            _ => self.attributes.retain(|(a, _)| attr != *a),
-        };
+        self.attributes.retain(|(a, _)| attr != *a);
     }
 
     pub fn style(&self) -> &Style {
         &self.style
     }
 
-    pub fn style_mut(&mut self) -> &mut Style {
-        &mut self.style
+    pub fn set_style(&mut self, style: impl Into<Style>) {
+        self.style = style.into()
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -357,16 +320,18 @@ mod tests {
         let mut doc = Document::new();
         let div = doc.create_element("div");
 
-        doc[div].el_mut().set_attribute("style", "display: block");
+        doc[div].el_mut().set_style("display: block");
         assert_eq!(doc[div].el().style().to_string(), "display:block;");
 
-        doc[div].el_mut().style_mut().set_property("width", "100px");
-        assert_eq!(
-            doc[div].el().attribute("style").as_deref(),
-            Some("display:block;width:100px;")
-        );
+        // doc[div].el_mut().style_mut().set_property("width", "100px");
+        // assert_eq!(
+        //     doc[div].el().attribute("style").as_deref(),
+        //     Some("display:block;width:100px;")
+        // );
 
-        doc[div].el_mut().remove_attribute("style");
+        doc[div].el_mut().set_style("");
         assert_eq!(doc[div].el().style().to_string(), "");
     }
 }
+
+*/

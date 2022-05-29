@@ -45,7 +45,7 @@ impl Selector {
         Parsable::parse(input)
     }
 
-    pub(super) fn unsupported() -> Self {
+    pub(crate) fn unsupported() -> Self {
         Self {
             parts: vec![SelectorPart::Unsupported],
         }
