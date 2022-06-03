@@ -17,6 +17,7 @@ glfw = { version = "0.44.0", features = ["glfw-sys"] }
 skia-safe = { version = "0.49.1", features = ["gl", "textlayout"] }
 #graffiti-glfw = { path = "graffiti-glfw" }
 crossbeam-channel = "0.5.0"
+smallbitvec = "2.5.1"
 
 [profile.release]
 # panic = 'abort'

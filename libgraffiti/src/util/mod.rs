@@ -1,5 +1,4 @@
 mod atom;
-mod bit_set;
 mod bloom;
 mod slotmap;
 
@@ -27,10 +26,8 @@ impl<'a, T, K: 'static, V: 'static + ?Sized, F: Fn(&'a T, K) -> &'a V> Index<K> 
     }
 }
 
-// TODO: pub(crate)
-pub use self::{
+pub(crate) use self::{
     atom::Atom,
-    bit_set::BitSet,
     bloom::Bloom,
     slotmap::{Key, SlotMap},
 };
