@@ -2,9 +2,10 @@
 
 use super::parsing::{fail, Parsable, Parser};
 use super::{
-    Align, BorderStyle, BoxShadow, Color, Dimension, Display, FlexDirection, FlexWrap, Justify, Overflow, Position,
+    Align, BorderStyle, BoxShadow, Color, Dimension, Display, FlexDirection, FlexWrap, Justify, Overflow, Position, Px,
     TextAlign, Transform, Visibility,
 };
+use std::fmt;
 
 macro_rules! css_properties {
     ($($name:literal => $variant:ident($value_type:ty),)*) => {
@@ -65,22 +66,22 @@ css_properties! {
     "background-color" => BackgroundColor(Color),
 
     // border-radius
-    "border-top-left-radius" => BorderTopLeftRadius(Dimension),
-    "border-top-right-radius" => BorderTopRightRadius(Dimension),
-    "border-bottom-right-radius" => BorderBottomRightRadius(Dimension),
-    "border-bottom-left-radius" => BorderBottomLeftRadius(Dimension),
+    "border-top-left-radius" => BorderTopLeftRadius(Px),
+    "border-top-right-radius" => BorderTopRightRadius(Px),
+    "border-bottom-right-radius" => BorderBottomRightRadius(Px),
+    "border-bottom-left-radius" => BorderBottomLeftRadius(Px),
 
     // border
-    "border-top-width" => BorderTopWidth(Dimension),
+    "border-top-width" => BorderTopWidth(Px),
     "border-top-style" => BorderTopStyle(BorderStyle),
     "border-top-color" => BorderTopColor(Color),
-    "border-right-width" => BorderRightWidth(Dimension),
+    "border-right-width" => BorderRightWidth(Px),
     "border-right-style" => BorderRightStyle(BorderStyle),
     "border-right-color" => BorderRightColor(Color),
-    "border-bottom-width" => BorderBottomWidth(Dimension),
+    "border-bottom-width" => BorderBottomWidth(Px),
     "border-bottom-style" => BorderBottomStyle(BorderStyle),
     "border-bottom-color" => BorderBottomColor(Color),
-    "border-left-width" => BorderLeftWidth(Dimension),
+    "border-left-width" => BorderLeftWidth(Px),
     "border-left-style" => BorderLeftStyle(BorderStyle),
     "border-left-color" => BorderLeftColor(Color),
 
@@ -108,7 +109,7 @@ css_properties! {
     // outline
     "outline-color" => OutlineColor(Color),
     "outline-style" => OutlineStyle(BorderStyle),
-    "outline-width" => OutlineWidth(Dimension),
+    "outline-width" => OutlineWidth(Px),
 
     // overflow
     "overflow-x" => OverflowX(Overflow),
