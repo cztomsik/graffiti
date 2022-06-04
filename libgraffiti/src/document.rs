@@ -95,7 +95,7 @@ impl Document {
 
     pub fn element_matches(&self, element: NodeId, selector: &str) -> bool {
         match Selector::parse(selector) {
-            Ok(sel) => self.match_selector(&sel, element).is_some(),
+            Ok(sel) => sel.match_element(element, self).is_some(),
             _ => false,
         }
     }
@@ -105,16 +105,14 @@ impl Document {
     }
 
     pub fn query_selector_all(&self, node: NodeId, selector: &str) -> impl Iterator<Item = NodeId> + '_ {
-        todo!();
-        Vec::new().iter().copied()
-        // let selector = Selector::parse(selector).unwrap_or_else(|_| Selector::unsupported());
-        // let descendants = Descendants {
-        //     document: self,
-        //     stack: vec![self.children(node).iter()],
-        // };
+        let selector = Selector::parse(selector).unwrap_or_else(|_| Selector::unsupported());
+        let descendants = Descendants {
+            document: self,
+            stack: vec![self.children(node).iter()],
+        };
 
-        // descendants
-        //     .filter(move |&e| self.node_type(e) == NodeType::Element && self.match_selector(&selector, node).is_some())
+        descendants
+            .filter(move |&n| self.node_type(n) == NodeType::Element && selector.match_element(n, self).is_some())
     }
 
     pub fn create_element(&mut self, local_name: impl Into<LocalName>) -> NodeId {
@@ -217,6 +215,7 @@ impl Document {
     }
 }
 
+#[derive(Debug, Clone)]
 struct Descendants<'a> {
     document: &'a Document,
     stack: Vec<Iter<'a, NodeId>>,
@@ -262,15 +261,11 @@ impl MatchingContext for Document {
     }
 
     fn local_name(&self, element: NodeId) -> &str {
-        todo!()
-
-        // TODO: ref to temporarily created value
-        //       maybe extra atom.to_str() with static lifetime?
-        // &*self.local_name(element)
+        &*self.local_names[&element]
     }
 
     fn attribute(&self, element: NodeId, attr: &str) -> Option<&str> {
-        self.attribute(element, attr)
+        Document::attribute(self, element, attr)
     }
 }
 

@@ -2,7 +2,6 @@
 
 // TODO: @keyframes xxx { from { .. } to { .. } }
 
-mod matching;
 mod parsing;
 mod properties;
 mod rule;
@@ -13,11 +12,10 @@ mod tokenize;
 mod values;
 
 pub use {
-    matching::{MatchingContext, Specificity},
     parsing::ParseError,
     properties::StyleProp,
     rule::StyleRule,
-    selector::Selector,
+    selector::{MatchingContext, Selector, Specificity},
     sheet::StyleSheet,
     style::Style,
     values::*,
