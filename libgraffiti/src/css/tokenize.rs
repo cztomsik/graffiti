@@ -10,10 +10,12 @@ pub fn tokenize(input: &[u8]) -> Vec<Token> {
     let ident = is_a(alphanum_dash).repeat(1..).collect();
     let string1 = (sym(b'\'') + none_of(b"'").repeat(0..) + sym(b'\'')).collect();
     let string2 = (sym(b'"') + none_of(b"\"").repeat(0..) + sym(b'"')).collect();
+    let important = seq(b"!important").collect();
+    let semi = one_of(b"; ").discard().repeat(1..).map(|_| &b";"[..]);
     let other = any().collect();
 
     // spaces are "normalized" but they still can appear multiple times because of stripped comments
-    let token = comment.opt() * (space | hex_or_id | num | ident | string1 | string2 | other);
+    let token = comment.opt() * (space | hex_or_id | num | ident | string1 | string2 | important | semi | other);
     let tokens = token.convert(std::str::from_utf8).repeat(0..).parse(input).unwrap();
 
     // strip whitespace except for selectors & multi-values
@@ -49,6 +51,11 @@ mod tests {
         assert_eq!(tokenize(b" "), Vec::<Token>::new());
         assert_eq!(tokenize(b" /**/ /**/ "), Vec::<Token>::new());
 
+        assert_eq!(tokenize(b";"), vec![";"]);
+        assert_eq!(tokenize(b";;"), vec![";"]);
+        assert_eq!(tokenize(b";; ;;"), vec![";"]);
+        assert_eq!(tokenize(b" ; ; ; ;"), vec![";"]);
+
         assert_eq!(tokenize(b"block"), vec!["block"]);
         assert_eq!(tokenize(b"10px"), vec!["10", "px"]);
         assert_eq!(tokenize(b"-10px"), vec!["-10", "px"]);
@@ -65,6 +72,8 @@ mod tests {
             vec!["a", " ", ".", "b", " ", "#", "c", " ", "*"]
         );
 
+        assert_eq!(tokenize(b"!important"), vec!["!important"]);
+        assert_eq!(tokenize(b"! important"), vec!["!", "important"]);
         assert_eq!(tokenize(b"-webkit-xxx"), vec!["-webkit-xxx"]);
         assert_eq!(tokenize(b"--var"), vec!["--var"]);
 
