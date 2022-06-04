@@ -64,7 +64,7 @@ mod tests {
 
         assert_eq!(sheet.rules()[0].selector(), &Selector::parse("div")?);
         assert_eq!(sheet.rules()[0].style(), &Style::parse("color: #fff")?);
-        assert_eq!(sheet.rules()[0].style().to_string(), "color:rgba(255, 255, 255, 255);");
+        assert_eq!(sheet.rules()[0].style().to_string(), "color: rgba(255, 255, 255, 255)");
 
         // white-space
         assert_eq!(StyleSheet::parse(" *{}")?.rules().len(), 1);
