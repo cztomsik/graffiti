@@ -1,6 +1,6 @@
 // supported CSS props
 
-use super::parsing::{fail, Parsable, Parser};
+use super::parsing::{fail, ident, sym, Parsable, Parser};
 use super::{
     Align, BorderStyle, BoxShadow, Color, Dimension, Display, FlexDirection, FlexWrap, Justify, Overflow, Position, Px,
     TextAlign, Transform, Visibility,
@@ -14,28 +14,27 @@ macro_rules! css_properties {
             $($variant($value_type),)*
         }
 
-        impl StyleProp {
-            pub fn css_name(&self) -> &'static str {
-                match self {
-                    $(Self::$variant(_) => $name,)*
+        impl Parsable for StyleProp {
+            fn parser<'a>() -> Parser<'a, Self> {
+                ident() - sym(":") >> |name| {
+                    match name {
+                        $($name => <$value_type>::parser().map(StyleProp::$variant),)*
+                        _ => fail("unknown prop")
+                    }
                 }
             }
+        }
 
-            pub fn css_value(&self) -> String {
-                let v: &dyn std::fmt::Display = match self {
-                    $(Self::$variant(ref v) => v),*
-                };
+        impl fmt::Display for StyleProp {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    $(Self::$variant(v) => write!(f, "{}: {}", $name, v)?),*
+                }
 
-                format!("{}", v)
+                Ok(())
             }
         }
 
-        pub(super) fn prop_parser<'a>(prop: &str) -> Parser<'a, StyleProp> {
-            match prop {
-                $($name => <$value_type>::parser().map(StyleProp::$variant),)*
-                _ => fail("unknown prop")
-            }
-        }
     }
 }
 
