@@ -77,4 +77,12 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn parse_ua() {
+        let ua_css = include_str!("../../resources/ua.css");
+        let sheet = StyleSheet::parse(&ua_css).unwrap();
+
+        assert_eq!(sheet.rules().len(), 23);
+    }
 }

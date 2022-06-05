@@ -1,4 +1,4 @@
-// supported CSS props
+// supported CSS props (longhand)
 
 use super::parsing::{fail, ident, sym, Parsable, Parser};
 use super::{
@@ -38,7 +38,6 @@ macro_rules! css_properties {
     }
 }
 
-// longhand props
 // (name, parser_name) => Variant(ValueType)
 css_properties! {
     // size
@@ -127,71 +126,3 @@ css_properties! {
     "visibility" => Visibility(Visibility),
     "transform" => Transform(Transform),
 }
-
-/*
-macro_rules! css_shorthands {
-    ($(($name:literal, $parser:expr) => ($($variant:ident),*),)*) => {
-        pub(super) fn shorthand_parser<'a>(prop: &str) -> super::parser::Parser<'a, Vec<StyleProp>> {
-            #[allow(non_snake_case, unused_parens)]
-            match prop {
-                $($name => $parser.map(|($($variant),*)| vec![$(StyleProp::$variant($variant)),*]),)*
-                _ => super::parser::fail("unknown prop")
-            }
-        }
-
-        impl super::Style {
-            pub(super) fn shorthand_value(&self, shorthand_name: &str) -> Option<String> {
-                match shorthand_name {
-                    //$($name => todo!(),)*
-                    _ => return None
-                }
-            }
-        }
-    };
-}
-
-css_shorthands! {
-    // TODO: multi, image, gradient
-    (BackgroundColor) =     "background",
-
-    // TODO: line-height should be delimited with /
-    //"font" => (FontStyle, FontVariant, FontWeight, FontStretch, FontSize, LineHeight, FontFamily],
-
-        (FlexGrow, FlexShrink, FlexBasis), =         "flex",
-    ("padding", sides_of(dimension())) => (PaddingTop, PaddingRight, PaddingBottom, PaddingLeft),
-    ("margin", sides_of(dimension())) => (MarginTop, MarginRight, MarginBottom, MarginLeft),
-
-    // TODO
-    (BorderTopWidth, BorderTopStyle, BorderTopColor, BorderRightWidth, BorderRightStyle, BorderRightColor, BorderBottomWidth, BorderBottomStyle, BorderBottomColor, BorderLeftWidth, BorderLeftStyle, BorderLeftColor =     / ("border",
-
-    ("border-width", sides_of(dimension())) => (BorderTopWidth, BorderRightWidth, BorderBottomWidth, BorderLeftWidth),
-    ("border-style", sides_of(css_enum())) => (BorderTopStyle, BorderRightStyle, BorderBottomStyle, BorderLeftStyle),
-    ("border-color", sides_of(color())) => (BorderTopColor, BorderRightColor, BorderBottomColor, BorderLeftColor),
-
-    // TODO(maybe): two dimensions
-    ("border-radius", sides_of(dimension())) => (BorderTopLeftRadius, BorderTopRightRadius, BorderBottomRightRadius, BorderBottomLeftRadius),
-
-    (OverflowX, OverflowY) =     "overflow",
-    (OutlineWidth, OutlineStyle, OutlineColor) =     "outline",
-    //"text-decoration" => ["text-decoration-color", "text-decoration-style", "text-decoration-line", "text-decoration-thickness"]
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    #[ignore]
-    fn test_size() {
-        use std::mem::size_of;
-
-        assert_eq!(size_of::<Box<CssBoxShadow>>(), size_of::<usize>());
-        assert_eq!(size_of::<Atom>(), size_of::<usize>());
-
-        assert_eq!(size_of::<CssDimension>(), size_of::<(u32, f32)>());
-
-        // TODO: gets broken when Atom<> or Box<> is added
-        assert_eq!(size_of::<StyleProp>(), size_of::<(u8, Dimension)>());
-    }
-}
-*/

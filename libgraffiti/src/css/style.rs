@@ -1,5 +1,5 @@
-use super::parsing::{skip, sym, Parsable, ParseError, Parser};
-use super::StyleProp;
+use super::parsing::{fail, ident, list, skip, sym, Parsable, ParseError, Parser};
+use super::{BorderStyle, Color, Dimension, Overflow, Px, StyleProp};
 use smallbitvec::SmallBitVec;
 use std::fmt;
 use std::mem::discriminant;
@@ -55,11 +55,18 @@ impl Parsable for Style {
         prop_decl.repeat(0..).map(move |decls| {
             let mut style = Self::default();
             let longhand = StyleProp::parser() + important();
+            let shorthand = shorthand_parser() + important();
 
-            for d in decls {
+            for tokens in decls {
                 // TODO: shorthands
-                if let Ok((prop, important)) = longhand.parse(d) {
+                if let Ok((prop, important)) = longhand.parse(tokens) {
                     style.add_prop(prop, important);
+                }
+
+                if let Ok((props, important)) = shorthand.parse(tokens) {
+                    for prop in props {
+                        style.add_prop(prop, important);
+                    }
                 }
             }
 
@@ -88,6 +95,81 @@ impl fmt::Display for Style {
     }
 }
 
+fn shorthand_parser<'a>() -> Parser<'a, Vec<StyleProp>> {
+    use StyleProp::*;
+
+    ident() - sym(":")
+        >> |name| match name {
+            "background" => background(),
+            "flex" => flex(),
+            "overflow" => overflow(),
+            "outline" => outline(),
+            "padding" => rect(PaddingTop, PaddingRight, PaddingBottom, PaddingLeft),
+            "margin" => rect(MarginTop, MarginRight, MarginBottom, MarginLeft),
+            "border-radius" => rect(
+                BorderTopLeftRadius,
+                BorderTopRightRadius,
+                BorderBottomRightRadius,
+                BorderBottomLeftRadius,
+            ),
+            "border-width" => rect(BorderTopWidth, BorderRightWidth, BorderBottomWidth, BorderLeftWidth),
+            "border-style" => rect(BorderTopStyle, BorderRightStyle, BorderBottomStyle, BorderLeftStyle),
+            "border-color" => rect(BorderTopColor, BorderRightColor, BorderBottomColor, BorderLeftColor),
+            _ => fail("unknown shorthand"),
+        }
+}
+
+fn rect<'a, T: Parsable + Copy + 'a>(
+    top: fn(T) -> StyleProp,
+    right: fn(T) -> StyleProp,
+    bottom: fn(T) -> StyleProp,
+    left: fn(T) -> StyleProp,
+) -> Parser<'a, Vec<StyleProp>> {
+    list(T::parser(), sym(" ")).convert(move |sides| {
+        #[allow(clippy::match_ref_pats)]
+        let (a, b, c, d) = match &sides[..] {
+            &[a, b, c, d] => (a, b, c, d),
+            &[a, b, c] => (a, b, c, b),
+            &[a, b] => (a, b, a, b),
+            &[a] => (a, a, a, a),
+            _ => return Err("expected 1-4 values"),
+        };
+
+        Ok(vec![top(a), right(b), bottom(c), left(d)])
+    })
+}
+
+fn background<'a>() -> Parser<'a, Vec<StyleProp>> {
+    (sym("none").map(|_| Color::TRANSPARENT) | Color::parser()).map(|c| vec![StyleProp::BackgroundColor(c)])
+}
+
+fn flex<'a>() -> Parser<'a, Vec<StyleProp>> {
+    (f32::parser() + (sym(" ") * f32::parser()).opt() + (sym(" ") * Dimension::parser()).opt()).map(
+        |((grow, shrink), basis)| {
+            vec![
+                StyleProp::FlexGrow(grow),
+                StyleProp::FlexShrink(shrink.unwrap_or(1.)),
+                StyleProp::FlexBasis(basis.unwrap_or(Dimension::ZERO)),
+            ]
+        },
+    )
+}
+
+fn overflow<'a>() -> Parser<'a, Vec<StyleProp>> {
+    (Overflow::parser() + (sym(" ") * Overflow::parser()).opt())
+        .map(|(x, y)| vec![StyleProp::OverflowX(x), StyleProp::OverflowY(y.unwrap_or(x))])
+}
+
+fn outline<'a>() -> Parser<'a, Vec<StyleProp>> {
+    (Px::parser() + (sym(" ") * BorderStyle::parser()) + (sym(" ") * Color::parser())).map(|((px, style), color)| {
+        vec![
+            StyleProp::OutlineWidth(px),
+            StyleProp::OutlineStyle(style),
+            StyleProp::OutlineColor(color),
+        ]
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -99,16 +181,16 @@ mod tests {
         assert_eq!(Style::parse("unknown-a: 0; unknown-b: 0")?, Style::EMPTY);
         assert_eq!(Style::parse("!important")?, Style::EMPTY);
 
-        assert_eq!(Style::parse("opacity: 0")?.props, vec![StyleProp::Opacity(0.)]);
+        assert_eq!(Style::parse("opacity: 0")?.props, &[StyleProp::Opacity(0.)]);
 
         assert_eq!(
             Style::parse("opacity: 0; opacity: unknown")?.props,
-            vec![StyleProp::Opacity(0.)]
+            &[StyleProp::Opacity(0.)]
         );
 
         assert_eq!(
             Style::parse("opacity: 0; flex-grow: 1")?.props,
-            vec![StyleProp::Opacity(0.), StyleProp::FlexGrow(1.)]
+            &[StyleProp::Opacity(0.), StyleProp::FlexGrow(1.)]
         );
 
         assert_eq!(
@@ -117,6 +199,83 @@ mod tests {
                 props: vec![StyleProp::Opacity(0.)],
                 important_props: sbvec![true]
             }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_shorthands() -> Result<(), ParseError> {
+        use super::super::{Color, Dimension, Overflow};
+        use StyleProp::*;
+
+        assert_eq!(
+            &Style::parse("overflow: hidden")?.props,
+            &[OverflowX(Overflow::Hidden), OverflowY(Overflow::Hidden)],
+        );
+
+        assert_eq!(
+            &Style::parse("overflow: visible hidden")?.props,
+            &[OverflowX(Overflow::Visible), OverflowY(Overflow::Hidden)],
+        );
+
+        assert_eq!(
+            &Style::parse("flex: 1")?.props,
+            &[FlexGrow(1.), FlexShrink(1.), FlexBasis(Dimension::ZERO)],
+        );
+
+        assert_eq!(
+            &Style::parse("flex: 2 3 10px")?.props,
+            &[FlexGrow(2.), FlexShrink(3.), FlexBasis(Dimension::Px(10.))],
+        );
+
+        assert_eq!(
+            &Style::parse("padding: 0")?.props,
+            &[
+                PaddingTop(Dimension::ZERO),
+                PaddingRight(Dimension::ZERO),
+                PaddingBottom(Dimension::ZERO),
+                PaddingLeft(Dimension::ZERO),
+            ],
+        );
+
+        assert_eq!(
+            &Style::parse("padding: 10px 20px")?.props,
+            &[
+                PaddingTop(Dimension::Px(10.)),
+                PaddingRight(Dimension::Px(20.)),
+                PaddingBottom(Dimension::Px(10.)),
+                PaddingLeft(Dimension::Px(20.)),
+            ],
+        );
+
+        assert_eq!(
+            &Style::parse("border-radius: 1px 2px 3px 4px")?.props,
+            &[
+                BorderTopLeftRadius(Px(1.)),
+                BorderTopRightRadius(Px(2.)),
+                BorderBottomRightRadius(Px(3.)),
+                BorderBottomLeftRadius(Px(4.)),
+            ],
+        );
+
+        assert_eq!(
+            &Style::parse("border-radius: 15px 50px")?.props,
+            &[
+                BorderTopLeftRadius(Px(15.)),
+                BorderTopRightRadius(Px(50.)),
+                BorderBottomRightRadius(Px(15.)),
+                BorderBottomLeftRadius(Px(50.)),
+            ],
+        );
+
+        assert_eq!(
+            &Style::parse("background: none")?.props,
+            &[StyleProp::BackgroundColor(Color::TRANSPARENT)],
+        );
+        assert_eq!(
+            &Style::parse("background: #000")?.props,
+            &[StyleProp::BackgroundColor(Color::BLACK)],
         );
 
         Ok(())
@@ -150,5 +309,21 @@ mod tests {
         s.apply(&Style::parse("display: flex; height: 20px !important").unwrap());
         s.apply(&Style::parse("height: 30px").unwrap());
         assert_eq!(s.to_string(), "display: flex; width: 10px; height: 20px");
+    }
+
+    #[test]
+    #[ignore]
+    fn test_size() {
+        use super::super::{BoxShadow, Dimension};
+        use crate::util::Atom;
+        use std::mem::size_of;
+
+        assert_eq!(size_of::<Box<BoxShadow>>(), size_of::<usize>());
+        assert_eq!(size_of::<Atom>(), size_of::<usize>());
+
+        assert_eq!(size_of::<Dimension>(), size_of::<(u32, f32)>());
+
+        // TODO: gets broken when Atom<> or Box<> is added
+        assert_eq!(size_of::<StyleProp>(), size_of::<(u8, Dimension)>());
     }
 }
