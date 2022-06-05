@@ -1,0 +1,218 @@
+use crate::{
+    convert::{container_style, layout_style},
+    css::{MatchingContext, Style},
+    layout::{self, LayoutEngine, LayoutResult, LayoutStyle, LayoutTree, Size},
+    renderer::{ContainerStyle, Rect, RenderEdge, Renderer},
+    Document, NodeId, NodeType,
+};
+use skia_safe::{
+    textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
+    FontMgr, Paint,
+};
+use std::{cell::RefCell, collections::HashMap};
+
+pub struct Viewport {
+    size: (i32, i32),
+    document: Document,
+    renderer: Renderer,
+    state: ViewState,
+}
+
+struct ViewState {
+    resolved_styles: HashMap<NodeId, Style>,
+    paragraphs: HashMap<NodeId, RefCell<Paragraph>>,
+    layout_styles: HashMap<NodeId, LayoutStyle>,
+    layout_results: Vec<LayoutResult>,
+    render_tree: Vec<RenderEdge<Paragraph>>,
+    // TODO: scroll, selection, focus + tab_next()
+}
+
+impl Viewport {
+    pub fn new(size: (i32, i32), document: Document, renderer: Renderer) -> Self {
+        Self {
+            size,
+            document,
+            renderer,
+            state: ViewState::new(),
+        }
+    }
+
+    pub fn size(&self) -> (i32, i32) {
+        self.size
+    }
+
+    pub fn resize(&mut self, size: (i32, i32)) {
+        self.size = size;
+        self.renderer.resize(size);
+    }
+
+    // TODO: maybe &mut is ok? is exclusive access justified here?
+    // pub fn element_at(&mut self, _pos: (f32, f32)) -> Option<NodeId> {
+    //     self.update();
+    //     todo!()
+    // }
+
+    // pub fn node_rect(&mut self, _node: NodeId) -> Option<()> {
+    //     self.update();
+    //     todo!()
+    // }
+
+    pub fn render(&mut self) {
+        self.update();
+        self.renderer.render(&self.state.render_tree);
+    }
+
+    // TODO: move/click/drag/selection/...
+    // pub fn scroll(&mut self, _pos: (f32, f32), _delta: (f32, f32)) {
+    //     todo!()
+    // }
+
+    fn update(&mut self) {
+        self.state.update(&self.document, self.size);
+    }
+}
+
+impl ViewState {
+    fn new() -> Self {
+        Self {
+            resolved_styles: HashMap::new(),
+            paragraphs: HashMap::new(),
+            layout_styles: HashMap::new(),
+            layout_results: Vec::new(),
+            render_tree: Vec::new(),
+        }
+    }
+
+    fn update(&mut self, doc: &Document, size: (i32, i32) /*, dirty_nodes */) {
+        self.resolved_styles = HashMap::new();
+        self.layout_styles = HashMap::new();
+        self.layout_results = vec![LayoutResult::default(); 100];
+
+        self.layout_styles
+            .insert(Document::ROOT, layout_style(&Style::parse("display: block").unwrap()));
+
+        for node in doc.descendants(Document::ROOT) {
+            match doc.node_type(node) {
+                NodeType::Element => {
+                    self.resolved_styles
+                        .insert(node, ViewState::resolve_style(doc.style(node), &Style::EMPTY));
+                    self.layout_styles
+                        .insert(node, layout_style(&self.resolved_styles[&node]));
+                }
+                NodeType::Text => {
+                    self.paragraphs.insert(node, RefCell::new(create_para(doc.text(node))));
+                    self.layout_styles.insert(node, LayoutStyle::default());
+                }
+                _ => {}
+            }
+        }
+
+        let tree = LayoutData {
+            document: doc,
+            styles: &self.layout_styles,
+            paragraphs: &self.paragraphs,
+        };
+        LayoutEngine::new().calculate(Size::new(size.0 as _, size.1 as _), &tree, &mut self.layout_results);
+
+        self.render_tree = self.build_render_tree(doc);
+    }
+
+    fn resolve_style(inline_style: Option<&Style>, _parent_style: &Style) -> Style {
+        let mut res = Style::parse("display: block").unwrap();
+
+        if let Some(style) = inline_style {
+            res.apply(style);
+        }
+
+        // TODO: inherit, css-vars?
+
+        res
+    }
+
+    fn build_render_tree<'a>(&mut self, doc: &'a Document) -> Vec<RenderEdge<Paragraph>> {
+        fn walk(doc: &Document, node: NodeId, state: &mut ViewState, edges: &mut Vec<RenderEdge<Paragraph>>) {
+            let LayoutResult { pos: (x, y), size } = state.layout_results[node];
+            let rect = Rect::new(x, y, x + size.width, y + size.height);
+
+            match doc.node_type(node) {
+                NodeType::Document => {
+                    edges.push(RenderEdge::OpenContainer(rect, ContainerStyle::default()));
+                    for &ch in doc.children(node) {
+                        walk(doc, ch, state, edges);
+                    }
+                    edges.push(RenderEdge::CloseContainer);
+                }
+                NodeType::Element => {
+                    edges.push(RenderEdge::OpenContainer(
+                        rect,
+                        container_style(&state.resolved_styles[&node]),
+                    ));
+                    for &ch in doc.children(node) {
+                        walk(doc, ch, state, edges);
+                    }
+                    edges.push(RenderEdge::CloseContainer);
+                }
+                NodeType::Text => {
+                    // TODO: this is wrong :)
+                    let para = state.paragraphs.remove(&node).unwrap().into_inner();
+                    edges.push(RenderEdge::Text(rect, para))
+                }
+            }
+        }
+
+        let mut edges = Vec::new();
+        walk(doc, Document::ROOT, self, &mut edges);
+
+        edges
+    }
+}
+
+fn create_para(s: &str) -> Paragraph {
+    let mut font_collection = FontCollection::new();
+    font_collection.set_default_font_manager(FontMgr::new(), None);
+    let paragraph_style = ParagraphStyle::new();
+    let mut paragraph_builder = ParagraphBuilder::new(&paragraph_style, font_collection);
+    let mut ts = TextStyle::new();
+    ts.set_foreground_color(Paint::default());
+    paragraph_builder.push_style(&ts);
+    paragraph_builder.add_text(s);
+
+    paragraph_builder.build()
+}
+
+struct LayoutData<'a> {
+    document: &'a Document,
+    styles: &'a HashMap<NodeId, LayoutStyle>,
+    paragraphs: &'a HashMap<NodeId, RefCell<Paragraph>>,
+}
+
+impl LayoutTree for LayoutData<'_> {
+    type NodeRef = NodeId;
+    type Paragraph = RefCell<Paragraph>;
+
+    fn root(&self) -> NodeId {
+        Document::ROOT
+    }
+
+    fn children(&self, parent: NodeId) -> &[NodeId] {
+        self.document.children(parent)
+    }
+
+    fn style(&self, node: NodeId) -> &LayoutStyle {
+        &self.styles[&node]
+    }
+
+    fn paragraph(&self, node: NodeId) -> Option<&RefCell<Paragraph>> {
+        self.paragraphs.get(&node)
+    }
+}
+
+impl layout::Paragraph for RefCell<Paragraph> {
+    fn measure(&self, max_width: f32) -> (f32, f32) {
+        let mut para = self.borrow_mut();
+
+        para.layout(max_width);
+
+        return (f32::min(para.max_intrinsic_width(), para.max_width()), para.height());
+    }
+}

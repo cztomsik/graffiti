@@ -1,17 +1,23 @@
-use super::{FlexDirection, LayoutContext, LayoutStyle, Size};
+use super::{FlexDirection, LayoutContext, LayoutResult, LayoutStyle, LayoutTree, Size};
 
-impl<K: Copy> LayoutContext<'_, K> {
-    pub fn compute_flex(&mut self, node: K, style: &LayoutStyle, parent_size: Size<f32>) {
+impl<T: LayoutTree> LayoutContext<'_, T> {
+    pub fn compute_flex(
+        &mut self,
+        result: &mut LayoutResult,
+        style: &LayoutStyle,
+        children: &[T::NodeRef],
+        parent_size: Size<f32>,
+    ) {
         let dir = style.flex_direction;
 
         // TODO: if not defined
         let available_space = self.resolve_size(style.size, parent_size);
 
-        // skoda, ze nemuzu rict node.total_flex_basis() a mit to cele nekde bokem
-        let total_flex_basis: f32 = self.children[node]
+        // TODO: node.total_flex_basis() or something like that
+        let total_flex_basis: f32 = children
             .iter()
             .map(|&ch| {
-                let mut res = self.resolve(self.styles[ch].flex_basis, parent_size.main(dir));
+                let mut res = self.resolve(self.tree.style(ch).flex_basis, parent_size.main(dir));
                 if res.is_nan() {
                     // compute max-content size?
                     todo!()
@@ -21,11 +27,11 @@ impl<K: Copy> LayoutContext<'_, K> {
             })
             .sum();
         let remaining_space = available_space.main(dir) - total_flex_basis;
-        let total_grow: f32 = self.children[node].iter().map(|&ch| self.styles[ch].flex_grow).sum();
+        let total_grow: f32 = children.iter().map(|&ch| self.tree.style(ch).flex_grow).sum();
 
         //println!("{:?}", (available_space, total_flex_basis, remaining_space, total_grow));
-        for &child in &self.children[node] {
-            let child_style = &self.styles[child];
+        for &child in children {
+            let child_style = &self.tree.style(child);
             let child_res = &mut self.results[child];
 
             if child_style.flex_grow > 0. {

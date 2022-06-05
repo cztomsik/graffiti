@@ -1,15 +1,21 @@
-use super::{Dimension, Display, LayoutStyle, Rect, Size};
-use std::ops::{Index, IndexMut};
+use crate::layout::Paragraph;
 
-// TODO: em/rem
-pub(super) struct LayoutContext<'a, K> {
-    pub(super) viewport_size: Size<f32>,
-    pub(super) children: &'a dyn Index<K, Output = [K]>,
-    pub(super) styles: &'a dyn Index<K, Output = LayoutStyle>,
-    pub(super) results: &'a mut dyn IndexMut<K, Output = LayoutResult>,
+use super::{Dimension, Display, LayoutTree, Rect, Size};
+use std::ops::IndexMut;
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LayoutResult {
+    pub pos: (f32, f32),
+    pub size: Size<f32>,
 }
 
-impl<K: Copy> LayoutContext<'_, K> {
+pub(super) struct LayoutContext<'a, T: LayoutTree> {
+    pub(super) viewport_size: Size<f32>,
+    pub(super) tree: &'a T,
+    pub(super) results: &'a mut dyn IndexMut<T::NodeRef, Output = LayoutResult>,
+}
+
+impl<T: LayoutTree> LayoutContext<'_, T> {
     pub fn resolve(&self, dim: Dimension, base: f32) -> f32 {
         match dim {
             Dimension::Px(v) => v,
@@ -33,79 +39,67 @@ impl<K: Copy> LayoutContext<'_, K> {
     pub fn resolve_rect(&self, rect: Rect<Dimension>, base: f32) -> Rect<f32> {
         Rect {
             top: self.resolve(rect.top, base),
-            right: self.resolve(rect.top, base),
-            bottom: self.resolve(rect.top, base),
-            left: self.resolve(rect.top, base),
+            right: self.resolve(rect.right, base),
+            bottom: self.resolve(rect.bottom, base),
+            left: self.resolve(rect.left, base),
         }
     }
 
-    pub fn compute_node(&mut self, node: K, parent_size: Size<f32>) {
-        let style = &self.styles[node];
+    pub fn compute_node(&mut self, node: T::NodeRef, parent_size: Size<f32>) {
+        let style = self.tree.style(node);
+        let mut result = LayoutResult::default();
 
-        self.results[node].size = self.resolve_size(style.size, parent_size);
-        // self.results[node].min_size = self.resolve_size(layout_box.style.min_size, parent_size);
-        // self.results[node].max_size = self.resolve_size(layout_box.style.max_size, parent_size);
-        self.results[node].padding = self.resolve_rect(style.padding, parent_size.width);
-        self.results[node].margin = self.resolve_rect(style.margin, parent_size.width);
-        self.results[node].border = self.resolve_rect(style.border, parent_size.width);
+        // TODO: maybe we only need padding + border for positioning and
+        //       (padding + border).inner_size() for subtracting the avail_size
+        let padding = self.resolve_rect(style.padding, parent_size.width);
+        //let border = self.resolve_rect(style.border, parent_size.width);
+
+        result.size = self.resolve_size(style.size, parent_size);
 
         match style.display {
-            Display::None => {}
-            //Display::Inline => self.compute_inline(layout_box, parent_size),
-            Display::Block => self.compute_block(node, style, parent_size),
-            Display::Flex => self.compute_flex(node, style, parent_size),
-            //Display::Table => self.compute_table(style, parent_size),
-            _ => self.compute_block(node, style, parent_size),
+            Display::Block => self.compute_block(&mut result, &padding, style, self.tree.children(node), parent_size),
+            Display::Flex => self.compute_flex(&mut result, style, self.tree.children(node), parent_size),
+            Display::Inline => {
+                if let Some(para) = self.tree.paragraph(node) {
+                    let (width, height) = para.measure(parent_size.width);
+                    result.size = Size::new(width, height);
+                } else {
+                    result.size = Size::default();
+                }
+            }
+            _ => todo!(),
         }
 
-        // TODO: this is because of Display::None (which then breaks sum of children for block)
-        if self.results[node].size.height.is_nan() {
-            self.results[node].size.height = 0.;
-        }
+        println!("res node size {:?}", (style.display, result.pos, result.size));
 
-        println!("res node size {:?}", (style.display, self.results[node].size));
+        self.results[node] = result;
     }
 
-    // fn compute_box(&self, layout_box: &mut LayoutBox, parent_size: Size<f32>) {
-    //     self.init_box(layout_box, parent_size);
-    // }
+    //     pub fn compute_node(&mut self, node: T::NodeRef, parent_size: Size<f32>) {
+    //         let style = &self.tree.style(node);
+    //         let mut result = LayoutResult::default();
 
-    // fn compute_inline(&self, inline: &mut LayoutBox, avail_size: Size<f32>) {
-    //     if let Some(text) = &inline.text {
-    //         let (width, height) = text.measure(avail_size.width);
-    //         //println!("measure {} {:?}", text.text(), (width, height));
-    //         inline.size = Size::new(width, height);
+    //         result.size = self.resolve_size(style.size, parent_size);
+    //         result.padding = self.resolve_rect(style.padding, parent_size.width);
+    //         result.margin = self.resolve_rect(style.margin, parent_size.width);
+    //         result.border = self.resolve_rect(style.border, parent_size.width);
+
+    //         match style.display {
+    //             Display::None => {}
+    //             //Display::Inline => self.compute_inline(layout_box, parent_size),
+    //             Display::Block => self.compute_block(&mut result, node, style, parent_size),
+    //             Display::Flex => self.compute_flex(node, style, parent_size),
+    //             //Display::Table => self.compute_table(style, parent_size),
+    //             _ => self.compute_block(&mut result, node, style, parent_size),
+    //         }
+
+    //         // TODO: this is because of Display::None (which then breaks sum of children for block)
+    //         if result.size.height.is_nan() {
+    //             result.size.height = 0.;
+    //         }
+
+    //         println!("res node size {:?}", (style.display, result.size));
+
+    //         self.results[node] = result;
     //     }
-    // }
-}
-
-#[derive(Default)]
-pub struct LayoutResult {
-    pub x: f32,
-    pub y: f32,
-    pub size: Size<f32>,
-    pub border: Rect<f32>,
-    pub padding: Rect<f32>,
-    pub margin: Rect<f32>,
-}
-
-impl LayoutResult {
-    pub fn border_rect(&self) -> Rect<f32> {
-        Rect {
-            left: self.x,
-            top: self.y,
-            right: self.x
-                + self.size.width
-                + self.padding.left
-                + self.padding.right
-                + self.border.left
-                + self.border.right,
-            bottom: self.y
-                + self.size.height
-                + self.padding.top
-                + self.padding.top
-                + self.border.top
-                + self.border.bottom,
-        }
-    }
 }

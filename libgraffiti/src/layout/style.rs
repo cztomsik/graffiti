@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LayoutStyle {
     pub display: Display,
 
@@ -8,7 +8,7 @@ pub struct LayoutStyle {
 
     pub padding: Rect<Dimension>,
     pub margin: Rect<Dimension>,
-    pub border: Rect<Dimension>,
+    pub border: Rect<f32>,
 
     pub flex_direction: FlexDirection,
     pub flex_wrap: FlexWrap,
@@ -37,7 +37,7 @@ impl Default for LayoutStyle {
 
             padding: Rect::ZERO,
             margin: Rect::ZERO,
-            border: Rect::ZERO,
+            border: Rect::uniform(0.),
 
             flex_direction: FlexDirection::Row,
             flex_wrap: FlexWrap::NoWrap,
@@ -52,7 +52,7 @@ impl Default for LayoutStyle {
             justify_content: Justify::FlexStart,
 
             position_type: Position::Static,
-            position: Rect::ZERO,
+            position: Rect::AUTO,
         }
     }
 }
@@ -69,7 +69,7 @@ pub enum Display {
     TableCell,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Dimension {
     Auto,
     Px(f32),
@@ -92,6 +92,10 @@ impl<T: Copy> Size<T> {
     pub const fn new(width: T, height: T) -> Self {
         Self { width, height }
     }
+
+    pub const fn uniform(a: T) -> Self {
+        Self::new(a, a)
+    }
 }
 
 impl<T: Copy + PartialOrd> Size<T> {
@@ -113,11 +117,11 @@ impl<T: Copy + PartialOrd> Size<T> {
 }
 
 impl Size<Dimension> {
-    pub const AUTO: Self = Self::new(Dimension::Auto, Dimension::Auto);
-    pub const ZERO: Self = Self::new(Dimension::Px(0.), Dimension::Px(0.));
+    pub const AUTO: Self = Self::uniform(Dimension::Auto);
+    pub const ZERO: Self = Self::uniform(Dimension::Px(0.));
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Rect<T: Copy> {
     pub top: T,
     pub right: T,
@@ -125,35 +129,39 @@ pub struct Rect<T: Copy> {
     pub left: T,
 }
 
-impl Rect<Dimension> {
-    pub const AUTO: Self = Self {
-        top: Dimension::Auto,
-        right: Dimension::Auto,
-        bottom: Dimension::Auto,
-        left: Dimension::Auto,
-    };
+impl<T: Copy> Rect<T> {
+    pub const fn new(top: T, right: T, bottom: T, left: T) -> Self {
+        Self {
+            top,
+            right,
+            bottom,
+            left,
+        }
+    }
 
-    pub const ZERO: Self = Self {
-        top: Dimension::Px(0.),
-        right: Dimension::Px(0.),
-        bottom: Dimension::Px(0.),
-        left: Dimension::Px(0.),
-    };
+    pub const fn uniform(v: T) -> Self {
+        Self::new(v, v, v, v)
+    }
 }
 
-#[derive(Debug, Clone, Copy)]
+impl Rect<Dimension> {
+    pub const AUTO: Self = Self::uniform(Dimension::Auto);
+    pub const ZERO: Self = Self::uniform(Dimension::Px(0.));
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FlexDirection {
     Row,
     Column,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FlexWrap {
     NoWrap,
     Wrap,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Align {
     Auto,
     FlexStart,
@@ -165,7 +173,7 @@ pub enum Align {
     SpaceAround,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Justify {
     FlexStart,
     Center,
@@ -175,7 +183,7 @@ pub enum Justify {
     SpaceEvenly,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Position {
     Static,
     Relative,

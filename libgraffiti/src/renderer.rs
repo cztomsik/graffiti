@@ -1,12 +1,12 @@
 // turns render tree into series of skia calls
 //
-// maybe we can get rid of skia one day or make it an optional feature/backend
-// but it's not a priority right now and there are no good alternatives
-// at the moment anyway (clip radii, filters)
+// maybe we can get rid of skia one day or make it an optional feature/backend/trait impl
+// but it's not a priority right now and there are no good alternatives at the moment anyway
+// (clip radii, filters, text/paragraph, emoji, ligatures)
 //
 // notes:
 // - render tree is just a slice of `RenderEdge`(s) which means it should be prefetch-friendly
-//   and the `ContainerStyle` doesn't need to be <64b
+//   and the `ContainerStyle` doesn't need to fit in one cache-line
 // - incrementality will be handled elsewhere, this should be as simple and stateless as possible
 //   except of maybe using some LRU caches for managing mid-lived resources, etc.
 
@@ -16,12 +16,14 @@ use skia_safe::{
     Canvas, ColorType, Paint, RRect, Surface,
 };
 use skia_safe::{ClipOp, MaskFilter};
-use std::ops::Deref;
+use std::borrow::Borrow;
 
 // for now we just re-export some skia primitives
 pub use skia_safe::{Color, Matrix, Point, Rect};
 
-pub enum RenderEdge<P: Deref<Target = Paragraph>> {
+// TODO: should be AsRef<> but skia-safe AsRef<> impl is private because of <N: NativeDrop>???
+//       or maybe it should be entirely different because paragraphs need to be owned somewhere else as well?
+pub enum RenderEdge<P: Borrow<Paragraph>> {
     OpenContainer(Rect, ContainerStyle),
     CloseContainer,
     Text(Rect, P),
@@ -34,6 +36,7 @@ pub struct ContainerStyle {
     pub border_radii: Option<[f32; 4]>,
     pub shadow: Option<Shadow>,
     pub outline: Option<Outline>,
+    // TODO: should be for both axis (maybe just bitmask?)
     pub clip: bool,
     pub bg_color: Option<Color>,
     // pub images/gradients: Vec<?>
@@ -44,7 +47,7 @@ pub struct ContainerStyle {
 pub struct Shadow(pub (f32, f32), pub f32, pub f32, pub Color);
 
 #[derive(Debug, Clone, Copy)]
-pub struct Outline(pub f32, pub Option<StrokeStyle>, pub Color);
+pub struct Outline(pub f32, pub StrokeStyle, pub Color);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StrokeStyle {
@@ -86,7 +89,7 @@ impl Renderer {
         Self { gr_ctx, surface }
     }
 
-    pub fn render<P: Deref<Target = Paragraph>>(&mut self, render_tree: &[RenderEdge<P>]) {
+    pub fn render<P: Borrow<Paragraph>>(&mut self, render_tree: &[RenderEdge<P>]) {
         let canvas = self.surface.canvas();
         canvas.clear(Color::WHITE);
 
@@ -127,11 +130,11 @@ impl Renderer {
 }
 
 impl RenderContext<'_> {
-    fn draw_edge<P: Deref<Target = Paragraph>>(&mut self, edge: &RenderEdge<P>) {
+    fn draw_edge<P: Borrow<Paragraph>>(&mut self, edge: &RenderEdge<P>) {
         match edge {
             RenderEdge::OpenContainer(rect, style) => self.open_container(*rect, style),
             RenderEdge::CloseContainer => self.close_container(),
-            RenderEdge::Text(rect, paragraph) => self.draw_text(*rect, paragraph),
+            RenderEdge::Text(rect, paragraph) => self.draw_text(*rect, paragraph.borrow()),
         }
     }
 
@@ -153,12 +156,17 @@ impl RenderContext<'_> {
             self.canvas.concat(matrix);
         }
 
-        if let Some(opacity) = style.opacity {
-            // TODO
+        if let Some(_opacity) = style.opacity {
+            // TODO: this will be a bit trickier than I thought maybe
+            //       we will need to check/pass this everywhere and always do
+            //       what's most appropriate in each case
+            //       (multiply for bg-color, alpha mask for shadow, etc.)
+            //       it might be also possible to create SkShader and just set it
+            //       to each paint but I'm not sure if that's a good idea
         }
 
         if let Some(shadow) = &style.shadow {
-            self.draw_shadow(rect, shadow);
+            self.draw_shadow(&shape, shadow);
         }
 
         if let Some(outline) = &style.outline {
@@ -167,7 +175,7 @@ impl RenderContext<'_> {
 
         if style.clip {
             // TODO: subtract borders?
-            self.clip_shape(&shape, ClipOp::Intersect, style.transform.is_some());
+            self.clip_shape(&shape, ClipOp::Intersect, true /*style.transform.is_some()*/);
         }
 
         if let Some(color) = style.bg_color {
@@ -217,7 +225,7 @@ impl RenderContext<'_> {
     }
 
     // TODO: radii
-    fn draw_shadow(&mut self, rect: Rect, shadow: &Shadow) {
+    fn draw_shadow(&mut self, shape: &Shape, shadow: &Shadow) {
         let &Shadow(offset, blur, spread, color) = shadow;
 
         let mut paint = Paint::default();
@@ -226,8 +234,7 @@ impl RenderContext<'_> {
 
         // TODO: fix negative spread (visible with transparent background)
         //       maybe draw those with inverse clip?
-        self.canvas
-            .draw_rect(rect.with_offset(offset).with_outset((spread, spread)), &paint);
+        self.draw_shape(shape, &paint);
     }
 
     fn draw_shape(&mut self, shape: &Shape, paint: &Paint) {

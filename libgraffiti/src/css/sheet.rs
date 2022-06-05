@@ -64,7 +64,7 @@ mod tests {
 
         assert_eq!(sheet.rules()[0].selector(), &Selector::parse("div")?);
         assert_eq!(sheet.rules()[0].style(), &Style::parse("color: #fff")?);
-        assert_eq!(sheet.rules()[0].style().to_string(), "color:rgba(255, 255, 255, 255);");
+        assert_eq!(sheet.rules()[0].style().to_string(), "color: rgba(255, 255, 255, 255)");
 
         // white-space
         assert_eq!(StyleSheet::parse(" *{}")?.rules().len(), 1);
@@ -76,5 +76,13 @@ mod tests {
         assert_eq!(StyleSheet::parse("@media { a { v: 0 } } a {} b {}")?.rules().len(), 2);
 
         Ok(())
+    }
+
+    #[test]
+    fn parse_ua() {
+        let ua_css = include_str!("../../resources/ua.css");
+        let sheet = StyleSheet::parse(&ua_css).unwrap();
+
+        assert_eq!(sheet.rules().len(), 23);
     }
 }
