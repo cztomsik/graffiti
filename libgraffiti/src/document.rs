@@ -67,6 +67,13 @@ impl Document {
         &self.children[parent]
     }
 
+    pub fn descendants(&self, node: NodeId) -> Descendants {
+        Descendants {
+            document: self,
+            stack: vec![self.children(node).iter()],
+        }
+    }
+
     pub fn append_child(&mut self, parent: NodeId, child: NodeId) {
         assert_ne!(self.node_type(parent), NodeType::Text);
         assert_eq!(self.parent_node(child), None);
@@ -106,12 +113,8 @@ impl Document {
 
     pub fn query_selector_all(&self, node: NodeId, selector: &str) -> impl Iterator<Item = NodeId> + '_ {
         let selector = Selector::parse(selector).unwrap_or_else(|_| Selector::unsupported());
-        let descendants = Descendants {
-            document: self,
-            stack: vec![self.children(node).iter()],
-        };
 
-        descendants
+        self.descendants(node)
             .filter(move |&n| self.node_type(n) == NodeType::Element && selector.match_element(n, self).is_some())
     }
 
@@ -216,7 +219,7 @@ impl Document {
 }
 
 #[derive(Debug, Clone)]
-struct Descendants<'a> {
+pub struct Descendants<'a> {
     document: &'a Document,
     stack: Vec<Iter<'a, NodeId>>,
 }
