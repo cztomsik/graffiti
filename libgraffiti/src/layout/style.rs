@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LayoutStyle {
     pub display: Display,
 
@@ -69,7 +69,7 @@ pub enum Display {
     TableCell,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Dimension {
     Auto,
     Px(f32),
@@ -117,7 +117,7 @@ impl Size<Dimension> {
     pub const ZERO: Self = Self::new(Dimension::Px(0.), Dimension::Px(0.));
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Rect<T: Copy> {
     pub top: T,
     pub right: T,
@@ -141,19 +141,19 @@ impl Rect<Dimension> {
     };
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FlexDirection {
     Row,
     Column,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FlexWrap {
     NoWrap,
     Wrap,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Align {
     Auto,
     FlexStart,
@@ -165,7 +165,7 @@ pub enum Align {
     SpaceAround,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Justify {
     FlexStart,
     Center,
@@ -175,7 +175,7 @@ pub enum Justify {
     SpaceEvenly,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Position {
     Static,
     Relative,
