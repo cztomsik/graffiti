@@ -1,37 +1,37 @@
-use super::{LayoutContext, LayoutStyle, Size};
+use super::{LayoutContext, LayoutResult, LayoutStyle, LayoutTree, Rect, Size};
 
-impl<K: Copy> LayoutContext<'_, K> {
-    pub fn compute_block(&mut self, node: K, style: &LayoutStyle, parent_size: Size<f32>) {
-        let mut y = self.results[node].padding.top;
+impl<T: LayoutTree> LayoutContext<'_, T> {
+    pub(super) fn compute_block(
+        &mut self,
+        result: &mut LayoutResult,
+        padding: &Rect<f32>,
+        style: &LayoutStyle,
+        children: &[T::NodeRef],
+        parent_size: Size<f32>,
+    ) {
+        let mut y = padding.top;
         let mut content_height = 0.;
 
         let avail_inner = Size::new(
-            f32::max(
-                0.,
-                parent_size.width - self.results[node].padding.left - self.results[node].padding.right,
-            ),
-            f32::max(
-                0.,
-                parent_size.height - self.results[node].padding.top - self.results[node].padding.bottom,
-            ),
+            f32::max(0., parent_size.width - padding.left - padding.right),
+            f32::max(0., parent_size.height - padding.top - padding.bottom),
         );
 
-        for &child in &self.children[node] {
+        for &child in children {
             self.compute_node(child, avail_inner);
 
-            self.results[child].y = y;
-            self.results[child].x = self.results[node].padding.left;
+            self.results[child].pos = (padding.left, y);
 
-            y += self.results[child].size.height;
             content_height += self.results[child].size.height;
+            y += self.results[child].size.height;
         }
 
-        if self.results[node].size.width.is_nan() {
-            self.results[node].size.width = parent_size.width;
+        if result.size.width.is_nan() {
+            result.size.width = parent_size.width;
         }
 
-        if self.results[node].size.height.is_nan() {
-            self.results[node].size.height = content_height;
+        if result.size.height.is_nan() {
+            result.size.height = content_height + padding.top + padding.bottom;
         }
     }
 }

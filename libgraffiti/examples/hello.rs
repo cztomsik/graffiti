@@ -39,17 +39,11 @@ fn parse() -> Document {
     doc.append_child(body, panel);
     doc.append_child(panel, text);
 
-    doc.set_style(
-        body,
-        "height: 300px; background-color: #ccf; padding-top: 20px; padding-left: 20px",
-    );
-    doc.set_style(
-        h1,
-        "height: 200px; outline-style: solid; padding-top: 20px; padding-left: 20px;",
-    );
+    doc.set_style(body, "height: 300px; padding: 20px; background-color: #ccf");
+    doc.set_style(h1, "padding: 20px; outline-style: solid;");
     doc.set_style(
         panel,
-        "height: 100px; padding-top: 20px; padding-left: 20px; background-color: #fff; border-top-left-radius: 10px; overflow-x: hidden; box-shadow: 0 0 10px #000",
+        "padding: 20px; background-color: #fff; border-radius: 10px; overflow: visible; box-shadow: 0 0 10px #000",
     );
 
     doc
