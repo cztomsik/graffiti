@@ -1,12 +1,12 @@
 // turns render tree into series of skia calls
 //
-// maybe we can get rid of skia one day or make it an optional feature/backend
-// but it's not a priority right now and there are no good alternatives
-// at the moment anyway (clip radii, filters)
+// maybe we can get rid of skia one day or make it an optional feature/backend/trait impl
+// but it's not a priority right now and there are no good alternatives at the moment anyway
+// (clip radii, filters, text/paragraph, emoji, ligatures)
 //
 // notes:
 // - render tree is just a slice of `RenderEdge`(s) which means it should be prefetch-friendly
-//   and the `ContainerStyle` doesn't need to be <64b
+//   and the `ContainerStyle` doesn't need to fit in one cache-line
 // - incrementality will be handled elsewhere, this should be as simple and stateless as possible
 //   except of maybe using some LRU caches for managing mid-lived resources, etc.
 
@@ -16,12 +16,14 @@ use skia_safe::{
     Canvas, ColorType, Paint, RRect, Surface,
 };
 use skia_safe::{ClipOp, MaskFilter};
-use std::ops::Deref;
+use std::borrow::Borrow;
 
 // for now we just re-export some skia primitives
 pub use skia_safe::{Color, Matrix, Point, Rect};
 
-pub enum RenderEdge<P: Deref<Target = Paragraph>> {
+// TODO: should be AsRef<> but skia-safe AsRef<> impl is private because of <N: NativeDrop>???
+//       or maybe it should be entirely different because paragraphs need to be owned somewhere else as well?
+pub enum RenderEdge<P: Borrow<Paragraph>> {
     OpenContainer(Rect, ContainerStyle),
     CloseContainer,
     Text(Rect, P),
@@ -87,7 +89,7 @@ impl Renderer {
         Self { gr_ctx, surface }
     }
 
-    pub fn render<P: Deref<Target = Paragraph>>(&mut self, render_tree: &[RenderEdge<P>]) {
+    pub fn render<P: Borrow<Paragraph>>(&mut self, render_tree: &[RenderEdge<P>]) {
         let canvas = self.surface.canvas();
         canvas.clear(Color::WHITE);
 
@@ -128,11 +130,11 @@ impl Renderer {
 }
 
 impl RenderContext<'_> {
-    fn draw_edge<P: Deref<Target = Paragraph>>(&mut self, edge: &RenderEdge<P>) {
+    fn draw_edge<P: Borrow<Paragraph>>(&mut self, edge: &RenderEdge<P>) {
         match edge {
             RenderEdge::OpenContainer(rect, style) => self.open_container(*rect, style),
             RenderEdge::CloseContainer => self.close_container(),
-            RenderEdge::Text(rect, paragraph) => self.draw_text(*rect, paragraph),
+            RenderEdge::Text(rect, paragraph) => self.draw_text(*rect, paragraph.borrow()),
         }
     }
 
