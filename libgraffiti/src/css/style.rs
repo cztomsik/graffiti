@@ -1,65 +1,47 @@
-// TODO: there should be prop.id()
-//       so we can first find id for given &str
-//       and then just find the prop with simple eq check
-
-use super::parsing::{any, skip, sym, Parsable, ParseError, Parser};
+use super::parsing::{skip, sym, Parsable, ParseError, Parser};
 use super::StyleProp;
+use smallbitvec::SmallBitVec;
 use std::fmt;
 use std::mem::discriminant;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Style {
     props: Vec<StyleProp>,
-    // TODO: important: u32 + 1 << prop.id() as u32 to figure out the bit to flip/check
+    // TODO: inherited_props?
+    important_props: SmallBitVec,
 }
 
 impl Style {
+    pub const EMPTY: Self = Style {
+        props: Vec::new(),
+        important_props: SmallBitVec::new(),
+    };
+
     pub fn parse(input: &str) -> Result<Self, ParseError> {
         Parsable::parse(input)
     }
 
-    /*
-    // jsdom squashes longhands into one shorthand (if all are present)
-    // but chrome doesn't so I think we don't have to either
-    pub fn length(&self) -> usize {
-        self.props.len()
+    pub fn props(&self) -> &[StyleProp] {
+        &self.props
     }
 
-    pub fn item(&self, index: usize) -> Option<&str> {
-        self.props.get(index).map(StyleProp::css_name)
-    }
-
-    pub fn property_value(&self, prop: &str) -> Option<String> {
-        if let Some(prop) = self.props.iter().find(|p| p.css_name() == prop) {
-            return Some(prop.css_value());
+    pub fn apply(&mut self, other: &Style) {
+        for (i, p) in other.props.iter().enumerate() {
+            self.add_prop(p.clone(), other.important_props[i]);
         }
-
-        self.shorthand_value(prop)
     }
 
-    // TODO: priority
-    pub fn set_property(&mut self, prop: &str, value: &str) {
-        let tokens = super::parser::tokenize(value.as_bytes());
+    fn add_prop(&mut self, prop: StyleProp, important: bool) {
+        let d = discriminant(&prop);
 
-        super::parser::parse_prop_into(prop, &tokens, self);
-    }
-
-    pub fn remove_property(&mut self, prop: &str) {
-        self.props.retain(|p| p.css_name() == prop);
-    }
-
-    */
-    pub fn props(&self) -> impl Iterator<Item = &StyleProp> {
-        self.props.iter()
-    }
-
-    pub(crate) fn add_prop(&mut self, new_prop: StyleProp) {
-        let d = discriminant(&new_prop);
-
-        if let Some(existing) = self.props.iter_mut().find(|p| d == discriminant(p)) {
-            *existing = new_prop;
+        if let Some(i) = self.props.iter().position(|p| discriminant(p) == d) {
+            if important || !self.important_props[i] {
+                self.props[i] = prop;
+                self.important_props.set(i, important);
+            }
         } else {
-            self.props.push(new_prop);
+            self.props.push(prop);
+            self.important_props.push(important);
         }
     }
 }
@@ -67,30 +49,23 @@ impl Style {
 impl Parsable for Style {
     fn parser<'a>() -> Parser<'a, Self> {
         // any chunk of tokens before ";" or "}"
-        let prop_value = (!sym(";") * !sym("}") * skip(1)).repeat(1..).collect();
-        let prop = any() - sym(":") + prop_value - sym(";").discard().repeat(0..);
+        let prop_decl = ((!sym(";") * !sym("}") * skip(1)).repeat(1..)).collect() - sym(";").opt();
+        let important = || sym("!important").opt().map(|o| o.is_some());
 
-        prop.repeat(0..).map(|props| {
+        prop_decl.repeat(0..).map(move |decls| {
             let mut style = Self::default();
+            let longhand = StyleProp::parser() + important();
 
-            for (p, v) in props {
-                // skip unknown
-                parse_prop_into(p, v, &mut style);
+            for d in decls {
+                // TODO: shorthands
+                if let Ok((prop, important)) = longhand.parse(d) {
+                    style.add_prop(prop, important);
+                }
             }
 
             style
         })
     }
-}
-
-pub fn parse_prop_into(prop: &str, value: &[&str], style: &mut Style) {
-    if let Ok(p) = super::properties::prop_parser(prop).parse(value) {
-        style.add_prop(p);
-    } /* else if let Ok(props) = shorthand_parser(prop).parse(value) {
-          for p in props {
-              style.add_prop(p);
-          }
-      }*/
 }
 
 // impl From<&str> for Style {
@@ -101,34 +76,79 @@ pub fn parse_prop_into(prop: &str, value: &[&str], style: &mut Style) {
 
 impl fmt::Display for Style {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for p in &self.props {
-            write!(f, "{}:{};", p.css_name(), p.css_value())?;
+        for (i, p) in self.props.iter().enumerate() {
+            if i != 0 {
+                write!(f, "; ")?;
+            }
+
+            write!(f, "{}", p)?;
         }
 
         Ok(())
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
-    use super::super::CssDisplay;
     use super::*;
+    use smallbitvec::sbvec;
+
+    #[test]
+    fn parse_style() -> Result<(), ParseError> {
+        assert_eq!(Style::parse("")?, Style::EMPTY);
+        assert_eq!(Style::parse("unknown-a: 0; unknown-b: 0")?, Style::EMPTY);
+        assert_eq!(Style::parse("!important")?, Style::EMPTY);
+
+        assert_eq!(Style::parse("opacity: 0")?.props, vec![StyleProp::Opacity(0.)]);
+
+        assert_eq!(
+            Style::parse("opacity: 0; opacity: unknown")?.props,
+            vec![StyleProp::Opacity(0.)]
+        );
+
+        assert_eq!(
+            Style::parse("opacity: 0; flex-grow: 1")?.props,
+            vec![StyleProp::Opacity(0.), StyleProp::FlexGrow(1.)]
+        );
+
+        assert_eq!(
+            Style::parse("opacity: 0 !important")?,
+            Style {
+                props: vec![StyleProp::Opacity(0.)],
+                important_props: sbvec![true]
+            }
+        );
+
+        Ok(())
+    }
 
     #[test]
     fn css_text() {
-        let s = Style::parse("display:block;").unwrap();
-        assert_eq!(s.to_string(), "display:block;");
+        let s = Style::parse("display: block").unwrap();
+        assert_eq!(s.to_string(), "display: block");
     }
 
     #[test]
     fn prop_overriding() {
         let mut s = Style::default();
 
-        s.add_prop(StyleProp::Display(CssDisplay::None));
-        s.add_prop(StyleProp::Display(CssDisplay::Block));
+        s.add_prop(StyleProp::Opacity(0.), false);
+        s.add_prop(StyleProp::Opacity(1.), false);
 
-        assert!(s.props().eq(&vec![StyleProp::Display(CssDisplay::Block)]));
+        assert_eq!(s.props, vec![StyleProp::Opacity(1.)]);
+
+        s.add_prop(StyleProp::Opacity(0.), true);
+        s.add_prop(StyleProp::Opacity(1.), false);
+
+        assert_eq!(s.props, vec![StyleProp::Opacity(0.)]);
+    }
+
+    #[test]
+    fn apply() {
+        let mut s = Style::default();
+        s.apply(&Style::parse("display: block; width: 10px; height: 10px").unwrap());
+        s.apply(&Style::parse("display: flex; height: 20px !important").unwrap());
+        s.apply(&Style::parse("height: 30px").unwrap());
+        assert_eq!(s.to_string(), "display: flex; width: 10px; height: 20px");
     }
 }
-*/
