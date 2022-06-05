@@ -4,9 +4,11 @@
 //   and we only return/accept indices to those lists so we can avoid (unsafe) pointers
 // - whatever you create should be freed, using respective `gft_Xxx_drop(id)` fn
 
-use crate::util::{Id, SlotMap};
-use crate::{App, Document, NodeId, NodeKind, Window};
+use crate::util::{Atom, SlotMap};
+use crate::{Document, NodeId, NodeType};
 use std::cell::RefCell;
+use std::ffi::CStr;
+use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 
@@ -14,6 +16,10 @@ use std::sync::Arc;
 #[cfg(cbindgen)]
 #[repr(transparent)]
 struct Option<T>(T);
+
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy)]
+pub struct Id<T>(usize, PhantomData<T>);
 
 // wrap all fns in `#[no_mangle] pub extern "C"` with access to defined thread-local vars
 macro_rules! ffi {
@@ -38,9 +44,9 @@ macro_rules! ffi {
 // enum DocHandle { Document(Document), Window(Id<Window>) }
 
 ffi! {
-    let app: Option<Arc<App>>;
+    // let app: Option<Arc<App>>;
     let documents: SlotMap<Id<Document>, Document>;
-    let windows: SlotMap<Id<Window>, Arc<Window>>;
+    // let windows: SlotMap<Id<Window>, Arc<Window>>;
     let strings: SlotMap<Id<String>, String>;
 
     // fn gft_Vec_len(vec: Ref<Vec<Value>>) -> c_uint {
@@ -65,24 +71,29 @@ ffi! {
         strings.remove(string);
     }
 
+    /*
+    fn gft_Atom_from(ptr: *const i8) -> Atom {
+        Atom::from(to_str(ptr))
+    }
+
     fn gft_App_init() {
         *app = Some(App::init())
     }
 
-    fn gft_App_tick(app: Id<App>) {
+    fn gft_App_tick() {
         app.as_ref().unwrap().tick()
     }
 
-    fn gft_App_wake_up(app: Id<App>) {
-        app.as_ref().unwrap().wake_up()
+    fn gft_App_wake_up() {
+        App::current().unwrap().wake_up()
     }
 
-    fn gft_App_drop(app: Id<App>) {
+    fn gft_App_drop() {
         app.take();
     }
 
-    fn gft_Window_new(title: *const u8, title_len: usize, width: i32, height: i32) -> Id<Window> {
-        windows.insert(Window::new(to_str(title, title_len), width, height))
+    fn gft_Window_new(title: *const i8, width: i32, height: i32) -> Id<Window> {
+        windows.insert(Window::new(to_str(title), width, height))
     }
 
     // fn gft_Window_id(win: Id<Window>) -> WindowId {
@@ -101,12 +112,13 @@ ffi! {
     //     false
     // }
 
-    fn gft_Window_title(win: Id<Window>) -> Id<String> {
-        strings.insert(windows[win].title())
+    fn gft_Window_title(win: Id<Window>) -> *const i8 {
+        todo!()
+        //windows[win].title()
     }
 
-    fn gft_Window_set_title(win: Id<Window>, title: *const u8, title_len: usize) {
-        windows[win].set_title(to_str(title, title_len))
+    fn gft_Window_set_title(win: Id<Window>, title: *const i8) {
+        windows[win].set_title(to_str(title))
     }
 
     fn gft_Window_width(win: Id<Window>) -> i32 {
@@ -152,45 +164,26 @@ ffi! {
     fn gft_Window_drop(window: Id<Window>) {
         windows.remove(window);
     }
+    */
 
     fn gft_Document_new() -> Id<Document> {
         documents.insert(Document::new())
     }
 
-    fn gft_Document_root(doc: Id<Document>) -> NodeId {
-        documents[doc].root()
+    fn gft_Document_create_element(doc: Id<Document>, local_name: Atom) -> NodeId {
+        documents[doc].create_element(local_name)
     }
 
-    fn gft_Document_create_element(doc: Id<Document>, local_name: *const u8, local_name_len: usize) -> NodeId {
-        documents[doc].create_element(to_str(local_name, local_name_len))
+    fn gft_Document_create_text_node(doc: Id<Document>, data: *const i8) -> NodeId {
+        documents[doc].create_text_node(to_str(data))
     }
 
-    fn gft_Document_create_text_node(doc: Id<Document>, data: *const u8, data_len: usize) -> NodeId {
-        documents[doc].create_text_node(to_str(data, data_len))
+    fn gft_Document_node_type(doc: Id<Document>, node: NodeId) -> NodeType {
+        documents[doc].node_type(node)
     }
 
-    fn gft_Document_node_kind(doc: Id<Document>, node: NodeId) -> NodeKind {
-        documents[doc].node(node).kind()
-    }
-
-    fn gft_Document_node_parent_node(doc: Id<Document>, node: NodeId) -> Option<NodeId> {
-        documents[doc].node(node).parent_node()
-    }
-
-    fn gft_Document_node_first_child(doc: Id<Document>, node: NodeId) -> Option<NodeId> {
-        documents[doc].node(node).first_child()
-    }
-
-    fn gft_Document_node_last_child(doc: Id<Document>, node: NodeId) -> Option<NodeId> {
-        documents[doc].node(node).last_child()
-    }
-
-    fn gft_Document_node_previous_sibling(doc: Id<Document>, node: NodeId) -> Option<NodeId> {
-        documents[doc].node(node).previous_sibling()
-    }
-
-    fn gft_Document_node_next_sibling(doc: Id<Document>, node: NodeId) -> Option<NodeId> {
-        documents[doc].node(node).next_sibling()
+    fn gft_Document_parent_node(doc: Id<Document>, node: NodeId) -> Option<NodeId> {
+        documents[doc].parent_node(node)
     }
 
     fn gft_Document_append_child(doc: Id<Document>, parent: NodeId, child: NodeId) {
@@ -205,8 +198,8 @@ ffi! {
         documents[doc].remove_child(parent, child);
     }
 
-    fn gft_Document_query_selector(doc: Id<Document>, node: NodeId, selector: *const u8, selector_len: usize) -> Option<NodeId> {
-        documents[doc].query_selector(node, to_str(selector, selector_len))
+    fn gft_Document_query_selector(doc: Id<Document>, node: NodeId, selector: *const i8) -> Option<NodeId> {
+        documents[doc].query_selector(node, to_str(selector))
     }
 
     // fn gft_Document_query_selector_all(doc: Id<Document>, node: NodeId, selector: *const u8, selector_len: usize) -> Id<Vec<Value>> {
@@ -217,9 +210,9 @@ ffi! {
     //         .into()
     // }
 
-    // fn gft_Element_local_name(doc: Id<Document>, el: NodeId) -> Id<String> {
-    //     strings.insert(documents[doc].element(el).local_name().to_string())
-    // }
+    fn gft_Document_local_name(doc: Id<Document>, el: NodeId) -> Atom {
+        documents[doc].local_name(el)
+    }
 
     // fn gft_Element_attribute_names(doc: Id<Document>, el: NodeId) -> Id<Vec<Value>> {
     //     let names = documents[doc].element(el).attribute_names()
@@ -231,13 +224,13 @@ ffi! {
     //     strings.insert(documents[doc].element(el).attribute(to_str(att, att_len).into()))
     // }
 
-    // fn gft_Element_set_attribute(doc: Id<Document>, el: NodeId, att: *const u8, att_len: usize, val: *const u8, val_len: usize) {
-    //     documents[doc].element(el).set_attribute(to_str(att, att_len), to_str(val, val_len))
-    // }
+    fn gft_Element_set_attribute(doc: Id<Document>, el: NodeId, att: Atom, val: *const i8) {
+        documents[doc].set_attribute(el, att, to_str(val));
+    }
 
-    // fn gft_Element_remove_attribute(doc: Id<Document>, el: NodeId, att: *const u8, att_len: usize) {
-    //     documents[doc].element(el).remove_attribute(to_str(att, att_len))
-    // }
+    fn gft_Element_remove_attribute(doc: Id<Document>, el: NodeId, att: Atom) {
+        documents[doc].remove_attribute(el, att);
+    }
 
     // fn gft_Element_matches(doc: Id<Document>, el: NodeId, selector: *const u8, selector_len: usize) -> bool {
     //     documents[doc].element(el).matches(to_str(selector, selector_len))
@@ -247,47 +240,19 @@ ffi! {
     //     documents[doc].element(el).style().into()
     // }
 
-    // fn gft_Text_data(doc: Id<Document>, node: Id<TextRef>) -> Id<String> {
-    //     documents[doc].data().into()
-    // }
+    fn gft_Document_text(doc: Id<Document>, text_node: NodeId) -> *const i8 {
+        todo!()
+    }
 
-    // fn gft_Text_set_data(doc: Id<Document>, node: Id<TextRef>, data: *const u8, data_len: usize) {
-    //     documents[doc].set_data(to_str(data, data_len))
-    // }
+    fn gft_Document_set_text(doc: Id<Document>, text_node: NodeId, text: *const i8) {
+        documents[doc].set_text(text_node, to_str(text));
+    }
 
     fn gft_Document_drop(doc: Id<Document>) {
         documents.remove(doc);
     }
-
-    // fn gft_CssStyleDeclaration_length(style: Id<CssStyleDeclaration>) -> c_uint {
-    //     tls[&style].length() as _
-    // }
-
-    // fn gft_CssStyleDeclaration_property_value(
-    //     style: Id<CssStyleDeclaration>,
-    //     prop: *const u8,
-    //     prop_len: usize,
-    // ) -> Option<Id<String>> {
-    //     tls[&style].property_value(to_str(prop, prop_len)).map(Ref::from)
-    // }
-
-    // fn gft_CssStyleDeclaration_set_property(style: Id<CssStyleDeclaration>, prop: *const u8, prop_len: usize, val: *const u8, val_len: usize) {
-    //     tls[&style].set_property(to_str(prop, prop_len), to_str(val, val_len))
-    // }
-
-    // fn gft_CssStyleDeclaration_remove_property(style: Id<CssStyleDeclaration>, prop: *const u8, prop_len: usize) {
-    //     tls[&style].remove_property(to_str(prop, prop_len))
-    // }
-
-    // fn gft_CssStyleDeclaration_css_text(style: Id<CssStyleDeclaration>) -> Id<String> {
-    //     tls[&style].css_text().into()
-    // }
-
-    // fn gft_CssStyleDeclaration_set_css_text(style: Id<CssStyleDeclaration>, css_text: *const u8, css_text_len: usize) {
-    //     tls[&style].set_css_text(to_str(css_text, css_text_len))
-    // }
 }
 
-unsafe fn to_str<'a>(ptr: *const u8, len: usize) -> &'a str {
-    std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr, len))
+unsafe fn to_str<'a>(ptr: *const i8) -> &'a str {
+    CStr::from_ptr(ptr).to_str().unwrap()
 }
