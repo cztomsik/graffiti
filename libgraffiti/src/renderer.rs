@@ -34,6 +34,7 @@ pub struct ContainerStyle {
     pub border_radii: Option<[f32; 4]>,
     pub shadow: Option<Shadow>,
     pub outline: Option<Outline>,
+    // TODO: should be for both axis (maybe just bitmask?)
     pub clip: bool,
     pub bg_color: Option<Color>,
     // pub images/gradients: Vec<?>
@@ -44,7 +45,7 @@ pub struct ContainerStyle {
 pub struct Shadow(pub (f32, f32), pub f32, pub f32, pub Color);
 
 #[derive(Debug, Clone, Copy)]
-pub struct Outline(pub f32, pub Option<StrokeStyle>, pub Color);
+pub struct Outline(pub f32, pub StrokeStyle, pub Color);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StrokeStyle {
@@ -153,12 +154,17 @@ impl RenderContext<'_> {
             self.canvas.concat(matrix);
         }
 
-        if let Some(opacity) = style.opacity {
-            // TODO
+        if let Some(_opacity) = style.opacity {
+            // TODO: this will be a bit trickier than I thought maybe
+            //       we will need to check/pass this everywhere and always do
+            //       what's most appropriate in each case
+            //       (multiply for bg-color, alpha mask for shadow, etc.)
+            //       it might be also possible to create SkShader and just set it
+            //       to each paint but I'm not sure if that's a good idea
         }
 
         if let Some(shadow) = &style.shadow {
-            self.draw_shadow(rect, shadow);
+            self.draw_shadow(&shape, shadow);
         }
 
         if let Some(outline) = &style.outline {
@@ -167,7 +173,7 @@ impl RenderContext<'_> {
 
         if style.clip {
             // TODO: subtract borders?
-            self.clip_shape(&shape, ClipOp::Intersect, style.transform.is_some());
+            self.clip_shape(&shape, ClipOp::Intersect, true /*style.transform.is_some()*/);
         }
 
         if let Some(color) = style.bg_color {
@@ -217,7 +223,7 @@ impl RenderContext<'_> {
     }
 
     // TODO: radii
-    fn draw_shadow(&mut self, rect: Rect, shadow: &Shadow) {
+    fn draw_shadow(&mut self, shape: &Shape, shadow: &Shadow) {
         let &Shadow(offset, blur, spread, color) = shadow;
 
         let mut paint = Paint::default();
@@ -226,8 +232,7 @@ impl RenderContext<'_> {
 
         // TODO: fix negative spread (visible with transparent background)
         //       maybe draw those with inverse clip?
-        self.canvas
-            .draw_rect(rect.with_offset(offset).with_outset((spread, spread)), &paint);
+        self.draw_shape(shape, &paint);
     }
 
     fn draw_shape(&mut self, shape: &Shape, paint: &Paint) {
