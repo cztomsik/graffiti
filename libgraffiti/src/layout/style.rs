@@ -1,3 +1,10 @@
+// TODO: I think this could be an enum, with variant structs for
+//       each kind (BlockStyle, FlexStyle, ...) but this is easier for now
+//       and maybe it shouldn't be called Style either
+//       in OOP there would be a LayoutNode base class and subclasses for
+//       each of the node types with their own properties but we don't have
+//       a separate tree and we don't have subclasses either
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LayoutStyle {
     pub display: Display,
