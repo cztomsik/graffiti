@@ -198,6 +198,7 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   set width(v: string) { this.setProperty('width', v) }
 
   // maybe later (lots of them are SVG-only)
+  accentColor
   alignmentBaseline
   all
   animation
@@ -285,6 +286,7 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   columnWidth
   contain
   content
+  contentVisibility
   counterIncrement
   counterReset
   counterSet
@@ -374,8 +376,11 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   markerMid
   markerStart
   mask
+  maskClip
   maskComposite
   maskImage
+  maskMode
+  maskOrigin
   maskPosition
   maskRepeat
   maskSize
@@ -427,6 +432,7 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   placeSelf
   pointerEvents
   position
+  printColorAdjust
   quotes
   resize
   rotate
@@ -435,6 +441,7 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   rubyOverhang
   rubyPosition
   scale
+  scrollbarGutter
   scrollBehavior
   scrollMargin
   scrollMarginBlock

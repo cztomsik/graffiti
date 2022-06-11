@@ -164,6 +164,7 @@ export abstract class Element extends Node implements IElement {
 
   // maybe later
   animate
+  attachInternals
   attachShadow
   clientHeight
   clientLeft
