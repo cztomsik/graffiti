@@ -3,6 +3,7 @@ import { ERR, isDeno, isNodeJS, PLATFORM, TODO } from './util'
 // flat object with all of the native functions,
 export const native: Record<string, Function> = await loadNativeApi()
 
+/*
 // unpack Vec<Ref<Value>> to array of refs
 // note that native.gft_Ref_drop(ref) still needs to be called for each ref
 export const getRefs = vec => {
@@ -15,25 +16,15 @@ export const getRefs = vec => {
 
   return refs
 }
+*/
 
 const encoder = new TextEncoder()
-const decoder = new TextDecoder()
 
-export const encode = (input: string) => {
-  const buf = encoder.encode(input)
-  return [buf, buf.length]
-}
+export const encode = (input: string) => encoder.encode(`${input}\0`)
 
-export const decode = (stringRef: number) => {
-  if (!stringRef) {
-    return null
-  }
+export const decode = ptr => new globalThis.Deno.UnsafePointerView(ptr).getCString()
 
-  const buf = new Uint8Array(native.gft_String_bytes_len(stringRef))
-  native.gft_String_copy(stringRef, buf);
-  native.gft_Ref_drop(stringRef)
-  return decoder.decode(buf)
-}
+export const atom = (atom: string) => native.gft_Atom_from(encode(atom))
 
 async function loadNativeApi() {
   const libFile = await resolveLibFile()
@@ -49,6 +40,7 @@ async function loadNativeApi() {
   return ERR('unsupported JS engine')
 }
 
+/*
 // bind wrapper object to be automatically dropped
 export const register = <T extends object>(wrapper: T, id) => {
   NATIVE_REGISTRY.register(wrapper, id)
@@ -62,6 +54,7 @@ export const getNativeId = wrapper => wrapper[NATIVE_ID]
 
 const NATIVE_ID = Symbol()
 const NATIVE_REGISTRY = new FinalizationRegistry((id: number) => native.gft_Ref_drop(id))
+*/
 
 async function resolveLibFile() {
   // TODO

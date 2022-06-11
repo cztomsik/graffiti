@@ -2,7 +2,7 @@ use crate::{
     convert::{container_style, layout_style},
     css::{MatchingContext, Style},
     layout::{self, LayoutEngine, LayoutResult, LayoutStyle, LayoutTree, Size},
-    renderer::{ContainerStyle, Rect, RenderEdge, Renderer},
+    renderer::{ContainerStyle, Rect, RenderEdge, RenderTree, Renderer},
     Document, NodeId, NodeType,
 };
 use skia_safe::{
@@ -18,13 +18,13 @@ pub struct Viewport {
     state: ViewState,
 }
 
+// needs to be updated before using
+#[derive(Debug, Default)]
 struct ViewState {
     resolved_styles: HashMap<NodeId, Style>,
     paragraphs: HashMap<NodeId, RefCell<Paragraph>>,
     layout_styles: HashMap<NodeId, LayoutStyle>,
     layout_results: Vec<LayoutResult>,
-    render_tree: Vec<RenderEdge<Paragraph>>,
-    // TODO: scroll, selection, focus + tab_next()
 }
 
 impl Viewport {
@@ -33,7 +33,7 @@ impl Viewport {
             size,
             document,
             renderer,
-            state: ViewState::new(),
+            state: ViewState::default(),
         }
     }
 
@@ -46,20 +46,19 @@ impl Viewport {
         self.renderer.resize(size);
     }
 
-    // TODO: maybe &mut is ok? is exclusive access justified here?
-    // pub fn element_at(&mut self, _pos: (f32, f32)) -> Option<NodeId> {
-    //     self.update();
-    //     todo!()
-    // }
+    pub fn element_at(&mut self, _pos: (f32, f32)) -> Option<NodeId> {
+        self.update();
+        todo!()
+    }
 
-    // pub fn node_rect(&mut self, _node: NodeId) -> Option<()> {
-    //     self.update();
-    //     todo!()
-    // }
+    pub fn node_rect(&mut self, _node: NodeId) -> Option<()> {
+        self.update();
+        todo!()
+    }
 
     pub fn render(&mut self) {
         self.update();
-        self.renderer.render(&self.state.render_tree);
+        self.renderer.render(&(&self.document, &self.state));
     }
 
     // TODO: move/click/drag/selection/...
@@ -68,24 +67,12 @@ impl Viewport {
     // }
 
     fn update(&mut self) {
-        self.state.update(&self.document, self.size);
+        self.state.update(&mut self.document, self.size);
     }
 }
 
 impl ViewState {
-    fn new() -> Self {
-        Self {
-            resolved_styles: HashMap::new(),
-            paragraphs: HashMap::new(),
-            layout_styles: HashMap::new(),
-            layout_results: Vec::new(),
-            render_tree: Vec::new(),
-        }
-    }
-
     fn update(&mut self, doc: &Document, size: (i32, i32) /*, dirty_nodes */) {
-        self.resolved_styles = HashMap::new();
-        self.layout_styles = HashMap::new();
         self.layout_results = vec![LayoutResult::default(); 100];
 
         self.layout_styles
@@ -113,8 +100,6 @@ impl ViewState {
             paragraphs: &self.paragraphs,
         };
         LayoutEngine::new().calculate(Size::new(size.0 as _, size.1 as _), &tree, &mut self.layout_results);
-
-        self.render_tree = self.build_render_tree(doc);
     }
 
     fn resolve_style(inline_style: Option<&Style>, _parent_style: &Style) -> Style {
@@ -128,42 +113,44 @@ impl ViewState {
 
         res
     }
+}
 
-    fn build_render_tree<'a>(&mut self, doc: &'a Document) -> Vec<RenderEdge<Paragraph>> {
-        fn walk(doc: &Document, node: NodeId, state: &mut ViewState, edges: &mut Vec<RenderEdge<Paragraph>>) {
+impl RenderTree for (&Document, &ViewState) {
+    fn visit<F: FnMut(RenderEdge) -> bool>(&self, visitor: &mut F) {
+        fn visit_node<F: FnMut(RenderEdge) -> bool>(doc: &Document, node: NodeId, state: &ViewState, visitor: &mut F) {
             let LayoutResult { pos: (x, y), size } = state.layout_results[node];
             let rect = Rect::new(x, y, x + size.width, y + size.height);
 
             match doc.node_type(node) {
+                // TODO: maybe we could just visit children?
                 NodeType::Document => {
-                    edges.push(RenderEdge::OpenContainer(rect, ContainerStyle::default()));
-                    for &ch in doc.children(node) {
-                        walk(doc, ch, state, edges);
+                    if visitor(RenderEdge::OpenContainer(rect, &ContainerStyle::default())) {
+                        for &ch in doc.children(node) {
+                            visit_node(doc, ch, state, visitor);
+                        }
                     }
-                    edges.push(RenderEdge::CloseContainer);
+
+                    visitor(RenderEdge::CloseContainer);
                 }
                 NodeType::Element => {
-                    edges.push(RenderEdge::OpenContainer(
+                    if visitor(RenderEdge::OpenContainer(
                         rect,
-                        container_style(&state.resolved_styles[&node]),
-                    ));
-                    for &ch in doc.children(node) {
-                        walk(doc, ch, state, edges);
+                        &container_style(&state.resolved_styles[&node]),
+                    )) {
+                        for &ch in doc.children(node) {
+                            visit_node(doc, ch, state, visitor);
+                        }
                     }
-                    edges.push(RenderEdge::CloseContainer);
+
+                    visitor(RenderEdge::CloseContainer);
                 }
                 NodeType::Text => {
-                    // TODO: this is wrong :)
-                    let para = state.paragraphs.remove(&node).unwrap().into_inner();
-                    edges.push(RenderEdge::Text(rect, para))
+                    visitor(RenderEdge::Text(rect, &*state.paragraphs[&node].borrow()));
                 }
             }
         }
 
-        let mut edges = Vec::new();
-        walk(doc, Document::ROOT, self, &mut edges);
-
-        edges
+        visit_node(&self.0, Document::ROOT, &self.1, visitor);
     }
 }
 

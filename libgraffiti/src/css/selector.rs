@@ -7,7 +7,7 @@ use std::fmt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Specificity(u32);
 
-// to be implemented by client
+// SoA-friendly, to be implemented by client
 pub trait MatchingContext: Sized {
     type ElementRef: Copy;
 
