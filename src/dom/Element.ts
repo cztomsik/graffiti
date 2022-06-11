@@ -1,9 +1,10 @@
 import { Node, NodeList, XMLSerializer } from './index'
 import { IElement } from '../types'
 import { parseFragment } from './DOMParser'
-import { native, ID, atom, encode } from '../native'
+import { native, atom, encode } from '../native'
 import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
 import { DOMTokenList } from './DOMTokenList'
+import { DOC_ID, NODE_ID } from './Document'
 
 export abstract class Element extends Node implements IElement {
   readonly childNodes = new NodeList<ChildNode>()
@@ -19,7 +20,7 @@ export abstract class Element extends Node implements IElement {
 
     this.#localName = localName
 
-    this[ID] = native.gft_Document_create_element(doc[ID], atom(localName))
+    this[NODE_ID] = native.gft_Document_create_element(doc[DOC_ID], atom(localName))
   }
 
   get nodeType() {
@@ -39,9 +40,7 @@ export abstract class Element extends Node implements IElement {
   }
 
   get style() {
-    return (
-      this.#style ?? (this.#style = register(new CSSStyleDeclaration(null), native.gft_Element_style(getNativeId(this))))
-    )
+    return this.#style ?? (this.#style = new CSSStyleDeclaration(this))
   }
 
   /** @deprecated */
@@ -73,13 +72,13 @@ export abstract class Element extends Node implements IElement {
   setAttribute(name: string, value: string) {
     this.#attributes[name] = value = typeof value === 'string' ? value : '' + value
 
-    native.gft_Element_set_attribute(this[ID], atom(name), encode(value))
+    native.gft_Document_set_attribute(this.ownerDocument[DOC_ID], this[NODE_ID], atom(name), encode(value))
   }
 
   removeAttribute(name: string) {
     delete this.#attributes[name]
 
-    native.gft_Element_remove_attribute(this[ID], atom(name))
+    native.gft_Document_remove_attribute(this.ownerDocument[DOC_ID], this[NODE_ID], atom(name))
   }
 
   toggleAttribute(name: string, force?: boolean): boolean {
@@ -146,7 +145,7 @@ export abstract class Element extends Node implements IElement {
   }
 
   matches(selector: string): boolean {
-    return native.gft_Element_matches(getNativeId(this), selector)
+    return native.gft_Document_element_matches(this.ownerDocument[DOC_ID], this[NODE_ID], selector)
   }
 
   closest(selector: string) {

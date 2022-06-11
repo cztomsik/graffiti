@@ -135,9 +135,9 @@ impl Renderer {
 impl RenderContext<'_> {
     fn draw_edge(&mut self, edge: RenderEdge) -> bool {
         match edge {
-            RenderEdge::OpenContainer(rect, style) => return self.open_container(*rect, style),
+            RenderEdge::OpenContainer(rect, style) => return self.open_container(rect, style),
             RenderEdge::CloseContainer => self.close_container(),
-            RenderEdge::Text(rect, paragraph) => self.draw_text(*rect, paragraph),
+            RenderEdge::Text(rect, paragraph) => self.draw_text(rect, paragraph),
         }
 
         return false;

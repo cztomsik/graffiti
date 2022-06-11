@@ -4,8 +4,8 @@
 import { EventTarget } from '../events/index'
 import { NodeList, HTMLElement } from './index'
 import { assert, last, UNSUPPORTED } from '../util'
-import { native, ID } from '../native'
-import { lookupElement } from './Document'
+import { native, encode } from '../native'
+import { lookupElement, DOC_ID, NODE_ID } from './Document'
 import { IChildNode, IDocument, INode, INonDocumentTypeChildNode, IParentNode, ISlottable } from '../types'
 
 // prettier-ignore
@@ -51,9 +51,9 @@ export abstract class Node extends EventTarget
 
     if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE && (child.nodeType !== Node.COMMENT_NODE)) {
       if (refNode) {
-        native.gft_Node_insert_before(this[ID], child[ID], refNode[ID])
+        native.gft_Document_insert_before(this.ownerDocument[DOC_ID], this[NODE_ID], child[NODE_ID], refNode[NODE_ID])
       } else {
-        native.gft_Node_append_child(this[ID], child[ID])
+        native.gft_Document_append_child(this.ownerDocument[DOC_ID], this[NODE_ID], child[NODE_ID])
       }
     }
 
@@ -67,7 +67,7 @@ export abstract class Node extends EventTarget
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
 
     if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
-      native.gft_Node_remove_child(this.ownerDocument[ID], this[ID], child[ID])
+      native.gft_Document_remove_child(this.ownerDocument[DOC_ID], this[NODE_ID], child[NODE_ID])
     }
 
     return child
@@ -264,18 +264,18 @@ export abstract class Node extends EventTarget
   }
 
   querySelector(selector) {
-    const ref = native.gft_Node_query_selector(getNativeId(this), ...encode(selector))
+    const ref = native.gft_Document_query_selector(this.ownerDocument[DOC_ID], this[NODE_ID], encode(selector))
     const nodeId = ref && native.gft_Node_id(ref)
     return lookupElement(this.ownerDocument, nodeId)
   }
 
   querySelectorAll(selector) {
-    const refs = getRefs(native.gft_Node_query_selector_all(getNativeId(this), ...encode(selector)))
-    const els = refs.map(ref => {
-      const id = native.gft_Node_id(ref)
-      native.gft_Ref_drop(ref)
-      return lookupElement(this.ownerDocument, id)
-    })
+    // const refs = getRefs(native.gft_Document_query_selector_all(this.ownerDocument[DOC_ID], this[NODE_ID], encode(selector)))
+    // const els = refs.map(ref => {
+    //   const id = native.gft_Node_id(ref)
+    //   native.gft_Ref_drop(ref)
+    //   return lookupElement(this.ownerDocument, id)
+    // })
 
     return NodeList.from(els) as any
   }

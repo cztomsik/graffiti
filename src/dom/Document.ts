@@ -1,7 +1,7 @@
 // TODO: cyclic
 import { Node } from './Node'
 
-import { native, ID } from '../native'
+import { native } from '../native'
 import {
   NodeList,
   Text,
@@ -37,6 +37,9 @@ import { UNSUPPORTED } from '../util'
 
 import { Event } from '../events/Event'
 
+export const DOC_ID = Symbol()
+export const NODE_ID = Symbol()
+
 export class Document extends Node implements globalThis.Document {
   readonly ownerDocument
   readonly defaultView: (Window & typeof globalThis) | null = null
@@ -52,7 +55,8 @@ export class Document extends Node implements globalThis.Document {
     // if it's ever a problem we could use child.ownerDocument
     this.ownerDocument = this
 
-    this[ID] = native.gft_Document_new()
+    this[DOC_ID] = native.gft_Document_new()
+    this[NODE_ID] = 0
   }
 
   get nodeType() {
