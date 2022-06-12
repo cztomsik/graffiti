@@ -3,5 +3,5 @@ mod window;
 
 pub use self::{
     app::App,
-    window::{Event, Window, WindowId},
+    window::{Event, Window},
 };

@@ -1,3 +1,6 @@
+// TODO: it would be nice if we could get close(r) to electron api
+//       https://www.electronjs.org/docs/latest/api/app#methods
+
 import { EventTarget } from './events/EventTarget'
 import { native } from './native'
 
@@ -8,8 +11,7 @@ class App extends EventTarget {
     native.gft_App_init()
   }
 
-  // TODO
-  // quit() {}
+  // TODO: focus/show/hide/quit()
 }
 
 export const app = new App()

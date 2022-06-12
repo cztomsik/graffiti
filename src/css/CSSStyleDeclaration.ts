@@ -1,12 +1,24 @@
+// TODO: it would be nice if we could just cache values in JS and avoid
+//       the whole roundtrip to native but I'm not sure yet what to do
+//       about shorthands then (how to avoid parsing the value in JS)
+
 import { ICSSStyleDeclaration } from '../types'
-import { native, ID, atom, encode, decode } from '../native'
+import { native, atom, encode, decode } from '../native'
 import { UNSUPPORTED } from '../util'
 
 // minimal impl just to get something working
 // (many props are missing)
 // prettier-ignore
 export class CSSStyleDeclaration implements ICSSStyleDeclaration {
-  constructor(public readonly parentRule: CSSRule | null) {}
+  #parent
+
+  constructor(parent: CSSRule | Element | null) {
+    this.#parent = parent
+  }
+
+  get parentRule() {
+    return this.#parent instanceof CSSRule ?this.#parent :null
+  }
 
   getPropertyValue(prop: string): string {
     return decode(native.gft_CssStyleDeclaration_property_value(this[ID], atom(prop))) ?? ''

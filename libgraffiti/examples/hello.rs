@@ -1,20 +1,22 @@
-use glfw::{Context, Glfw, Window, WindowEvent};
-use graffiti::{Document, Renderer, Viewport};
-use std::sync::mpsc::Receiver;
+use graffiti::{App, Document, Event as WindowEvent, Renderer, Viewport, Window};
 
 fn main() {
-    let (mut glfw, mut win, events) = create_window();
+    let mut app = unsafe { App::init() };
+    let mut win = Window::new("Hello", 400, 300);
     // TODO: fb_size might be different and maybe we should not call renderer.resize() from viewport
-    let mut viewport = Viewport::new(win.get_size(), parse(), Renderer::new(win.get_size()));
+    let mut viewport = Viewport::new(win.size(), parse(), unsafe {
+        win.make_current();
+        Renderer::new(win.size())
+    });
 
     while !win.should_close() {
-        glfw.wait_events();
+        app.wait_events();
 
-        for (_, event) in glfw::flush_messages(&events) {
+        while let Ok(event) = win.events().try_recv() {
             match event {
                 WindowEvent::CursorPos(_x, _y) => {} // viewport.move(x, y)
                 // TODO: click, scroll, tab_next/prev, ...
-                WindowEvent::Size(width, height) => viewport.resize((width, height)),
+                WindowEvent::Resize(width, height) => viewport.resize((width as _, height as _)),
                 _ => println!("{:?}", &event),
             }
         }
@@ -47,26 +49,4 @@ fn parse() -> Document {
     );
 
     doc
-}
-
-fn create_window() -> (Glfw, Window, Receiver<(f64, WindowEvent)>) {
-    let glfw = init_glfw();
-
-    let (mut win, events) = glfw
-        .create_window(400, 300, "Hello", glfw::WindowMode::Windowed)
-        .expect("GLFW create_window()");
-
-    win.make_current();
-    win.set_all_polling(true);
-
-    (glfw, win, events)
-}
-
-fn init_glfw() -> Glfw {
-    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 2));
-    glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
-    glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
-
-    glfw
 }

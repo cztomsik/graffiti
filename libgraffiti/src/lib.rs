@@ -15,10 +15,10 @@ pub use self::{
     viewport::Viewport,
 };
 
-// #[cfg(feature = "windowing")]
-// mod windowing;
-// #[cfg(feature = "windowing")]
-// pub use windowing::{App, Window};
+#[cfg(feature = "windowing")]
+mod windowing;
+#[cfg(feature = "windowing")]
+pub use windowing::{App, Event, Window};
 
-// #[cfg(feature = "ffi")]
-// mod ffi;
+#[cfg(feature = "ffi")]
+mod ffi;
