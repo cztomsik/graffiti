@@ -6,17 +6,19 @@ mod layout;
 mod renderer;
 mod util;
 mod viewport;
-//mod windowing;
 
 pub mod css;
 
-// TODO: feature-flag
-// windowing::*,
 pub use self::{
     document::{Document, NodeId, NodeType},
     renderer::Renderer,
     viewport::Viewport,
 };
 
-// TODO: feature-flag
+// #[cfg(feature = "windowing")]
+// mod windowing;
+// #[cfg(feature = "windowing")]
+// pub use windowing::{App, Window};
+
+// #[cfg(feature = "ffi")]
 // mod ffi;

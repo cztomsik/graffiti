@@ -12,10 +12,16 @@ use crate::css::{MatchingContext, Selector, Style};
 use crate::util::Atom;
 use std::collections::HashMap;
 use std::fmt;
+use std::num::NonZeroU32;
+use std::ops::{Index, IndexMut};
 use std::slice::Iter;
 
-pub type NodeId = usize;
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NodeId(NonZeroU32);
+
 pub type LocalName = Atom;
+
 pub type AttrName = Atom;
 
 #[repr(u32)]
@@ -24,6 +30,12 @@ pub enum NodeType {
     Element = 1,
     Text = 3,
     Document = 9,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NodeEdge {
+    Start(NodeId),
+    End,
 }
 
 pub struct Document {
@@ -37,7 +49,7 @@ pub struct Document {
 }
 
 impl Document {
-    pub const ROOT: NodeId = 0;
+    pub const ROOT: NodeId = NodeId(unsafe { NonZeroU32::new_unchecked(1) });
 
     pub fn new() -> Self {
         let mut doc = Document {
@@ -65,6 +77,20 @@ impl Document {
 
     pub fn children(&self, parent: NodeId) -> &[NodeId] {
         &self.children[parent]
+    }
+
+    pub fn visit<F: FnMut(NodeEdge) -> bool>(&self, visitor: &mut F) {
+        fn walk<F: FnMut(NodeEdge) -> bool>(doc: &Document, node: NodeId, visitor: &mut F) {
+            if visitor(NodeEdge::Start(node)) {
+                for &ch in doc.children(node) {
+                    walk(doc, ch, visitor);
+                }
+
+                visitor(NodeEdge::End);
+            }
+        }
+
+        walk(self, Self::ROOT, visitor);
     }
 
     pub fn descendants(&self, node: NodeId) -> Descendants {
@@ -208,13 +234,11 @@ impl Document {
 
     // helpers
     fn create_node(&mut self, node_type: NodeType) -> NodeId {
-        let id = self.node_types.len();
-
         self.node_types.push(node_type);
         self.parents.push(None);
         self.children.push(Vec::new());
 
-        id
+        NodeId(NonZeroU32::new(self.node_types.len() as _).unwrap())
     }
 }
 
@@ -269,6 +293,20 @@ impl MatchingContext for Document {
 
     fn attribute(&self, element: NodeId, attr: &str) -> Option<&str> {
         Document::attribute(self, element, attr)
+    }
+}
+
+impl<T> Index<NodeId> for Vec<T> {
+    type Output = T;
+
+    fn index(&self, index: NodeId) -> &Self::Output {
+        &self[index.0.get() as usize - 1]
+    }
+}
+
+impl<T> IndexMut<NodeId> for Vec<T> {
+    fn index_mut(&mut self, index: NodeId) -> &mut Self::Output {
+        &mut self[index.0.get() as usize - 1]
     }
 }
 

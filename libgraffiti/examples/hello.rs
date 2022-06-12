@@ -12,7 +12,7 @@ fn main() {
 
         for (_, event) in glfw::flush_messages(&events) {
             match event {
-                WindowEvent::CursorPos(x, y) => {} // viewport.move(x, y)
+                WindowEvent::CursorPos(_x, _y) => {} // viewport.move(x, y)
                 // TODO: click, scroll, tab_next/prev, ...
                 WindowEvent::Size(width, height) => viewport.resize((width, height)),
                 _ => println!("{:?}", &event),

@@ -1,6 +1,7 @@
 use crate::{
     convert::{container_style, layout_style},
     css::{MatchingContext, Style},
+    document::NodeEdge,
     layout::{self, LayoutEngine, LayoutResult, LayoutStyle, LayoutTree, Size},
     renderer::{ContainerStyle, Rect, RenderEdge, RenderTree, Renderer},
     Document, NodeId, NodeType,
@@ -115,42 +116,29 @@ impl ViewState {
     }
 }
 
+// TODO: not sure if RenderTree should be implemented for Viewport, because it
+//       needs to update ViewState first and that would require &mut or RefCell<>
+//       or something, or maybe we could change the trait to &mut tree but I'm not
+//       yet sure about that
 impl RenderTree for (&Document, &ViewState) {
     fn visit<F: FnMut(RenderEdge) -> bool>(&self, visitor: &mut F) {
-        fn visit_node<F: FnMut(RenderEdge) -> bool>(doc: &Document, node: NodeId, state: &ViewState, visitor: &mut F) {
-            let LayoutResult { pos: (x, y), size } = state.layout_results[node];
-            let rect = Rect::new(x, y, x + size.width, y + size.height);
+        self.0.visit(&mut |edge| match edge {
+            NodeEdge::Start(node) => {
+                // TODO: let rect = viewport.node_rect();
+                let LayoutResult { pos: (x, y), size } = self.1.layout_results[node];
+                let rect = Rect::new(x, y, x + size.width, y + size.height);
 
-            match doc.node_type(node) {
-                // TODO: maybe we could just visit children?
-                NodeType::Document => {
-                    if visitor(RenderEdge::OpenContainer(rect, &ContainerStyle::default())) {
-                        for &ch in doc.children(node) {
-                            visit_node(doc, ch, state, visitor);
-                        }
-                    }
-
-                    visitor(RenderEdge::CloseContainer);
-                }
-                NodeType::Element => {
-                    if visitor(RenderEdge::OpenContainer(
+                match self.0.node_type(node) {
+                    NodeType::Document => visitor(RenderEdge::OpenContainer(rect, &ContainerStyle::default())),
+                    NodeType::Element => visitor(RenderEdge::OpenContainer(
                         rect,
-                        &container_style(&state.resolved_styles[&node]),
-                    )) {
-                        for &ch in doc.children(node) {
-                            visit_node(doc, ch, state, visitor);
-                        }
-                    }
-
-                    visitor(RenderEdge::CloseContainer);
-                }
-                NodeType::Text => {
-                    visitor(RenderEdge::Text(rect, &*state.paragraphs[&node].borrow()));
+                        &container_style(&self.1.resolved_styles[&node]),
+                    )),
+                    NodeType::Text => visitor(RenderEdge::Text(rect, &*self.1.paragraphs[&node].borrow())),
                 }
             }
-        }
-
-        visit_node(&self.0, Document::ROOT, &self.1, visitor);
+            NodeEdge::End => visitor(RenderEdge::CloseContainer),
+        })
     }
 }
 

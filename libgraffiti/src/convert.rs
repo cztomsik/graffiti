@@ -154,8 +154,10 @@ fn flex_wrap(value: css::FlexWrap) -> layout::FlexWrap {
 fn dimension(value: css::Dimension) -> layout::Dimension {
     match value {
         css::Dimension::Px(v) => layout::Dimension::Px(v),
-        css::Dimension::Percent(v) => layout::Dimension::Percent(v / 100.),
         css::Dimension::Auto => layout::Dimension::Auto,
+        css::Dimension::Percent(v) => layout::Dimension::Percent(v / 100.),
+        css::Dimension::Vw(v) => layout::Dimension::Vw(v),
+        css::Dimension::Vh(v) => layout::Dimension::Vh(v),
         _ => todo!(),
     }
 }

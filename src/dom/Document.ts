@@ -56,7 +56,7 @@ export class Document extends Node implements globalThis.Document {
     this.ownerDocument = this
 
     this[DOC_ID] = native.gft_Document_new()
-    this[NODE_ID] = 0
+    this[NODE_ID] = 1
   }
 
   get nodeType() {

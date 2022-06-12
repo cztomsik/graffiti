@@ -144,6 +144,20 @@ impl RenderContext<'_> {
     }
 
     fn open_container(&mut self, rect: Rect, style: &ContainerStyle) -> bool {
+        // first, we don't have to save/restore() if we skip the whole subtree
+        if let Some(opacity) = style.opacity {
+            if opacity == 0. {
+                return false;
+            }
+
+            // TODO: this will be a bit trickier than I thought maybe
+            //       we will need to check/pass this everywhere and always do
+            //       what's most appropriate in each case
+            //       (multiply for bg-color, alpha mask for shadow, etc.)
+            //       it might be also possible to create SkShader and just set it
+            //       to each paint but I'm not sure if that's a good idea
+        }
+
         self.canvas.save();
 
         let shape = match &style.border_radii {
@@ -159,19 +173,6 @@ impl RenderContext<'_> {
 
         if let Some(matrix) = &style.transform {
             self.canvas.concat(matrix);
-        }
-
-        if let Some(opacity) = style.opacity {
-            if opacity == 0. {
-                return false;
-            }
-
-            // TODO: this will be a bit trickier than I thought maybe
-            //       we will need to check/pass this everywhere and always do
-            //       what's most appropriate in each case
-            //       (multiply for bg-color, alpha mask for shadow, etc.)
-            //       it might be also possible to create SkShader and just set it
-            //       to each paint but I'm not sure if that's a good idea
         }
 
         if let Some(shadow) = &style.shadow {
