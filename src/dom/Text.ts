@@ -1,12 +1,13 @@
 import { IText } from '../types'
 import { Node, CharacterData } from './index'
-import { encode, native, ID } from '../native'
+import { encode, native } from '../native'
+import { DOC_ID, NODE_ID } from './Document'
 
 export class Text extends CharacterData implements IText {
   constructor(data = '', doc = document) {
     super(data, doc)
 
-    this[ID] = native.gft_Document_create_text_node(doc[ID], encode(data))
+    this[NODE_ID] = native.gft_Document_create_text_node(doc[DOC_ID], encode(data))
   }
 
   get data() {
@@ -16,7 +17,7 @@ export class Text extends CharacterData implements IText {
   set data(data) {
     super.data = data
 
-    native.Text_set_data(this[ID], this.data)
+    native.Text_set_data(this[NODE_ID], this.data)
   }
 
   get nodeType() {

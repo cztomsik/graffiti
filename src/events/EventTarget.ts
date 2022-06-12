@@ -7,7 +7,7 @@ class EventTarget implements globalThis.EventTarget {
   #listeners = {}
 
   addEventListener(type: string, listener) {
-    this.#listeners[type] = [...this.#listeners[type] ?? [], listener]
+    this.#listeners[type] = [...(this.#listeners[type] ?? []), listener]
   }
 
   removeEventListener(type: string, listener) {
@@ -860,6 +860,14 @@ class EventTargetWithHandlerProps extends BaseEventTarget {
     setHandler(this, 'selectstart', listener)
   }
 
+  get onslotchange() {
+    return getHandler(this, 'slotchange')
+  }
+
+  set onslotchange(listener) {
+    setHandler(this, 'slotchange', listener)
+  }
+
   get onstalled() {
     return getHandler(this, 'stalled')
   }
@@ -1132,13 +1140,13 @@ const setHandler = (et, kind, handler) => {
   if (!et[INLINE_HANDLERS][kind]) {
     et.addEventListener(kind, handlerProxy)
   }
-  
+
   et[INLINE_HANDLERS][kind] = handler
 }
 
 function handlerProxy(e) {
   // @ts-expect-error
-  (this[INLINE_HANDLERS] ?? {})[e.type].call(this, e)
+  ;(this[INLINE_HANDLERS] ?? {})[e.type].call(this, e)
 }
 
 export { EventTargetWithHandlerProps as EventTarget }

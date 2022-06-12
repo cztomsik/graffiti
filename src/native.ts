@@ -3,6 +3,7 @@ import { ERR, isDeno, isNodeJS, PLATFORM, TODO } from './util'
 // flat object with all of the native functions,
 export const native: Record<string, Function> = await loadNativeApi()
 
+/*
 // unpack Vec<Ref<Value>> to array of refs
 // note that native.gft_Ref_drop(ref) still needs to be called for each ref
 export const getRefs = vec => {
@@ -15,25 +16,15 @@ export const getRefs = vec => {
 
   return refs
 }
+*/
 
 const encoder = new TextEncoder()
-const decoder = new TextDecoder()
 
-export const encode = (input: string) => {
-  const buf = encoder.encode(input)
-  return [buf, buf.length]
-}
+export const encode = (input: string) => encoder.encode(`${input}\0`)
 
-export const decode = (stringRef: number) => {
-  if (!stringRef) {
-    return null
-  }
+export const decode = ptr => new globalThis.Deno.UnsafePointerView(ptr).getCString()
 
-  const buf = new Uint8Array(native.gft_String_bytes_len(stringRef))
-  native.gft_String_copy(stringRef, buf);
-  native.gft_Ref_drop(stringRef)
-  return decoder.decode(buf)
-}
+export const atom = (atom: string) => native.gft_Atom_from(encode(atom))
 
 async function loadNativeApi() {
   const libFile = await resolveLibFile()
@@ -49,6 +40,7 @@ async function loadNativeApi() {
   return ERR('unsupported JS engine')
 }
 
+/*
 // bind wrapper object to be automatically dropped
 export const register = <T extends object>(wrapper: T, id) => {
   NATIVE_REGISTRY.register(wrapper, id)
@@ -62,6 +54,7 @@ export const getNativeId = wrapper => wrapper[NATIVE_ID]
 
 const NATIVE_ID = Symbol()
 const NATIVE_REGISTRY = new FinalizationRegistry((id: number) => native.gft_Ref_drop(id))
+*/
 
 async function resolveLibFile() {
   // TODO
@@ -85,43 +78,33 @@ async function loadDenoPlugin(libFile, Deno = globalThis.Deno) {
 
   const lib = Deno.dlopen(libFile, {
     // TODO: parse/generate from ffi.rs
-    gft_Ref_drop: { parameters: ['u32'], result: 'void' },
-    gft_String_bytes_len: { parameters: ['u32'], result: 'u32' },
-    gft_String_copy: { parameters: ['u32', 'buffer'], result: 'void' },
-    gft_Vec_len: { parameters: ['u32'], result: 'u32' },
-    gft_Vec_get: { parameters: ['u32', 'u32'], result: 'u32' },
-    gft_App_init: { parameters: [], result: 'u32' },
-    gft_App_current: { parameters: [], result: 'u32' },
-    gft_App_wake_up: { parameters: ['u32'], result: 'void' },
-    gft_App_tick: { parameters: ['u32'], result: 'void' },
-    gft_Window_new: { parameters: ['buffer', 'u32', 'i32', 'i32'], result: 'u32' },
-    gft_Window_id: { parameters: ['u32'], result: 'u32' },
-    gft_Window_find_by_id: { parameters: ['u32'], result: 'u32' },
-    gft_Window_next_event: { parameters: ['u32', 'buffer'], result: 'u8' },
+    gft_Atom_from: { parameters: ['pointer'], result: 'u32' },
+    gft_App_init: { parameters: [], result: 'void' },
+    gft_App_tick: { parameters: [], result: 'void' },
+    gft_App_wake_up: { parameters: [], result: 'void' },
+    gft_Window_new: { parameters: ['pointer', 'i32', 'i32'], result: 'u32' },
+    // gft_Window_next_event: { parameters: ['u32', 'pointer'], result: 'u8' },
     gft_Window_width: { parameters: ['u32'], result: 'i32' },
     gft_Window_height: { parameters: ['u32'], result: 'i32' },
     gft_Document_new: { parameters: [], result: 'u32' },
-    gft_Document_create_element: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
-    gft_Document_create_text_node: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
-    gft_Node_id: { parameters: ['u32'], result: 'u32' },
-    gft_Node_append_child: { parameters: ['u32', 'u32'], result: 'void' },
-    gft_Node_insert_before: { parameters: ['u32', 'u32', 'u32'], result: 'void' },
-    gft_Node_remove_child: { parameters: ['u32', 'u32'], result: 'void' },
-    gft_Node_query_selector: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
-    gft_Node_query_selector_all: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
-    gft_Element_attribute_names: { parameters: ['u32'], result: 'u32' },
-    gft_Element_attribute: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
-    gft_Element_set_attribute: { parameters: ['u32', 'buffer', 'u32', 'buffer', 'u32'], result: 'void' },
-    gft_Element_remove_attribute: { parameters: ['u32', 'buffer', 'u32'], result: 'void' },
-    gft_Element_style: { parameters: ['u32'], result: 'u32' },
-    gft_CssStyleDeclaration_property_value: { parameters: ['u32', 'buffer', 'u32'], result: 'u32' },
-    gft_CssStyleDeclaration_set_property: { parameters: ['u32', 'buffer', 'u32', 'buffer', 'u32'], result: 'void' },
-    gft_CssStyleDeclaration_set_css_text: { parameters: ['u32', 'buffer', 'u32'], result: 'void' },
-    gft_Text_data: { parameters: ['u32'], result: 'u32' },
-    gft_Text_set_data: { parameters: ['u32', 'buffer', 'u32'], result: 'void' },
-    gft_Renderer_new: { parameters: ['u32', 'u32'], result: 'u32' },
-    gft_Renderer_render: { parameters: ['u32'], result: 'void' },
-    gft_Renderer_resize: { parameters: ['u32', 'f32', 'f32'], result: 'void' },
+    gft_Document_create_element: { parameters: ['u32', 'u32'], result: 'u32' },
+    gft_Document_create_text_node: { parameters: ['u32', 'pointer'], result: 'u32' },
+    gft_Document_append_child: { parameters: ['u32', 'u32', 'u32'], result: 'void' },
+    gft_Document_insert_before: { parameters: ['u32', 'u32', 'u32', 'u32'], result: 'void' },
+    gft_Document_remove_child: { parameters: ['u32', 'u32', 'u32'], result: 'void' },
+    gft_Document_query_selector: { parameters: ['u32', 'pointer', 'u32'], result: 'u32' },
+    // gft_Document_query_selector_all: { parameters: ['u32', 'pointer', 'u32'], result: 'u32' },
+    gft_Document_attribute: { parameters: ['u32', 'u32', 'u32'], result: 'pointer' },
+    gft_Document_set_attribute: { parameters: ['u32', 'u32', 'u32', 'pointer'], result: 'void' },
+    gft_Document_remove_attribute: { parameters: ['u32', 'u32', 'u32'], result: 'void' },
+    // gft_Document_attribute_names: { parameters: ['u32'], result: 'u32' },
+    // gft_Document_style: { parameters: ['u32', 'u32'], result: 'u32' },
+    // gft_Document_set_style: { parameters: ['u32', 'u32', 'pointer'], result: 'void' },
+    gft_Document_text: { parameters: ['u32', 'u32'], result: 'pointer' },
+    gft_Document_set_text: { parameters: ['u32', 'u32', 'pointer'], result: 'void' },
+    // gft_Renderer_new: { parameters: ['u32', 'u32'], result: 'u32' },
+    // gft_Renderer_render: { parameters: ['u32'], result: 'void' },
+    // gft_Renderer_resize: { parameters: ['u32', 'f32', 'f32'], result: 'void' },
   })
 
   // debug

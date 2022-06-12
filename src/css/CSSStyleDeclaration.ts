@@ -1,12 +1,24 @@
+// TODO: it would be nice if we could just cache values in JS and avoid
+//       the whole roundtrip to native but I'm not sure yet what to do
+//       about shorthands then (how to avoid parsing the value in JS)
+
 import { ICSSStyleDeclaration } from '../types'
-import { native, ID, atom, encode, decode } from '../native'
+import { native, atom, encode, decode } from '../native'
 import { UNSUPPORTED } from '../util'
 
 // minimal impl just to get something working
 // (many props are missing)
 // prettier-ignore
 export class CSSStyleDeclaration implements ICSSStyleDeclaration {
-  constructor(public readonly parentRule: CSSRule | null) {}
+  #parent
+
+  constructor(parent: CSSRule | Element | null) {
+    this.#parent = parent
+  }
+
+  get parentRule() {
+    return this.#parent instanceof CSSRule ?this.#parent :null
+  }
 
   getPropertyValue(prop: string): string {
     return decode(native.gft_CssStyleDeclaration_property_value(this[ID], atom(prop))) ?? ''
@@ -198,6 +210,7 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   set width(v: string) { this.setProperty('width', v) }
 
   // maybe later (lots of them are SVG-only)
+  accentColor
   alignmentBaseline
   all
   animation
@@ -285,6 +298,7 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   columnWidth
   contain
   content
+  contentVisibility
   counterIncrement
   counterReset
   counterSet
@@ -374,8 +388,11 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   markerMid
   markerStart
   mask
+  maskClip
   maskComposite
   maskImage
+  maskMode
+  maskOrigin
   maskPosition
   maskRepeat
   maskSize
@@ -427,6 +444,7 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   placeSelf
   pointerEvents
   position
+  printColorAdjust
   quotes
   resize
   rotate
@@ -435,6 +453,7 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   rubyOverhang
   rubyPosition
   scale
+  scrollbarGutter
   scrollBehavior
   scrollMargin
   scrollMarginBlock

@@ -30,10 +30,10 @@
     "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:node-fetch --external:ws --outdir=./lib ./src/index.ts ./src/worker.ts"
   },
   "devDependencies": {
-    "@types/node": "^14.6.2",
-    "esbuild": "^0.12.28",
-    "prettier": "^2.0.5",
-    "typescript": "^4.4.3"
+    "@types/node": "^16.11.38",
+    "esbuild": "^0.14.42",
+    "prettier": "^2.6.2",
+    "typescript": "^4.7.3"
   },
   "prettier": {
     "singleQuote": true,

@@ -1,12 +1,16 @@
 // turns render tree into series of skia calls
 //
-// maybe we can get rid of skia one day or make it an optional feature/backend/trait impl
+// BTW: maybe we can get rid of skia one day or make it an optional feature/backend/trait impl
 // but it's not a priority right now and there are no good alternatives at the moment anyway
 // (clip radii, filters, text/paragraph, emoji, ligatures)
 //
 // notes:
-// - render tree is just a slice of `RenderEdge`(s) which means it should be prefetch-friendly
-//   and the `ContainerStyle` doesn't need to fit in one cache-line
+// - we don't care what render tree is or how it is stored, we just need a way to traverse it,
+//   ability to skip descendants for early-culling and of course we need styles/texts for drawing
+//
+// - we could define trait EdgeIterator: Iterator<> with .skip_descendants(&mut self) but I think
+//   visitor is a bit easier to do/understand and it's also more forgiving with lifetimes (&*cell.borrow())
+//
 // - incrementality will be handled elsewhere, this should be as simple and stateless as possible
 //   except of maybe using some LRU caches for managing mid-lived resources, etc.
 
@@ -16,17 +20,18 @@ use skia_safe::{
     Canvas, ColorType, Paint, RRect, Surface,
 };
 use skia_safe::{ClipOp, MaskFilter};
-use std::borrow::Borrow;
 
 // for now we just re-export some skia primitives
 pub use skia_safe::{Color, Matrix, Point, Rect};
 
-// TODO: should be AsRef<> but skia-safe AsRef<> impl is private because of <N: NativeDrop>???
-//       or maybe it should be entirely different because paragraphs need to be owned somewhere else as well?
-pub enum RenderEdge<P: Borrow<Paragraph>> {
-    OpenContainer(Rect, ContainerStyle),
+pub trait RenderTree {
+    fn visit<F: FnMut(RenderEdge) -> bool>(&self, visitor: &mut F);
+}
+
+pub enum RenderEdge<'a> {
+    OpenContainer(Rect, &'a ContainerStyle),
     CloseContainer,
-    Text(Rect, P),
+    Text(Rect, &'a Paragraph),
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -89,15 +94,13 @@ impl Renderer {
         Self { gr_ctx, surface }
     }
 
-    pub fn render<P: Borrow<Paragraph>>(&mut self, render_tree: &[RenderEdge<P>]) {
+    pub fn render<'a>(&mut self, render_tree: &impl RenderTree) {
         let canvas = self.surface.canvas();
         canvas.clear(Color::WHITE);
 
         let mut ctx = RenderContext { canvas };
 
-        for edge in render_tree {
-            ctx.draw_edge(edge);
-        }
+        render_tree.visit(&mut |edge| ctx.draw_edge(edge));
 
         self.surface.flush();
     }
@@ -130,15 +133,31 @@ impl Renderer {
 }
 
 impl RenderContext<'_> {
-    fn draw_edge<P: Borrow<Paragraph>>(&mut self, edge: &RenderEdge<P>) {
+    fn draw_edge(&mut self, edge: RenderEdge) -> bool {
         match edge {
-            RenderEdge::OpenContainer(rect, style) => self.open_container(*rect, style),
+            RenderEdge::OpenContainer(rect, style) => return self.open_container(rect, style),
             RenderEdge::CloseContainer => self.close_container(),
-            RenderEdge::Text(rect, paragraph) => self.draw_text(*rect, paragraph.borrow()),
+            RenderEdge::Text(rect, paragraph) => self.draw_text(rect, paragraph),
         }
+
+        return false;
     }
 
-    fn open_container(&mut self, rect: Rect, style: &ContainerStyle) {
+    fn open_container(&mut self, rect: Rect, style: &ContainerStyle) -> bool {
+        // first, we don't have to save/restore() if we skip the whole subtree
+        if let Some(opacity) = style.opacity {
+            if opacity == 0. {
+                return false;
+            }
+
+            // TODO: this will be a bit trickier than I thought maybe
+            //       we will need to check/pass this everywhere and always do
+            //       what's most appropriate in each case
+            //       (multiply for bg-color, alpha mask for shadow, etc.)
+            //       it might be also possible to create SkShader and just set it
+            //       to each paint but I'm not sure if that's a good idea
+        }
+
         self.canvas.save();
 
         let shape = match &style.border_radii {
@@ -154,15 +173,6 @@ impl RenderContext<'_> {
 
         if let Some(matrix) = &style.transform {
             self.canvas.concat(matrix);
-        }
-
-        if let Some(_opacity) = style.opacity {
-            // TODO: this will be a bit trickier than I thought maybe
-            //       we will need to check/pass this everywhere and always do
-            //       what's most appropriate in each case
-            //       (multiply for bg-color, alpha mask for shadow, etc.)
-            //       it might be also possible to create SkShader and just set it
-            //       to each paint but I'm not sure if that's a good idea
         }
 
         if let Some(shadow) = &style.shadow {
@@ -186,6 +196,8 @@ impl RenderContext<'_> {
 
         // TODO: scroll
         self.canvas.translate((rect.x(), rect.y()));
+
+        return true;
     }
 
     fn close_container(&mut self) {

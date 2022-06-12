@@ -8,7 +8,8 @@ export class HTMLStyleElement extends HTMLElement implements globalThis.HTMLStyl
   }
 
   // later
-  nonce?: string | undefined
+  nonce
+  disabled
 
   // deprecated
   type
