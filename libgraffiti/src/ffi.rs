@@ -3,6 +3,7 @@
 // and it's ok to use pointers and everything, this is not the case
 
 use crate::{App, Document, NodeId, NodeType, Viewport, Window};
+use serde::Deserialize;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -25,8 +26,51 @@ struct State {
     documents: HashMap<DocumentId, Arc<RwLock<Document>>>,
 }
 
+#[derive(Debug, Deserialize)]
+enum ApiMsg<'a> {
+    Init,
+    Tick,
+    WakeUp, // TODO: App_Focus/Show/Hide/Quit/AppMsg?
+
+    CreateWindow(&'a str, i32, i32),
+    WindowMsg(WindowId, WindowMsg),
+
+    CreateViewport((f32, f32), DocumentId),
+    ViewportMsg(ViewportId, ViewportMsg),
+
+    CreateDocument,
+    DocumentMsg(DocumentId, DocumentMsg<'a>),
+}
+
+#[derive(Debug, Deserialize)]
+enum WindowMsg {
+    // TODO: Title, Width, Height, Resize, ShouldClose,
+    // TODO: Show, Hide, Focus, Minimize, Maximize, Restore
+    // TODO: NextEvent
+    SetContent(Option<ViewportId>),
+}
+
+#[derive(Debug, Deserialize)]
+enum ViewportMsg {
+    // TODO: GetRect, GetElementAt, Scroll, ...
+}
+
+#[derive(Debug, Deserialize)]
+enum DocumentMsg<'a> {
+    CreateElement(&'a str),
+    CreateTextNode(&'a str),
+    AppendChild(NodeId, NodeId),
+    InsertBefore(NodeId, NodeId, NodeId),
+    RemoveChild(NodeId, NodeId),
+}
+
 fn next_id() -> u32 {
     static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
     NEXT_ID.fetch_add(1, Ordering::Relaxed)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn gft_send(data: *const u8, len: usize) -> *const u8 {
+    todo!()
 }
