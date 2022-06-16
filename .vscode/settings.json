@@ -1,7 +1,10 @@
 {
-  "editor.formatOnSave": true,
   "typescript.tsdk": "node_modules/typescript/lib",
+  "[typescript]": {
+    "editor.formatOnSave": true
+  },
   "[rust]": {
+    "editor.formatOnSave": true,
     "editor.tabSize": 4
   }
 }
