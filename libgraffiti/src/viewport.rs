@@ -1,21 +1,32 @@
 use crate::{
     convert::{container_style, layout_style},
-    css::{MatchingContext, Style},
+    css::{MatchingContext, Style, StyleRule, StyleSheet},
     document::NodeEdge,
     layout::{self, LayoutEngine, LayoutResult, LayoutStyle, LayoutTree, Size},
-    renderer::{ContainerStyle, Rect, RenderEdge, RenderTree, Renderer},
+    renderer::{ContainerStyle, Rect, RenderEdge, Renderable},
     Document, NodeId, NodeType,
 };
+use once_cell::sync::Lazy;
 use skia_safe::{
     textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
     FontMgr, Paint,
 };
-use std::{cell::RefCell, collections::HashMap};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 
+// TODO: wrap Paragraph somehow because it is not Sync
+unsafe impl Sync for Viewport {}
+
+// interactive HTML/CSS area without being anyhow dependent on a window
+// (if we had a window with <iframe> in it, there would be 2 viewports needed)
+// it's a bit like WebView but without JS and without any browsing capabilities
+#[derive(Debug)]
 pub struct Viewport {
-    size: (i32, i32),
-    document: Document,
-    renderer: Renderer,
+    size: (f32, f32),
+    document: Arc<RwLock<Document>>,
     state: ViewState,
 }
 
@@ -29,22 +40,20 @@ struct ViewState {
 }
 
 impl Viewport {
-    pub fn new(size: (i32, i32), document: Document, renderer: Renderer) -> Self {
+    pub fn new(size: (f32, f32), document: &Arc<RwLock<Document>>) -> Self {
         Self {
             size,
-            document,
-            renderer,
+            document: Arc::clone(&document),
             state: ViewState::default(),
         }
     }
 
-    pub fn size(&self) -> (i32, i32) {
+    pub fn size(&self) -> (f32, f32) {
         self.size
     }
 
-    pub fn resize(&mut self, size: (i32, i32)) {
+    pub fn resize(&mut self, size: (f32, f32)) {
         self.size = size;
-        self.renderer.resize(size);
     }
 
     pub fn element_at(&mut self, _pos: (f32, f32)) -> Option<NodeId> {
@@ -68,7 +77,7 @@ impl Viewport {
     // }
 
     fn update(&mut self) {
-        self.state.update(&mut self.document, self.size);
+        self.state.update(&mut self.document.write().unwrap(), self.size);
     }
 }
 
@@ -110,31 +119,28 @@ impl ViewState {
             res.apply(style);
         }
 
-        // TODO: inherit, css-vars?
+// mutable reference to Viewport can be rendered
+impl Renderable for &mut Viewport {
+    fn visit<F: FnMut(RenderEdge) -> bool>(self, visitor: &mut F) {
+        // update first
+        self.update();
 
-        res
-    }
-}
+        let doc = self.document.read().unwrap();
+        let state = &self.state;
 
-// TODO: not sure if RenderTree should be implemented for Viewport, because it
-//       needs to update ViewState first and that would require &mut or RefCell<>
-//       or something, or maybe we could change the trait to &mut tree but I'm not
-//       yet sure about that
-impl RenderTree for (&Document, &ViewState) {
-    fn visit<F: FnMut(RenderEdge) -> bool>(&self, visitor: &mut F) {
-        self.0.visit(&mut |edge| match edge {
+        doc.visit(&mut |edge| match edge {
             NodeEdge::Start(node) => {
                 // TODO: let rect = viewport.node_rect();
-                let LayoutResult { pos: (x, y), size } = self.1.layout_results[node];
+                let LayoutResult { pos: (x, y), size } = state.layout_results[node];
                 let rect = Rect::new(x, y, x + size.width, y + size.height);
 
-                match self.0.node_type(node) {
+                match doc.node_type(node) {
                     NodeType::Document => visitor(RenderEdge::OpenContainer(rect, &ContainerStyle::default())),
                     NodeType::Element => visitor(RenderEdge::OpenContainer(
                         rect,
-                        &container_style(&self.1.resolved_styles[&node]),
+                        &container_style(&state.resolved_styles[&node]),
                     )),
-                    NodeType::Text => visitor(RenderEdge::Text(rect, &*self.1.paragraphs[&node].borrow())),
+                    NodeType::Text => visitor(RenderEdge::Text(rect, &*state.paragraphs[&node].borrow())),
                 }
             }
             NodeEdge::End => visitor(RenderEdge::CloseContainer),

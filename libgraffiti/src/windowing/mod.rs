@@ -2,6 +2,6 @@ mod app;
 mod window;
 
 pub use self::{
-    app::App,
+    app::{App, WindowId},
     window::{Event, Window},
 };

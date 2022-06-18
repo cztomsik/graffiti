@@ -24,14 +24,18 @@ use skia_safe::{ClipOp, MaskFilter};
 // for now we just re-export some skia primitives
 pub use skia_safe::{Color, Matrix, Point, Rect};
 
-pub trait RenderTree {
-    fn visit<F: FnMut(RenderEdge) -> bool>(&self, visitor: &mut F);
+pub trait Renderable {
+    fn visit<F: FnMut(RenderEdge) -> bool>(self, visitor: &mut F);
 }
 
 pub enum RenderEdge<'a> {
     OpenContainer(Rect, &'a ContainerStyle),
     CloseContainer,
     Text(Rect, &'a Paragraph),
+    // TODO: iframe/svg?
+    //       I think &mut is not wrong here because &mut &dyn Renderable should still work
+    //       it's just pointing to stack, which should be fine
+    // Renderable(&'a mut dyn Renderable)
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -72,9 +76,11 @@ pub struct Border {
 #[derive(Debug, Clone, Copy)]
 pub struct BorderSide(pub f32, pub Option<StrokeStyle>, pub Color);
 
+#[derive(Debug)]
 pub struct Renderer {
     gr_ctx: DirectContext,
     surface: Surface,
+    scale: (f32, f32),
 }
 
 struct RenderContext<'a> {
@@ -87,20 +93,23 @@ enum Shape {
 }
 
 impl Renderer {
-    pub fn new(size: (i32, i32)) -> Self {
+    pub fn new(size: (i32, i32), scale: (f32, f32)) -> Self {
         let mut gr_ctx = DirectContext::new_gl(None, None).unwrap();
         let surface = Self::create_surface(&mut gr_ctx, size);
 
-        Self { gr_ctx, surface }
+        Self { gr_ctx, surface, scale }
     }
 
-    pub fn render<'a>(&mut self, render_tree: &impl RenderTree) {
+    pub fn render<'a>(&mut self, renderable: impl Renderable) {
         let canvas = self.surface.canvas();
+        canvas.restore_to_count(0);
+        canvas.reset_matrix();
+        canvas.scale(self.scale);
         canvas.clear(Color::WHITE);
 
         let mut ctx = RenderContext { canvas };
 
-        render_tree.visit(&mut |edge| ctx.draw_edge(edge));
+        renderable.visit(&mut |edge| ctx.draw_edge(edge));
 
         self.surface.flush();
     }

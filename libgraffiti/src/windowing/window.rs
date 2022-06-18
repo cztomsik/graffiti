@@ -1,33 +1,33 @@
-// TODO: we could probably just delegate to already existing glfw-rs
-//       but graffiti::Window should not be "just" re-export of their
-//       Window, this is supposed to more a Window from the JS point of view
-//       it should also work for non-glfw targets (mobile) and it should
+// we can't use glfw-rs because we need callbacks (for real-time resize)
+// whereas they just sink everything into channel and handle it when it's too late
+//
+// also, we might replace glfw with some rust-native crate in future
+// and we might also consider adding support for mobile and glfw cannot
+// do that currently
 
-use super::app::App;
-use crossbeam_channel::{unbounded as channel, Receiver, Sender};
+use crate::{Renderer, Viewport};
 use graffiti_glfw::*;
 use std::cell::RefCell;
 use std::ffi::CString;
+use std::fmt;
 use std::os::raw::{c_double, c_int, c_uint, c_void};
 use std::ptr::null_mut;
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 pub struct Window {
-    _app: Rc<App>,
+    renderer: Renderer,
     glfw_window: GlfwWindow,
-    events: Receiver<Event>,
+    content: Option<Arc<RwLock<Viewport>>>,
 
     // glfw does not provide getter
     title: RefCell<String>,
 }
 
 impl Window {
-    pub fn new(title: &str, width: i32, height: i32) -> Self {
-        let app = App::current().expect("no App");
+    pub(super) fn new(title: &str, width: i32, height: i32) -> Self {
         let c_title = CString::new(title).unwrap();
-        let (events_tx, events) = channel();
 
-        let glfw_window = unsafe {
+        let (glfw_window, renderer) = unsafe {
             glfwDefaultWindowHints();
 
             #[cfg(target_os = "macos")]
@@ -41,9 +41,8 @@ impl Window {
             let glfw_window = glfwCreateWindow(width, height, c_title.as_ptr(), null_mut(), null_mut());
             assert_ne!(glfw_window, null_mut(), "create GLFW window");
 
-            // Sender<Event>
-            glfwSetWindowUserPointer(glfw_window, Box::into_raw(Box::new(events_tx)) as *mut _);
-
+            // TODO: set_handler() ?
+            // glfwSetWindowUserPointer(glfw_window, &*content as *const _ as _);
             glfwSetCursorPosCallback(glfw_window, handle_glfw_cursor_pos);
             glfwSetScrollCallback(glfw_window, handle_glfw_scroll);
             glfwSetMouseButtonCallback(glfw_window, handle_glfw_mouse_button);
@@ -53,26 +52,51 @@ impl Window {
             glfwSetFramebufferSizeCallback(glfw_window, handle_glfw_framebuffer_size);
             glfwSetWindowCloseCallback(glfw_window, handle_glfw_window_close);
 
+            glfwMakeContextCurrent(glfw_window);
+            let mut fb_size = (0, 0);
+            glfwGetFramebufferSize(glfw_window, &mut fb_size.0, &mut fb_size.1);
+            let mut scale = (0., 0.);
+            glfwGetWindowContentScale(glfw_window, &mut scale.0, &mut scale.1);
+            let renderer = Renderer::new(fb_size, (scale.0 as _, scale.1 as _));
+
             // detach
             glfwMakeContextCurrent(std::ptr::null_mut());
 
-            glfw_window
+            (glfw_window, renderer)
         };
 
         Self {
-            _app: app,
+            renderer,
+            content: None,
+
             title: RefCell::new(title.to_owned()),
             glfw_window,
-            events,
         }
     }
 
-    pub fn native_handle(&self) -> *mut c_void {
-        #[cfg(target_os = "macos")]
-        return unsafe { glfwGetCocoaWindow(self.glfw_window) as usize } as _;
+    pub(super) fn id(&self) -> usize {
+        self.glfw_window as _
+    }
 
-        #[allow(unreachable_code)]
-        std::ptr::null_mut()
+    pub fn render(&mut self) {
+        unsafe { glfwMakeContextCurrent(self.glfw_window) };
+
+        if let Some(content) = &self.content {
+            self.renderer.render(&mut *content.write().unwrap());
+        }
+
+        unsafe {
+            glfwSwapBuffers(self.glfw_window);
+            glfwMakeContextCurrent(std::ptr::null_mut())
+        };
+    }
+
+    pub fn content(&self) -> Option<&Arc<RwLock<Viewport>>> {
+        self.content.as_ref()
+    }
+
+    pub fn set_content(&mut self, content: Option<Arc<RwLock<Viewport>>>) {
+        self.content = content;
     }
 
     pub fn title(&self) -> String {
@@ -171,54 +195,6 @@ impl Window {
     pub fn request_attention(&self) {
         unsafe { glfwRequestWindowAttention(self.glfw_window) };
     }
-
-    // event loop
-
-    pub fn should_close(&self) -> bool {
-        unsafe { glfwWindowShouldClose(self.glfw_window) == GLFW_TRUE }
-    }
-
-    pub fn set_should_close(&self, value: bool) {
-        unsafe { glfwSetWindowShouldClose(self.glfw_window, value as _) };
-    }
-
-    // note it needs to be processed one by one because each event can cause new changes,
-    // styles, dimensions and so the target might not be valid anymore
-    pub fn events(&self) -> &Receiver<Event> {
-        &self.events
-    }
-
-    // GL
-
-    pub unsafe fn make_current(&self) {
-        glfwMakeContextCurrent(self.glfw_window);
-    }
-
-    pub unsafe fn get_proc_address(&self, symbol: &str) -> *const c_void {
-        // TODO: this is magic we should rather panic if not current
-        self.make_current();
-
-        let symbol = CString::new(symbol).unwrap();
-        glfwGetProcAddress(symbol.as_ptr())
-    }
-
-    // GLFW says it's possible to call this from any thread but
-    // some people say everything related to HDC is tied to the original thread
-    // and drivers are free to depend on this
-    pub fn swap_buffers(&self) {
-        unsafe { glfwSwapBuffers(self.glfw_window) };
-    }
-
-    pub fn clipboard_string(&self) -> Option<String> {
-        todo!()
-        // TODO: we should copy and we also need to check for null
-        // unsafe { CStr::from_ptr(glfwGetClipboardString(self.glfw_window)).to_str().ok() }
-    }
-
-    pub fn set_clipboard_string(&self, string: &str) {
-        let string = CString::new(string).unwrap();
-        unsafe { glfwSetClipboardString(self.glfw_window, string.as_ptr()) };
-    }
 }
 
 impl Drop for Window {
@@ -228,13 +204,19 @@ impl Drop for Window {
             glfwSetWindowUserPointer(self.glfw_window, null_mut());
             glfwDestroyWindow(self.glfw_window);
 
-            drop(Box::from_raw(ptr as *mut Sender<Event>));
+            todo!() // drop(Box::from_raw(ptr as *mut Sender<Event>));
         }
     }
 }
 
+impl fmt::Debug for Window {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Window").finish()
+    }
+}
+
+// TODO: move to event.rs (or events and also move handlers?)
 #[derive(Debug, Clone, Copy)]
-#[repr(C, u32)]
 pub enum Event {
     CursorPos(f32, f32),
     MouseDown,
@@ -301,9 +283,9 @@ unsafe extern "C" fn handle_glfw_window_close(w: GlfwWindow) {
 }
 
 unsafe fn send_event(win: GlfwWindow, event: Event) {
-    let sender = &*(glfwGetWindowUserPointer(win) as *const Sender<_>);
+    // let sender = &*(glfwGetWindowUserPointer(win) as *const Sender<_>);
 
-    sender.send(event).unwrap();
+    // sender.send(event).unwrap();
 }
 
 // from GLFW to JS `event.which`

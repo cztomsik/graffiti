@@ -1,6 +1,6 @@
 [package]
 name = "graffiti-glfw"
-version = "3.3.2"
+version = "3.3.7"
 edition = "2018"
 build = "build.rs"
 
