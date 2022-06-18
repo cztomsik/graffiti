@@ -66,11 +66,6 @@ impl Viewport {
         todo!()
     }
 
-    pub fn render(&mut self) {
-        self.update();
-        self.renderer.render(&(&self.document, &self.state));
-    }
-
     // TODO: move/click/drag/selection/...
     // pub fn scroll(&mut self, _pos: (f32, f32), _delta: (f32, f32)) {
     //     todo!()
@@ -82,7 +77,7 @@ impl Viewport {
 }
 
 impl ViewState {
-    fn update(&mut self, doc: &Document, size: (i32, i32) /*, dirty_nodes */) {
+    fn update(&mut self, doc: &Document, size: (f32, f32) /*, dirty_nodes */) {
         self.layout_results = vec![LayoutResult::default(); 100];
 
         self.layout_styles
@@ -118,6 +113,10 @@ impl ViewState {
         if let Some(style) = inline_style {
             res.apply(style);
         }
+
+        res
+    }
+}
 
 // mutable reference to Viewport can be rendered
 impl Renderable for &mut Viewport {
