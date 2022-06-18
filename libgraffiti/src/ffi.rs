@@ -19,6 +19,9 @@ thread_local! {
     static STATE: RefCell<State> = Default::default();
 }
 
+pub type ViewportId = u32;
+pub type DocumentId = u32;
+
 #[derive(Debug, Default)]
 struct State {
     app: Option<App>,
@@ -42,10 +45,28 @@ enum ApiMsg<'a> {
     DocumentMsg(DocumentId, DocumentMsg<'a>),
 }
 
-// TODO: add all getters & methods from Window (but add Get/IsXxx prefix)
 #[derive(Debug, Deserialize)]
 enum WindowMsg {
     SetContent(Option<ViewportId>),
+    GetTitle,
+    SetTitle,
+    GetSize,
+    SetSize,
+    IsResizable,
+    SetResizable,
+    Opacity,
+    SetOpacity,
+    IsVisible,
+    Show,
+    Hide,
+    IsFocused,
+    Focus,
+    IsMinimized,
+    Minimize,
+    IsMaximized,
+    Maximize,
+    Restore,
+    RequestAttention,
 }
 
 #[derive(Debug, Deserialize)]
@@ -56,23 +77,23 @@ enum ViewportMsg {
 #[derive(Debug, Deserialize)]
 enum DocumentMsg<'a> {
     CreateElement(&'a str),
-    AppendChild(NodeId, NodeId),
-    InsertBefore(NodeId, NodeId, NodeId),
-    RemoveChild(NodeId, NodeId),
     SetAttribute(NodeId, &'a str, &'a str),
     RemoveAttribute(NodeId, &'a str),
     // TODO: is this right? or { UpdateStyle: { SetCssText: text } }?
     SetStyle(NodeId, &'a str),
 
+    AppendChild(NodeId, NodeId),
+    InsertBefore(NodeId, NodeId, NodeId),
+    RemoveChild(NodeId, NodeId),
+
+    QuerySelector(NodeId, &'a str),
+    QuerySelectorAll(NodeId, &'a str),
+
     // TODO: switch to bincode https://github.com/serde-rs/serde/issues/1413#issuecomment-494892266
     CreateTextNode(String),
-    SetText(String),
-}
+    SetText(NodeId, String),
 
-fn next_id() -> u32 {
-    static NEXT_ID: AtomicU32 = AtomicU32::new(1);
-
-    NEXT_ID.fetch_add(1, Ordering::Relaxed)
+    DropNode(NodeId),
 }
 
 #[no_mangle]
