@@ -16,9 +16,9 @@ use std::num::NonZeroU32;
 use std::ops::{Index, IndexMut};
 use std::slice::Iter;
 
-#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct NodeId(NonZeroU32);
+#[cfg_attr(feature = "ffi", derive(serde::Serialize, serde::Deserialize))]
+pub struct NodeId(pub(crate) NonZeroU32);
 
 pub type LocalName = Atom;
 
@@ -228,7 +228,7 @@ impl Document {
         self.texts.insert(text_node, text.to_owned());
     }
 
-    pub fn drop_node(&mut self, node: NodeId) {
+    pub fn drop_node(&mut self, _node: NodeId) {
         todo!()
     }
 
