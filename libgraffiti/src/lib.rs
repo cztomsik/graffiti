@@ -11,7 +11,7 @@ pub mod css;
 
 pub use self::{
     document::{Document, NodeId, NodeType},
-    renderer::Renderer,
+    renderer::{Renderable, Renderer},
     viewport::Viewport,
 };
 

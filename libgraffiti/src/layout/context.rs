@@ -57,6 +57,7 @@ impl<T: LayoutTree> LayoutContext<'_, T> {
         result.size = self.resolve_size(style.size, parent_size);
 
         match style.display {
+            Display::None => result.size = Size::new(0., 0.),
             Display::Block => self.compute_block(&mut result, &padding, style, self.tree.children(node), parent_size),
             Display::Flex => self.compute_flex(&mut result, style, self.tree.children(node), parent_size),
             Display::Inline => {
