@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
+use std::{slice, str};
 
 pub type WindowId = u32;
 pub type ViewportId = u32;
@@ -55,10 +56,17 @@ enum ViewportMsg {
 #[derive(Debug, Deserialize)]
 enum DocumentMsg<'a> {
     CreateElement(&'a str),
-    CreateTextNode(&'a str),
     AppendChild(NodeId, NodeId),
     InsertBefore(NodeId, NodeId, NodeId),
     RemoveChild(NodeId, NodeId),
+    SetAttribute(NodeId, &'a str, &'a str),
+    RemoveAttribute(NodeId, &'a str),
+    // TODO: is this right? or { UpdateStyle: { SetCssText: text } }?
+    SetStyle(NodeId, &'a str),
+
+    // TODO: switch to bincode https://github.com/serde-rs/serde/issues/1413#issuecomment-494892266
+    CreateTextNode(String),
+    SetText(String),
 }
 
 fn next_id() -> u32 {
@@ -69,5 +77,12 @@ fn next_id() -> u32 {
 
 #[no_mangle]
 pub unsafe extern "C" fn gft_send(data: *const u8, len: usize) -> *const u8 {
-    todo!()
+    // get slice of bytes & try to deserialize
+    let msg = str::from_utf8(slice::from_raw_parts(data, len)).unwrap();
+    let msg: ApiMsg = serde_json::from_str(msg).unwrap_or_else(|err| panic!("invalid msg {msg} {err}"));
+
+    println!("{:?}", &msg);
+
+    // TODO: this is just to get JS<->serde working
+    b"1\0" as _
 }
