@@ -1,7 +1,5 @@
-// TODO: cyclic
 import { Node } from './Node'
-
-import { native } from '../native'
+import { send } from '../native'
 import {
   NodeList,
   Text,
@@ -37,8 +35,10 @@ import { UNSUPPORTED } from '../util'
 
 import { Event } from '../events/Event'
 
+export const SEND = Symbol()
 export const DOC_ID = Symbol()
 export const NODE_ID = Symbol()
+export const ELS = Symbol()
 
 export class Document extends Node implements globalThis.Document {
   readonly ownerDocument
@@ -55,8 +55,11 @@ export class Document extends Node implements globalThis.Document {
     // if it's ever a problem we could use child.ownerDocument
     this.ownerDocument = this
 
-    this[DOC_ID] = native.gft_Document_new()
+    this[DOC_ID] = send('CreateDocument')
     this[NODE_ID] = 1
+    this[ELS] = new Map()
+
+    this[SEND] = msg => send({ DocumentMsg: [this[DOC_ID], msg] })
   }
 
   get nodeType() {

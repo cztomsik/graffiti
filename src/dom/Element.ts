@@ -1,10 +1,9 @@
 import { Node, NodeList, XMLSerializer } from './index'
 import { IElement } from '../types'
 import { parseFragment } from './DOMParser'
-import { native, atom, encode } from '../native'
 import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
 import { DOMTokenList } from './DOMTokenList'
-import { DOC_ID, NODE_ID } from './Document'
+import { SEND, NODE_ID, registerElement } from './Document'
 
 export abstract class Element extends Node implements IElement {
   readonly childNodes = new NodeList<ChildNode>()
@@ -20,7 +19,8 @@ export abstract class Element extends Node implements IElement {
 
     this.#localName = localName
 
-    this[NODE_ID] = native.gft_Document_create_element(doc[DOC_ID], atom(localName))
+    this[NODE_ID] = this.ownerDocument[SEND]({ CreateElement: localName })
+    registerElement(this.ownerDocument, this[NODE_ID], this)
   }
 
   get nodeType() {
@@ -72,13 +72,18 @@ export abstract class Element extends Node implements IElement {
   setAttribute(name: string, value: string) {
     this.#attributes[name] = value = typeof value === 'string' ? value : '' + value
 
-    native.gft_Document_set_attribute(this.ownerDocument[DOC_ID], this[NODE_ID], atom(name), encode(value))
+    // TODO: not 100% sure yet
+    if (name === 'style') {
+      return this.ownerDocument[SEND]({ SetStyle: [this[NODE_ID], this.#attributes[name]] })
+    }
+
+    this.ownerDocument[SEND]({ SetAttribute: [this[NODE_ID], name, value] })
   }
 
   removeAttribute(name: string) {
     delete this.#attributes[name]
 
-    native.gft_Document_remove_attribute(this.ownerDocument[DOC_ID], this[NODE_ID], atom(name))
+    this.ownerDocument[SEND]({ RemoveAttribute: [this[NODE_ID], name] })
   }
 
   toggleAttribute(name: string, force?: boolean): boolean {
@@ -145,7 +150,8 @@ export abstract class Element extends Node implements IElement {
   }
 
   matches(selector: string): boolean {
-    return native.gft_Document_element_matches(this.ownerDocument[DOC_ID], this[NODE_ID], selector)
+    // TODO
+    // return this.ownerDocument[SEND]({ ElementMatches: [this[NODE_ID], selector] })
   }
 
   closest(selector: string) {

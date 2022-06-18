@@ -4,8 +4,7 @@
 import { EventTarget } from '../events/index'
 import { NodeList, HTMLElement } from './index'
 import { assert, last, UNSUPPORTED } from '../util'
-import { native, encode } from '../native'
-import { lookupElement, DOC_ID, NODE_ID } from './Document'
+import { lookupElement, SEND, NODE_ID } from './Document'
 import { IChildNode, IDocument, INode, INonDocumentTypeChildNode, IParentNode, ISlottable } from '../types'
 
 // prettier-ignore
@@ -51,9 +50,9 @@ export abstract class Node extends EventTarget
 
     if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE && (child.nodeType !== Node.COMMENT_NODE)) {
       if (refNode) {
-        native.gft_Document_insert_before(this.ownerDocument[DOC_ID], this[NODE_ID], child[NODE_ID], refNode[NODE_ID])
+        this.ownerDocument[SEND]({ InsertBefore: [this[NODE_ID], child[NODE_ID], refNode[NODE_ID]] })
       } else {
-        native.gft_Document_append_child(this.ownerDocument[DOC_ID], this[NODE_ID], child[NODE_ID])
+        this.ownerDocument[SEND]({ AppendChild: [this[NODE_ID], child[NODE_ID]] })
       }
     }
 
@@ -67,7 +66,7 @@ export abstract class Node extends EventTarget
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
 
     if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
-      native.gft_Document_remove_child(this.ownerDocument[DOC_ID], this[NODE_ID], child[NODE_ID])
+      this.ownerDocument[SEND]({ RemoveChild: [this[NODE_ID], child[NODE_ID]] })
     }
 
     return child

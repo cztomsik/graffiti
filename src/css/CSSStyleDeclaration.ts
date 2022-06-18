@@ -3,7 +3,6 @@
 //       about shorthands then (how to avoid parsing the value in JS)
 
 import { ICSSStyleDeclaration } from '../types'
-import { native, atom, encode, decode } from '../native'
 import { UNSUPPORTED } from '../util'
 
 // minimal impl just to get something working
