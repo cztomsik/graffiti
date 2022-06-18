@@ -18,7 +18,7 @@ pub use self::{
 #[cfg(feature = "windowing")]
 mod windowing;
 #[cfg(feature = "windowing")]
-pub use windowing::{App, Event, Window};
+pub use windowing::{App, Event, Window, WindowId};
 
 #[cfg(feature = "ffi")]
 mod ffi;

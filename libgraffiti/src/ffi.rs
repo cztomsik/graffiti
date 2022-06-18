@@ -20,8 +20,7 @@ thread_local! {
 
 #[derive(Debug, Default)]
 struct State {
-    app: Option<Rc<App>>,
-    windows: HashMap<WindowId, Window>,
+    app: Option<App>,
     viewports: HashMap<ViewportId, Arc<RwLock<Viewport>>>,
     documents: HashMap<DocumentId, Arc<RwLock<Document>>>,
 }
@@ -42,11 +41,9 @@ enum ApiMsg<'a> {
     DocumentMsg(DocumentId, DocumentMsg<'a>),
 }
 
+// TODO: add all getters & methods from Window (but add Get/IsXxx prefix)
 #[derive(Debug, Deserialize)]
 enum WindowMsg {
-    // TODO: Title, Width, Height, Resize, ShouldClose,
-    // TODO: Show, Hide, Focus, Minimize, Maximize, Restore
-    // TODO: NextEvent
     SetContent(Option<ViewportId>),
 }
 

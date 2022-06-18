@@ -1,28 +1,16 @@
-use graffiti::{App, Document, Event as WindowEvent, Renderer, Viewport, Window};
+use graffiti::{App, Document, Viewport};
+use std::sync::{Arc, RwLock};
 
 fn main() {
-    let mut app = unsafe { App::init() };
-    let mut win = Window::new("Hello", 400, 300);
-    // TODO: fb_size might be different and maybe we should not call renderer.resize() from viewport
-    let mut viewport = Viewport::new(win.size(), parse(), unsafe {
-        win.make_current();
-        Renderer::new(win.size())
-    });
+    let mut app = App::init();
+    let win = app.create_window("Hello", 400, 300);
+    let viewport = Viewport::new((400., 300.), &Arc::new(RwLock::new(parse())));
 
-    while !win.should_close() {
-        app.wait_events();
+    app.window_mut(win)
+        .set_content(Some(Arc::new(RwLock::new(viewport.into()))));
 
-        while let Ok(event) = win.events().try_recv() {
-            match event {
-                WindowEvent::CursorPos(_x, _y) => {} // viewport.move(x, y)
-                // TODO: click, scroll, tab_next/prev, ...
-                WindowEvent::Resize(width, height) => viewport.resize((width as _, height as _)),
-                _ => println!("{:?}", &event),
-            }
-        }
-
-        viewport.render();
-        win.swap_buffers();
+    loop {
+        app.tick()
     }
 }
 
