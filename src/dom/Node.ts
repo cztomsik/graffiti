@@ -263,20 +263,15 @@ export abstract class Node extends EventTarget
   }
 
   querySelector(selector) {
-    const ref = native.gft_Document_query_selector(this.ownerDocument[DOC_ID], this[NODE_ID], encode(selector))
-    const nodeId = ref && native.gft_Node_id(ref)
-    return lookupElement(this.ownerDocument, nodeId)
+    const id = this.ownerDocument[SEND]({ QuerySelector: [this[NODE_ID], selector] })
+
+    return lookupElement(this.ownerDocument, id)
   }
 
   querySelectorAll(selector) {
-    // const refs = getRefs(native.gft_Document_query_selector_all(this.ownerDocument[DOC_ID], this[NODE_ID], encode(selector)))
-    // const els = refs.map(ref => {
-    //   const id = native.gft_Node_id(ref)
-    //   native.gft_Ref_drop(ref)
-    //   return lookupElement(this.ownerDocument, id)
-    // })
+    const ids = this.ownerDocument[SEND]({ QuerySelectorAll: [this[NODE_ID], selector] })
 
-    return NodeList.from(els) as any
+    return NodeList.from(ids.map(id => lookupElement(this.ownerDocument, id))) as any
   }
 
   getElementsByTagName(tagName) {
