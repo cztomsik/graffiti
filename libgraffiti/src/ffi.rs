@@ -1,19 +1,18 @@
+// thread-safe API
 // (TODO: rename from FFI)
-// This is not a FFI, FFI a way how a lib is supposed to be integrated with other languages
-// and it's ok to use pointers and everything, this is not the case
+// This is not a typical FFI with pointers, C strings and similar things
+//
+// I was trying different approaches (N-API, FFI) but messaging still feels the best:
+// - no worries about FFI-safety (Result<>, Option<>, NonZeroXxx, Vec<>)
+// - there is only one unsafe fn which has to be checked
+// - there is some overhead but it's fast enough even with JSON ser/de/ser/de
 
 use crate::{App, Document, NodeId, Viewport, WindowId};
-use crossbeam_channel::{unbounded as channel, Receiver, Sender};
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 use std::{cell::RefCell, io::Write, slice, str};
-
-type TickTask = Box<dyn FnOnce(&mut State) + 'static + Send>;
-
-static TASKS_CHAN: Lazy<(Sender<TickTask>, Receiver<TickTask>)> = Lazy::new(|| channel());
 
 thread_local! {
     static STATE: RefCell<(State, LastRes)> = Default::default();
@@ -123,16 +122,7 @@ impl State {
     fn handle_msg(&mut self, msg: ApiMsg, last_res: &mut LastRes) {
         match msg {
             ApiMsg::Init => self.app = Some(App::init()),
-            ApiMsg::Tick => {
-                TASKS_CHAN.1.try_iter().for_each(|t| t(self));
-
-                let app = self.app.as_mut().unwrap();
-                app.wait_events_timeout(0.1);
-
-                for win in app.windows_mut() {
-                    win.render();
-                }
-            }
+            ApiMsg::Tick => self.app.as_mut().unwrap().tick(),
             ApiMsg::WakeUp => App::wake_up(),
 
             ApiMsg::CreateDocument => last_res.replace(insert(&mut self.documents, Default::default())),
@@ -175,8 +165,8 @@ impl State {
                 WindowMsg::SetContent(Some(vp)) => {
                     let vp = Arc::clone(&self.viewports[&vp]);
 
-                    Self::push_task(move |state| {
-                        state.app.as_mut().unwrap().window_mut(id).set_content(Some(vp));
+                    App::push_task(move |app| {
+                        app.window_mut(id).set_content(Some(vp));
                     })
                 }
                 _ => {}
@@ -184,19 +174,16 @@ impl State {
         }
     }
 
-    fn push_task(task: impl FnOnce(&mut Self) + 'static + Send) {
-        TASKS_CHAN.0.send(Box::new(task)).unwrap();
-    }
-
-    fn await_task<T: Send + 'static>(&mut self, task: impl FnOnce(&mut Self) -> T + 'static + Send) -> T {
-        if self.app.is_some() {
-            task(self)
-        } else {
-            let (tx, rx) = channel();
-            Self::push_task(move |state| tx.send(task(state)).unwrap());
-            rx.recv().unwrap()
-        }
-    }
+    // TODO: will be useful for App/Win messages
+    // fn await_task<T: Send + 'static>(&mut self, task: impl FnOnce(&mut App) -> T + 'static + Send) -> T {
+    //     if let Some(app) = &mut self.app {
+    //         task(app)
+    //     } else {
+    //         let (tx, rx) = channel();
+    //         App::push_task(move |app| tx.send(task(app)).unwrap());
+    //         rx.recv().unwrap()
+    //     }
+    // }
 }
 
 #[derive(Debug, Default)]
@@ -221,3 +208,11 @@ fn next_id() -> u32 {
 
     NEXT_ID.fetch_add(1, Ordering::Relaxed)
 }
+
+// // fn gft_Window_next_event(win: u32, event_dest: *mut Event) -> bool {
+// //     if let Ok(event) = WINDOWS.with(|wins| wins.borrow_mut()[&win].events().try_recv() {)
+// //         *event_dest = event;
+// //         return true;
+// //     }
+// //     false
+// // }
