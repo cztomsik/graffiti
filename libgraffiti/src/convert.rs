@@ -52,7 +52,7 @@ pub fn container_style(style: &css::Style) -> ContainerStyle {
     }
 
     if hidden {
-        res.opacity = 0.
+        res.opacity = Some(0.)
     }
 
     res
