@@ -6,6 +6,10 @@ import { History } from './History'
 import { Storage } from './Storage'
 import { requestAnimationFrame, cancelAnimationFrame } from './raf'
 import { NOOP, TODO, fetch } from '../util'
+import { send } from '../native'
+import { DOC_ID } from '../dom/Document'
+
+export const VIEWPORT_ID = Symbol()
 
 // note all props will leak to global scope
 export class Window extends EventTarget implements globalThis.Window {
@@ -36,6 +40,8 @@ export class Window extends EventTarget implements globalThis.Window {
   queueMicrotask = queueMicrotask
   postMessage = postMessage
   crypto = crypto
+  reportError = reportError
+  structuredClone = structuredClone
 
   // raf
   requestAnimationFrame = requestAnimationFrame
@@ -43,6 +49,8 @@ export class Window extends EventTarget implements globalThis.Window {
 
   constructor() {
     super()
+
+    this[VIEWPORT_ID] = send({ CreateViewport: [[1024, 768], this.document[DOC_ID]] })
 
     Object.assign(this, globals)
   }

@@ -1,7 +1,6 @@
 import { StyleSheet } from './StyleSheet'
 import { CSSRuleList } from './CSSRuleList'
 import { CSSStyleRule } from './CSSStyleRule'
-import { native, encode, getNativeId } from '../native'
 import { TODO } from '../util'
 
 export class CSSStyleSheet extends StyleSheet implements globalThis.CSSStyleSheet {

@@ -1,7 +1,7 @@
 // TODO: conversion macro for all enums?
 
 use crate::{
-    css::{self, BorderStyle, Overflow, Style, StyleProp},
+    css::{self, BorderStyle, Display, Overflow, Style, StyleProp},
     layout::{self, LayoutStyle},
     renderer::{Color, ContainerStyle, Outline, Shadow, StrokeStyle},
 };
@@ -10,6 +10,7 @@ pub fn container_style(style: &css::Style) -> ContainerStyle {
     let mut res = ContainerStyle::default();
 
     // (transient) initial_values
+    let mut hidden = false;
     let mut radii = [0.; 4];
     let mut outline = (3., BorderStyle::None, Color::BLACK);
 
@@ -36,7 +37,7 @@ pub fn container_style(style: &css::Style) -> ContainerStyle {
                 res.clip = true
             }
             &StyleProp::BackgroundColor(c) => res.bg_color = Some(color(c)),
-            // TODO: border (4x3 props)
+            &StyleProp::Display(Display::None) => hidden = true,
             _ => {}
         }
     }
@@ -48,6 +49,10 @@ pub fn container_style(style: &css::Style) -> ContainerStyle {
     if outline.0 > 0. && outline.1 != BorderStyle::None && outline.2 != Color::TRANSPARENT {
         println!("TODO: outline-style");
         res.outline = Some(Outline(outline.0, StrokeStyle::Solid, outline.2))
+    }
+
+    if hidden {
+        res.opacity = Some(0.)
     }
 
     res
