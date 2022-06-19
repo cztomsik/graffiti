@@ -5,6 +5,7 @@
 // and we might also consider adding support for mobile and glfw cannot
 // do that currently
 
+use super::Event;
 use crate::{Renderer, Viewport};
 use graffiti_glfw::*;
 use std::cell::RefCell;
@@ -213,24 +214,6 @@ impl fmt::Debug for Window {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Window").finish()
     }
-}
-
-// TODO: move to event.rs (or events and also move handlers?)
-#[derive(Debug, Clone, Copy)]
-pub enum Event {
-    CursorPos(f32, f32),
-    MouseDown,
-    MouseUp,
-    Scroll(f32, f32),
-
-    // JS e.which
-    KeyUp(u32),
-    KeyDown(u32),
-    KeyPress(u32),
-
-    Resize(f32, f32),
-    FramebufferSize(f32, f32),
-    Close,
 }
 
 unsafe extern "C" fn handle_glfw_cursor_pos(w: GlfwWindow, x: c_double, y: c_double) {

@@ -1,7 +1,9 @@
 mod app;
+mod events;
 mod window;
 
 pub use self::{
     app::{App, WindowId},
-    window::{Event, Window},
+    events::{Event, EventHandler},
+    window::Window,
 };

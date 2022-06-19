@@ -1,18 +1,22 @@
-// turns render tree into series of skia calls
+// high(er)-level renderer
+// - can render anything which implements `Renderable` (typically a tree)
+// - provides a `RenderContext` with high-level draw operations
+// - some of them return bool, denoting if given thing is
+//   visible or if its whole subtree should be skipped
 //
 // BTW: maybe we can get rid of skia one day or make it an optional feature/backend/trait impl
 // but it's not a priority right now and there are no good alternatives at the moment anyway
 // (clip radii, filters, text/paragraph, emoji, ligatures)
 //
 // notes:
-// - we don't care what render tree is or how it is stored, we just need a way to traverse it,
+// - we don't care what the tree is or how it is stored, we just need a way to traverse it,
 //   ability to skip descendants for early-culling and of course we need styles/texts for drawing
 //
 // - we could define trait EdgeIterator: Iterator<> with .skip_descendants(&mut self) but I think
 //   visitor is a bit easier to do/understand and it's also more forgiving with lifetimes (&*cell.borrow())
 //
 // - incrementality will be handled elsewhere, this should be as simple and stateless as possible
-//   except of maybe using some LRU caches for managing mid-lived resources, etc.
+//   except of maybe using some LRU caches for managing mid-lived resources like images
 
 use skia_safe::textlayout::Paragraph;
 use skia_safe::{
@@ -24,18 +28,8 @@ use skia_safe::{ClipOp, MaskFilter};
 // for now we just re-export some skia primitives
 pub use skia_safe::{Color, Matrix, Point, Rect};
 
-pub trait Renderable {
-    fn visit<F: FnMut(RenderEdge) -> bool>(self, visitor: &mut F);
-}
-
-pub enum RenderEdge<'a> {
-    OpenContainer(Rect, &'a ContainerStyle),
-    CloseContainer,
-    Text(Rect, &'a Paragraph),
-    // TODO: iframe/svg?
-    //       I think &mut is not wrong here because &mut &dyn Renderable should still work
-    //       it's just pointing to stack, which should be fine
-    // Renderable(&'a mut dyn Renderable)
+pub trait Renderable: Send {
+    fn render(self, ctx: &mut RenderContext);
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -83,7 +77,7 @@ pub struct Renderer {
     scale: (f32, f32),
 }
 
-struct RenderContext<'a> {
+pub struct RenderContext<'a> {
     canvas: &'a mut Canvas,
 }
 
@@ -107,9 +101,7 @@ impl Renderer {
         canvas.scale(self.scale);
         canvas.clear(Color::WHITE);
 
-        let mut ctx = RenderContext { canvas };
-
-        renderable.visit(&mut |edge| ctx.draw_edge(edge));
+        renderable.render(&mut RenderContext { canvas });
 
         self.surface.flush();
     }
@@ -142,17 +134,7 @@ impl Renderer {
 }
 
 impl RenderContext<'_> {
-    fn draw_edge(&mut self, edge: RenderEdge) -> bool {
-        match edge {
-            RenderEdge::OpenContainer(rect, style) => return self.open_container(rect, style),
-            RenderEdge::CloseContainer => self.close_container(),
-            RenderEdge::Text(rect, paragraph) => self.draw_text(rect, paragraph),
-        }
-
-        return false;
-    }
-
-    fn open_container(&mut self, rect: Rect, style: &ContainerStyle) -> bool {
+    pub fn open_container(&mut self, rect: Rect, style: &ContainerStyle) -> bool {
         // first, we don't have to save/restore() if we skip the whole subtree
         if let Some(opacity) = style.opacity {
             if opacity == 0. {
@@ -209,7 +191,7 @@ impl RenderContext<'_> {
         return true;
     }
 
-    fn close_container(&mut self) {
+    pub fn close_container(&mut self) {
         //let (border,) = ctx.stack.pop().unwrap();
 
         // if let Some(border) = ctx.stack.pop {
@@ -219,7 +201,7 @@ impl RenderContext<'_> {
         self.canvas.restore();
     }
 
-    fn draw_text(&mut self, rect: Rect, paragraph: &Paragraph) {
+    pub fn draw_text(&mut self, rect: Rect, paragraph: &Paragraph) {
         paragraph.paint(self.canvas, Point::new(rect.x(), rect.y()));
     }
 

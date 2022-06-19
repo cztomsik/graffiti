@@ -11,14 +11,14 @@ pub mod css;
 
 pub use self::{
     document::{Document, NodeId, NodeType},
-    renderer::{Renderable, Renderer},
+    renderer::Renderer,
     viewport::Viewport,
 };
 
 #[cfg(feature = "windowing")]
 mod windowing;
 #[cfg(feature = "windowing")]
-pub use windowing::{App, Event, Window, WindowId};
+pub use windowing::{App, Event, EventHandler, Window, WindowId};
 
 #[cfg(feature = "ffi")]
 mod ffi;

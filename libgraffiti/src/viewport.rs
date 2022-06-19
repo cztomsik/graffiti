@@ -3,9 +3,11 @@ use crate::{
     css::{MatchingContext, Style, StyleRule, StyleSheet},
     document::NodeEdge,
     layout::{self, LayoutEngine, LayoutResult, LayoutStyle, LayoutTree, Size},
-    renderer::{ContainerStyle, Rect, RenderEdge, Renderable},
+    renderer::{ContainerStyle, Rect, RenderContext, Renderable},
     Document, NodeId, NodeType,
 };
+#[cfg(feature = "windowing")]
+use crate::{Event, EventHandler};
 use once_cell::sync::Lazy;
 use skia_safe::{
     textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
@@ -28,6 +30,9 @@ pub struct Viewport {
     size: (f32, f32),
     document: Arc<RwLock<Document>>,
     state: ViewState,
+
+    #[cfg(feature = "windowing")]
+    event_handler: Box<dyn EventHandler>,
 }
 
 // needs to be updated before using
@@ -45,6 +50,9 @@ impl Viewport {
             size,
             document: Arc::clone(&document),
             state: ViewState::default(),
+
+            #[cfg(feature = "windowing")]
+            event_handler: Box::new(()),
         }
     }
 
@@ -70,6 +78,11 @@ impl Viewport {
     // pub fn scroll(&mut self, _pos: (f32, f32), _delta: (f32, f32)) {
     //     todo!()
     // }
+
+    #[cfg(feature = "windowing")]
+    pub fn set_event_handler(&mut self, handler: impl EventHandler + 'static) {
+        self.event_handler = Box::new(handler);
+    }
 
     fn update(&mut self) {
         self.state.update(&mut self.document.write().unwrap(), self.size);
@@ -115,7 +128,7 @@ impl ViewState {
 
 // mutable reference to Viewport can be rendered
 impl Renderable for &mut Viewport {
-    fn visit<F: FnMut(RenderEdge) -> bool>(self, visitor: &mut F) {
+    fn render(self, ctx: &mut RenderContext) {
         // update first
         self.update();
 
@@ -129,15 +142,18 @@ impl Renderable for &mut Viewport {
                 let rect = Rect::new(x, y, x + size.width, y + size.height);
 
                 match doc.node_type(node) {
-                    NodeType::Document => visitor(RenderEdge::OpenContainer(rect, &ContainerStyle::default())),
-                    NodeType::Element => visitor(RenderEdge::OpenContainer(
-                        rect,
-                        &container_style(&state.resolved_styles[&node]),
-                    )),
-                    NodeType::Text => visitor(RenderEdge::Text(rect, &*state.paragraphs[&node].borrow())),
+                    NodeType::Document => ctx.open_container(rect, &ContainerStyle::default()),
+                    NodeType::Element => ctx.open_container(rect, &container_style(&state.resolved_styles[&node])),
+                    NodeType::Text => {
+                        ctx.draw_text(rect, &*state.paragraphs[&node].borrow());
+                        false
+                    }
                 }
             }
-            NodeEdge::End => visitor(RenderEdge::CloseContainer),
+            NodeEdge::End => {
+                ctx.close_container();
+                false
+            }
         })
     }
 }
