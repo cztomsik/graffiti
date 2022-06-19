@@ -2,21 +2,21 @@
 // This is not a FFI, FFI a way how a lib is supposed to be integrated with other languages
 // and it's ok to use pointers and everything, this is not the case
 
-use crate::{App, Document, NodeId, NodeType, Viewport, Window};
-use serde::Deserialize;
-use std::cell::RefCell;
+use crate::{App, Document, NodeId, Viewport, WindowId};
+use crossbeam_channel::{unbounded as channel, Receiver, Sender};
+use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
-use std::{slice, str};
+use std::{cell::RefCell, io::Write, slice, str};
 
-pub type WindowId = u32;
-pub type ViewportId = u32;
-pub type DocumentId = u32;
+type TickTask = Box<dyn FnOnce(&mut State) + 'static + Send>;
+
+static TASKS_CHAN: Lazy<(Sender<TickTask>, Receiver<TickTask>)> = Lazy::new(|| channel());
 
 thread_local! {
-    static STATE: RefCell<State> = Default::default();
+    static STATE: RefCell<(State, LastRes)> = Default::default();
 }
 
 pub type ViewportId = u32;
@@ -104,6 +104,120 @@ pub unsafe extern "C" fn gft_send(data: *const u8, len: usize) -> *const u8 {
 
     println!("{:?}", &msg);
 
-    // TODO: this is just to get JS<->serde working
-    b"1\0" as _
+    STATE.with(|res| {
+        let (state, last_res) = &mut *res.borrow_mut();
+
+        state.handle_msg(msg, last_res);
+
+        // println!("-> {:?}", last_res);
+
+        if last_res.0.is_empty() {
+            std::ptr::null()
+        } else {
+            last_res.0.as_ptr()
+        }
+    })
+}
+
+impl State {
+    fn handle_msg(&mut self, msg: ApiMsg, last_res: &mut LastRes) {
+        match msg {
+            ApiMsg::Init => self.app = Some(App::init()),
+            ApiMsg::Tick => {
+                TASKS_CHAN.1.try_iter().for_each(|t| t(self));
+
+                let app = self.app.as_mut().unwrap();
+                app.wait_events_timeout(0.1);
+
+                for win in app.windows_mut() {
+                    win.render();
+                }
+            }
+            ApiMsg::WakeUp => App::wake_up(),
+
+            ApiMsg::CreateDocument => last_res.replace(insert(&mut self.documents, Default::default())),
+            ApiMsg::DocumentMsg(id, msg) => {
+                let mut doc = self.documents.get_mut(&id).unwrap().write().unwrap();
+
+                match msg {
+                    DocumentMsg::CreateElement(local_name) => last_res.replace(doc.create_element(local_name)),
+                    DocumentMsg::SetAttribute(el, att, val) => doc.set_attribute(el, att, val),
+                    DocumentMsg::RemoveAttribute(el, att) => doc.remove_attribute(el, att),
+                    DocumentMsg::SetStyle(el, style) => doc.set_style(el, style),
+                    DocumentMsg::AppendChild(parent, child) => doc.append_child(parent, child),
+                    DocumentMsg::InsertBefore(parent, child, before) => doc.insert_before(parent, child, before),
+                    DocumentMsg::RemoveChild(parent, child) => doc.remove_child(parent, child),
+                    DocumentMsg::QuerySelector(node, selector) => last_res.replace(doc.query_selector(node, selector)),
+                    DocumentMsg::QuerySelectorAll(node, selector) => {
+                        last_res.replace(doc.query_selector_all(node, selector).collect::<Vec<_>>())
+                    }
+                    DocumentMsg::CreateTextNode(ref text) => last_res.replace(doc.create_text_node(text)),
+                    DocumentMsg::SetText(node, ref text) => doc.set_text(node, text),
+                    DocumentMsg::DropNode(node) => doc.drop_node(node),
+                }
+            }
+
+            ApiMsg::CreateViewport(size, doc) => {
+                last_res.replace(insert(
+                    &mut self.viewports,
+                    Arc::new(RwLock::new(Viewport::new(size, self.documents.get(&doc).unwrap()))),
+                ));
+            }
+            ApiMsg::ViewportMsg(id, msg) => {
+                // let mut vp = self.viewports.get_mut(&id).unwrap().write().unwrap();
+                // todo!()
+            }
+
+            ApiMsg::CreateWindow(title, width, height) => {
+                last_res.replace(self.app.as_mut().unwrap().create_window(title, width, height));
+            }
+            ApiMsg::WindowMsg(id, msg) => match msg {
+                WindowMsg::SetContent(Some(vp)) => {
+                    let vp = Arc::clone(&self.viewports[&vp]);
+
+                    Self::push_task(move |state| {
+                        state.app.as_mut().unwrap().window_mut(id).set_content(Some(vp));
+                    })
+                }
+                _ => {}
+            },
+        }
+    }
+
+    fn push_task(task: impl FnOnce(&mut Self) + 'static + Send) {
+        TASKS_CHAN.0.send(Box::new(task)).unwrap();
+    }
+
+    fn await_task<T: Send + 'static>(&mut self, task: impl FnOnce(&mut Self) -> T + 'static + Send) -> T {
+        if self.app.is_some() {
+            task(self)
+        } else {
+            let (tx, rx) = channel();
+            Self::push_task(move |state| tx.send(task(state)).unwrap());
+            rx.recv().unwrap()
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct LastRes(Vec<u8>);
+
+impl LastRes {
+    fn replace<T: Serialize>(&mut self, res: T) {
+        self.0 = serde_json::to_vec(&res).unwrap();
+        self.0.write(&[0]).unwrap();
+    }
+}
+
+fn insert<V>(dest: &mut HashMap<u32, V>, val: V) -> u32 {
+    let id = next_id();
+    dest.insert(id, val);
+
+    id
+}
+
+fn next_id() -> u32 {
+    static NEXT_ID: AtomicU32 = AtomicU32::new(1);
+
+    NEXT_ID.fetch_add(1, Ordering::Relaxed)
 }
