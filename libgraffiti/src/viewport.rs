@@ -92,7 +92,7 @@ impl ViewState {
             match doc.node_type(node) {
                 NodeType::Element => {
                     self.resolved_styles
-                        .insert(node, ViewState::resolve_style(doc.style(node), &Style::EMPTY));
+                        .insert(node, resolver.resolve_style(node, doc.style(node), None));
                     self.layout_styles
                         .insert(node, layout_style(&self.resolved_styles[&node]));
                 }
@@ -110,16 +110,6 @@ impl ViewState {
             paragraphs: &self.paragraphs,
         };
         LayoutEngine::new().calculate(Size::new(size.0, size.1), &tree, &mut self.layout_results);
-    }
-
-    fn resolve_style(inline_style: Option<&Style>, _parent_style: &Style) -> Style {
-        let mut res = Style::parse("display: block").unwrap();
-
-        if let Some(style) = inline_style {
-            res.apply(style);
-        }
-
-        res
     }
 }
 
