@@ -10,6 +10,7 @@
 
 use crate::css::{MatchingContext, Selector, Style};
 use crate::util::Atom;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::num::NonZeroU32;
@@ -142,6 +143,17 @@ impl Document {
 
         self.descendants(node)
             .filter(move |&n| self.node_type(n) == NodeType::Element && selector.match_element(n, self).is_some())
+    }
+
+    pub fn text_content(&self, node: NodeId) -> Cow<'_, str> {
+        match &self.node_type(node) {
+            NodeType::Text => Cow::Borrowed(self.text(node)),
+            // TODO: avoid alloc for one-child (recurse)
+            _ => self
+                .children(node)
+                .iter()
+                .fold(Cow::Borrowed(""), |res, &ch| res + self.text_content(ch)),
+        }
     }
 
     pub fn create_element(&mut self, local_name: impl Into<LocalName>) -> NodeId {

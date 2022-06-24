@@ -1,6 +1,6 @@
 use crate::{
     convert::{container_style, layout_style},
-    css::{MatchingContext, Style, StyleRule, StyleSheet},
+    css::{MatchingContext, Style, StyleResolver, StyleRule, StyleSheet},
     document::NodeEdge,
     layout::{self, LayoutEngine, LayoutResult, LayoutStyle, LayoutTree, Size},
     renderer::{ContainerStyle, Rect, RenderContext, Renderable},
@@ -91,10 +91,13 @@ impl Viewport {
 
 impl ViewState {
     fn update(&mut self, doc: &Document, size: (f32, f32) /*, dirty_nodes */) {
-        let resolver = StyleResolver {
-            sheets: &[&UA_SHEET],
-            context: doc,
-        };
+        let sheets = doc
+            .query_selector_all(Document::ROOT, "style")
+            .map(|s| doc.text_content(s))
+            .filter_map(|s| StyleSheet::parse(&s).ok())
+            .collect::<Vec<_>>();
+
+        let resolver = StyleResolver::new(doc, &UA_SHEET, &sheets);
 
         self.layout_results = vec![LayoutResult::default(); 100];
 
@@ -208,48 +211,4 @@ impl layout::Paragraph for RefCell<Paragraph> {
     }
 }
 
-// TODO: move to resolver.rs (later)
-struct StyleResolver<'a, M> {
-    // TODO: it might be interesting to opt-out from specificity sorting
-    // TODO: media (for matching media rules)
-    sheets: &'a [&'a StyleSheet],
-    context: &'a M,
-}
-
-impl<M: MatchingContext> StyleResolver<'_, M> {
-    pub fn resolve_style(
-        &self,
-        element: M::ElementRef,
-        inline_style: Option<&Style>,
-        _parent_style: Option<&Style>,
-    ) -> Style {
-        let mut res = Style::default();
-
-        let mut rules: Vec<_> = self
-            .sheets
-            .iter()
-            .flat_map(|s| s.rules())
-            .filter_map(|r| {
-                r.selector()
-                    .match_element(element, self.context)
-                    .map(move |spec| (spec, r))
-            })
-            .collect();
-        rules.sort_by(|(a, _), (b, _)| a.cmp(b));
-
-        for (_, r) in rules {
-            res.apply(r.style());
-        }
-
-        if let Some(s) = inline_style {
-            res.apply(s);
-        }
-
-        // TODO: inherit, css-vars
-
-        res
-    }
-}
-
 static UA_SHEET: Lazy<StyleSheet> = Lazy::new(|| StyleSheet::parse(include_str!("../resources/ua.css")).unwrap());
-
