@@ -22,7 +22,7 @@
         <div>
           <h1>Items</h1>
 
-          ${loading && html`<div>Loading...</div>`}
+          ${loading && html`<div>Loading...</div>`}
 
           <ul>
             ${data.results.map(it => html`<li>${it.name}</li>`)}
