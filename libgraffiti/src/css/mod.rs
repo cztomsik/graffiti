@@ -4,6 +4,7 @@
 
 mod parsing;
 mod properties;
+mod resolver;
 mod rule;
 mod selector;
 mod sheet;
@@ -14,6 +15,7 @@ mod values;
 pub use {
     parsing::ParseError,
     properties::StyleProp,
+    resolver::StyleResolver,
     rule::StyleRule,
     selector::{MatchingContext, Selector, Specificity},
     sheet::StyleSheet,
