@@ -39,9 +39,9 @@ export class Window extends EventTarget implements globalThis.Window {
   btoa = btoa
   queueMicrotask = queueMicrotask
   postMessage = postMessage
-  crypto = crypto
-  reportError = reportError
-  structuredClone = structuredClone
+  crypto = globalThis.crypto
+  reportError = globalThis.reportError
+  structuredClone = globalThis.structuredClone
 
   // raf
   requestAnimationFrame = requestAnimationFrame

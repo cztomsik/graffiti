@@ -22,3 +22,6 @@ pub use windowing::{App, Event, EventHandler, Window, WindowId};
 
 #[cfg(feature = "ffi")]
 mod ffi;
+
+#[cfg(feature = "nodejs")]
+mod nodejs;
