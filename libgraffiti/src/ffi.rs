@@ -76,7 +76,7 @@ enum ViewportMsg {
 #[derive(Debug, Deserialize)]
 enum DocumentMsg<'a> {
     CreateElement(&'a str),
-    SetAttribute(NodeId, &'a str, &'a str),
+    SetAttribute(NodeId, &'a str, String),
     RemoveAttribute(NodeId, &'a str),
     // TODO: is this right? or { UpdateStyle: { SetCssText: text } }?
     SetStyle(NodeId, &'a str),
@@ -131,7 +131,7 @@ impl State {
 
                 match msg {
                     DocumentMsg::CreateElement(local_name) => last_res.replace(doc.create_element(local_name)),
-                    DocumentMsg::SetAttribute(el, att, val) => doc.set_attribute(el, att, val),
+                    DocumentMsg::SetAttribute(el, att, ref val) => doc.set_attribute(el, att, val),
                     DocumentMsg::RemoveAttribute(el, att) => doc.remove_attribute(el, att),
                     DocumentMsg::SetStyle(el, style) => doc.set_style(el, style),
                     DocumentMsg::AppendChild(parent, child) => doc.append_child(parent, child),
