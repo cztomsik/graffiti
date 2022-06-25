@@ -21,14 +21,6 @@ smallbitvec = "2.5.1"
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.39"
 
-[target.'cfg(linux)'.dependencies.skia-safe]
-version = "0.50.0"
-features = ["x11", "gl", "textlayout"]
-
-[target.'cfg(not(linux))'.dependencies.skia-safe]
-version = "0.50.0"
-features = ["gl", "textlayout"]
-
 [profile.release]
 # panic = 'abort'
 # lto = true
