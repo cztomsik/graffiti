@@ -8,7 +8,14 @@ import { readURL } from './util'
 import { runScripts } from './dom/HTMLScriptElement'
 import { send } from './native'
 
-self.addEventListener('message', init, { once: true })
+// nodejs
+if ('process' in globalThis) {
+  const { parentPort } = await import('worker_threads')
+  globalThis.postMessage = (msg, _) => parentPort?.postMessage(msg)
+  parentPort?.once('message', data => init({ data }))
+} else {
+  self.addEventListener('message', init, { once: true })
+}
 
 // setup IPC
 function init({ data: port }) {

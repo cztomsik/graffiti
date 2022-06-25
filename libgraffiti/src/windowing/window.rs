@@ -58,7 +58,15 @@ impl Window {
             glfwGetFramebufferSize(glfw_window, &mut fb_size.0, &mut fb_size.1);
             let mut scale = (0., 0.);
             glfwGetWindowContentScale(glfw_window, &mut scale.0, &mut scale.1);
-            let renderer = Renderer::new(fb_size, (scale.0 as _, scale.1 as _));
+            let renderer = Renderer::new(fb_size, (scale.0 as _, scale.1 as _), |sym| {
+                // otherwise it segfaults on linux
+                if sym == "eglGetCurrentDisplay" {
+                    return std::ptr::null();
+                }
+
+                let sym = CString::new(sym).unwrap();
+                glfwGetProcAddress(sym.as_ptr())
+            });
 
             // detach
             glfwMakeContextCurrent(std::ptr::null_mut());

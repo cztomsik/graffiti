@@ -33,7 +33,16 @@ async function resolveLibFile() {
 }
 
 async function loadNodejsAddon(libFile) {
-  return TODO()
+  const module = { exports: {} as any }
+  process.env.GFT_NODEJS = '1'
+  process['dlopen'](module, libFile)
+
+  return msg => {
+    // TODO: bincode, reuse buffer
+    const res = module.exports(encoder.encode(JSON.stringify(msg)).buffer)
+    // console.log(res)
+    return res ? JSON.parse(res) : null
+  }
 }
 
 async function loadDenoPlugin(libFile, Deno = globalThis.Deno) {

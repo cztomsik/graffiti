@@ -24,6 +24,7 @@ use skia_safe::{
     Canvas, ColorType, Paint, RRect, Surface,
 };
 use skia_safe::{ClipOp, MaskFilter};
+use std::ffi::c_void;
 
 // for now we just re-export some skia primitives
 pub use skia_safe::{Color, Matrix, Point, Rect};
@@ -87,8 +88,9 @@ enum Shape {
 }
 
 impl Renderer {
-    pub fn new(size: (i32, i32), scale: (f32, f32)) -> Self {
-        let mut gr_ctx = DirectContext::new_gl(None, None).unwrap();
+    pub fn new(size: (i32, i32), scale: (f32, f32), load_fn: impl FnMut(&str) -> *const c_void) -> Self {
+        let interface = skia_safe::gpu::gl::Interface::new_load_with(load_fn).unwrap();
+        let mut gr_ctx = DirectContext::new_gl(Some(interface), None).unwrap();
         let surface = Self::create_surface(&mut gr_ctx, size);
 
         Self { gr_ctx, surface, scale }

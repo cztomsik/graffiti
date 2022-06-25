@@ -4,6 +4,7 @@ name = "graffiti"
 version = "0.1.0"
 authors = ["Kamil Tomšík <info@tomsik.cz>"]
 license = "MIT"
+build = "build.rs"
 
 [lib]
 name = "graffiti"
@@ -29,5 +30,6 @@ codegen-units = 1
 [features]
 default = ["windowing", "ffi"]
 ffi = []
+nodejs = ["ffi"]
 windowing = []
 profile = []

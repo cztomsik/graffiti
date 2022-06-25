@@ -25,7 +25,7 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "cargo test --tests --manifest-path ./libgraffiti/Cargo.toml",
-    "build": "cargo build --manifest-path ./libgraffiti/Cargo.toml",
+    "build": "cargo build --manifest-path ./libgraffiti/Cargo.toml --features nodejs",
     "postinstall": "npm run build",
     "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:node-fetch --external:ws --outdir=./lib ./src/index.ts ./src/worker.ts"
   },
