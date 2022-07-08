@@ -20,7 +20,8 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
   }
 
   getPropertyValue(prop: string): string {
-    return decode(native.gft_CssStyleDeclaration_property_value(this[ID], atom(prop))) ?? ''
+    console.log('TODO: CSSStyleDeclaration.getPropertyValue()')
+    return ''
   }
 
   getPropertyPriority(prop: string): string {
@@ -37,32 +38,35 @@ export class CSSStyleDeclaration implements ICSSStyleDeclaration {
       console.warn('!important is not supported')
     }
 
-    native.gft_CssStyleDeclaration_set_property(this[ID], atom(prop), encode(value))
+    console.log('TODO: CSSStyleDeclaration.setProperty()')
   }
 
   removeProperty(prop: string): string {
     const prev = this.getPropertyValue(prop)
-    native.gft_CssStyleDeclaration_remove_property(this[ID], atom(prop))
+    console.log('TODO: CSSStyleDeclaration.removeProperty()')
     return prev
   }
 
   get cssText(): string {
-    return decode(native.gft_CssStyleDeclaration_css_text(this[ID])) ?? ''
+    console.log('TODO: get CSSStyleDeclaration.cssText')
+    return ''
   }
 
   set cssText(cssText: string) {
-    native.gft_CssStyleDeclaration_set_css_text(this[ID], encode(cssText))
+    console.log('TODO: set CSSStyleDeclaration.cssText')
   }
 
   // UNSUPPORTED
   [index: number]: string
 
   get length() {
-    return native.gft_CssStyleDeclaration_length(this[ID])
+    console.log('TODO: get CSSStyleDeclaration.length')
+    return 0
   }
 
   item(index: number): string {
-    return native.gft_CssStyleDeclaration_item(this[ID], index)
+    console.log('TODO: get CSSStyleDeclaration.item()')
+    return ''
   }
 
   get alignContent() { return this.getPropertyValue('align-content') }

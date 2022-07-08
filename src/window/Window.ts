@@ -7,7 +7,6 @@ import { Storage } from './Storage'
 import { requestAnimationFrame, cancelAnimationFrame } from './raf'
 import { NOOP, TODO, fetch } from '../util'
 import { send } from '../native'
-import { DOC_ID } from '../dom/Document'
 
 export const VIEWPORT_ID = Symbol()
 

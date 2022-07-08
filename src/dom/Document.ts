@@ -35,11 +35,6 @@ import { UNSUPPORTED } from '../util'
 
 import { Event } from '../events/Event'
 
-export const SEND = Symbol()
-export const DOC_ID = Symbol()
-export const NODE_ID = Symbol()
-export const ELS = Symbol()
-
 export class Document extends Node implements globalThis.Document {
   readonly ownerDocument
   readonly defaultView: (Window & typeof globalThis) | null = null
@@ -55,11 +50,33 @@ export class Document extends Node implements globalThis.Document {
     // if it's ever a problem we could use child.ownerDocument
     this.ownerDocument = this
 
-    this[DOC_ID] = send('CreateDocument')
-    this[NODE_ID] = 1
-    this[ELS] = new Map()
+    const docId = send('CreateDocument')
+    const sendDocMsg = msg => send({ DocumentMsg: [docId, msg] })
 
-    this[SEND] = msg => send({ DocumentMsg: [this[DOC_ID], msg] })
+    const WEAK_REFS = Symbol()
+    this[WEAK_REFS] = new Map()
+    const lookup = id => (id && this[WEAK_REFS][id]?.deref()) ?? null
+
+    const NODE_ID = Symbol()
+    const initNode = (node, id) => {
+      node[NODE_ID] = id
+      this[WEAK_REFS].set(id, new WeakRef(node))
+      // TODO: register for drop
+    }
+
+    this[initText] = (node, text) => initNode(node, sendDocMsg({ CreateTextNode: text }))
+    this[setText] = (node, text) => sendDocMsg({ SetText: [node[NODE_ID], text] })
+    this[initElement] = (el, localName) => initNode(el, sendDocMsg({ CreateElement: localName }))
+    this[setAttribute] = (el, k, v) => sendDocMsg({ SetAttribute: [el[NODE_ID], k, v] })
+    this[removeAttribute] = (el, k) => sendDocMsg({ RemoveAttribute: [el[NODE_ID], k] })
+    this[appendChild] = (parent, child) => sendDocMsg({ AppendChild: [parent[NODE_ID], child] })
+    this[insertBefore] = (parent, child, before) => sendDocMsg({ InsertBefore: [parent[NODE_ID], child, before] })
+    this[removeChild] = (parent, child) => sendDocMsg({ RemoveChild: [parent[NODE_ID], child] })
+    this[elementMatches] = (node, sel) => sendDocMsg({ ElementMatches: [node[NODE_ID], sel] })
+    this[querySelector] = (node, sel) => lookup(sendDocMsg({ QuerySelector: [node[NODE_ID], sel] }))
+    this[querySelectorAll] = (node, sel) => sendDocMsg({ QuerySelectorAll: [node[NODE_ID], sel] })?.map(lookup) ?? []
+
+    initNode(this, 1)
   }
 
   get nodeType() {
@@ -179,7 +196,8 @@ export class Document extends Node implements globalThis.Document {
   }
 
   elementFromPoint(x, y): Element | null {
-    return lookupElement(this, native.gft_Viewport_element_from_point(getNativeId(this.defaultView), x, y))
+    console.log('TODO: doc.elementFromPoint()')
+    return null
   }
 
   hasFocus(): boolean {
@@ -304,9 +322,19 @@ export class Document extends Node implements globalThis.Document {
   vlinkColor
 }
 
-export const registerElement = (doc, nodeId, el) => doc[ELS].set(nodeId, new WeakRef(el))
-
-export const lookupElement = (doc, nodeId) => (nodeId ? doc[ELS].get(nodeId).deref() : null)
+// package-private
+export const initText = Symbol()
+export const setText = Symbol()
+export const initElement = Symbol()
+export const setAttribute = Symbol()
+export const removeAttribute = Symbol()
+// export const setStyleProp = Symbol();
+export const appendChild = Symbol()
+export const insertBefore = Symbol()
+export const removeChild = Symbol()
+export const elementMatches = Symbol()
+export const querySelector = Symbol()
+export const querySelectorAll = Symbol()
 
 type Doc = Document
 
