@@ -1,7 +1,8 @@
 export type IChildNode = globalThis.ChildNode
-export type ICSSStyleDeclaration = globalThis.CSSStyleDeclaration
 export type IComment = globalThis.Comment
+export type ICSSStyleDeclaration = globalThis.CSSStyleDeclaration
 export type IDocument = globalThis.Document
+export type IDOMRect = globalThis.DOMRect
 export type IElement = globalThis.Element
 export type INode = globalThis.Node
 export type INonDocumentTypeChildNode = globalThis.NonDocumentTypeChildNode
