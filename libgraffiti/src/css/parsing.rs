@@ -1,7 +1,7 @@
 // parsing utils
 
 // notes:
-// - we are using parser-combinators (for both tokenizing & parsing)
+// - we are using parser-combinators (with tokenizer)
 //   - see https://github.com/J-F-Liu/pom for reference
 //   - tokens are just &str, there are no other token types
 //   - it's probably a bit inefficient but very expressive (~350 lines)
@@ -58,14 +58,10 @@ pub fn alphanum_dash(b: u8) -> bool {
     alphanum(b) || b == b'-'
 }
 
-// not sure if this is a good idea but it's useful for tokenization
-// (hex is only consumed if it's after `#` but `#` is a separate token)
-pub fn prev<'a, I: Clone>(n: usize) -> pom::parser::Parser<'a, I, ()> {
-    pom::parser::Parser::new(move |_, position: usize| {
-        if position >= n {
-            Ok(((), position - n))
-        } else {
-            Err(pom::Error::Incomplete)
-        }
-    })
+pub fn decimal(b: u8) -> bool {
+    matches!(b, b'0'..=b'9' | b'.')
+}
+
+pub fn space(b: u8) -> bool {
+    matches!(b, b' ' | b'\n' | b'\t' | b'\r')
 }

@@ -29,8 +29,8 @@ use std::ffi::c_void;
 // for now we just re-export some skia primitives
 pub use skia_safe::{Color, Matrix, Point, Rect};
 
-pub trait Renderable: Send {
-    fn render(self, ctx: &mut RenderContext);
+pub trait Renderable {
+    fn render(&self, ctx: &mut RenderContext);
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -96,7 +96,7 @@ impl Renderer {
         Self { gr_ctx, surface, scale }
     }
 
-    pub fn render<'a>(&mut self, renderable: impl Renderable) {
+    pub fn render<'a>(&mut self, renderable: &impl Renderable) {
         let canvas = self.surface.canvas();
         canvas.restore_to_count(0);
         canvas.reset_matrix();

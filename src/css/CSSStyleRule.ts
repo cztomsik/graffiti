@@ -1,12 +1,12 @@
 import { CSSRule } from './CSSRule'
 import { CSSStyleDeclaration } from './CSSStyleDeclaration'
-import { native, getNativeId, register } from '../native'
+import { TODO } from '../util'
 
 export class CSSStyleRule extends CSSRule implements globalThis.CSSStyleRule {
-  #style = register(new CSSStyleDeclaration(this), native.gft_CssStyleRule_style(getNativeId(this)))
+  #style = new CSSStyleDeclaration(this)
 
   get selectorText() {
-    return native.gft_CssStyleRule_selector_text(getNativeId(this))
+    return TODO()
   }
 
   get style() {

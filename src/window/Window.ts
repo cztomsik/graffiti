@@ -10,7 +10,8 @@ import { send } from '../native'
 
 export const VIEWPORT_ID = Symbol()
 
-// note all props will leak to global scope
+// scope for scripts which are running in a window or <iframe> area
+// (public props here will be visible globally)
 export class Window extends EventTarget implements globalThis.Window {
   #document = new Document()
   #history = new History(this)

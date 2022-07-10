@@ -1,3 +1,8 @@
+// TODO: I'm not 100% sure about that weak-linkage in build.rs
+//       maybe we could rather provide nodejs package with deno-ffi api?
+//       or have a separate dylib built just for nodejs?
+//       and that could link statically/dynamically
+
 use std::os::raw::{c_int, c_uint, c_void};
 use std::ptr::{null, null_mut};
 

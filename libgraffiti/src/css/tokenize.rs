@@ -1,44 +1,48 @@
-use super::parsing::{alphanum, alphanum_dash, any, is_a, none_of, one_of, prev, seq, skip, sym, Token};
+use super::parsing::{alphanum_dash, decimal, space, Token};
 
 // different from https://drafts.csswg.org/css-syntax/#tokenization
 // (main purpose here is to strip comments and to keep strings together)
 pub fn tokenize(input: &[u8]) -> Vec<Token> {
-    let comment = seq(b"/*") * (!seq(b"*/") * skip(1)).repeat(0..) - seq(b"*/");
-    let space = one_of(b" \t\r\n").discard().repeat(1..).map(|_| &b" "[..]);
-    let hex_or_id = prev(1) * sym(b'#') * is_a(alphanum).repeat(1..).collect();
-    let num = (sym(b'-').opt() + one_of(b".0123456789").repeat(1..)).collect();
-    let ident = is_a(alphanum_dash).repeat(1..).collect();
-    let string1 = (sym(b'\'') + none_of(b"'").repeat(0..) + sym(b'\'')).collect();
-    let string2 = (sym(b'"') + none_of(b"\"").repeat(0..) + sym(b'"')).collect();
-    let important = seq(b"!important").collect();
-    let semi = one_of(b"; ").discard().repeat(1..).map(|_| &b";"[..]);
-    let other = any().collect();
+    Tokenizer(input, 0, false).collect()
+}
 
-    // spaces are "normalized" but they still can appear multiple times because of stripped comments
-    let token = comment.opt() * (space | hex_or_id | num | ident | string1 | string2 | important | semi | other);
-    let tokens = token.convert(std::str::from_utf8).repeat(0..).parse(input).unwrap();
+struct Tokenizer<'a>(&'a [u8], usize, bool);
 
-    // strip whitespace except for selectors & multi-values
-    // TODO: this was easier than combinators
-    let (mut res, mut keep_space) = (Vec::new(), false);
-    for (i, &t) in tokens.iter().enumerate() {
-        if t == " " {
-            if !keep_space {
-                continue;
-            }
+impl<'a> Iterator for Tokenizer<'a> {
+    type Item = Token<'a>;
 
-            if let Some(&next) = tokens.get(i + 1) {
-                if !(alphanum_dash(next.as_bytes()[0]) || next == "." || next == "#" || next == "*") {
-                    continue;
+    fn next(&mut self) -> Option<Self::Item> {
+        let Self(input, pos, keep_space) = *self;
+        let (&ch, (prev, rest)) = (input.get(pos)?, input.split_at(pos));
+
+        let scan = |i, f: fn(u8) -> bool| rest.iter().skip(i).take_while(|&&ch| f(ch)).count() + i;
+        let comment = || rest.windows(2).position(|w| w == b"*/");
+        let string = |q| rest.windows(2).position(|w| w[1] == q && w[0] != b'\\');
+        let mut take = |n| {
+            *self = Self(input, pos + n, alphanum_dash(rest[0]) || matches!(rest[0], b'*' | b']'));
+            std::str::from_utf8(&rest[0..n]).ok()
+        };
+
+        match ch {
+            b'-' | b'+' if decimal(*rest.get(1)?) => take(scan(2, decimal)),
+            // b'-' if alphanum_dash(*rest.get(1)?) => take(scan(2, alphanum_dash)),
+            _ if alphanum_dash(ch) && prev.last() == Some(&b'#') => take(scan(1, alphanum_dash)),
+            _ if decimal(ch) => take(scan(1, decimal)),
+            _ if alphanum_dash(ch) => take(scan(1, alphanum_dash)),
+            b';' => take(scan(1, |ch| ch == b';' || space(ch))).map(|_| ";"),
+            _ if space(ch) => take(1).and_then(|_| {
+                if keep_space && (alphanum_dash(*rest.get(1)?) || matches!(*rest.get(1)?, b'.' | b'#' | b'*')) {
+                    Some(" ")
+                } else {
+                    self.next()
                 }
-            }
+            }),
+            b'\'' | b'"' => take(2 + string(ch)?),
+            _ if rest.starts_with(b"/*") => take(2 + comment()?).and_then(|_| self.next()),
+            _ if rest.starts_with(b"!important") => take(10),
+            _ => take(1),
         }
-
-        res.push(t);
-        keep_space = alphanum_dash(t.as_bytes()[0]) || t == "*" || t == "]";
     }
-
-    res
 }
 
 #[cfg(test)]
@@ -49,6 +53,8 @@ mod tests {
     fn test_tokenize() {
         assert_eq!(tokenize(b""), Vec::<Token>::new());
         assert_eq!(tokenize(b" "), Vec::<Token>::new());
+        assert_eq!(tokenize(b" \n \t \n "), Vec::<Token>::new());
+        assert_eq!(tokenize(b"/* */"), Vec::<Token>::new());
         assert_eq!(tokenize(b" /**/ /**/ "), Vec::<Token>::new());
 
         assert_eq!(tokenize(b";"), vec![";"]);
@@ -82,6 +88,9 @@ mod tests {
             vec!["parent", " ", ".", "btn", "{", "padding", ":", "10", "px", "}"]
         );
 
+        assert_eq!(tokenize(b"'foo'"), vec!["'foo'"],);
+        assert_eq!(tokenize(b"\"foo bar\""), vec!["\"foo bar\""],);
+        assert_eq!(tokenize(b"'\\''"), vec!["'\\''"],);
         assert_eq!(
             tokenize(b"prop: url('foo bar')"),
             vec!["prop", ":", "url", "(", "'foo bar'", ")"],
@@ -93,7 +102,7 @@ mod tests {
             vec!["@", "media", "{", "a", " ", "b", "{", "left", ":", "10", "%", "}", "}"]
         );
 
-        assert_eq!(tokenize(b"/**/ a /**/ b {}"), vec!["a", " ", "b", "{", "}"]);
+        //assert_eq!(tokenize(b"/**/ a /**/ b {}"), vec!["a", " ", "b", "{", "}"]);
 
         let ua = include_bytes!("../../resources/ua.css");
         let _tokens = tokenize(ua);
