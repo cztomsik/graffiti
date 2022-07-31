@@ -8,12 +8,10 @@ import { requestAnimationFrame, cancelAnimationFrame } from './raf'
 import { NOOP, TODO, fetch } from '../util'
 import { send } from '../native'
 
-export const VIEWPORT_ID = Symbol()
-
 // scope for scripts which are running in a window or <iframe> area
 // (public props here will be visible globally)
 export class Window extends EventTarget implements globalThis.Window {
-  #document = new Document()
+  #document = new Document(this as any)
   #history = new History(this)
   #location = new Location(this.#history)
   #sessionStorage = globalThis.sessionStorage ?? new Storage()
@@ -49,8 +47,6 @@ export class Window extends EventTarget implements globalThis.Window {
 
   constructor() {
     super()
-
-    this[VIEWPORT_ID] = send({ CreateViewport: [[1024, 768], this.document[DOC_ID]] })
 
     Object.assign(this, globals)
   }
