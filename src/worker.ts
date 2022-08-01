@@ -39,7 +39,6 @@ class WorkerApi {
 
     // load html
     parseIntoDocument(document, await readURL(url))
-    Object.assign(document, { defaultView: window, URL: url })
 
     // load (once) remote styles
     await loadStyles()
@@ -49,6 +48,8 @@ class WorkerApi {
 
     // TODO: we should somehow detect changes and notify parent
     //       so the tick() can skip rendering untouched windows
+
+    window.dispatchEvent(new Event('load'))
   }
 
   handleEvent(event: any) {

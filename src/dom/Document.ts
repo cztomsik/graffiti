@@ -32,16 +32,17 @@ import {
 
 import { StyleSheetList } from '../css/StyleSheetList'
 import { UNSUPPORTED } from '../util'
+import { Window } from '../window/Window'
+import { IDocument } from '../types'
 
 import { Event } from '../events/Event'
 
-export class Document extends Node implements globalThis.Document {
+export class Document extends Node implements IDocument {
   readonly ownerDocument
-  readonly defaultView: (Window & typeof globalThis) | null = null
   readonly implementation = new DOMImplementation()
   readonly childNodes = new NodeList<ChildNode>()
 
-  constructor() {
+  constructor(public readonly defaultView: (Window & typeof globalThis) | null = null) {
     // TS defines Node.ownerDocument as nullable but redefines it on every subclass except Document
     super(null as any)
 
@@ -55,26 +56,26 @@ export class Document extends Node implements globalThis.Document {
 
     const WEAK_REFS = Symbol()
     this[WEAK_REFS] = new Map()
-    const lookup = id => (id && this[WEAK_REFS][id]?.deref()) ?? null
+    const lookup = id => (id && this[WEAK_REFS].get(id)?.deref()) ?? null
 
-    const NODE_ID = Symbol()
+    const ID = Symbol()
     const initNode = (node, id) => {
-      node[NODE_ID] = id
+      node[ID] = id
       this[WEAK_REFS].set(id, new WeakRef(node))
       // TODO: register for drop
     }
 
     this[initText] = (node, text) => initNode(node, sendDocMsg({ CreateTextNode: text }))
-    this[setText] = (node, text) => sendDocMsg({ SetText: [node[NODE_ID], text] })
+    this[setText] = (node, text) => sendDocMsg({ SetText: [node[ID], text] })
     this[initElement] = (el, localName) => initNode(el, sendDocMsg({ CreateElement: localName }))
-    this[setAttribute] = (el, k, v) => sendDocMsg({ SetAttribute: [el[NODE_ID], k, v] })
-    this[removeAttribute] = (el, k) => sendDocMsg({ RemoveAttribute: [el[NODE_ID], k] })
-    this[appendChild] = (parent, child) => sendDocMsg({ AppendChild: [parent[NODE_ID], child] })
-    this[insertBefore] = (parent, child, before) => sendDocMsg({ InsertBefore: [parent[NODE_ID], child, before] })
-    this[removeChild] = (parent, child) => sendDocMsg({ RemoveChild: [parent[NODE_ID], child] })
-    this[elementMatches] = (node, sel) => sendDocMsg({ ElementMatches: [node[NODE_ID], sel] })
-    this[querySelector] = (node, sel) => lookup(sendDocMsg({ QuerySelector: [node[NODE_ID], sel] }))
-    this[querySelectorAll] = (node, sel) => sendDocMsg({ QuerySelectorAll: [node[NODE_ID], sel] })?.map(lookup) ?? []
+    this[setAttribute] = (el, k, v) => sendDocMsg({ SetAttribute: [el[ID], k, v] })
+    this[removeAttribute] = (el, k) => sendDocMsg({ RemoveAttribute: [el[ID], k] })
+    this[appendChild] = (parent, child) => sendDocMsg({ AppendChild: [parent[ID], child[ID]] })
+    this[insertBefore] = (parent, child, before) => sendDocMsg({ InsertBefore: [parent[ID], child[ID], before[ID]] })
+    this[removeChild] = (parent, child) => sendDocMsg({ RemoveChild: [parent[ID], child[ID]] })
+    this[elementMatches] = (node, sel) => sendDocMsg({ ElementMatches: [node[ID], sel] })
+    this[querySelector] = (node, sel) => lookup(sendDocMsg({ QuerySelector: [node[ID], sel] }))
+    this[querySelectorAll] = (node, sel) => sendDocMsg({ QuerySelectorAll: [node[ID], sel] })?.map(lookup) ?? []
 
     initNode(this, 1)
   }

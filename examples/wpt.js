@@ -1,17 +1,11 @@
-import { App, AppWindow } from '../lib/index.js'
+import { app, AppWindow } from '../lib/index.js'
 
 console.log(`
   Note that this example requires some setup first:
   https://web-platform-tests.org/running-tests/from-local-system.html
-
-  - runs fine in deno 1.8.3 but it leaks memory ATM
-  - randomly fails in nodejs
 `)
 
-const app = await App.init()
-app.run()
-
-const runner = new AppWindow()
+const runner = new AppWindow('WPT runner')
 
 // TODO: find ../wpt | grep '\.html$' | grep '/dom/'
 const BASE = 'http://web-platform.test:8000'
@@ -349,11 +343,12 @@ for (const url of urls) {
   await runner.loadURL(url)
   await new Promise(resolve => setTimeout(resolve, 100))
 
-  const summary = await runner.eval(`document.querySelector("#summary")?.textContent`)
+  const summary = await runner.eval(`document.querySelector("#log > section")?.textContent`)
 
   if (summary?.match(/Fail/)) {
+    console.log(await runner.eval(`document.querySelector("#log")?.textContent`))
     console.log('failed, waiting')
-    //await new Promise(resolve => setTimeout(resolve, 5000))
+    await new Promise(resolve => setTimeout(resolve, 5000))
   }
 
   console.log(summary)
