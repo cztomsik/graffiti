@@ -37,57 +37,58 @@ pub const Renderer = struct {
         self.vg.deinit();
     }
 
-    pub fn render(self: *Self, document: *const Document) void {
+    pub fn render(self: *Self, document: *Document) void {
         self.vg.reset();
         self.vg.beginFrame(800, 600, 1.0);
         defer self.vg.endFrame();
 
         // layout-all
-        var layout_nodes = self.allocator.alloc(LayoutNode, document.nodes.items.len) catch @panic("oom");
+        var layout_nodes = self.allocator.alloc(LayoutNode, document.nodes.len) catch @panic("oom");
         defer self.allocator.free(layout_nodes);
-        for (layout_nodes) |*l, n| l.* = switch (document.node_type(n)) {
-            .element => .{ .style = document.element_style(n).*, .children = document.children(n) },
-            .text => .{ .style = .{ .display = .@"inline" }, .text = document.text(n) },
-            .document => .{ .style = .{}, .children = document.children(n) },
-        };
-        calculate(layout_nodes, Document.ROOT, .{ .width = 800, .height = 600 });
+        for (layout_nodes) |*l, n| {
+            const node = document.node(n);
 
-        var ctx = RenderContext{ .document = document, .layout_nodes = layout_nodes, .vg = &self.vg };
+            l.* = switch (node.node_type()) {
+                .element => .{ .style = node.element().style },
+                .text => .{ .style = .{ .display = .@"inline" }, .text = node.text() },
+                .document => .{ .style = .{} },
+            };
+
+            l.first_child = if (node.first_child) |ch| &layout_nodes[ch.id] else null;
+            l.next = if (node.next) |ne| &layout_nodes[ne.id] else null;
+        }
+        calculate(&layout_nodes[document.root.id], .{ .width = 800, .height = 600 });
+
+        var ctx = RenderContext{ .vg = &self.vg };
 
         // white bg
         ctx.fillShape(&.{ .rect = .{ .w = 800, .h = 600 } }, nvg.rgb(255, 255, 255));
 
-        ctx.renderNode(Document.ROOT);
+        // TODO: maybe we don't need document here anymore and we could render layout tree
+        ctx.renderNode(&layout_nodes[document.root.id]);
     }
 };
 
 const RenderContext = struct {
-    document: *const Document,
-    layout_nodes: []LayoutNode,
     vg: *nvg,
 
     const Self = @This();
 
-    fn renderNode(self: *Self, node: NodeId) void {
-        std.debug.print("renderNode {}\n", .{node});
-
-        const l = &self.layout_nodes[node].layout;
+    fn renderNode(self: *Self, node: *LayoutNode) void {
+        const l = &node.layout;
         var rect = Rect{ .x = l.pos.x, .y = l.pos.y, .w = l.size.width, .h = l.size.height };
 
-        switch (self.document.node_type(node)) {
-            .element => self.drawContainer(rect, self.document.element_style(node), self.document.children(node)),
-            .text => self.drawText(rect, self.document.text(node)),
-            .document => self.drawContainer(rect, &.{}, self.document.children(node)),
-        }
+        if (node.text) |t| self.drawText(rect, t) else self.drawContainer(rect, &node.style, node.first_child);
     }
 
-    fn drawContainer(self: *Self, rect: Rect, style: *const Style, children: []const NodeId) void {
+    fn drawContainer(self: *Self, rect: Rect, style: *const Style, first_child: ?*LayoutNode) void {
         // split open/close so we can skip invisibles AND we can also reduce stack usage per each recursion
         // TODO: @call(.{ .modifier = .never_inline }, ...)
         if (self.openContainer(rect, style)) {
             self.vg.translate(rect.x, rect.y);
 
-            for (children) |ch| {
+            var next = first_child;
+            while (next) |ch| : (next = ch.next) {
                 self.renderNode(ch);
             }
 
@@ -154,11 +155,12 @@ const RenderContext = struct {
     }
 
     fn drawBgColor(self: *Self, shape: *const Shape, color: Color) void {
-        std.debug.print("shape {any}", .{shape});
         self.fillShape(shape, color);
     }
 
     fn fillShape(self: *Self, shape: *const Shape, color: Color) void {
+        std.debug.print("shape {any}\n", .{shape});
+
         self.vg.beginPath();
 
         switch (shape.*) {

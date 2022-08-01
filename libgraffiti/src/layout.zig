@@ -7,15 +7,15 @@ pub const Size = struct { width: f32 = 0, height: f32 = 0 };
 pub const Layout = struct { pos: Pos = .{}, size: Size = .{} };
 
 // TODO: *const Style + *Layout pointing to a vec of results?
-pub const LayoutNode = struct { style: Style, text: ?[]const u8 = null, children: []const usize = &.{}, layout: Layout = .{} };
+pub const LayoutNode = struct { first_child: ?*LayoutNode = null, next: ?*LayoutNode = null, style: Style, text: ?[]const u8 = null, layout: Layout = .{} };
 
-pub fn calculate(nodes: []LayoutNode, node: usize, size: Size) void {
-    _ = (LayoutContext{ .nodes = nodes }).compute_node(node, size);
+pub fn calculate(node: *LayoutNode, avail_size: Size) void {
+    _ = (LayoutContext{ .avail_size = avail_size }).compute_node(node, avail_size);
 }
 
 const LayoutContext = struct {
     // TODO: vw, vh, ...
-    nodes: []LayoutNode,
+    avail_size: Size,
 
     const Self = @This();
 
@@ -26,9 +26,7 @@ const LayoutContext = struct {
         };
     }
 
-    fn compute_node(self: *Self, index: usize, parent_size: Size) Size {
-        var node = &self.nodes[index];
-
+    fn compute_node(self: *Self, node: *LayoutNode, parent_size: Size) Size {
         node.layout.size = .{ .width = self.resolve(node.style.width), .height = self.resolve(node.style.height) };
 
         switch (node.style.display) {
@@ -37,7 +35,7 @@ const LayoutContext = struct {
             else => {},
         }
 
-        std.debug.print("{} {} {d:.2} -> {d:.2}@{d:.2}\n", .{ index, node.style.display, parent_size.width, node.layout.size.width, node.layout.size.height });
+        std.debug.print("{*} {} {d:.2} -> {d:.2}@{d:.2}\n", .{ node, node.style.display, parent_size.width, node.layout.size.width, node.layout.size.height });
 
         return node.layout.size;
     }
@@ -55,13 +53,14 @@ const LayoutContext = struct {
             .height = @maximum(0, parent_size.height - self.resolve(node.style.padding_top) - self.resolve(node.style.padding_bottom)),
         };
 
-        for (node.children) |ch| {
+        var next = node.first_child;
+        while (next) |ch| : (next = ch.next) {
             _ = self.compute_node(ch, avail_inner);
 
-            self.nodes[ch].layout.pos = .{ .x = self.resolve(node.style.padding_left), .y = y };
+            ch.layout.pos = .{ .x = self.resolve(node.style.padding_left), .y = y };
 
-            content_height += self.nodes[ch].layout.size.height;
-            y += self.nodes[ch].layout.size.height;
+            content_height += ch.layout.size.height;
+            y += ch.layout.size.height;
         }
 
         if (std.math.isNan(node.layout.size.width)) {
