@@ -33,21 +33,20 @@ pub fn build(b: *std.build.Builder) void {
     test_step.dependOn(&exe_tests.step);
 }
 
-// TODO: unfortunately it doesn't work for linux cross-compilation because
-//       glfw3.h is then trying to find GL/gl.h which doesn't exists on macos
-//       (-Dtarget=arm-linux-gnueabi)
+// TODO: unfortunately it doesn't work for linux cross-compilation (-Dtarget=arm-linux-gnueabi)
+//       (LLD Link... ld.lld: error: unable to find library -lglfw)
 fn add_glfw(exe: anytype) void {
     switch (exe.target.getOsTag()) {
         .macos => {
-            exe.addIncludeDir("graffiti-glfw/glfw/include");
+            exe.addIncludeDir("glfw/include");
 
             exe.addCSourceFiles(&.{
-                "graffiti-glfw/glfw/src/context.c",
-                "graffiti-glfw/glfw/src/init.c",
-                "graffiti-glfw/glfw/src/input.c",
-                "graffiti-glfw/glfw/src/monitor.c",
-                "graffiti-glfw/glfw/src/vulkan.c",
-                "graffiti-glfw/glfw/src/window.c",
+                "glfw/src/context.c",
+                "glfw/src/init.c",
+                "glfw/src/input.c",
+                "glfw/src/monitor.c",
+                "glfw/src/vulkan.c",
+                "glfw/src/window.c",
             }, &[_][]const u8{});
 
             exe.defineCMacro("_GLFW_COCOA", "1");
@@ -55,20 +54,21 @@ fn add_glfw(exe: anytype) void {
             exe.linkFramework("IOKit");
             //exe.linkFramework("OpenGL");
             exe.addCSourceFiles(&.{
-                "graffiti-glfw/glfw/src/cocoa_init.m",
-                "graffiti-glfw/glfw/src/cocoa_joystick.m",
-                "graffiti-glfw/glfw/src/cocoa_monitor.m",
-                "graffiti-glfw/glfw/src/cocoa_window.m",
-                "graffiti-glfw/glfw/src/cocoa_time.c",
-                "graffiti-glfw/glfw/src/posix_thread.c",
-                "graffiti-glfw/glfw/src/nsgl_context.m",
-                "graffiti-glfw/glfw/src/egl_context.c",
-                "graffiti-glfw/glfw/src/osmesa_context.c",
+                "glfw/src/cocoa_init.m",
+                "glfw/src/cocoa_joystick.m",
+                "glfw/src/cocoa_monitor.m",
+                "glfw/src/cocoa_window.m",
+                "glfw/src/cocoa_time.c",
+                "glfw/src/posix_thread.c",
+                "glfw/src/nsgl_context.m",
+                "glfw/src/egl_context.c",
+                "glfw/src/osmesa_context.c",
             }, &[_][]const u8{});
         },
         else => {
+            exe.defineCMacro("GLFW_INCLUDE_NONE", "1");
             exe.linkSystemLibrary("glfw3");
-            exe.linkSystemLibrary("GL");
+            // exe.linkSystemLibrary("GL");
         },
     }
 }
