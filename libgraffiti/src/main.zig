@@ -36,6 +36,9 @@ pub fn main() anyerror!void {
 fn createSampleDoc() !Document {
     var doc = try Document.init(allocator);
 
+    const html = try doc.createElement("html");
+    doc.root.appendChild(html);
+
     const body = try doc.createElement("body");
     body.element().style = .{
         .padding_top = .{ .px = 20 },
@@ -54,11 +57,24 @@ fn createSampleDoc() !Document {
         .border_radius = .{ 9, 9, 9, 9 },
     };
 
+    const btn = try doc.createElement("button");
+    btn.element().style = .{
+        .background_color = nvg.rgb(0, 0, 255),
+        .border_radius = .{ 9, 9, 9, 9 },
+    };
+    btn.appendChild(try doc.createTextNode("Click me"));
+
     div.appendChild(try doc.createTextNode("Hello"));
     div.appendChild(try doc.createTextNode("World"));
     div.appendChild(try doc.createTextNode("!"));
+    div.appendChild(btn);
 
     return doc;
 }
 
 extern fn gladLoadGL() callconv(.C) c_int;
+
+test {
+    // _ = @import("css/parser.zig");
+    _ = @import("css/tokenizer.zig");
+}
