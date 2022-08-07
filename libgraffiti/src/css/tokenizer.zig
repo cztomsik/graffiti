@@ -8,14 +8,13 @@ pub const Token = struct {
     end: usize,
 
     pub const Tag = enum {
+        comment,
         ident,
-        // TODO: function,
+        function,
         // TODO: at_keyword,
         hash,
         string,
-        // TODO: bad_string,
-        // TODO: url,
-        // TODO: bad_url,
+        // TODO: bad_string, url, bad_url,
 
         // # + - . < @ \ <really anything else?>
         delim,
@@ -25,17 +24,17 @@ pub const Token = struct {
         percentage,
         dimension,
 
-        whitespace,
+        space,
         // TODO: CDO, CDC,
         colon,
-        semicolon,
+        semi,
         comma,
-        left_square,
-        right_square,
-        left_paren,
-        right_paren,
-        left_curly,
-        right_curly,
+        lsquare,
+        rsquare,
+        lparen,
+        rparen,
+        lcurly,
+        rcurly,
     };
 };
 
@@ -57,21 +56,21 @@ pub const Tokenizer = struct {
         const tag: Token.Tag = switch (ch) {
             '\'', '"' => .string,
             '#' => .hash, // TODO: hash_num/hash_id
-            '(' => .left_paren,
-            ')' => .right_paren,
+            '(' => .lparen,
+            ')' => .rparen,
             '+' => @panic("TODO"),
             ',' => .comma,
             '-' => @panic("TODO"),
             '.' => @panic("TODO"),
             ':' => .colon,
-            ';' => .semicolon,
+            ';' => .semi,
             '<' => .delim,
             '@' => .delim,
-            '[' => .left_square,
+            '[' => .lsquare,
             '\\' => .delim,
-            ']' => .right_square,
-            '{' => .left_curly,
-            '}' => .right_curly,
+            ']' => .rsquare,
+            '{' => .lcurly,
+            '}' => .rcurly,
             '0'...'9' => .number,
             'a'...'z', 'A'...'Z', '_' => .ident,
             else => .delim,
@@ -103,9 +102,56 @@ fn expectTokens(input: []const u8, tokens: []const Token.Tag) !void {
 
 test {
     try expectTokens("", &.{});
-    try expectTokens(";", &.{.semicolon});
-    try expectTokens("()", &.{ .left_paren, .right_paren });
-    try expectTokens("[]", &.{ .left_square, .right_square });
-    try expectTokens("{}", &.{ .left_curly, .right_curly });
-    try expectTokens("foo", &.{.ident});
+    try expectTokens(" ", &.{.space});
+    try expectTokens(" \n \t \n ", &.{.space});
+
+    try expectTokens("/* */", &.{.comment});
+    try expectTokens(" /**/ /**/ ", &.{ .space, .comment, .space, .comment, .space });
+
+    try expectTokens(";", &.{.semi});
+    try expectTokens(";;", &.{ .semi, .semi });
+    try expectTokens("; ;", &.{ .semi, .space, .semi });
+
+    try expectTokens("()[]{}", &.{ .lparen, .rparen, .lsquare, .rsquare, .lcurly, .rcurly });
+
+    try expectTokens("block", &.{.ident});
+    try expectTokens("10px", &.{.dimension});
+    try expectTokens("-10px", &.{.dimension});
+    try expectTokens("ident2", &.{.ident});
+
+    try expectTokens("ff0", &.{.ident});
+    try expectTokens("00f", &.{.dimension});
+    try expectTokens("#00f", &.{.hash});
+
+    try expectTokens("0 10px", &.{ .number, .space, .dimension });
+    try expectTokens("0 0 10px 0", &.{ .number, .space, .number, .space, .dimension, .space, .number });
+
+    try expectTokens("a b", &.{ .ident, .space, .ident });
+    try expectTokens(".a .b", &.{ .delim, .ident, .space, .delim, .ident });
+    try expectTokens(" a .b #c *", &.{ .space, .ident, .space, .delim, .ident, .space, .hash, .space, .delim });
+
+    try expectTokens("!important", &.{ .delim, .ident });
+    try expectTokens("! important", &.{ .delim, .space, .ident });
+
+    try expectTokens("-webkit-xxx", &.{.ident});
+    try expectTokens("--var", &.{.ident});
+
+    try expectTokens(
+        "parent .btn { /**/ padding: 10px }",
+        &.{ .ident, .space, .delim, .ident, .space, .lcurly, .space, .comment, .space, .ident, .colon, .space, .dimension, .space, .rcurly },
+    );
+
+    try expectTokens("'foo'", &.{.string});
+    try expectTokens("\"foo bar\"", &.{.string});
+    try expectTokens("'\\''", &.{.string});
+    try expectTokens("prop: url('foo bar')", &.{ .ident, .colon, .space, .function, .string, .rparen });
+
+    // assert_eq!(tokenize(b"[foo=\"bar\"]"), vec!["[", "foo", "=", "\"bar\"", "]"]);
+
+    // assert_eq!(
+    //     tokenize(b"@media { a b { left: 10% } }"),
+    //     vec!["@", "media", "{", "a", " ", "b", "{", "left", ":", "10", "%", "}", "}"]
+    // );
+
+    // //assert_eq!(tokenize(b"/**/ a /**/ b {}"), vec!["a", " ", "b", "{", "}"]);
 }
