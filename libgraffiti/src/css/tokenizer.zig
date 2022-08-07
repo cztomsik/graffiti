@@ -78,7 +78,8 @@ pub const Tokenizer = struct {
         };
 
         const end = switch (tag) {
-            .ident => @panic("TODO"),
+            // TODO: find end properly
+            .ident => self.input.len - self.pos,
             else => start + 1,
         };
 
@@ -106,4 +107,5 @@ test {
     try expectTokens("()", &.{ .left_paren, .right_paren });
     try expectTokens("[]", &.{ .left_square, .right_square });
     try expectTokens("{}", &.{ .left_curly, .right_curly });
+    try expectTokens("foo", &.{.ident});
 }
