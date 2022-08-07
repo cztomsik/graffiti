@@ -35,7 +35,7 @@ const LayoutContext = struct {
             else => {},
         }
 
-        std.debug.print("{*} {} {d:.2} -> {d:.2}@{d:.2}\n", .{ node, node.style.display, parent_size.width, node.layout.size.width, node.layout.size.height });
+        // std.debug.print("{*} {} {d:.2} -> {d:.2}@{d:.2}\n", .{ node, node.style.display, parent_size.width, node.layout.size.width, node.layout.size.height });
 
         return node.layout.size;
     }

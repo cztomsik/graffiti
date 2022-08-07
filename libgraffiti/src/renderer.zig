@@ -37,9 +37,9 @@ pub const Renderer = struct {
         self.vg.deinit();
     }
 
-    pub fn render(self: *Self, document: *Document) void {
+    pub fn render(self: *Self, document: *Document, w: f32, h: f32) void {
         self.vg.reset();
-        self.vg.beginFrame(800, 600, 1.0);
+        self.vg.beginFrame(w, h, 1.0);
         defer self.vg.endFrame();
 
         // layout-all
@@ -48,7 +48,7 @@ pub const Renderer = struct {
         for (layout_nodes) |*l, n| {
             const node = document.node(n);
 
-            l.* = switch (node.node_type()) {
+            l.* = switch (node.nodeType()) {
                 .element => .{ .style = node.element().style },
                 .text => .{ .style = .{ .display = .@"inline" }, .text = node.text() },
                 .document => .{ .style = .{} },
@@ -57,12 +57,13 @@ pub const Renderer = struct {
             l.first_child = if (node.first_child) |ch| &layout_nodes[ch.id] else null;
             l.next = if (node.next) |ne| &layout_nodes[ne.id] else null;
         }
-        calculate(&layout_nodes[document.root.id], .{ .width = 800, .height = 600 });
+        calculate(&layout_nodes[document.root.id], .{ .width = w, .height = h });
 
         var ctx = RenderContext{ .vg = &self.vg };
 
         // white bg
-        ctx.fillShape(&.{ .rect = .{ .w = 800, .h = 600 } }, nvg.rgb(255, 255, 255));
+        // TODO: https://github.com/ziglang/zig/issues/12142#issuecomment-1204416869
+        ctx.fillShape(&Shape{ .rect = .{ .w = w, .h = h } }, nvg.rgb(255, 255, 255));
 
         // TODO: maybe we don't need document here anymore and we could render layout tree
         ctx.renderNode(&layout_nodes[document.root.id]);
@@ -159,7 +160,7 @@ const RenderContext = struct {
     }
 
     fn fillShape(self: *Self, shape: *const Shape, color: Color) void {
-        std.debug.print("shape {any}\n", .{shape});
+        // std.debug.print("shape {any}\n", .{shape});
 
         self.vg.beginPath();
 

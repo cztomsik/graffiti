@@ -3,11 +3,13 @@ const nvg = @import("nanovg");
 const c = @import("c.zig");
 const Document = @import("document.zig").Document;
 const Renderer = @import("renderer.zig").Renderer;
-
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-const allocator = gpa.allocator();
+const css = @import("css.zig");
 
 pub fn main() anyerror!void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    // defer if (gpa.deinit()) @panic("mem leak");
+
     if (c.glfwInit() == 0) return error.GlfwInitFailed;
     defer c.glfwTerminate();
 
@@ -21,19 +23,24 @@ pub fn main() anyerror!void {
 
     _ = gladLoadGL();
 
-    var renderer = try Renderer.init(allocator);
-    var doc = try createSampleDoc();
+    var doc = try createSampleDoc(allocator);
     defer doc.deinit();
+
+    var renderer = try Renderer.init(allocator);
+    defer renderer.deinit();
 
     while (c.glfwWindowShouldClose(window) == 0) {
         c.glfwWaitEvents();
 
-        renderer.render(&doc);
+        var w: i32 = undefined;
+        var h: i32 = undefined;
+        c.glfwGetWindowSize(window, &w, &h);
+        renderer.render(&doc, @intToFloat(f32, w), @intToFloat(f32, h));
         c.glfwSwapBuffers(window);
     }
 }
 
-fn createSampleDoc() !Document {
+fn createSampleDoc(allocator: std.mem.Allocator) !Document {
     var doc = try Document.init(allocator);
 
     const html = try doc.createElement("html");
@@ -75,6 +82,6 @@ fn createSampleDoc() !Document {
 extern fn gladLoadGL() callconv(.C) c_int;
 
 test {
-    // _ = @import("css/parser.zig");
     _ = @import("css/tokenizer.zig");
+    _ = @import("css/parser.zig");
 }

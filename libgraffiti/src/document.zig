@@ -8,12 +8,14 @@ const NodeType = enum(u32) { element = 1, text = 3, document = 9 };
 const Node = struct {
     id: NodeId,
     data: NodeData,
+
+    parent: ?*Node = null,
     first_child: ?*Node = null,
     next: ?*Node = null,
 
     const Self = @This();
 
-    pub fn node_type(self: *Self) NodeType {
+    pub fn nodeType(self: *Self) NodeType {
         return self.data;
     }
 
@@ -35,7 +37,9 @@ const Node = struct {
     //     return self.nodes.items[node].children.items;
     // }
 
-    pub fn appendChild(self: *Node, child: *Node) void {
+    pub fn appendChild(self: *Self, child: *Self) void {
+        // TODO: assert self.data != .text and child.parent == null
+
         if (self.first_child) |first| {
             var last = first;
             while (last.next) |n| last = n;
@@ -44,10 +48,16 @@ const Node = struct {
         } else {
             self.first_child = child;
         }
+
+        child.parent = self;
     }
 };
 
-const NodeData = union(NodeType) { document, text: []const u8, element: Element };
+const NodeData = union(NodeType) {
+    document,
+    text: []const u8,
+    element: Element,
+};
 
 const Element = struct {
     local_name: []const u8,

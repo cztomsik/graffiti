@@ -20,9 +20,20 @@ pub const Parser = struct {
         };
     }
 
+    // pub fn parseStyleSheet(self: *Self) !StyleSheet {}
+    // pub fn parseStyleRule(self: *Self) !StyleRule {}
+    // pub fn parseSelector(self: *Self) !Selector {}
     // pub fn parseStyle(self: *Self) !Style {}
 
-    pub fn parseEnum(self: *Self, comptime T: type) T {
+    fn parseValue(comptime T: type) T {
+        switch (@typeInfo(T)) {
+            .Enum => parseEnum(T),
+            // TODO .Struct + inline for
+            else => @compileError("unknown value type"),
+        }
+    }
+
+    fn parseEnum(self: *Self, comptime T: type) T {
         const tok = self.tokenizer.next();
 
         if (tok.tag == .ident) {
