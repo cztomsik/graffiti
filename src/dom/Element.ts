@@ -3,12 +3,14 @@ import { IElement } from '../types'
 import { parseFragment } from './DOMParser'
 import { CSSStyleDeclaration } from '../css/CSSStyleDeclaration'
 import { DOMTokenList } from './DOMTokenList'
-import { SEND, NODE_ID, registerElement } from './Document'
+import { initElement, setAttribute, removeAttribute, elementMatches } from './Document'
+import { DOMRect } from './DOMRect'
+import { getBoundingClientRect } from '../window/Window'
 
 export abstract class Element extends Node implements IElement {
   readonly childNodes = new NodeList<ChildNode>()
   #localName: string
-  #attributes = {}
+  #attributes = new Map<string, string>()
 
   // both lazy-created
   #classList?: DOMTokenList
@@ -19,8 +21,7 @@ export abstract class Element extends Node implements IElement {
 
     this.#localName = localName
 
-    this[NODE_ID] = this.ownerDocument[SEND]({ CreateElement: localName })
-    registerElement(this.ownerDocument, this[NODE_ID], this)
+    doc[initElement](this, localName)
   }
 
   get nodeType() {
@@ -54,7 +55,7 @@ export abstract class Element extends Node implements IElement {
   }
 
   getAttribute(name: string): string | null {
-    return this.#attributes[name] ?? null
+    return this.#attributes.get(name) ?? null
   }
 
   getAttributeNames(): string[] {
@@ -70,20 +71,23 @@ export abstract class Element extends Node implements IElement {
   }
 
   setAttribute(name: string, value: string) {
-    this.#attributes[name] = value = typeof value === 'string' ? value : '' + value
+    value = typeof value === 'string' ? value : '' + value
+
+    this.#attributes.set(name, value)
 
     // TODO: not 100% sure yet
     if (name === 'style') {
-      return this.ownerDocument[SEND]({ SetStyle: [this[NODE_ID], this.#attributes[name]] })
+      this.style.cssText = value
+      return
     }
 
-    this.ownerDocument[SEND]({ SetAttribute: [this[NODE_ID], name, value] })
+    this.ownerDocument[setAttribute](this, name, value)
   }
 
   removeAttribute(name: string) {
-    delete this.#attributes[name]
+    this.#attributes.delete(name)
 
-    this.ownerDocument[SEND]({ RemoveAttribute: [this[NODE_ID], name] })
+    this.ownerDocument[removeAttribute](this, name)
   }
 
   toggleAttribute(name: string, force?: boolean): boolean {
@@ -150,8 +154,7 @@ export abstract class Element extends Node implements IElement {
   }
 
   matches(selector: string): boolean {
-    // TODO
-    // return this.ownerDocument[SEND]({ ElementMatches: [this[NODE_ID], selector] })
+    return this.ownerDocument[elementMatches](this, selector)
   }
 
   closest(selector: string) {
@@ -162,10 +165,15 @@ export abstract class Element extends Node implements IElement {
     return this.#classList ?? (this.#classList = new DOMTokenList(this, 'className'))
   }
 
+  getBoundingClientRect(): DOMRect {
+    const { x, y, width, height } = this.ownerDocument.defaultView?.[getBoundingClientRect](this) ?? {}
+
+    return new DOMRect()
+  }
+
   // later
   scrollLeft
   scrollTop
-  getBoundingClientRect
 
   // maybe later
   animate

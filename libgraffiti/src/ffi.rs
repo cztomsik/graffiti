@@ -7,9 +7,11 @@
 // - there is only one unsafe fn which has to be checked
 // - there is some overhead but it's fast enough even with JSON ser/de/ser/de
 
-use crate::{App, Document, NodeId, Viewport, WindowId};
+use crate::{App, Document, NodeId, Viewport, Window};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, RwLock};
 use std::{cell::RefCell, io::Write, slice, str};
@@ -18,13 +20,15 @@ thread_local! {
     static STATE: RefCell<(State, LastRes)> = Default::default();
 }
 
+pub type WindowId = u32;
 pub type ViewportId = u32;
 pub type DocumentId = u32;
 
 #[derive(Debug, Default)]
 struct State {
-    app: Option<App>,
-    viewports: HashMap<ViewportId, Arc<RwLock<Viewport>>>,
+    app: Option<Rc<App>>,
+    windows: HashMap<WindowId, Window>,
+    viewports: HashMap<ViewportId, Viewport>,
     documents: HashMap<DocumentId, Arc<RwLock<Document>>>,
 }
 
@@ -38,10 +42,10 @@ enum ApiMsg<'a> {
     WindowMsg(WindowId, WindowMsg),
 
     CreateViewport((f32, f32), DocumentId),
-    ViewportMsg(ViewportId, ViewportMsg),
+    ViewportMsg(ViewportId, #[serde(borrow)] ViewportMsg<'a>),
 
     CreateDocument,
-    DocumentMsg(DocumentId, DocumentMsg<'a>),
+    DocumentMsg(DocumentId, #[serde(borrow)] DocumentMsg<'a>),
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,14 +73,15 @@ enum WindowMsg {
 }
 
 #[derive(Debug, Deserialize)]
-enum ViewportMsg {
+enum ViewportMsg<'a> {
     // TODO: GetRect, GetElementAt, Scroll, ...
+    DocumentMsg(#[serde(borrow)] DocumentMsg<'a>),
 }
 
 #[derive(Debug, Deserialize)]
 enum DocumentMsg<'a> {
     CreateElement(&'a str),
-    SetAttribute(NodeId, &'a str, &'a str),
+    SetAttribute(NodeId, &'a str, #[serde(borrow)] Cow<'a, str>),
     RemoveAttribute(NodeId, &'a str),
     // TODO: is this right? or { UpdateStyle: { SetCssText: text } }?
     SetStyle(NodeId, &'a str),
@@ -89,8 +94,8 @@ enum DocumentMsg<'a> {
     QuerySelectorAll(NodeId, &'a str),
 
     // TODO: switch to bincode https://github.com/serde-rs/serde/issues/1413#issuecomment-494892266
-    CreateTextNode(String),
-    SetText(NodeId, String),
+    CreateTextNode(#[serde(borrow)] Cow<'a, str>),
+    SetText(NodeId, #[serde(borrow)] Cow<'a, str>),
 
     DropNode(NodeId),
 }
@@ -122,68 +127,84 @@ impl State {
     fn handle_msg(&mut self, msg: ApiMsg, last_res: &mut LastRes) {
         match msg {
             ApiMsg::Init => self.app = Some(App::init()),
-            ApiMsg::Tick => self.app.as_mut().unwrap().tick(),
+            ApiMsg::Tick => self.app.as_ref().unwrap().wait_events_timeout(0.1),
             ApiMsg::WakeUp => App::wake_up(),
 
-            ApiMsg::CreateDocument => last_res.replace(insert(&mut self.documents, Default::default())),
-            ApiMsg::DocumentMsg(id, msg) => {
-                let mut doc = self.documents.get_mut(&id).unwrap().write().unwrap();
-
-                match msg {
-                    DocumentMsg::CreateElement(local_name) => last_res.replace(doc.create_element(local_name)),
-                    DocumentMsg::SetAttribute(el, att, val) => doc.set_attribute(el, att, val),
-                    DocumentMsg::RemoveAttribute(el, att) => doc.remove_attribute(el, att),
-                    DocumentMsg::SetStyle(el, style) => doc.set_style(el, style),
-                    DocumentMsg::AppendChild(parent, child) => doc.append_child(parent, child),
-                    DocumentMsg::InsertBefore(parent, child, before) => doc.insert_before(parent, child, before),
-                    DocumentMsg::RemoveChild(parent, child) => doc.remove_child(parent, child),
-                    DocumentMsg::QuerySelector(node, selector) => last_res.replace(doc.query_selector(node, selector)),
-                    DocumentMsg::QuerySelectorAll(node, selector) => {
-                        last_res.replace(doc.query_selector_all(node, selector).collect::<Vec<_>>())
-                    }
-                    DocumentMsg::CreateTextNode(ref text) => last_res.replace(doc.create_text_node(text)),
-                    DocumentMsg::SetText(node, ref text) => doc.set_text(node, text),
-                    DocumentMsg::DropNode(node) => doc.drop_node(node),
-                }
-            }
-
             ApiMsg::CreateViewport(size, doc) => {
-                last_res.replace(insert(
-                    &mut self.viewports,
-                    Arc::new(RwLock::new(Viewport::new(size, self.documents.get(&doc).unwrap()))),
-                ));
+                todo!()
+                // last_res.replace(insert(
+                //     &mut self.viewports,
+                //     Arc::new(RwLock::new(Viewport::new(size, self.documents.get(&doc).unwrap()))),
+                // ));
             }
             ApiMsg::ViewportMsg(id, msg) => {
-                // let mut vp = self.viewports.get_mut(&id).unwrap().write().unwrap();
-                // todo!()
+                let mut vp = self.viewports.get_mut(&id).unwrap();
+
+                match msg {
+                    ViewportMsg::DocumentMsg(msg) => {
+                        let mut doc = self.documents.get_mut(&id).unwrap().write().unwrap();
+
+                        match msg {
+                            DocumentMsg::CreateElement(local_name) => last_res.replace(doc.create_element(local_name)),
+                            DocumentMsg::SetAttribute(el, att, ref val) => doc.set_attribute(el, att, val),
+                            DocumentMsg::RemoveAttribute(el, att) => doc.remove_attribute(el, att),
+                            DocumentMsg::SetStyle(el, style) => doc.set_style(el, style),
+                            DocumentMsg::AppendChild(parent, child) => doc.append_child(parent, child),
+                            DocumentMsg::InsertBefore(parent, child, before) => {
+                                doc.insert_before(parent, child, before)
+                            }
+                            DocumentMsg::RemoveChild(parent, child) => doc.remove_child(parent, child),
+                            DocumentMsg::QuerySelector(node, selector) => {
+                                last_res.replace(doc.query_selector(node, selector))
+                            }
+                            DocumentMsg::QuerySelectorAll(node, selector) => {
+                                last_res.replace(doc.query_selector_all(node, selector).collect::<Vec<_>>())
+                            }
+                            DocumentMsg::CreateTextNode(ref text) => last_res.replace(doc.create_text_node(text)),
+                            DocumentMsg::SetText(node, ref text) => doc.set_text(node, text),
+                            DocumentMsg::DropNode(node) => doc.drop_node(node),
+                        }
+                    }
+                }
             }
 
             ApiMsg::CreateWindow(title, width, height) => {
-                last_res.replace(self.app.as_mut().unwrap().create_window(title, width, height));
+                last_res.replace(insert(
+                    &mut self.windows,
+                    self.app.as_mut().unwrap().create_window(title, width, height),
+                ));
             }
-            ApiMsg::WindowMsg(id, msg) => match msg {
-                WindowMsg::SetContent(Some(vp)) => {
-                    let vp = Arc::clone(&self.viewports[&vp]);
+            ApiMsg::WindowMsg(id, msg) => {
+                let win = self.windows.get_mut(&id).unwrap();
 
-                    App::push_task(move |app| {
-                        app.window_mut(id).set_content(Some(vp));
-                    })
+                match msg {
+                    WindowMsg::SetContent(_) => todo!(),
+                    WindowMsg::GetTitle => todo!(),
+                    WindowMsg::SetTitle => todo!(),
+                    WindowMsg::GetSize => todo!(),
+                    WindowMsg::SetSize => todo!(),
+                    WindowMsg::IsResizable => todo!(),
+                    WindowMsg::SetResizable => todo!(),
+                    WindowMsg::Opacity => todo!(),
+                    WindowMsg::SetOpacity => todo!(),
+                    WindowMsg::IsVisible => todo!(),
+                    WindowMsg::Show => win.show(),
+                    WindowMsg::Hide => win.hide(),
+                    WindowMsg::IsFocused => todo!(),
+                    WindowMsg::Focus => win.focus(),
+                    WindowMsg::IsMinimized => todo!(),
+                    WindowMsg::Minimize => win.minimize(),
+                    WindowMsg::IsMaximized => todo!(),
+                    WindowMsg::Maximize => win.maximize(),
+                    WindowMsg::Restore => win.restore(),
+                    WindowMsg::RequestAttention => win.request_attention(),
                 }
-                _ => {}
-            },
+            }
+
+            ApiMsg::CreateDocument => todo!(),
+            ApiMsg::DocumentMsg(_, _) => todo!(),
         }
     }
-
-    // TODO: will be useful for App/Win messages
-    // fn await_task<T: Send + 'static>(&mut self, task: impl FnOnce(&mut App) -> T + 'static + Send) -> T {
-    //     if let Some(app) = &mut self.app {
-    //         task(app)
-    //     } else {
-    //         let (tx, rx) = channel();
-    //         App::push_task(move |app| tx.send(task(app)).unwrap());
-    //         rx.recv().unwrap()
-    //     }
-    // }
 }
 
 #[derive(Debug, Default)]
@@ -208,11 +229,3 @@ fn next_id() -> u32 {
 
     NEXT_ID.fetch_add(1, Ordering::Relaxed)
 }
-
-// // fn gft_Window_next_event(win: u32, event_dest: *mut Event) -> bool {
-// //     if let Ok(event) = WINDOWS.with(|wins| wins.borrow_mut()[&win].events().try_recv() {)
-// //         *event_dest = event;
-// //         return true;
-// //     }
-// //     false
-// // }

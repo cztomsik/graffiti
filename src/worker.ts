@@ -1,10 +1,10 @@
 // internal (this is the "main script" of each window)
 // we need workers because each window needs separate scope
 
-import { Window, makeGlobal, VIEWPORT_ID } from './window/Window'
+import { Window, makeGlobal } from './window/Window'
 import { parseIntoDocument } from './dom/DOMParser'
 import { readURL } from './util'
-// import { loadStyles } from './dom/HTMLLinkElement'
+import { loadStyles } from './dom/HTMLLinkElement'
 import { runScripts } from './dom/HTMLScriptElement'
 import { send } from './native'
 
@@ -31,28 +31,29 @@ function init({ data: port }) {
 }
 
 class WorkerApi {
-  async run(windowId, url) {
-    console.log('run', windowId, url)
-
+  async run(url) {
     // setup env
     const { window, document } = new Window()
     document.URL = url
     makeGlobal(window)
 
-    send({ WindowMsg: [windowId, { SetContent: window[VIEWPORT_ID] }] })
-
     // load html
     parseIntoDocument(document, await readURL(url))
-    Object.assign(document, { defaultView: window, URL: url })
 
     // load (once) remote styles
-    // await loadStyles()
+    await loadStyles()
 
     // run (once) all the scripts
     await runScripts()
 
     // TODO: we should somehow detect changes and notify parent
     //       so the tick() can skip rendering untouched windows
+
+    window.dispatchEvent(new Event('load'))
+  }
+
+  handleEvent(event: any) {
+    console.log('event', event)
   }
 
   async eval(code) {

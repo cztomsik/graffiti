@@ -1,23 +1,17 @@
 use crate::{
     convert::{container_style, layout_style},
-    css::{MatchingContext, Style, StyleResolver, StyleRule, StyleSheet},
+    css::{Style, StyleResolver, StyleSheet},
     document::NodeEdge,
     layout::{self, LayoutEngine, LayoutResult, LayoutStyle, LayoutTree, Size},
     renderer::{ContainerStyle, Rect, RenderContext, Renderable},
     Document, NodeId, NodeType,
 };
-#[cfg(feature = "windowing")]
-use crate::{Event, EventHandler};
 use once_cell::sync::Lazy;
 use skia_safe::{
     textlayout::{FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextStyle},
     FontMgr, Paint,
 };
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 // TODO: wrap Paragraph somehow because it is not Sync
 unsafe impl Sync for Viewport {}
@@ -28,11 +22,8 @@ unsafe impl Sync for Viewport {}
 #[derive(Debug)]
 pub struct Viewport {
     size: (f32, f32),
-    document: Arc<RwLock<Document>>,
-    state: ViewState,
-
-    #[cfg(feature = "windowing")]
-    event_handler: Box<dyn EventHandler>,
+    document: Rc<RefCell<Document>>,
+    state: RefCell<ViewState>,
 }
 
 // needs to be updated before using
@@ -45,14 +36,11 @@ struct ViewState {
 }
 
 impl Viewport {
-    pub fn new(size: (f32, f32), document: &Arc<RwLock<Document>>) -> Self {
+    pub fn new(size: (f32, f32), document: Rc<RefCell<Document>>) -> Self {
         Self {
             size,
-            document: Arc::clone(&document),
-            state: ViewState::default(),
-
-            #[cfg(feature = "windowing")]
-            event_handler: Box::new(()),
+            document,
+            state: RefCell::new(ViewState::default()),
         }
     }
 
@@ -64,12 +52,12 @@ impl Viewport {
         self.size = size;
     }
 
-    pub fn element_at(&mut self, _pos: (f32, f32)) -> Option<NodeId> {
+    pub fn element_from_point(&self, _pos: (f32, f32)) -> Option<NodeId> {
         self.update();
         todo!()
     }
 
-    pub fn node_rect(&mut self, _node: NodeId) -> Option<()> {
+    pub fn node_rect(&self, _node: NodeId) -> Option<Rect> {
         self.update();
         todo!()
     }
@@ -79,13 +67,9 @@ impl Viewport {
     //     todo!()
     // }
 
-    #[cfg(feature = "windowing")]
-    pub fn set_event_handler(&mut self, handler: impl EventHandler + 'static) {
-        self.event_handler = Box::new(handler);
-    }
-
-    fn update(&mut self) {
-        self.state.update(&mut self.document.write().unwrap(), self.size);
+    fn update(&self) {
+        let doc = &self.document.borrow();
+        self.state.borrow_mut().update(doc, self.size);
     }
 }
 
@@ -130,13 +114,13 @@ impl ViewState {
 }
 
 // mutable reference to Viewport can be rendered
-impl Renderable for &mut Viewport {
-    fn render(self, ctx: &mut RenderContext) {
+impl Renderable for Viewport {
+    fn render(&self, ctx: &mut RenderContext) {
         // update first
         self.update();
 
-        let doc = self.document.read().unwrap();
-        let state = &self.state;
+        let doc = &self.document.borrow();
+        let state = &*self.state.borrow();
 
         doc.visit(&mut |edge| match edge {
             NodeEdge::Start(node) => {

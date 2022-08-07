@@ -60,6 +60,10 @@ impl<T: LayoutTree> LayoutContext<'_, T> {
             Display::None => result.size = Size::new(0., 0.),
             Display::Block => self.compute_block(&mut result, &padding, style, self.tree.children(node), parent_size),
             Display::Flex => self.compute_flex(&mut result, style, self.tree.children(node), parent_size),
+            // TODO: <button>, <input>
+            Display::InlineBlock => {
+                self.compute_block(&mut result, &padding, style, self.tree.children(node), parent_size)
+            }
             Display::Inline => {
                 if let Some(para) = self.tree.paragraph(node) {
                     let (width, height) = para.measure(parent_size.width);

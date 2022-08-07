@@ -1,12 +1,12 @@
 import { IText } from '../types'
 import { Node, CharacterData } from './index'
-import { SEND, NODE_ID } from './Document'
+import { initText, setText } from './Document'
 
 export class Text extends CharacterData implements IText {
   constructor(data = '', doc = document) {
     super(data, doc)
 
-    this[NODE_ID] = this.ownerDocument[SEND]({ CreateTextNode: this.data })
+    doc[initText](this, this.data)
   }
 
   get data() {
@@ -16,7 +16,7 @@ export class Text extends CharacterData implements IText {
   set data(data) {
     super.data = data
 
-    this.ownerDocument[SEND]({ SetText: [this[NODE_ID], this.data] })
+    this.ownerDocument[setText](this, this.data)
   }
 
   get nodeType() {

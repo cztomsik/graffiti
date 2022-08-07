@@ -7,13 +7,11 @@ import { Storage } from './Storage'
 import { requestAnimationFrame, cancelAnimationFrame } from './raf'
 import { NOOP, TODO, fetch } from '../util'
 import { send } from '../native'
-import { DOC_ID } from '../dom/Document'
 
-export const VIEWPORT_ID = Symbol()
-
-// note all props will leak to global scope
+// scope for scripts which are running in a window or <iframe> area
+// (public props here will be visible globally)
 export class Window extends EventTarget implements globalThis.Window {
-  #document = new Document()
+  #document = new Document(this as any)
   #history = new History(this)
   #location = new Location(this.#history)
   #sessionStorage = globalThis.sessionStorage ?? new Storage()
@@ -49,8 +47,6 @@ export class Window extends EventTarget implements globalThis.Window {
 
   constructor() {
     super()
-
-    this[VIEWPORT_ID] = send({ CreateViewport: [[1024, 768], this.document[DOC_ID]] })
 
     Object.assign(this, globals)
   }

@@ -4,7 +4,7 @@
 import { EventTarget } from '../events/index'
 import { NodeList, HTMLElement } from './index'
 import { assert, last, UNSUPPORTED } from '../util'
-import { lookupElement, SEND, NODE_ID } from './Document'
+import { appendChild, insertBefore, removeChild, querySelector, querySelectorAll } from './Document'
 import { IChildNode, IDocument, INode, INonDocumentTypeChildNode, IParentNode, ISlottable } from '../types'
 
 // prettier-ignore
@@ -50,9 +50,9 @@ export abstract class Node extends EventTarget
 
     if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE && (child.nodeType !== Node.COMMENT_NODE)) {
       if (refNode) {
-        this.ownerDocument[SEND]({ InsertBefore: [this[NODE_ID], child[NODE_ID], refNode[NODE_ID]] })
+        this.ownerDocument[insertBefore](this, child, refNode)
       } else {
-        this.ownerDocument[SEND]({ AppendChild: [this[NODE_ID], child[NODE_ID]] })
+        this.ownerDocument[appendChild](this, child)
       }
     }
 
@@ -66,7 +66,7 @@ export abstract class Node extends EventTarget
     this.childNodes.splice(this.childNodes.indexOf(child), 1)
 
     if (this.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
-      this.ownerDocument[SEND]({ RemoveChild: [this[NODE_ID], child[NODE_ID]] })
+      this.ownerDocument[removeChild](this, child)
     }
 
     return child
@@ -263,15 +263,11 @@ export abstract class Node extends EventTarget
   }
 
   querySelector(selector) {
-    const id = this.ownerDocument[SEND]({ QuerySelector: [this[NODE_ID], selector] })
-
-    return lookupElement(this.ownerDocument, id)
+    return this.ownerDocument[querySelector](this, selector)
   }
 
   querySelectorAll(selector) {
-    const ids = this.ownerDocument[SEND]({ QuerySelectorAll: [this[NODE_ID], selector] })
-
-    return NodeList.from(ids.map(id => lookupElement(this.ownerDocument, id))) as any
+    return NodeList.from(this.ownerDocument[querySelectorAll](this, selector)) as any
   }
 
   getElementsByTagName(tagName) {
