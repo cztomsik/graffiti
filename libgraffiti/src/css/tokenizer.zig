@@ -1,42 +1,35 @@
-// https://drafts.csswg.org/css-syntax/#tokenization
+// https://www.w3.org/TR/2021/CRD-css-syntax-3-20211224/#tokenization
 
 const std = @import("std");
 
-pub const Token = struct {
-    tag: Tag,
-    start: usize,
-    end: usize,
-
-    pub const Tag = enum {
-        comment,
-        ident,
-        function,
-        // TODO: at_keyword,
-        hash,
-        string,
-        // TODO: bad_string, url, bad_url,
-
-        // # + - . < @ \ <really anything else?>
-        delim,
-
-        // TODO: if there is % or ident after num
-        number,
-        percentage,
-        dimension,
-
-        space,
-        // TODO: CDO, CDC,
-        colon,
-        semi,
-        comma,
-        lsquare,
-        rsquare,
-        lparen,
-        rparen,
-        lcurly,
-        rcurly,
-    };
+pub const Token = union(enum) {
+    ident: []const u8,
+    function: []const u8,
+    at_keyword: []const u8,
+    hash, //: []const u8,
+    string: []const u8,
+    bad_string: []const u8,
+    url: []const u8,
+    bad_url: []const u8,
+    delim: u8,
+    number: f32,
+    percentage: f32,
+    dimension: struct { value: f32, unit: []const u8 },
+    space,
+    CDO,
+    CDC,
+    colon,
+    semi,
+    comma,
+    lsquare,
+    rsquare,
+    lparen,
+    rparen,
+    lcurly,
+    rcurly,
 };
+
+const TokenTag = @typeInfo(Token).Union.tag_type.?;
 
 pub const Tokenizer = struct {
     input: []const u8,
