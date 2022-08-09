@@ -64,8 +64,25 @@ fn testParser(input: []const u8) Parser {
 }
 
 test "enums" {
-    try std.testing.expectEqual(testParser("block").parseEnum(Display), .block);
-    try std.testing.expectEqual(testParser("table-row").parseEnum(Display), .table_row);
-    // try t.expectError(Error.Err, parseEnum(Display, "err"));
+    try std.testing.expectEqual(try testParser("block").parseEnum(Display), .block);
+    try std.testing.expectEqual(try testParser("table-row").parseEnum(Display), .table_row);
+    // try t.expectError(Error.Err, try parseEnum(Display, "err"));
 
+}
+
+test "dimension" {
+    try std.testing.expectEqual(Dimension{ .px = 0 }, try testParser("0").parseDimension());
+    try std.testing.expectEqual(Dimension{ .percent = 100 }, try testParser("100%").parseDimension());
+    // try std.testing.expectEqual(Dimension{ .px = 10 }, try testParser("10px").parseDimension());
+    // try std.testing.expectEqual(Dimension{ .em = 1.2 }, try testParser("1.2em").parseDimension());
+    // try std.testing.expectEqual(Dimension{ .rem = 2.1 }, try testParser("2.1rem").parseDimension());
+    // try std.testing.expectEqual(Dimension{ .vw = 100 }, try testParser("100vw").parseDimension());
+    // try std.testing.expectEqual(Dimension{ .vh = 100 }, try testParser("100vh").parseDimension());
+    try std.testing.expectEqual(Dimension.auto, try testParser("auto").parseDimension());
+    try std.testing.expectEqual(Dimension.vmin, try testParser("vmin").parseDimension());
+    try std.testing.expectEqual(Dimension.vmax, try testParser("vmax").parseDimension());
+}
+
+test "color" {
+    // TODO
 }
