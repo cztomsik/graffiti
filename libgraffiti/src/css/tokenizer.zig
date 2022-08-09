@@ -41,39 +41,102 @@ pub const Tokenizer = struct {
         return .{ .input = input, .pos = 0 };
     }
 
-    pub fn next(self: *Self) Token {
+    pub fn next(self: *Self) !Token {
+        const ch = try self.peek(0);
+
+        // if (ch == '/' and (self.peek(1) catch 0) == '*') {
+        //     try self.skipComment();
+        //     return try self.next();
+        // }
+
+        if (isIdentStart(ch)) {
+            return Token{ .ident = self.consumeIdent() };
+
+            // TODO: if (next == '(') token = .{ .function = token.ident }
+            // TODO: check if function is url() and replace with url token
+        }
+
+        if (isNumeric(ch)) {
+            const num = try self.consumeNumber();
+
+            if (self.peek(0) catch 0 == '%') {
+                return Token{ .percentage = num };
+            }
+
+            if (isIdentStart(self.peek(0) catch 0)) {
+                return Token{ .dimension = .{ .value = num, .unit = self.consumeIdent() } };
+            }
+
+            return Token{ .number = num };
+        }
+
+        self.pos += 1;
+        return switch (ch) {
+            '\'', '"' => .{ .string = try self.consumeString(ch) },
+            ' ', '\t', '\r', '\n' => .space,
+            '#' => return error.TODO,
+            ':' => Token.colon,
+            ';' => Token.semi,
+            ',' => Token.comma,
+            '[' => Token.lsquare,
+            ']' => Token.rsquare,
+            '(' => Token.lparen,
+            ')' => Token.rparen,
+            '{' => Token.lcurly,
+            '}' => Token.rcurly,
+            else => Token{ .delim = ch },
+        };
+
+        // TODO: maybe skipSpaces() and no token type?
+        // '.', '+' => self.consumeNumber() catch .{ .delim = ch },
+        // '-' => self.consumeNumber() catch (self.consumeIdent() catch .{ .delim = ch }),
+        // '#' => .hash, // TODO: hash_num/hash_id
+        // // TODO: if hash, try hex num & ident
+    }
+
+    fn skipComment(self: *Self) !void {
+        self.pos += 2;
+        while ((try self.peek(0)) != '*' and (try self.peek(1)) != '/') self.pos += 1;
+        self.pos += 1;
+    }
+
+    fn consumeIdent(self: *Self) []const u8 {
         const start = self.pos;
-        const ch = self.peek(0);
+        while (isIdent(self.peek(0) catch 0)) self.pos += 1;
 
-        // https://drafts.csswg.org/css-syntax/#consume-token
-        const tag: Token.Tag = switch (ch) {
-            '\'', '"' => .string,
-            '#' => .hash, // TODO: hash_num/hash_id
-            '(' => .lparen,
-            ')' => .rparen,
-            '+' => @panic("TODO"),
-            ',' => .comma,
-            '-' => @panic("TODO"),
-            '.' => @panic("TODO"),
-            ':' => .colon,
-            ';' => .semi,
-            '<' => .delim,
-            '@' => .delim,
-            '[' => .lsquare,
-            '\\' => .delim,
-            ']' => .rsquare,
-            '{' => .lcurly,
-            '}' => .rcurly,
-            '0'...'9' => .number,
-            'a'...'z', 'A'...'Z', '_' => .ident,
-            else => .delim,
-        };
+        return self.input[start..self.pos];
+    }
 
-        const end = switch (tag) {
-            // TODO: find end properly
-            .ident => self.input.len - self.pos,
-            else => start + 1,
-        };
+    fn consumeNumber(self: *Self) !f32 {
+        const start = self.pos;
+        while (isNumeric(self.peek(0) catch 0)) self.pos += 1;
+
+        return std.fmt.parseFloat(f32, self.input[start..self.pos]);
+    }
+
+    fn consumeString(self: *Self, quote: u8) ![]const u8 {
+        const start = self.pos;
+        var prev: u8 = '\\';
+        self.pos += 1;
+
+        while (self.peek(0) catch null) |ch| {
+            if (ch == quote and prev != '\\') break;
+
+            prev = ch;
+            self.pos += 1;
+        }
+
+        self.pos += 1;
+
+        return self.input[(start + 1)..(self.pos - 1)];
+    }
+
+    fn peek(self: *Self, n: usize) !u8 {
+        const i = self.pos + n;
+
+        return if (i < self.input.len) self.input[i] else error.eof;
+    }
+};
 
 fn isIdentStart(ch: u8) bool {
     return ch == '_' or ch == '-' or std.ascii.isAlpha(ch);
@@ -99,7 +162,7 @@ fn expectTokens(input: []const u8, tokens: []const TokenTag) !void {
 
 test {
     try expectTokens("", &.{});
-    // try expectTokens(" ", &.{.space});
+    try expectTokens(" ", &.{.space});
     // try expectTokens(" \n \t \n ", &.{.space});
 
     // try expectTokens("/* */", &.{.comment});
@@ -107,28 +170,28 @@ test {
 
     try expectTokens(";", &.{.semi});
     try expectTokens(";;", &.{ .semi, .semi });
-    // try expectTokens("; ;", &.{ .semi, .space, .semi });
+    try expectTokens("; ;", &.{ .semi, .space, .semi });
 
     try expectTokens("()[]{}", &.{ .lparen, .rparen, .lsquare, .rsquare, .lcurly, .rcurly });
 
     try expectTokens("block", &.{.ident});
-    // try expectTokens("10px", &.{.dimension});
+    try expectTokens("10px", &.{.dimension});
     // try expectTokens("-10px", &.{.dimension});
     try expectTokens("ident2", &.{.ident});
 
     try expectTokens("ff0", &.{.ident});
-    // try expectTokens("00f", &.{.dimension});
+    try expectTokens("00f", &.{.dimension});
     // try expectTokens("#00f", &.{.hash});
 
-    // try expectTokens("0 10px", &.{ .number, .space, .dimension });
-    // try expectTokens("0 0 10px 0", &.{ .number, .space, .number, .space, .dimension, .space, .number });
+    try expectTokens("0 10px", &.{ .number, .space, .dimension });
+    try expectTokens("0 0 10px 0", &.{ .number, .space, .number, .space, .dimension, .space, .number });
 
-    // try expectTokens("a b", &.{ .ident, .space, .ident });
+    try expectTokens("a b", &.{ .ident, .space, .ident });
     // try expectTokens(".a .b", &.{ .delim, .ident, .space, .delim, .ident });
     // try expectTokens(" a .b #c *", &.{ .space, .ident, .space, .delim, .ident, .space, .hash, .space, .delim });
 
     try expectTokens("!important", &.{ .delim, .ident });
-    // try expectTokens("! important", &.{ .delim, .space, .ident });
+    try expectTokens("! important", &.{ .delim, .space, .ident });
 
     try expectTokens("-webkit-xxx", &.{.ident});
     try expectTokens("--var", &.{.ident});
@@ -138,9 +201,9 @@ test {
     //     &.{ .ident, .space, .delim, .ident, .space, .lcurly, .space, .comment, .space, .ident, .colon, .space, .dimension, .space, .rcurly },
     // );
 
-    // try expectTokens("'foo'", &.{.string});
-    // try expectTokens("\"foo bar\"", &.{.string});
-    // try expectTokens("'\\''", &.{.string});
+    try expectTokens("'foo'", &.{.string});
+    try expectTokens("\"foo bar\"", &.{.string});
+    try expectTokens("'\\''", &.{.string});
     // try expectTokens("prop: url('foo bar')", &.{ .ident, .colon, .space, .function, .string, .rparen });
 
     // assert_eq!(tokenize(b"[foo=\"bar\"]"), vec!["[", "foo", "=", "\"bar\"", "]"]);
