@@ -1,12 +1,12 @@
 const std = @import("std");
 const nvg = @import("nanovg");
-const Document = @import("document.zig").Document;
-const NodeId = @import("document.zig").NodeId;
+const Document = @import("dom/document.zig").Document;
+const NodeId = @import("dom/document.zig").NodeId;
 const Style = @import("style.zig").Style;
 const Color = @import("style.zig").Color;
 const TRANSPARENT = @import("style.zig").TRANSPARENT;
-const LayoutNode = @import("layout.zig").LayoutNode;
-const calculate = @import("layout.zig").calculate;
+const LayoutNode = @import("layout/layout.zig").LayoutNode;
+const calculate = @import("layout/layout.zig").calculate;
 
 const Shape = union(enum) { rect: Rect, rrect: RRect };
 
