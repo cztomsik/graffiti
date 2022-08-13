@@ -1,9 +1,9 @@
 const std = @import("std");
 const nvg = @import("nanovg");
 const c = @import("c.zig");
-const Document = @import("document.zig").Document;
+const Document = @import("dom/document.zig").Document;
+const DOMParser = @import("dom/html.zig").DOMParser;
 const Renderer = @import("renderer.zig").Renderer;
-const css = @import("css.zig");
 
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -41,42 +41,18 @@ pub fn main() anyerror!void {
 }
 
 fn createSampleDoc(allocator: std.mem.Allocator) !Document {
-    var doc = try Document.init(allocator);
+    var parser = DOMParser.init(allocator);
 
-    const html = try doc.createElement("html");
-    doc.root.appendChild(html);
-
-    const body = try doc.createElement("body");
-    body.element().style = .{
-        .padding_top = .{ .px = 20 },
-        .padding_right = .{ .px = 20 },
-        .padding_bottom = .{ .px = 20 },
-        .padding_left = .{ .px = 20 },
-        .background_color = nvg.rgba(255, 0, 0, 200),
-        .opacity = 0.75,
-    };
-    doc.root.appendChild(body);
-
-    const div = try doc.createElement("div");
-    body.appendChild(div);
-    div.element().style = .{
-        .background_color = nvg.rgba(0, 255, 0, 100),
-        .border_radius = .{ 9, 9, 9, 9 },
-    };
-
-    const btn = try doc.createElement("button");
-    btn.element().style = .{
-        .background_color = nvg.rgb(0, 0, 255),
-        .border_radius = .{ 9, 9, 9, 9 },
-    };
-    btn.appendChild(try doc.createTextNode("Click me"));
-
-    div.appendChild(try doc.createTextNode("Hello"));
-    div.appendChild(try doc.createTextNode("World"));
-    div.appendChild(try doc.createTextNode("!"));
-    div.appendChild(btn);
-
-    return doc;
+    return parser.parseFromString(
+        \\<html>
+        \\  <body style="padding: 20px; background: #f00a; opacity: .75">
+        \\    <div style="background: 0f08; border-radius: 9px">
+        \\      Hello
+        \\      <button style="background: 00f; border-radius: 9px">Click me</button>
+        \\    </div>
+        \\  </body>
+        \\</html>
+    );
 }
 
 extern fn gladLoadGL() callconv(.C) c_int;
@@ -84,4 +60,5 @@ extern fn gladLoadGL() callconv(.C) c_int;
 test {
     _ = @import("css/tokenizer.zig");
     _ = @import("css/parser.zig");
+    _ = @import("layout/layout.zig");
 }

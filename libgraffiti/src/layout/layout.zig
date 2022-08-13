@@ -61,8 +61,8 @@
 // }
 
 const std = @import("std");
-const Style = @import("style.zig").Style;
-const Dimension = @import("style.zig").Dimension;
+const Style = @import("../style.zig").Style;
+const Dimension = @import("../style.zig").Dimension;
 
 pub const Pos = struct { x: f32 = 0, y: f32 = 0 };
 pub const Size = struct { width: f32 = 0, height: f32 = 0 };
