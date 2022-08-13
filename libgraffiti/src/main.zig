@@ -1,6 +1,8 @@
 const std = @import("std");
 const nvg = @import("nanovg");
-const c = @import("c.zig");
+const c = @cImport({
+    @cInclude("GLFW/glfw3.h");
+});
 const Document = @import("dom/document.zig").Document;
 const DOMParser = @import("dom/html.zig").DOMParser;
 const Renderer = @import("renderer.zig").Renderer;
