@@ -1,7 +1,7 @@
 // basic types
 pub const Dimension = union(enum) { auto, px: f32, percent: f32, em: f32, rem: f32, vw: f32, vh: f32, vmin, vmax };
 pub const Px = struct { px: f32 };
-pub const Color = struct { r: u8, g: u8, b: u8, a: u8 };
+pub const Color = struct { r: u8 = 0, g: u8 = 0, b: u8 = 0, a: u8 = 0 };
 pub const BoxShadow = struct { offset: [2]Px, blur: Px, spread: Px, color: Color };
 pub const Transform = union(enum) { translate: [2]f32, scale: [2]f32, rotate: f32 };
 

@@ -13,7 +13,7 @@ pub const Parser = struct {
     pub fn init(allocator: std.mem.Allocator, input: []const u8) Self {
         return .{
             .allocator = allocator,
-            .tokenizer = Tokenizer.init(input),
+            .tokenizer = Tokenizer{ .input = input },
         };
     }
 
@@ -129,6 +129,20 @@ pub const Parser = struct {
         }
 
         return error.invalid;
+    }
+
+    fn parseStyleSheet() void {
+        // fn parser<'a>() -> Parser<'a, Self> {
+        //     // anything until next "}}" (empty media is matched with unknown)
+        //     let media =
+        //         sym("@") * sym("media") * (!seq(&["}", "}"]) * skip(1)).repeat(1..).map(|_| None) - sym("}") - sym("}");
+        //     // anything until next "}"
+        //     let unknown = (!sym("}") * skip(1)).repeat(1..).map(|_| None) - sym("}").opt();
+
+        //     (StyleRule::parser().map(Option::Some) | media | unknown)
+        //         .repeat(0..)
+        //         .map(|maybe_rules| Self::new(maybe_rules.into_iter().flatten().collect()))
+        // }
     }
 };
 
@@ -350,4 +364,35 @@ test "color" {
 
     try std.testing.expectEqual(Color{}, try testParser("transparent").parseColor());
     try std.testing.expectEqual(Color{ .a = 255 }, try testParser("black").parseColor());
+}
+
+test "sheet" {
+    // #[test]
+    // fn parse_sheet() -> Result<(), ParseError> {
+    //     let sheet = StyleSheet::parse("div { color: #fff }")?;
+
+    //     assert_eq!(sheet.rules()[0].selector(), &Selector::parse("div")?);
+    //     assert_eq!(sheet.rules()[0].style(), &Style::parse("color: #fff")?);
+    //     assert_eq!(sheet.rules()[0].style().to_string(), "color: rgba(255, 255, 255, 255)");
+
+    //     // white-space
+    //     assert_eq!(StyleSheet::parse(" *{}")?.rules().len(), 1);
+    //     assert_eq!(StyleSheet::parse("\n*{\n}\n")?.rules().len(), 1);
+
+    //     // forgiving/future-compatibility
+    //     assert_eq!(StyleSheet::parse(":root {} a { v: 0 }")?.rules().len(), 2);
+    //     assert_eq!(StyleSheet::parse("a {} @media { a { v: 0 } } b {}")?.rules().len(), 2);
+    //     assert_eq!(StyleSheet::parse("@media { a { v: 0 } } a {} b {}")?.rules().len(), 2);
+
+    //     Ok(())
+    // }
+
+    // #[test]
+    // fn parse_ua() {
+    //     let ua_css = include_str!("../../resources/ua.css");
+    //     let sheet = StyleSheet::parse(&ua_css).unwrap();
+
+    //     assert_eq!(sheet.rules().len(), 23);
+    // }
+
 }

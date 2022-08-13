@@ -1,4 +1,5 @@
-// https://www.w3.org/TR/2021/CRD-css-syntax-3-20211224/#tokenization
+// based on https://www.w3.org/TR/2021/CRD-css-syntax-3-20211224/#tokenization
+// but some tokens are missing and hash handling is simplified
 
 const std = @import("std");
 
@@ -28,13 +29,9 @@ const TokenTag = @typeInfo(Token).Union.tag_type.?;
 
 pub const Tokenizer = struct {
     input: []const u8,
-    pos: usize,
+    pos: usize = 0,
 
     const Self = @This();
-
-    pub fn init(input: []const u8) Self {
-        return .{ .input = input, .pos = 0 };
-    }
 
     pub fn next(self: *Self) !Token {
         const ch = try self.nextCharSkipComments();
@@ -144,7 +141,7 @@ fn isNumeric(ch: u8) bool {
 }
 
 fn expectTokens(input: []const u8, tokens: []const TokenTag) !void {
-    var tokenizer = Tokenizer.init(input);
+    var tokenizer = Tokenizer{ .input = input };
 
     for (tokens) |tag| {
         try std.testing.expectEqual(tag, try tokenizer.next());
