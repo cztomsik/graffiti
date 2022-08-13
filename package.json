@@ -16,16 +16,12 @@
   },
   "files": [
     "src",
-    "lib",
-    "libgraffiti/Cargo.*",
-    "libgraffiti/resources",
-    "libgraffiti/src",
-    "libgraffiti/graffiti-glfw"
+    "lib"
   ],
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "cargo test --tests --manifest-path ./libgraffiti/Cargo.toml",
-    "build": "cargo build --manifest-path ./libgraffiti/Cargo.toml --features nodejs",
+    "test": "zig build test --build-file ./libgraffiti/build.zig",
+    "build": "zig build --build-file ./libgraffiti/build.zig",
     "postinstall": "npm run build",
     "prepare": "esbuild --bundle --format=esm --platform=node --target=esnext --external:node-fetch --external:ws --outdir=./lib ./src/index.ts ./src/worker.ts"
   },

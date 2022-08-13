@@ -3,8 +3,8 @@
   "[typescript]": {
     "editor.formatOnSave": true
   },
-  "[rust]": {
-    "editor.formatOnSave": true,
-    "editor.tabSize": 4
+  "[zig]": {
+    "editor.defaultFormatter": "tiehuis.zig",
+    "editor.formatOnSave": true
   }
 }
