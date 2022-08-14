@@ -60,7 +60,7 @@ extern fn gladLoadGL() callconv(.C) c_int;
 
 test {
     _ = @import("dom/dom.zig");
-    // _ = @import("css/tokenizer.zig");
-    // _ = @import("css/parser.zig");
-    // _ = @import("layout/layout.zig");
+    _ = @import("css/tokenizer.zig");
+    _ = @import("css/parser.zig");
+    _ = @import("layout/layout.zig");
 }

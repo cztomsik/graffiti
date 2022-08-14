@@ -9,8 +9,11 @@ pub const Element = struct {
 
     const Self = @This();
 
-    // TODO: arena-allocated .style.cssText()
     pub fn getAttribute(self: *Self, att: []const u8) ?[]const u8 {
+        if (std.mem.eql(u8, att, "style")) {
+            std.debug.print("TODO: arena-allocated .style.cssText()\n", .{});
+        }
+
         return self.attributes.get(att);
     }
 
