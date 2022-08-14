@@ -1,9 +1,43 @@
-// HTML parsing/serialization
-// TODO: port htmlparser.js?
-
 const std = @import("std");
 const Document = @import("document.zig").Document;
 const Node = @import("document.zig").Node;
+
+// TODO: port htmlparser.js?
+pub const DOMParser = struct {
+    allocator: std.mem.Allocator,
+
+    const Self = @This();
+
+    pub fn init(allocator: std.mem.Allocator) Self {
+        return .{ .allocator = allocator };
+    }
+
+    pub fn parseFromString(self: *Self, html: []const u8) !Document {
+        var doc = try Document.init(self.allocator);
+        var tokenizer = Tokenizer{ .input = std.mem.trim(u8, html, " \n\r\t") };
+        var stack = std.ArrayList(*Node).init(self.allocator);
+        _ = try stack.append(doc.root);
+        defer stack.deinit();
+
+        while (tokenizer.next()) |t| {
+            const parent = stack.items[stack.items.len - 1];
+
+            switch (t) {
+                .comment => {},
+                .text => |text| parent.appendChild(try doc.createTextNode(text)),
+                .tag_open => |local_name| {
+                    const el = try doc.createElement(local_name);
+                    parent.appendChild(el);
+                    try stack.append(el);
+                },
+                .attribute => |att| try parent.element().setAttribute(att[0], att[1]),
+                .tag_close => _ = stack.pop(),
+            }
+        }
+
+        return doc;
+    }
+};
 
 const Token = union(enum) {
     comment,
@@ -65,8 +99,9 @@ const Tokenizer = struct {
             }
         }
 
-        // TODO: trim is wrong here!
-        return Token{ .text = std.mem.trim(u8, self.consume(Self.notAngle) orelse return null, " \n\r\t") };
+        // TODO: this is wrong!
+        const text = std.mem.trim(u8, self.consume(Self.notAngle) orelse return null, " \n\r\t");
+        return if (text.len > 0) Token{ .text = text } else return self.next() orelse return null;
     }
 
     fn notAngle(ch: u8) bool {
@@ -85,42 +120,3 @@ const Tokenizer = struct {
         return if (i < self.input.len) self.input[i] else null;
     }
 };
-
-pub const DOMParser = struct {
-    allocator: std.mem.Allocator,
-
-    const Self = @This();
-
-    pub fn init(allocator: std.mem.Allocator) Self {
-        return .{ .allocator = allocator };
-    }
-
-    pub fn parseFromString(self: *Self, html: []const u8) !Document {
-        var doc = try Document.init(self.allocator);
-        var tokenizer = Tokenizer{ .input = std.mem.trim(u8, html, " \n\r\t") };
-        var stack = std.ArrayList(*Node).init(self.allocator);
-        _ = try stack.append(doc.root);
-        defer stack.deinit();
-
-        while (tokenizer.next()) |t| {
-            const parent = stack.items[stack.items.len - 1];
-
-            switch (t) {
-                .comment => {},
-                .text => |text| parent.appendChild(try doc.createTextNode(text)),
-                .tag_open => |local_name| {
-                    const el = try doc.createElement(local_name);
-                    parent.appendChild(el);
-                    try stack.append(el);
-                },
-                .attribute => |att| try parent.element().setAttribute(att[0], att[1]),
-                .tag_close => _ = stack.pop(),
-            }
-        }
-
-        return doc;
-    }
-};
-
-// TODO
-pub const XMLSerializer = struct {};
