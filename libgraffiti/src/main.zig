@@ -1,8 +1,9 @@
 const std = @import("std");
 const nvg = @import("nanovg");
-const c = @import("c.zig");
-const Document = @import("dom/document.zig").Document;
-const DOMParser = @import("dom/html.zig").DOMParser;
+const c = @cImport({
+    @cInclude("GLFW/glfw3.h");
+});
+const dom = @import("dom/dom.zig");
 const Renderer = @import("renderer.zig").Renderer;
 
 pub fn main() anyerror!void {
@@ -40,10 +41,10 @@ pub fn main() anyerror!void {
     }
 }
 
-fn createSampleDoc(allocator: std.mem.Allocator) !Document {
-    var parser = DOMParser.init(allocator);
+fn createSampleDoc(allocator: std.mem.Allocator) !dom.Document {
+    var parser = dom.DOMParser.init(allocator);
 
-    return parser.parseFromString(
+    return try parser.parseFromString(
         \\<html>
         \\  <body style="padding: 20px; background: #f00a; opacity: .75">
         \\    <div style="background: 0f08; border-radius: 9px">
@@ -58,6 +59,7 @@ fn createSampleDoc(allocator: std.mem.Allocator) !Document {
 extern fn gladLoadGL() callconv(.C) c_int;
 
 test {
+    _ = @import("dom/dom.zig");
     _ = @import("css/tokenizer.zig");
     _ = @import("css/parser.zig");
     _ = @import("layout/layout.zig");
