@@ -1,6 +1,6 @@
 const std = @import("std");
-const Document = @import("document.zig").Document;
-const Node = @import("document.zig").Node;
+const Document = @import("dom.zig").Document;
+const Node = @import("dom.zig").Node;
 
 // TODO: port htmlparser.js?
 pub const DOMParser = struct {

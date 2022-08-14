@@ -44,7 +44,7 @@ pub fn main() anyerror!void {
 fn createSampleDoc(allocator: std.mem.Allocator) !dom.Document {
     var parser = dom.DOMParser.init(allocator);
 
-    return parser.parseFromString(
+    return try parser.parseFromString(
         \\<html>
         \\  <body style="padding: 20px; background: #f00a; opacity: .75">
         \\    <div style="background: 0f08; border-radius: 9px">
