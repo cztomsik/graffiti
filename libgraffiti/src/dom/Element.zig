@@ -5,10 +5,26 @@ const Style = @import("../style.zig").Style;
 pub const Element = struct {
     node: *Node,
     local_name: []const u8,
-    attributes: std.StringHashMap([]const u8),
-    style: Style = .{},
+    attributes: std.BufMap,
+    style: ?*Style = null,
 
     const Self = @This();
+
+    // pub fn matches(self: *Self, selector: ?) bool {}
+
+    pub fn identifier(self: *Self) ?[]const u8 {
+        return self.getAttribute("id");
+    }
+
+    pub fn className(self: *Self) ?[]const u8 {
+        return self.getAttribute("class");
+    }
+
+    // pub fn classList(self: *Self) ClassList {}
+
+    pub fn hasAttribute(self: *Self, att: []const u8) bool {
+        return self.attributes.get(att) != null;
+    }
 
     pub fn getAttribute(self: *Self, att: []const u8) ?[]const u8 {
         if (std.mem.eql(u8, att, "style")) {
@@ -23,14 +39,10 @@ pub const Element = struct {
             std.debug.print("TODO: parse & set style {s}\n", .{val});
         }
 
-        if (try self.attributes.fetchPut(att, try self.attributes.allocator.dupe(u8, val))) |kv| {
-            self.attributes.allocator.free(kv.value);
-        }
+        try self.attributes.put(att, val);
     }
 
     pub fn removeAttribute(self: *Self, att: []const u8) void {
-        if (self.attributes.fetchRemove(att)) |kv| {
-            self.attributes.allocator.free(kv.v);
-        }
+        self.attributes.remove(att);
     }
 };
