@@ -5,6 +5,7 @@ const NodeType = @import("dom.zig").NodeType;
 const NodeData = @import("dom.zig").NodeData;
 
 pub const Document = struct {
+    node: *Node,
     allocator: std.mem.Allocator,
     nodes: *NodeStore,
     root: *Node,

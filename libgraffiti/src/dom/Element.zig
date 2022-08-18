@@ -1,8 +1,9 @@
 const std = @import("std");
-
+const Node = @import("dom.zig").Node;
 const Style = @import("../style.zig").Style;
 
 pub const Element = struct {
+    node: *Node,
     local_name: []const u8,
     attributes: std.StringHashMap([]const u8),
     style: Style = .{},
