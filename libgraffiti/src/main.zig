@@ -36,12 +36,12 @@ pub fn main() anyerror!void {
         var w: i32 = undefined;
         var h: i32 = undefined;
         c.glfwGetWindowSize(window, &w, &h);
-        renderer.render(&doc, @intToFloat(f32, w), @intToFloat(f32, h));
+        renderer.render(doc, @intToFloat(f32, w), @intToFloat(f32, h));
         c.glfwSwapBuffers(window);
     }
 }
 
-fn createSampleDoc(allocator: std.mem.Allocator) !dom.Document {
+fn createSampleDoc(allocator: std.mem.Allocator) !*dom.Document {
     var parser = dom.DOMParser.init(allocator);
 
     return try parser.parseFromString(
@@ -62,5 +62,8 @@ test {
     _ = @import("dom/dom.zig");
     _ = @import("css/tokenizer.zig");
     _ = @import("css/parser.zig");
+    _ = @import("css/values/Color.zig");
+    _ = @import("css/values/Dimension.zig");
+    _ = @import("css/values/Px.zig");
     _ = @import("layout/layout.zig");
 }
