@@ -12,12 +12,12 @@ pub const Element = struct {
 
     // pub fn matches(self: *Self, selector: ?) bool {}
 
-    pub fn identifier(self: *Self) ?[]const u8 {
-        return self.getAttribute("id");
+    pub fn id(self: *Self) []const u8 {
+        return self.getAttribute("id") orelse "";
     }
 
-    pub fn className(self: *Self) ?[]const u8 {
-        return self.getAttribute("class");
+    pub fn className(self: *Self) []const u8 {
+        return self.getAttribute("class") orelse "";
     }
 
     // pub fn classList(self: *Self) ClassList {}
