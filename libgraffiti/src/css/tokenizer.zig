@@ -1,5 +1,7 @@
 // based on https://www.w3.org/TR/2021/CRD-css-syntax-3-20211224/#tokenization
-// but some tokens are missing and hash handling is simplified
+// - some tokens are missing
+// - spaces are joined
+// - hash handling is simplified
 
 const std = @import("std");
 
@@ -30,11 +32,27 @@ const TokenTag = @typeInfo(Token).Union.tag_type.?;
 pub const Tokenizer = struct {
     input: []const u8,
     pos: usize = 0,
+    space: bool = false,
 
     const Self = @This();
 
-    pub fn next(self: *Self) !Token {
+    const Error = error{ Eof, InvalidCharacter };
+
+    pub fn next(self: *Self) Error!Token {
+        const start = self.pos;
         const ch = try self.nextCharSkipComments();
+
+        if (std.ascii.isSpace(ch)) {
+            self.pos += 1;
+            if (self.space) {
+                return try self.next();
+            } else {
+                self.space = true;
+                return Token.space;
+            }
+        } else {
+            self.space = false;
+        }
 
         if (isIdentStart(ch)) {
             const ident = self.consume(isIdent);
@@ -48,23 +66,26 @@ pub const Tokenizer = struct {
         }
 
         if (isNumeric(ch)) {
-            const num = try std.fmt.parseFloat(f32, self.consume(isNumeric));
+            if (std.fmt.parseFloat(f32, self.consume(isNumeric)) catch null) |num| {
+                if (self.peek(0) catch 0 == '%') {
+                    return Token{ .percentage = num };
+                }
 
-            if (self.peek(0) catch 0 == '%') {
-                return Token{ .percentage = num };
+                if (isIdentStart(self.peek(0) catch 0)) {
+                    return Token{ .dimension = .{ .value = num, .unit = self.consume(isIdent) } };
+                }
+
+                return Token{ .number = num };
+            } else {
+                // reset (put everything back)
+                self.pos = start;
             }
-
-            if (isIdentStart(self.peek(0) catch 0)) {
-                return Token{ .dimension = .{ .value = num, .unit = self.consume(isIdent) } };
-            }
-
-            return Token{ .number = num };
         }
 
         self.pos += 1;
+
         return switch (ch) {
             '\'', '"' => .{ .string = try self.consumeString(ch) },
-            ' ', '\t', '\r', '\n' => .space,
             '#' => Token{ .hash = self.consume(isIdent) },
             ':' => Token.colon,
             ';' => Token.semi,
@@ -124,7 +145,7 @@ pub const Tokenizer = struct {
     fn peek(self: *Self, n: usize) !u8 {
         const i = self.pos + n;
 
-        return if (i < self.input.len) self.input[i] else error.eof;
+        return if (i < self.input.len) self.input[i] else error.Eof;
     }
 };
 
@@ -147,17 +168,17 @@ fn expectTokens(input: []const u8, tokens: []const TokenTag) !void {
         try std.testing.expectEqual(tag, try tokenizer.next());
     }
 
-    try std.testing.expectError(error.eof, tokenizer.next());
+    try std.testing.expectError(error.Eof, tokenizer.next());
     try std.testing.expectEqual(input.len, tokenizer.pos);
 }
 
 test {
     try expectTokens("", &.{});
     try expectTokens(" ", &.{.space});
-    // try expectTokens(" \n \t \n ", &.{.space});
+    try expectTokens(" \n \t \n ", &.{.space});
 
     try expectTokens("/* */", &.{});
-    try expectTokens(" /**/ /**/ ", &.{ .space, .space, .space });
+    try expectTokens(" /**/ /**/ ", &.{.space});
 
     try expectTokens(";", &.{.semi});
     try expectTokens(";;", &.{ .semi, .semi });
@@ -178,8 +199,8 @@ test {
     try expectTokens("0 0 10px 0", &.{ .number, .space, .number, .space, .dimension, .space, .number });
 
     try expectTokens("a b", &.{ .ident, .space, .ident });
-    // try expectTokens(".a .b", &.{ .delim, .ident, .space, .delim, .ident });
-    // try expectTokens(" a .b #c *", &.{ .space, .ident, .space, .delim, .ident, .space, .hash, .space, .delim });
+    try expectTokens(".a .b", &.{ .delim, .ident, .space, .delim, .ident });
+    try expectTokens(" a .b #c *", &.{ .space, .ident, .space, .delim, .ident, .space, .hash, .space, .delim });
 
     try expectTokens("!important", &.{ .delim, .ident });
     try expectTokens("! important", &.{ .delim, .space, .ident });
@@ -187,10 +208,10 @@ test {
     try expectTokens("-webkit-xxx", &.{.ident});
     try expectTokens("--var", &.{.ident});
 
-    // try expectTokens(
-    //     "parent .btn { /**/ padding: 10px }",
-    //     &.{ .ident, .space, .delim, .ident, .space, .lcurly, .space, .comment, .space, .ident, .colon, .space, .dimension, .space, .rcurly },
-    // );
+    try expectTokens(
+        "parent .btn { /**/ padding: 10px }",
+        &.{ .ident, .space, .delim, .ident, .space, .lcurly, .space, .ident, .colon, .space, .dimension, .space, .rcurly },
+    );
 
     try expectTokens("'foo'", &.{.string});
     try expectTokens("\"foo bar\"", &.{.string});
@@ -204,5 +225,5 @@ test {
     //     vec!["@", "media", "{", "a", " ", "b", "{", "left", ":", "10", "%", "}", "}"]
     // );
 
-    // //assert_eq!(tokenize(b"/**/ a /**/ b {}"), vec!["a", " ", "b", "{", "}"]);
+    // try expectTokens("/**/ a /**/ b {}", &.{ .ident, .space, .ident, .lcurly, .rcurly });
 }
