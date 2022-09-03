@@ -26,49 +26,31 @@ pub const Selector = struct {
     };
 
     pub fn parse(parser: *Parser) !Self {
-        _ = parser;
+        var parts = std.ArrayList(Part).init(parser.allocator);
 
-        return Self{ .parts = &.{} };
+        while (parser.tokenizer.next() catch null) |tok| {
+            try parts.append(switch (tok) {
+                .star => Part.universal,
+                .ident => |name| Part{ .local_name = try parser.symbol(name) },
+                .hash => |id| Part{ .identifier = try parser.symbol(id) },
+                .dot => Part{ .class_name = try parser.symbol(try parser.expect(.ident)) },
+                .colon => blk: {
+                    _ = try parser.expect(.ident);
+                    break :blk Part.unsupported;
+                },
+
+                .gt => Part.parent,
+                .space => Part.ancestor,
+                .comma => Part.@"or",
+                .plus => Part.unsupported,
+                .tilde => Part.unsupported,
+                else => return error.InvalidToken,
+            });
+        }
+
+        std.mem.reverse(Part, parts.items);
+        return Self{ .parts = parts.toOwnedSlice() };
     }
-
-    // impl Parsable for Selector {
-    //     fn parser<'a>() -> Parser<'a, Self> {
-    //         let tag = || {
-    //             let ident = || ident().map(Atom::from);
-    //             let universal = sym("*").map(|_| SelectorPart::Universal);
-    //             let local_name = ident().map(SelectorPart::LocalName);
-    //             let id = sym("#") * ident().map(SelectorPart::Identifier);
-    //             let class_name = sym(".") * ident().map(SelectorPart::ClassName);
-
-    //             universal | local_name | id | class_name
-    //         };
-
-    //         // note we parse child/descendant but we flip the final order so it's parent/ancestor
-    //         let child = sym(">").map(|_| Combinator::Parent);
-    //         let descendant = sym(" ").map(|_| Combinator::Ancestor);
-    //         let or = sym(",").map(|_| Combinator::Or);
-    //         let comb = (child | descendant | or).map(SelectorPart::Combinator) | unsupported;
-
-    //         let selector = tag() + (comb.opt() + tag()).repeat(0..);
-
-    //         selector.map(|(head, tail)| {
-    //             let mut parts = Vec::with_capacity(tail.len() + 1);
-
-    //             // reversed (child/descendant -> parent/ancestor)
-    //             for (comb, tag) in tail.into_iter().rev() {
-    //                 parts.push(tag);
-
-    //                 if let Some(comb) = comb {
-    //                     parts.push(comb);
-    //                 }
-    //             }
-
-    //             parts.push(head);
-
-    //             Selector { parts }
-    //         })
-    //     }
-    // }
 
     // pub fn match_element<C: MatchingContext>(&self, element: C::ElementRef, ctx: &C) -> Option<Specificity> {
     //     // so we can fast-forward to next OR

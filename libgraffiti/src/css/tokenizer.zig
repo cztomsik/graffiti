@@ -1,7 +1,5 @@
-// based on https://www.w3.org/TR/2021/CRD-css-syntax-3-20211224/#tokenization
-// - some tokens are missing
-// - spaces are joined
-// - hash handling is simplified
+// different from https://www.w3.org/TR/2021/CRD-css-syntax-3-20211224/#tokenization
+// the purpose here is to simplify parsing rather than implementing spec-compliant tokenizer
 
 const std = @import("std");
 
@@ -13,10 +11,15 @@ pub const Token = union(enum) {
     dimension: struct { value: f32, unit: []const u8 },
     hash: []const u8,
     string: []const u8,
-    // at_keyword: []const u8,
+    important,
     space,
     colon,
     semi,
+    star,
+    dot,
+    gt,
+    plus,
+    tilde,
     comma,
     lsquare,
     rsquare,
@@ -24,7 +27,7 @@ pub const Token = union(enum) {
     rparen,
     lcurly,
     rcurly,
-    delim: u8,
+    other: u8,
 };
 
 const TokenTag = @typeInfo(Token).Union.tag_type.?;
@@ -87,6 +90,10 @@ pub const Tokenizer = struct {
         return switch (ch) {
             '\'', '"' => .{ .string = try self.consumeString(ch) },
             '#' => Token{ .hash = self.consume(isIdent) },
+            '*' => Token.star,
+            '.' => Token.dot,
+            '+' => Token.plus,
+            '~' => Token.tilde,
             ':' => Token.colon,
             ';' => Token.semi,
             ',' => Token.comma,
@@ -96,12 +103,8 @@ pub const Tokenizer = struct {
             ')' => Token.rparen,
             '{' => Token.lcurly,
             '}' => Token.rcurly,
-            else => Token{ .delim = ch },
+            else => Token{ .other = ch },
         };
-
-        // TODO: maybe skipSpaces() and no token type?
-        // '.', '+' => self.consumeNumber() catch .{ .delim = ch },
-        // '-' => self.consumeNumber() catch (self.consumeIdent() catch .{ .delim = ch }),
     }
 
     fn nextCharSkipComments(self: *Self) !u8 {
@@ -174,15 +177,15 @@ fn expectTokens(input: []const u8, tokens: []const TokenTag) !void {
 
 test {
     try expectTokens("", &.{});
-    try expectTokens(" ", &.{.space});
-    try expectTokens(" \n \t \n ", &.{.space});
-
+    try expectTokens(" ", &.{});
+    try expectTokens(" \n \t \n ", &.{});
     try expectTokens("/* */", &.{});
-    try expectTokens(" /**/ /**/ ", &.{.space});
+    try expectTokens(" /**/ /**/ ", &.{});
 
     try expectTokens(";", &.{.semi});
-    try expectTokens(";;", &.{ .semi, .semi });
-    try expectTokens("; ;", &.{ .semi, .space, .semi });
+    try expectTokens(";;", &.{.semi});
+    try expectTokens(";; ;;", &.{.semi});
+    try expectTokens(" ; ; ; ;", &.{.semi});
 
     try expectTokens("()[]{}", &.{ .lparen, .rparen, .lsquare, .rsquare, .lcurly, .rcurly });
 
@@ -195,35 +198,33 @@ test {
     try expectTokens("00f", &.{.dimension});
     try expectTokens("#00f", &.{.hash});
 
-    try expectTokens("0 10px", &.{ .number, .space, .dimension });
-    try expectTokens("0 0 10px 0", &.{ .number, .space, .number, .space, .dimension, .space, .number });
+    try expectTokens("0 10px", &.{ .number, .dimension });
+    try expectTokens("0 0 10px 0", &.{ .number, .number, .dimension, .number });
 
     try expectTokens("a b", &.{ .ident, .space, .ident });
-    try expectTokens(".a .b", &.{ .delim, .ident, .space, .delim, .ident });
-    try expectTokens(" a .b #c *", &.{ .space, .ident, .space, .delim, .ident, .space, .hash, .space, .delim });
+    try expectTokens(".a .b", &.{ .dot, .ident, .space, .dot, .ident });
+    try expectTokens(" a .b #c *", &.{ .ident, .space, .dot, .ident, .space, .hash, .star });
 
-    try expectTokens("!important", &.{ .delim, .ident });
-    try expectTokens("! important", &.{ .delim, .space, .ident });
-
+    try expectTokens("!important", &.{.important});
+    try expectTokens("! important", &.{ .other, .ident });
     try expectTokens("-webkit-xxx", &.{.ident});
     try expectTokens("--var", &.{.ident});
 
     try expectTokens(
         "parent .btn { /**/ padding: 10px }",
-        &.{ .ident, .space, .delim, .ident, .space, .lcurly, .space, .ident, .colon, .space, .dimension, .space, .rcurly },
+        &.{ .ident, .space, .dot, .ident, .lcurly, .ident, .colon, .dimension, .rcurly },
     );
 
     try expectTokens("'foo'", &.{.string});
     try expectTokens("\"foo bar\"", &.{.string});
     try expectTokens("'\\''", &.{.string});
-    try expectTokens("prop: url('foo bar')", &.{ .ident, .colon, .space, .function, .string, .rparen });
+    try expectTokens("prop: url('foo bar')", &.{ .ident, .colon, .function, .string, .rparen });
+    try expectTokens("[foo=\"bar\"]", &.{ .lsquare, .ident, .other, .string, .rsquare });
 
-    // assert_eq!(tokenize(b"[foo=\"bar\"]"), vec!["[", "foo", "=", "\"bar\"", "]"]);
+    try expectTokens(
+        "@media { a b { left: 10% } }",
+        &.{ .other, .ident, .lcurly, .ident, .space, .ident, .lcurly, .ident, .colon, .dimension, .rcurly, .rcurly },
+    );
 
-    // assert_eq!(
-    //     tokenize(b"@media { a b { left: 10% } }"),
-    //     vec!["@", "media", "{", "a", " ", "b", "{", "left", ":", "10", "%", "}", "}"]
-    // );
-
-    // try expectTokens("/**/ a /**/ b {}", &.{ .ident, .space, .ident, .lcurly, .rcurly });
+    try expectTokens("/**/ a /**/ b {}", &.{ .space, .ident, .space, .ident, .space, .lcurly, .rcurly });
 }
