@@ -38,26 +38,29 @@ pub const Renderer = struct {
     }
 
     pub fn render(self: *Self, document: *Document, w: f32, h: f32) void {
+        std.debug.print("TODO: style is empty for now\n", .{});
+
         self.vg.reset();
         self.vg.beginFrame(w, h, 1.0);
         defer self.vg.endFrame();
 
         // layout-all
-        var layout_nodes = self.allocator.alloc(LayoutNode, document.nodes.len) catch @panic("oom");
+        var layout_nodes = self.allocator.alloc(LayoutNode, document.nodes.list.len) catch @panic("oom");
         defer self.allocator.free(layout_nodes);
         for (layout_nodes) |*l, n| {
-            const node = document.node(n);
+            const node = document.nodeById(n);
 
             l.* = switch (node.nodeType()) {
-                .element => .{ .style = node.element().style },
-                .text => .{ .style = .{ .display = .@"inline" }, .text = node.text() },
+                .element => .{ .style = .{} },
+                .text => .{ .style = .{ .display = .@"inline" }, .text = node.text().?.data },
                 .document => .{ .style = .{} },
+                .comment, .document_fragment => .{ .style = .{} },
             };
 
             l.first_child = if (node.first_child) |ch| &layout_nodes[ch.id] else null;
-            l.next = if (node.next) |ne| &layout_nodes[ne.id] else null;
+            l.next = if (node.next_sibling) |ne| &layout_nodes[ne.id] else null;
         }
-        calculate(&layout_nodes[document.root.id], .{ .width = w, .height = h });
+        calculate(&layout_nodes[document.node.id], .{ .width = w, .height = h });
 
         var ctx = RenderContext{ .vg = &self.vg };
 
@@ -66,7 +69,7 @@ pub const Renderer = struct {
         ctx.fillShape(&Shape{ .rect = .{ .w = w, .h = h } }, nvg.rgb(255, 255, 255));
 
         // TODO: maybe we don't need document here anymore and we could render layout tree
-        ctx.renderNode(&layout_nodes[document.root.id]);
+        ctx.renderNode(&layout_nodes[document.node.id]);
     }
 };
 

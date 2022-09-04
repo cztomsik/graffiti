@@ -12,11 +12,11 @@ pub const DOMParser = struct {
         return .{ .allocator = allocator };
     }
 
-    pub fn parseFromString(self: *Self, html: []const u8) !Document {
+    pub fn parseFromString(self: *Self, html: []const u8) !*Document {
         var doc = try Document.init(self.allocator);
         var tokenizer = Tokenizer{ .input = std.mem.trim(u8, html, " \n\r\t") };
         var stack = std.ArrayList(*Node).init(self.allocator);
-        _ = try stack.append(doc.root);
+        _ = try stack.append(doc.node);
         defer stack.deinit();
 
         while (tokenizer.next()) |t| {
@@ -24,13 +24,13 @@ pub const DOMParser = struct {
 
             switch (t) {
                 .comment => {},
-                .text => |text| parent.appendChild(try doc.createTextNode(text)),
+                .text => |text| parent.appendChild((try doc.createTextNode(text)).node),
                 .tag_open => |local_name| {
                     const el = try doc.createElement(local_name);
-                    parent.appendChild(el);
-                    try stack.append(el);
+                    parent.appendChild(el.node);
+                    try stack.append(el.node);
                 },
-                .attribute => |att| try parent.element().setAttribute(att[0], att[1]),
+                .attribute => |att| try parent.element().?.setAttribute(att[0], att[1]),
                 .tag_close => _ = stack.pop(),
             }
         }
@@ -100,7 +100,7 @@ const Tokenizer = struct {
         }
 
         // TODO: this is wrong!
-        const text = std.mem.trim(u8, self.consume(Self.notAngle) orelse return null, " \n\r\t");
+        const text = std.mem.trim(u8, self.consume(notAngle) orelse return null, " \n\r\t");
         return if (text.len > 0) Token{ .text = text } else return self.next() orelse return null;
     }
 

@@ -2,69 +2,118 @@ const std = @import("std");
 const Node = @import("dom.zig").Node;
 const NodeId = @import("dom.zig").NodeId;
 const NodeType = @import("dom.zig").NodeType;
-const NodeData = @import("dom.zig").NodeData;
+const Element = @import("dom.zig").Element;
+const Text = @import("dom.zig").Text;
+const Comment = @import("dom.zig").Comment;
+const DocumentFragment = @import("dom.zig").DocumentFragment;
 
 pub const Document = struct {
+    node: *Node,
     allocator: std.mem.Allocator,
-    nodes: *NodeStore,
-    root: *Node,
+    nodes: Store(Node),
+    elements: Store(Element),
+    texts: Store(Text),
 
     const Self = @This();
 
-    pub fn init(allocator: std.mem.Allocator) !Self {
-        var doc = Self{ .allocator = allocator, .nodes = try allocator.create(NodeStore), .root = undefined };
-        doc.nodes.* = .{};
-        doc.root = try doc.createNode(NodeData.document);
-        std.debug.assert(doc.root.id == 0);
+    pub fn init(allocator: std.mem.Allocator) !*Self {
+        var document = try allocator.create(Document);
 
-        return doc;
+        document.* = Self{
+            .node = undefined,
+            .allocator = allocator,
+            .nodes = try Store(Node).init(allocator),
+            .elements = try Store(Element).init(allocator),
+            .texts = try Store(Text).init(allocator),
+        };
+
+        var node = try document.createNode(.{ .document = document });
+        document.node = node;
+
+        return document;
     }
 
     pub fn deinit(self: *Self) void {
-        // TODO: go through alive nodes and call freeNode on them?
+        self.nodes.deinit();
 
-        self.nodes.deinit(self.allocator);
-        self.allocator.destroy(self.nodes);
+        var els = self.elements.list.iterator(0);
+        while (els.next()) |el| el.attributes.deinit();
+        self.elements.deinit();
+
+        self.texts.deinit();
+        self.allocator.destroy(self);
     }
 
-    pub fn node(self: *Self, id: NodeId) *Node {
-        return self.nodes.at(id);
+    pub fn nodeById(self: *Self, id: NodeId) *Node {
+        return self.nodes.list.at(id);
     }
 
-    pub fn createTextNode(self: *Self, data: []const u8) !*Node {
-        return self.createNode(NodeData{
-            .text = try self.allocator.dupe(u8, data),
-        });
-    }
-
-    pub fn createElement(self: *Self, local_name: []const u8) !*Node {
-        return self.createNode(NodeData{ .element = .{
+    pub fn createElement(self: *Self, local_name: []const u8) !*Element {
+        var element = try self.elements.insert(Element{
+            .node = undefined,
             .local_name = local_name,
-            .attributes = std.StringHashMap([]const u8).init(self.allocator),
-        } });
+            .attributes = std.BufMap.init(self.allocator),
+        });
+        var node = try self.createNode(.{ .element = element });
+        element.node = node;
+
+        return element;
     }
 
-    pub fn freeNode(self: *Self, n: *Node) void {
-        switch (n.data) {
-            .text => |t| self.allocator.free(t),
-            else => {},
-        }
+    pub fn createTextNode(self: *Self, data: []const u8) !*Text {
+        var text = try self.texts.insert(Text{ .node = undefined, .data = data });
+        var node = try self.createNode(.{ .text = text });
+        text.node = node;
 
-        // TODO: mark as free, reuse in createNode
+        return text;
     }
+
+    // pub fn createComment(self: *Self, data: []const u8) !*Comment {
+    //     var comment = try self.comments.insert(Comment{ .data = data });
+    //     var node = try self.createNode(.{ .comment = comment });
+    //     comment.node = node;
+
+    //     return comment;
+    // }
+
+    // pub fn createDocumentFragment(self: *Self) !*Node {
+    //     return self.createNode(.{.document_fragment}));
+    // }
 
     // helpers
 
-    fn createNode(self: *Self, data: NodeData) !*Node {
-        // if (self.free_head) |x| { .. self.free_head = x.next }
-
-        const id = self.nodes.len;
-        const ptr = try self.nodes.addOne(self.allocator);
-        ptr.* = Node{ .document = self, .id = id, .data = data };
-        // std.debug.print("createNode {} {any}\n", .{ id, data });
-
-        return ptr;
+    fn createNode(self: *Self, data: anytype) !*Node {
+        const id = self.nodes.list.len;
+        return self.nodes.insert(Node{ .document = self, .id = id, .data = data });
     }
 };
 
-const NodeStore = std.SegmentedList(Node, 64);
+fn Store(comptime T: type) type {
+    const List = std.SegmentedList(T, 64);
+
+    return struct {
+        allocator: std.mem.Allocator,
+        list: *List,
+
+        const Self = @This();
+
+        pub fn init(allocator: std.mem.Allocator) !Self {
+            var list = try allocator.create(List);
+            list.* = .{};
+
+            return Self{ .allocator = allocator, .list = list };
+        }
+
+        pub fn insert(self: *Self, value: T) !*T {
+            const ptr = try self.list.addOne(self.allocator);
+            ptr.* = value;
+
+            return ptr;
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.list.deinit(self.allocator);
+            self.allocator.destroy(self.list);
+        }
+    };
+}

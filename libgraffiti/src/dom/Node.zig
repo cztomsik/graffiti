@@ -2,17 +2,25 @@ const std = @import("std");
 const Document = @import("dom.zig").Document;
 const NodeId = @import("dom.zig").NodeId;
 const NodeType = @import("dom.zig").NodeType;
-const NodeData = @import("dom.zig").NodeData;
 const Element = @import("dom.zig").Element;
+const Text = @import("dom.zig").Text;
+const Comment = @import("dom.zig").Comment;
 
 pub const Node = struct {
     document: *Document,
-    id: NodeId,
-    data: NodeData,
+    id: NodeId, // TODO: or lookup-table in Document?
 
-    parent: ?*Node = null,
+    parent_node: ?*Node = null,
     first_child: ?*Node = null,
-    next: ?*Node = null,
+    next_sibling: ?*Node = null,
+
+    data: union(NodeType) {
+        element: *Element,
+        text: *Text,
+        comment: *Comment,
+        document: *Document,
+        document_fragment,
+    },
 
     const Self = @This();
 
@@ -20,39 +28,51 @@ pub const Node = struct {
         return self.data;
     }
 
-    pub fn text(self: *Self) []const u8 {
+    pub fn text(self: *Self) ?*Text {
         return switch (self.data) {
-            .text => |text| text,
-            else => @panic("invalid node type"), //Error.InvalidNodeType,
+            .text => |ptr| ptr,
+            else => null,
         };
     }
 
-    pub fn element(self: *Self) *Element {
+    pub fn element(self: *Self) ?*Element {
         return switch (self.data) {
-            .element => |*element| element,
-            else => @panic("invalid node type"), //Error.InvalidNodeType,
+            .element => |ptr| ptr,
+            else => null,
         };
     }
 
-    // pub fn children(self: *Self, node: NodeId) []const NodeId {
-    //     return self.nodes.items[node].children.items;
-    // }
+    pub fn childNodes(self: *Self) ChildNodesIter {
+        return .{ .next = self.first_child };
+    }
 
     pub fn appendChild(self: *Self, child: *Self) void {
         // TODO: assert self.data != .text and child.parent == null
 
         if (self.first_child) |first| {
             var last = first;
-            while (last.next) |n| last = n;
+            while (last.next_sibling) |n| last = n;
 
-            last.next = child;
+            last.next_sibling = child;
         } else {
             self.first_child = child;
         }
 
-        child.parent = self;
+        child.parent_node = self;
     }
 
     // TODO: insertBefore()
+    // TODO: replaceChild()
     // TODO: removeChild()
+    // TODO: querySelector()
+    // TODO: querySelectorAll()
+};
+
+const ChildNodesIter = struct {
+    next: ?*Node,
+
+    pub fn next(self: ChildNodesIter) ?*Node {
+        defer self.next = next.next_sibling;
+        return self.next;
+    }
 };
