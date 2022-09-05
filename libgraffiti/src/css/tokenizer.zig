@@ -31,7 +31,7 @@ pub const Token = union(enum) {
     other: u8,
 };
 
-const TokenTag = @typeInfo(Token).Union.tag_type.?;
+const TokenTag = std.meta.Tag(Token);
 
 pub const Tokenizer = struct {
     input: []const u8,
@@ -111,6 +111,7 @@ pub const Tokenizer = struct {
                 break :blk Token.star;
             },
             '.' => Token.dot,
+            '>' => Token.gt,
             '+' => Token.plus,
             '~' => Token.tilde,
             ':' => Token.colon,
