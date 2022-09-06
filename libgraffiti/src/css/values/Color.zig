@@ -1,5 +1,6 @@
 const std = @import("std");
 const Parser = @import("../parser.zig").Parser;
+const expectFmt = std.testing.expectFmt;
 
 pub const Color = struct {
     r: u8 = 0,
@@ -27,6 +28,10 @@ pub const Color = struct {
 
     pub fn named(name: []const u8) ?Self {
         return NAMED_COLORS.get(name);
+    }
+
+    pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        return writer.print("rgba({}, {}, {}, {})", .{ self.r, self.g, self.b, self.a });
     }
 
     pub fn parse(parser: *Parser) !Self {
@@ -220,8 +225,8 @@ fn hex(s: []const u8) u8 {
     return std.fmt.parseInt(u8, s, 16) catch 0;
 }
 
-fn expectColor(input: []const u8, expected: Color) !void {
-    try std.testing.expectEqual(expected, try Parser.init(std.testing.allocator, input).parse(Color));
+test "Color.format()" {
+    try expectFmt("rgba(255, 128, 255, 128)", "{}", .{Color.rgba(255, 128, 255, 128)});
 }
 
 test "Color.parse()" {
