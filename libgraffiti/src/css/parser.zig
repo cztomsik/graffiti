@@ -15,7 +15,7 @@ pub const Parser = struct {
         };
     }
 
-    fn expect(self: *Self, comptime tag: @Type(.EnumLiteral)) !std.meta.fieldInfo(Token, tag).field_type {
+    pub fn expect(self: *Self, comptime tag: @Type(.EnumLiteral)) !std.meta.fieldInfo(Token, tag).field_type {
         const tok = try self.tokenizer.next();
 
         if (tok == tag) {
@@ -25,7 +25,7 @@ pub const Parser = struct {
         return error.invalid;
     }
 
-    fn parse(self: *Self, comptime T: type) !T {
+    pub fn parse(self: *Self, comptime T: type) !T {
         if (comptime std.meta.trait.hasFn("parse")(T)) {
             return T.parse(self);
         }
@@ -35,7 +35,7 @@ pub const Parser = struct {
         }
 
         return switch (T) {
-            f32 => std.fmt.parseFloat(f32, try self.expect(.number)),
+            f32 => self.expect(.number),
             else => @compileError("unknown value type"),
         };
     }

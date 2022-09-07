@@ -42,6 +42,10 @@ pub const Tokenizer = struct {
 
     const Error = error{ Eof, InvalidCharacter };
 
+    pub fn rest(self: *Self) []const u8 {
+        return self.input[self.pos..];
+    }
+
     pub fn next(self: *Self) Error!Token {
         const ch = try self.peek(0);
 

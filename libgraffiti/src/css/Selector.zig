@@ -23,6 +23,17 @@ pub const Selector = struct {
         parent,
         ancestor,
         @"or",
+
+        fn eql(self: Part, other: Part) bool {
+            if (std.meta.activeTag(self) != std.meta.activeTag(other)) return false;
+
+            return switch (self) {
+                .local_name => std.mem.eql(u8, self.local_name, other.local_name),
+                .identifier => std.mem.eql(u8, self.identifier, other.identifier),
+                .class_name => std.mem.eql(u8, self.class_name, other.class_name),
+                else => true,
+            };
+        }
     };
 
     pub fn parse(parser: *Parser) !Self {

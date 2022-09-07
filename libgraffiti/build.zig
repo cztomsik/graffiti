@@ -8,6 +8,7 @@ pub fn build(b: *std.build.Builder) void {
     const exe = b.addExecutable("hello-zig", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
+    exe.use_stage1 = true;
 
     add_glfw(exe);
     nanovg.addNanoVGPackage(exe);
