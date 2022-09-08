@@ -1,5 +1,9 @@
 // supported CSS props (longhand)
 
+const std = @import("std");
+const Parser = @import("parser.zig").Parser;
+const expectFmt = std.testing.expectFmt;
+
 const BoxShadow = @import("values/BoxShadow.zig").BoxShadow;
 const Color = @import("values/Color.zig").Color;
 const Dimension = @import("values/Dimension.zig").Dimension;
@@ -94,5 +98,30 @@ pub const StyleProp = union(enum) {
     @"visibility": enums.Visibility,
     @"transform": Transform,
 
+    const Self = @This();
+
+    pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        const info = @typeInfo(Self).Union;
+
+        inline for (info.fields) |f| {
+            if (self == @field(info.tag_type.?, f.name)) {
+                const v = @field(self, f.name);
+
+                try writer.print("{s}: ", .{@tagName(self)});
+
+                return switch (@typeInfo(f.field_type)) {
+                    .Enum => writer.writeAll(@tagName(v)),
+                    .Float => writer.print("{d}", .{v}),
+                    else => writer.print("{any}", .{v}),
+                };
+            }
+        }
+    }
 };
+
+test "StyleProp.format()" {
+    try expectFmt("display: block", "{}", .{StyleProp{ .display = .block }});
+    try expectFmt("width: 0px", "{}", .{StyleProp{ .width = Dimension{ .px = 0 } }});
+    try expectFmt("flex-grow: 1", "{}", .{StyleProp{ .@"flex-grow" = 1 }});
+}
 
