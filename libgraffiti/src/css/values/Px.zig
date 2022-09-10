@@ -2,6 +2,7 @@
 
 const std = @import("std");
 const Parser = @import("../parser.zig").Parser;
+const expectParse = @import("../parser.zig").expectParse;
 const expectFmt = std.testing.expectFmt;
 
 pub const Px = struct {
@@ -33,6 +34,7 @@ test "Px.format()" {
 }
 
 test "Px.parse()" {
-    try expectPx("0", Px{ .px = 0 });
-    try expectPx("10px", Px{ .px = 10 });
+    try expectParse(Px, "0", .{ .px = 0 });
+    try expectParse(Px, "10px", .{ .px = 10 });
+    try expectParse(Px, "xxx", error.invalid);
 }

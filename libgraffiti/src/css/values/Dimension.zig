@@ -1,5 +1,6 @@
 const std = @import("std");
 const Parser = @import("../parser.zig").Parser;
+const expectParse = @import("../parser.zig").expectParse;
 const expectFmt = std.testing.expectFmt;
 
 pub const Dimension = union(enum) {
@@ -69,14 +70,16 @@ test "Dimension.format()" {
 }
 
 test "Dimension.parse()" {
-    try expectDimension("0", Dimension{ .px = 0 });
-    try expectDimension("100%", Dimension{ .percent = 100 });
-    try expectDimension("10px", Dimension{ .px = 10 });
-    try expectDimension("1.2em", Dimension{ .em = 1.2 });
-    try expectDimension("2.1rem", Dimension{ .rem = 2.1 });
-    try expectDimension("100vw", Dimension{ .vw = 100 });
-    try expectDimension("100vh", Dimension{ .vh = 100 });
-    try expectDimension("auto", Dimension.auto);
-    try expectDimension("vmin", Dimension.vmin);
-    try expectDimension("vmax", Dimension.vmax);
+    try expectParse(Dimension, "0", .{ .px = 0 });
+    try expectParse(Dimension, "100%", .{ .percent = 100 });
+    try expectParse(Dimension, "10px", .{ .px = 10 });
+    try expectParse(Dimension, "1.2em", .{ .em = 1.2 });
+    try expectParse(Dimension, "2.1rem", .{ .rem = 2.1 });
+    try expectParse(Dimension, "100vw", .{ .vw = 100 });
+    try expectParse(Dimension, "100vh", .{ .vh = 100 });
+    try expectParse(Dimension, "auto", .auto);
+    try expectParse(Dimension, "vmin", .vmin);
+    try expectParse(Dimension, "vmax", .vmax);
+
+    try expectParse(Dimension, "xxx", error.invalid);
 }

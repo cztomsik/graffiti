@@ -1,5 +1,6 @@
 const std = @import("std");
 const Parser = @import("../parser.zig").Parser;
+const expectParse = @import("../parser.zig").expectParse;
 const expectFmt = std.testing.expectFmt;
 
 pub const Color = struct {
