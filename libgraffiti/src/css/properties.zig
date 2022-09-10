@@ -2,6 +2,7 @@
 
 const std = @import("std");
 const Parser = @import("parser.zig").Parser;
+const expectParse = @import("parser.zig").expectParse;
 const expectFmt = std.testing.expectFmt;
 
 const BoxShadow = @import("values/BoxShadow.zig").BoxShadow;
@@ -117,6 +118,21 @@ pub const StyleProp = union(enum) {
             }
         }
     }
+
+    pub fn parse(parser: *Parser) !Self {
+        const prop_name = try parser.expect(.ident);
+
+        try parser.expect(.colon);
+
+        inline for (std.meta.fields(Self)) |f| {
+            if (std.mem.eql(u8, prop_name, f.name)) {
+                const value = try parser.parse(f.field_type);
+                return @unionInit(Self, f.name, value);
+            }
+        }
+
+        return error.UnknownProperty;
+    }
 };
 
 test "StyleProp.format()" {
@@ -125,3 +141,11 @@ test "StyleProp.format()" {
     try expectFmt("flex-grow: 1", "{}", .{StyleProp{ .@"flex-grow" = 1 }});
 }
 
+test "StyleProp.parse()" {
+    try expectParse(StyleProp, "display: block", .{ .display = .block });
+    try expectParse(StyleProp, "width: 0px", .{ .width = .{ .px = 0 } });
+    try expectParse(StyleProp, "flex-grow: 1", .{ .@"flex-grow" = 1 });
+
+    try expectParse(StyleProp, "", error.Eof);
+    try expectParse(StyleProp, "unknown: 1", error.UnknownProperty);
+}
