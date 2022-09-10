@@ -231,24 +231,26 @@ test "Color.format()" {
 }
 
 test "Color.parse()" {
-    try expectColor("#000000", Color.BLACK);
-    try expectColor("#ff0000", Color.RED);
-    try expectColor("#00ff00", Color.GREEN);
-    try expectColor("#0000ff", Color.BLUE);
+    try expectParse(Color, "#000000", Color.BLACK);
+    try expectParse(Color, "#ff0000", Color.RED);
+    try expectParse(Color, "#00ff00", Color.GREEN);
+    try expectParse(Color, "#0000ff", Color.BLUE);
 
-    try expectColor("#80808080", Color.rgba(128, 128, 128, 128));
-    try expectColor("#00000080", Color.rgba(0, 0, 0, 128));
+    try expectParse(Color, "#80808080", Color.rgba(128, 128, 128, 128));
+    try expectParse(Color, "#00000080", Color.rgba(0, 0, 0, 128));
 
-    try expectColor("#000", Color.BLACK);
-    try expectColor("#f00", Color.RED);
-    try expectColor("#fff", Color.WHITE);
+    try expectParse(Color, "#000", Color.BLACK);
+    try expectParse(Color, "#f00", Color.RED);
+    try expectParse(Color, "#fff", Color.WHITE);
 
-    try expectColor("#0000", Color.TRANSPARENT);
-    try expectColor("#f00f", Color.RED);
+    try expectParse(Color, "#0000", Color.TRANSPARENT);
+    try expectParse(Color, "#f00f", Color.RED);
 
-    // try expectColor("rgb(0, 0, 0)", Color.BLACK);
-    // try expectColor("rgba(0, 0, 0, 0)", Color.TRANSPARENT);
+    // try expectParse(Color, "rgb(0, 0, 0)", Color.BLACK);
+    // try expectParse(Color, "rgba(0, 0, 0, 0)", Color.TRANSPARENT);
 
-    try expectColor("transparent", Color.TRANSPARENT);
-    try expectColor("black", Color.BLACK);
+    try expectParse(Color, "transparent", Color.TRANSPARENT);
+    try expectParse(Color, "black", Color.BLACK);
+
+    try expectParse(Color, "xxx", error.invalid);
 }
