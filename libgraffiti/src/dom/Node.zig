@@ -6,6 +6,16 @@ const Element = @import("dom.zig").Element;
 const Text = @import("dom.zig").Text;
 const Comment = @import("dom.zig").Comment;
 
+pub const NodeId = usize;
+
+pub const NodeType = enum(u32) {
+    element = 1,
+    text = 3,
+    comment = 8,
+    document = 9,
+    document_fragment = 11,
+};
+
 pub const Node = struct {
     document: *Document,
     id: NodeId, // TODO: or lookup-table in Document?
