@@ -62,6 +62,7 @@ test {
     _ = @import("dom/dom.zig");
     _ = @import("css/tokenizer.zig");
     _ = @import("css/parser.zig");
+    _ = @import("css/properties.zig");
     _ = @import("css/Selector.zig");
     _ = @import("css/values/BoxShadow.zig");
     _ = @import("css/values/Color.zig");

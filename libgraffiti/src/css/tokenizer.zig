@@ -31,7 +31,7 @@ pub const Token = union(enum) {
     other: u8,
 };
 
-const TokenTag = @typeInfo(Token).Union.tag_type.?;
+const TokenTag = std.meta.Tag(Token);
 
 pub const Tokenizer = struct {
     input: []const u8,
@@ -41,6 +41,10 @@ pub const Tokenizer = struct {
     const Self = @This();
 
     const Error = error{ Eof, InvalidCharacter };
+
+    pub fn rest(self: *Self) []const u8 {
+        return self.input[self.pos..];
+    }
 
     pub fn next(self: *Self) Error!Token {
         const ch = try self.peek(0);
@@ -111,6 +115,7 @@ pub const Tokenizer = struct {
                 break :blk Token.star;
             },
             '.' => Token.dot,
+            '>' => Token.gt,
             '+' => Token.plus,
             '~' => Token.tilde,
             ':' => Token.colon,

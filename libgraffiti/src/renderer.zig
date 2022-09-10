@@ -82,7 +82,10 @@ const RenderContext = struct {
         const l = &node.layout;
         var rect = Rect{ .x = l.pos.x, .y = l.pos.y, .w = l.size.width, .h = l.size.height };
 
-        if (node.text) |t| self.drawText(rect, t) else self.drawContainer(rect, &node.style, node.first_child);
+        if (node.text) |t|
+            self.drawText(rect, t)
+        else
+            self.drawContainer(rect, &node.style, node.first_child);
     }
 
     fn drawContainer(self: *Self, rect: Rect, style: *const Style, first_child: ?*LayoutNode) void {

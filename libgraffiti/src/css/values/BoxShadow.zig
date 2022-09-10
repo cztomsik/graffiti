@@ -1,5 +1,7 @@
 const std = @import("std");
 const Parser = @import("../parser.zig").Parser;
+const expectParse = @import("../parser.zig").expectParse;
+const expectFmt = std.testing.expectFmt;
 const Px = @import("./Px.zig").Px;
 const Color = @import("./Color.zig").Color;
 
@@ -11,6 +13,10 @@ pub const BoxShadow = struct {
     color: Color,
 
     const Self = @This();
+
+    pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        return writer.print("{} {} {} {} {}", .{ self.offset_x, self.offset_y, self.blur, self.spread, self.color });
+    }
 
     pub fn parse(parser: *Parser) !Self {
         return Self{
@@ -24,14 +30,21 @@ pub const BoxShadow = struct {
     }
 };
 
-fn expectBoxShadow(input: []const u8, expected: BoxShadow) !void {
-    try std.testing.expectEqual(expected, try Parser.init(std.testing.allocator, input).parse(BoxShadow));
+test "BoxShadow.format()" {
+    try expectFmt("10px 10px 20px 5px rgba(255, 0, 0, 255)", "{}", .{BoxShadow{
+        .offset_x = .{ .px = 10 },
+        .offset_y = .{ .px = 10 },
+        .blur = .{ .px = 20 },
+        .spread = .{ .px = 5 },
+        .color = Color.RED,
+    }});
 }
 
-test "Shadow.parse()" {
-    try expectBoxShadow(
+test "BoxShadow.parse()" {
+    try expectParse(
+        BoxShadow,
         "1px 1px 1px 1px #000",
-        BoxShadow{
+        .{
             .offset_x = .{ .px = 1 },
             .offset_y = .{ .px = 1 },
             .blur = .{ .px = 1 },
@@ -40,9 +53,10 @@ test "Shadow.parse()" {
         },
     );
 
-    // try expectBoxShadow(
+    // try expectParse(
+    //     BoxShadow,
     //     "0 0 10px #000",
-    //     BoxShadow{
+    //     .{
     //         .offset_x = .{ .px = 0 },
     //         .offset_y = .{ .px = 0 },
     //         .blur = .{ .px = 10 },
@@ -50,4 +64,6 @@ test "Shadow.parse()" {
     //         .color = Color.BLACK,
     //     },
     // );
+
+    try expectParse(BoxShadow, "xxx", error.invalid);
 }

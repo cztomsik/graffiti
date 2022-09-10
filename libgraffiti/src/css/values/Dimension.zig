@@ -1,5 +1,7 @@
 const std = @import("std");
 const Parser = @import("../parser.zig").Parser;
+const expectParse = @import("../parser.zig").expectParse;
+const expectFmt = std.testing.expectFmt;
 
 pub const Dimension = union(enum) {
     auto,
@@ -13,6 +15,18 @@ pub const Dimension = union(enum) {
     vmax,
 
     const Self = @This();
+
+    pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        return switch (self) {
+            .px => |v| writer.print("{d}px", .{v}),
+            .percent => |v| writer.print("{d}%", .{v}),
+            .em => |v| writer.print("{d}em", .{v}),
+            .rem => |v| writer.print("{d}rem", .{v}),
+            .vw => |v| writer.print("{d}vw", .{v}),
+            .vh => |v| writer.print("{d}vh", .{v}),
+            .auto, .vmin, .vmax => writer.print("{s}", .{@tagName(self)}),
+        };
+    }
 
     pub fn parse(parser: *Parser) !Self {
         const tok = try parser.tokenizer.next();
@@ -42,19 +56,30 @@ pub const Dimension = union(enum) {
     }
 };
 
-fn expectDimension(input: []const u8, expected: Dimension) !void {
-    try std.testing.expectEqual(expected, try Parser.init(std.testing.allocator, input).parse(Dimension));
+test "Dimension.format()" {
+    try expectFmt("0px", "{}", .{Dimension{ .px = 0 }});
+    try expectFmt("100%", "{}", .{Dimension{ .percent = 100 }});
+    try expectFmt("1.25em", "{}", .{Dimension{ .em = 1.25 }});
+    try expectFmt("1.25rem", "{}", .{Dimension{ .rem = 1.25 }});
+    try expectFmt("1.25vw", "{}", .{Dimension{ .vw = 1.25 }});
+    try expectFmt("1.25vh", "{}", .{Dimension{ .vh = 1.25 }});
+    // TODO: check in stage2? report bug? zig is ignoring .format() probably because it inlines .auto as comptime?
+    try expectFmt("auto", "{}", .{@as(Dimension, Dimension.auto)});
+    try expectFmt("vmin", "{}", .{@as(Dimension, Dimension.vmin)});
+    try expectFmt("vmax", "{}", .{@as(Dimension, Dimension.vmax)});
 }
 
 test "Dimension.parse()" {
-    try expectDimension("0", Dimension{ .px = 0 });
-    try expectDimension("100%", Dimension{ .percent = 100 });
-    try expectDimension("10px", Dimension{ .px = 10 });
-    try expectDimension("1.2em", Dimension{ .em = 1.2 });
-    try expectDimension("2.1rem", Dimension{ .rem = 2.1 });
-    try expectDimension("100vw", Dimension{ .vw = 100 });
-    try expectDimension("100vh", Dimension{ .vh = 100 });
-    try expectDimension("auto", Dimension.auto);
-    try expectDimension("vmin", Dimension.vmin);
-    try expectDimension("vmax", Dimension.vmax);
+    try expectParse(Dimension, "0", .{ .px = 0 });
+    try expectParse(Dimension, "100%", .{ .percent = 100 });
+    try expectParse(Dimension, "10px", .{ .px = 10 });
+    try expectParse(Dimension, "1.2em", .{ .em = 1.2 });
+    try expectParse(Dimension, "2.1rem", .{ .rem = 2.1 });
+    try expectParse(Dimension, "100vw", .{ .vw = 100 });
+    try expectParse(Dimension, "100vh", .{ .vh = 100 });
+    try expectParse(Dimension, "auto", .auto);
+    try expectParse(Dimension, "vmin", .vmin);
+    try expectParse(Dimension, "vmax", .vmax);
+
+    try expectParse(Dimension, "xxx", error.invalid);
 }
