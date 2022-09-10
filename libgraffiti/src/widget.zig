@@ -1,6 +1,9 @@
 const std = @import("std");
 const Canvas = @import("gfx/canvas.zig").Canvas;
 
+// TODO: define meta trait and describe the interface a bit?
+//       but for now we only care about render()
+
 pub const WidgetRef = struct {
     widget: *anyopaque,
     vtable: *const VTable,
