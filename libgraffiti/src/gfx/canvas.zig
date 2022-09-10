@@ -32,6 +32,7 @@ pub const Canvas = struct {
             .debug = true,
         });
 
+        // TODO: "embed of file outside package path" in stage2
         const font = @embedFile("../../nanovg-zig/examples/Roboto-Regular.ttf");
         _ = vg.createFontMem("sans", font);
 
