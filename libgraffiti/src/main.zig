@@ -1,10 +1,15 @@
 const std = @import("std");
-const nvg = @import("nanovg");
-const c = @cImport({
-    @cInclude("GLFW/glfw3.h");
-});
+const lib = @import("lib.zig");
+const c = @import("c.zig");
 const dom = @import("dom/dom.zig");
-const Renderer = @import("renderer.zig").Renderer;
+const WidgetRef = @import("widget.zig").WidgetRef;
+// const Renderer = @import("renderer.zig").Renderer;
+
+const Hello = struct {
+    pub fn render(self: *Hello, canvas: *lib.Canvas) void {
+        canvas.drawText(.{ .w = 100, .h = 20 }, "Hello from " ++ @typeName(@TypeOf(self)));
+    }
+};
 
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -14,30 +19,19 @@ pub fn main() anyerror!void {
     if (c.glfwInit() == 0) return error.GlfwInitFailed;
     defer c.glfwTerminate();
 
-    c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 2);
-    c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 0);
+    // var doc = try createSampleDoc(allocator);
+    // defer doc.deinit();
 
-    const window = c.glfwCreateWindow(800, 600, "Hello", null, null) orelse return error.GlfwCreateWindowFailed;
-    defer c.glfwDestroyWindow(window);
+    // var renderer = try Renderer.init(allocator);
+    // defer renderer.deinit();
 
-    c.glfwMakeContextCurrent(window);
+    var hello = Hello{};
+    var window = try lib.Window.init(allocator, "Hello", 800, 600, WidgetRef.fromPtr(&hello));
+    defer window.deinit();
 
-    _ = gladLoadGL();
-
-    var doc = try createSampleDoc(allocator);
-    defer doc.deinit();
-
-    var renderer = try Renderer.init(allocator);
-    defer renderer.deinit();
-
-    while (c.glfwWindowShouldClose(window) == 0) {
+    while (c.glfwWindowShouldClose(window.glfw_window) == 0) {
         c.glfwWaitEvents();
-
-        var w: i32 = undefined;
-        var h: i32 = undefined;
-        c.glfwGetWindowSize(window, &w, &h);
-        renderer.render(doc, @intToFloat(f32, w), @intToFloat(f32, h));
-        c.glfwSwapBuffers(window);
+        window.render();
     }
 }
 
@@ -55,8 +49,6 @@ fn createSampleDoc(allocator: std.mem.Allocator) !*dom.Document {
         \\</html>
     );
 }
-
-extern fn gladLoadGL() callconv(.C) c_int;
 
 test {
     _ = @import("dom/dom.zig");
