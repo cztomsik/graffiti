@@ -3,6 +3,8 @@
 
 const std = @import("std");
 const Parser = @import("parser.zig").Parser;
+const expectParse = @import("parser.zig").expectParse;
+const expectFmt = std.testing.expectFmt;
 
 pub const Specificity = u32;
 
@@ -36,15 +38,46 @@ pub const Selector = struct {
         }
     };
 
+    pub fn eql(self: Self, other: Self) bool {
+        if (self.parts.len != other.parts.len) return false;
+
+        for (self.parts) |part, i| {
+            if (!part.eql(other.parts[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        var i = self.parts.len;
+        while (i > 0) {
+            i -= 1;
+
+            try switch (self.parts[i]) {
+                .unsupported => writer.print(":unsupported", .{}),
+                .universal => writer.print("*", .{}),
+                .local_name => |s| writer.print("{s}", .{s}),
+                .identifier => |s| writer.print("#{s}", .{s}),
+                .class_name => |s| writer.print(".{s}", .{s}),
+                .parent => writer.print(" > ", .{}),
+                .ancestor => writer.print(" ", .{}),
+                .@"or" => writer.print(", ", .{}),
+            };
+        }
+    }
+
     pub fn parse(parser: *Parser) !Self {
         var parts = std.ArrayList(Part).init(parser.allocator);
+        errdefer parts.deinit();
 
         while (parser.tokenizer.next() catch null) |tok| {
             try parts.append(switch (tok) {
                 .star => Part.universal,
-                .ident => |name| Part{ .local_name = try parser.symbol(name) },
-                .hash => |id| Part{ .identifier = try parser.symbol(id) },
-                .dot => Part{ .class_name = try parser.symbol(try parser.expect(.ident)) },
+                .ident => |name| Part{ .local_name = name },
+                .hash => |id| Part{ .identifier = id },
+                .dot => Part{ .class_name = try parser.expect(.ident) },
                 .colon => blk: {
                     _ = try parser.expect(.ident);
                     break :blk Part.unsupported;
@@ -146,10 +179,19 @@ pub const Selector = struct {
 
 };
 
-fn expectParts(selector: []const u8, parts: []const Selector.Part) !void {
-    const sel = try Parser.init(std.testing.allocator, selector).parse(Selector);
+test "Selector.format()" {
+    try expectFmt("*", "{}", .{Selector{ .parts = &.{.universal} }});
+    try expectFmt("div", "{}", .{Selector{ .parts = &.{.{ .local_name = "div" }} }});
+    try expectFmt("#app", "{}", .{Selector{ .parts = &.{.{ .identifier = "app" }} }});
+    try expectFmt(".btn", "{}", .{Selector{ .parts = &.{.{ .class_name = "btn" }} }});
 
-    try std.testing.expectEqualSlices(Selector.Part, parts, sel.parts);
+    try expectFmt("* > *", "{}", .{Selector{ .parts = &.{ .universal, .parent, .universal } }});
+    try expectFmt("* *", "{}", .{Selector{ .parts = &.{ .universal, .ancestor, .universal } }});
+    try expectFmt("*, *", "{}", .{Selector{ .parts = &.{ .universal, .@"or", .universal } }});
+}
+
+fn expectParts(selector: []const u8, parts: []const Selector.Part) !void {
+    try expectParse(Selector, selector, Selector{ .parts = parts });
 }
 
 test "parsing" {
@@ -195,13 +237,14 @@ test "parsing" {
     try expectParts("* + *", &.{ .universal, .unsupported, .universal });
     try expectParts("* ~ *", &.{ .universal, .unsupported, .universal });
 
-    // // invalid
-    // assert!(Selector::parse("").is_err());
-    // assert!(Selector::parse(" ").is_err());
-    // assert!(Selector::parse("a,,b").is_err());
-    // assert!(Selector::parse("a>>b").is_err());
+    // invalid
+    // TODO
+    // try expectParse(Selector, "", error.Eof);
+    // try expectParse(Selector, " ", error.Eof);
+    // try expectParse(Selector, "a,,b", error.invalid);
+    // try expectParse(Selector, "a>>b", error.invalid);
 
-    // // bugs & edge-cases
+    // bugs & edge-cases
     // try expectParts("input[type=\"submit\"]", &.{ Unsupported, LocalName("input")]);
 }
 
