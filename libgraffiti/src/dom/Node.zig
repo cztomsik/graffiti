@@ -1,7 +1,5 @@
 const std = @import("std");
 const Document = @import("dom.zig").Document;
-const NodeId = @import("dom.zig").NodeId;
-const NodeType = @import("dom.zig").NodeType;
 const Element = @import("dom.zig").Element;
 const Text = @import("dom.zig").Text;
 const Comment = @import("dom.zig").Comment;
