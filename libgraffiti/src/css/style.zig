@@ -9,6 +9,18 @@ pub const Style = struct {
 
     const Self = @This();
 
+    pub fn eql(self: Self, other: Self) bool {
+        if (self.props.len != other.props.len) return false;
+
+        for (self.props) |prop, i| {
+            if (!std.meta.eql(prop, other.props[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         for (self.props) |p, i| {
             if (i != 0) {
@@ -18,6 +30,46 @@ pub const Style = struct {
             try writer.print("{}", .{p});
         }
     }
+
+    pub fn parse(parser: *Parser) !Self {
+        var props = std.ArrayList(StyleProp).init(parser.allocator);
+        errdefer props.deinit();
+
+        while (true) {
+            // TODO: shorthands (ParserProp = LonghandProp + ShorthandProp?)
+            try props.append(parser.parse(StyleProp) catch |e| {
+                if ((e == error.Eof) or ((parser.tokenizer.peek(0) catch 0) == '}')) break else continue;
+            });
+        }
+
+        return Self{
+            .props = props.toOwnedSlice(),
+        };
+    }
+
+    //         // any chunk of tokens before ";" or "}"
+    //         let prop_decl = ((!sym(";") * !sym("}") * skip(1)).repeat(1..)).collect() - sym(";").opt();
+    //         let important = || sym("!important").opt().map(|o| o.is_some());
+
+    //         prop_decl.repeat(0..).map(move |decls| {
+    //             let longhand = StyleProp::parser() + important();
+    //             let shorthand = shorthand_parser() + important();
+
+    //             for tokens in decls {
+    //                 if let Ok((prop, important)) = longhand.parse(tokens) {
+    //                     style.add_prop(prop, important);
+    //                 }
+
+    //                 if let Ok((props, important)) = shorthand.parse(tokens) {
+    //                     for prop in props {
+    //                         style.add_prop(prop, important);
+    //                     }
+    //                 }
+    //             }
+
+    //             style
+    //         })
+
 };
 
 test "Style.format()" {
@@ -25,6 +77,28 @@ test "Style.format()" {
         .{ .display = .block },
         .{ .opacity = 1 },
     } }});
+}
+
+test "Style.parse()" {
+    try expectParse(Style, "", Style{});
+    try expectParse(Style, "unknown-a: 0; unknown-b: 0", Style{});
+    try expectParse(Style, "!important", Style{});
+
+    try expectParse(Style, "opacity: 0", Style{ .props = &.{.{ .opacity = 0 }} });
+    try expectParse(Style, "opacity: 0; opacity: invalid-ignored", Style{ .props = &.{.{ .opacity = 0 }} });
+
+    try expectParse(Style, "opacity: 0; flex-grow: 1", Style{ .props = &.{
+        .{ .opacity = 0 },
+        .{ .@"flex-grow" = 1 },
+    } });
+
+    // assert_eq!(
+    //     Style::parse("opacity: 0 !important")?,
+    //     Style {
+    //         props: vec![StyleProp::Opacity(0.)],
+    //         important_props: sbvec![true]
+    //     }
+    // );
 }
 
 // #[derive(Debug, Clone, Default, PartialEq)]
@@ -60,41 +134,6 @@ test "Style.format()" {
 //         }
 //     }
 // }
-
-// impl Parsable for Style {
-//     fn parser<'a>() -> Parser<'a, Self> {
-//         // any chunk of tokens before ";" or "}"
-//         let prop_decl = ((!sym(";") * !sym("}") * skip(1)).repeat(1..)).collect() - sym(";").opt();
-//         let important = || sym("!important").opt().map(|o| o.is_some());
-
-//         prop_decl.repeat(0..).map(move |decls| {
-//             let mut style = Self::default();
-//             let longhand = StyleProp::parser() + important();
-//             let shorthand = shorthand_parser() + important();
-
-//             for tokens in decls {
-//                 // TODO: shorthands
-//                 if let Ok((prop, important)) = longhand.parse(tokens) {
-//                     style.add_prop(prop, important);
-//                 }
-
-//                 if let Ok((props, important)) = shorthand.parse(tokens) {
-//                     for prop in props {
-//                         style.add_prop(prop, important);
-//                     }
-//                 }
-//             }
-
-//             style
-//         })
-//     }
-// }
-
-// // impl From<&str> for Style {
-// //     fn from(s: &str) -> Self {
-// //         Self::parse(s).unwrap_or_default()
-// //     }
-// // }
 
 // fn shorthand_parser<'a>() -> Parser<'a, Vec<StyleProp>> {
 //     use StyleProp::*;
@@ -177,35 +216,6 @@ test "Style.format()" {
 //     use smallbitvec::sbvec;
 
 //     #[test]
-//     fn parse_style() -> Result<(), ParseError> {
-//         assert_eq!(Style::parse("")?, Style::EMPTY);
-//         assert_eq!(Style::parse("unknown-a: 0; unknown-b: 0")?, Style::EMPTY);
-//         assert_eq!(Style::parse("!important")?, Style::EMPTY);
-
-//         assert_eq!(Style::parse("opacity: 0")?.props, &[StyleProp::Opacity(0.)]);
-
-//         assert_eq!(
-//             Style::parse("opacity: 0; opacity: unknown")?.props,
-//             &[StyleProp::Opacity(0.)]
-//         );
-
-//         assert_eq!(
-//             Style::parse("opacity: 0; flex-grow: 1")?.props,
-//             &[StyleProp::Opacity(0.), StyleProp::FlexGrow(1.)]
-//         );
-
-//         assert_eq!(
-//             Style::parse("opacity: 0 !important")?,
-//             Style {
-//                 props: vec![StyleProp::Opacity(0.)],
-//                 important_props: sbvec![true]
-//             }
-//         );
-
-//         Ok(())
-//     }
-
-//     #[test]
 //     fn parse_shorthands() -> Result<(), ParseError> {
 //         use super::super::{Color, Dimension, Overflow};
 //         use StyleProp::*;
@@ -280,12 +290,6 @@ test "Style.format()" {
 //         );
 
 //         Ok(())
-//     }
-
-//     #[test]
-//     fn css_text() {
-//         let s = Style::parse("display: block").unwrap();
-//         assert_eq!(s.to_string(), "display: block");
 //     }
 
 //     #[test]

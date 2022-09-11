@@ -95,7 +95,9 @@ pub const Selector = struct {
         }
 
         std.mem.reverse(Part, parts.items);
-        return Self{ .parts = parts.toOwnedSlice() };
+        return Self{
+            .parts = parts.toOwnedSlice(),
+        };
     }
 
     // pub fn match_element<C: MatchingContext>(&self, element: C::ElementRef, ctx: &C) -> Option<Specificity> {

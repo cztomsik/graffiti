@@ -158,7 +158,7 @@ pub const Tokenizer = struct {
         return self.input[(start + 1)..(self.pos - 1)];
     }
 
-    fn peek(self: *Self, n: usize) !u8 {
+    pub fn peek(self: *Self, n: usize) !u8 {
         const i = self.pos + n;
 
         return if (i < self.input.len) self.input[i] else error.Eof;
