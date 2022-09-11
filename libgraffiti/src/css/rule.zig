@@ -35,17 +35,9 @@ test "StyleRule.format()" {
     try expectFmt("* {  }", "{}", .{StyleRule{ .selector = Selector.UNIVERSAL, .style = .{} }});
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+test "StyleRule.parse()" {
+    try expectParse(StyleRule, "* { opacity: 0 }", StyleRule{ .selector = Selector.UNIVERSAL, .style = Style{ .props = &.{.{ .opacity = 0 }} } });
 
-//     #[test]
-//     fn parse_rule() -> Result<(), ParseError> {
-//         let selector = Selector::parse("div")?;
-//         let style = Style::parse("color: #fff")?;
-
-//         assert_eq!(StyleRule::parse("div { color: #fff }")?, StyleRule { selector, style });
-
-//         Ok(())
-//     }
-// }
+    try expectParse(StyleRule, "", error.Eof);
+    try expectParse(StyleRule, "xxx", error.Eof);
+}

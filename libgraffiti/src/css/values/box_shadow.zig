@@ -65,5 +65,5 @@ test "BoxShadow.parse()" {
     //     },
     // );
 
-    try expectParse(BoxShadow, "xxx", error.invalid);
+    try expectParse(BoxShadow, "xxx", error.InvalidPx);
 }

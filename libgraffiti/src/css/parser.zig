@@ -24,7 +24,7 @@ pub const Parser = struct {
             return @field(tok, @tagName(tag));
         }
 
-        return error.invalid;
+        return error.UnexpectedToken;
     }
 
     pub fn parse(self: *Self, comptime T: type) !T {

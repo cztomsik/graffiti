@@ -68,7 +68,7 @@ pub const Color = struct {
             else => {},
         }
 
-        return error.invalid;
+        return error.InvalidColor;
     }
 
     // enum(u32) { .xxx = 0x0 } and @bitCast would work but some colors are aliases and enum mapping has to be unique
@@ -261,5 +261,5 @@ test "Color.parse()" {
     try expectParse(Color, "transparent", Color.TRANSPARENT);
     try expectParse(Color, "black", Color.BLACK);
 
-    try expectParse(Color, "xxx", error.invalid);
+    try expectParse(Color, "xxx", error.InvalidColor);
 }

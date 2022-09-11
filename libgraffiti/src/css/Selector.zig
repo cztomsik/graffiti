@@ -75,6 +75,12 @@ pub const Selector = struct {
         errdefer parts.deinit();
 
         while (parser.tokenizer.next() catch null) |tok| {
+            if (tok == .lcurly) {
+                // put back
+                parser.tokenizer.pos -= 1;
+                break;
+            }
+
             try parts.append(switch (tok) {
                 .star => Part.universal,
                 .ident => |name| Part{ .local_name = name },
@@ -90,7 +96,7 @@ pub const Selector = struct {
                 .comma => Part.@"or",
                 .plus => Part.unsupported,
                 .tilde => Part.unsupported,
-                else => return error.InvalidToken,
+                else => return error.InvalidSelectorPart,
             });
         }
 
