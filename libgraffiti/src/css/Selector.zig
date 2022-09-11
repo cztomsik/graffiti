@@ -13,6 +13,8 @@ pub const Selector = struct {
 
     const Self = @This();
 
+    pub const UNIVERSAL = Self{ .parts = &.{Part.universal} };
+
     const Part = union(enum) {
         // components
         unsupported,
@@ -73,6 +75,12 @@ pub const Selector = struct {
         errdefer parts.deinit();
 
         while (parser.tokenizer.next() catch null) |tok| {
+            if (tok == .lcurly) {
+                // put back
+                parser.tokenizer.pos -= 1;
+                break;
+            }
+
             try parts.append(switch (tok) {
                 .star => Part.universal,
                 .ident => |name| Part{ .local_name = name },
@@ -88,12 +96,14 @@ pub const Selector = struct {
                 .comma => Part.@"or",
                 .plus => Part.unsupported,
                 .tilde => Part.unsupported,
-                else => return error.InvalidToken,
+                else => return error.InvalidSelectorPart,
             });
         }
 
         std.mem.reverse(Part, parts.items);
-        return Self{ .parts = parts.toOwnedSlice() };
+        return Self{
+            .parts = parts.toOwnedSlice(),
+        };
     }
 
     // pub fn match_element<C: MatchingContext>(&self, element: C::ElementRef, ctx: &C) -> Option<Specificity> {

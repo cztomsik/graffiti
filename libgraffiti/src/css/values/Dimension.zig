@@ -31,28 +31,25 @@ pub const Dimension = union(enum) {
     pub fn parse(parser: *Parser) !Self {
         const tok = try parser.tokenizer.next();
 
-        // https://github.com/ziglang/zig/issues/6749
-        const D = Self;
-
         switch (tok) {
-            .number => |n| if (n == 0) return D{ .px = 0 },
-            .percentage => |p| return D{ .percent = p },
+            .number => |n| if (n == 0) return Self{ .px = 0 },
+            .percentage => |p| return Self{ .percent = p },
             .dimension => |d| {
-                if (std.mem.eql(u8, "px", d.unit)) return D{ .px = d.value };
-                if (std.mem.eql(u8, "em", d.unit)) return D{ .em = d.value };
-                if (std.mem.eql(u8, "rem", d.unit)) return D{ .rem = d.value };
-                if (std.mem.eql(u8, "vw", d.unit)) return D{ .vw = d.value };
-                if (std.mem.eql(u8, "vh", d.unit)) return D{ .vh = d.value };
+                if (std.mem.eql(u8, "px", d.unit)) return Self{ .px = d.value };
+                if (std.mem.eql(u8, "em", d.unit)) return Self{ .em = d.value };
+                if (std.mem.eql(u8, "rem", d.unit)) return Self{ .rem = d.value };
+                if (std.mem.eql(u8, "vw", d.unit)) return Self{ .vw = d.value };
+                if (std.mem.eql(u8, "vh", d.unit)) return Self{ .vh = d.value };
             },
             .ident => |k| {
-                if (std.mem.eql(u8, "auto", k)) return D.auto;
-                if (std.mem.eql(u8, "vmin", k)) return D.vmin;
-                if (std.mem.eql(u8, "vmax", k)) return D.vmax;
+                if (std.mem.eql(u8, "auto", k)) return Self.auto;
+                if (std.mem.eql(u8, "vmin", k)) return Self.vmin;
+                if (std.mem.eql(u8, "vmax", k)) return Self.vmax;
             },
             else => {},
         }
 
-        return error.invalid;
+        return error.InvalidDimension;
     }
 };
 
@@ -81,5 +78,5 @@ test "Dimension.parse()" {
     try expectParse(Dimension, "vmin", .vmin);
     try expectParse(Dimension, "vmax", .vmax);
 
-    try expectParse(Dimension, "xxx", error.invalid);
+    try expectParse(Dimension, "xxx", error.InvalidDimension);
 }

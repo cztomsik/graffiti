@@ -1,12 +1,28 @@
-pub const Align = enum {
-    @"auto",
+pub const AlignContent = enum {
     @"flex-start",
     @"center",
     @"flex-end",
     @"stretch",
-    @"baseline",
     @"space-between",
     @"space-around",
+    @"space-evenly",
+};
+
+pub const AlignItems = enum {
+    @"flex-start",
+    @"center",
+    @"flex-end",
+    @"baseline",
+    @"stretch",
+};
+
+pub const AlignSelf = enum {
+    @"auto",
+    @"flex-start",
+    @"center",
+    @"flex-end",
+    @"baseline",
+    @"stretch",
 };
 
 pub const BorderStyle = enum {
@@ -48,7 +64,7 @@ pub const FlexWrap = enum {
     @"wrap-reverse",
 };
 
-pub const Justify = enum {
+pub const JustifyContent = enum {
     @"flex-start",
     @"center",
     @"flex-end",

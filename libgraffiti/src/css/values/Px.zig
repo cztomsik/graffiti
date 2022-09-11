@@ -18,14 +18,14 @@ pub const Px = struct {
         const tok = try parser.tokenizer.next();
 
         switch (tok) {
-            .number => |n| if (n == 0) return Px{ .px = 0 },
+            .number => |n| if (n == 0) return Self{ .px = 0 },
             .dimension => |d| {
-                if (std.mem.eql(u8, "px", d.unit)) return Px{ .px = d.value };
+                if (std.mem.eql(u8, "px", d.unit)) return Self{ .px = d.value };
             },
             else => {},
         }
 
-        return error.invalid;
+        return error.InvalidPx;
     }
 };
 
@@ -36,5 +36,5 @@ test "Px.format()" {
 test "Px.parse()" {
     try expectParse(Px, "0", .{ .px = 0 });
     try expectParse(Px, "10px", .{ .px = 10 });
-    try expectParse(Px, "xxx", error.invalid);
+    try expectParse(Px, "xxx", error.InvalidPx);
 }

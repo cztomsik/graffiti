@@ -56,7 +56,9 @@ test {
     _ = @import("css/parser.zig");
     _ = @import("css/properties.zig");
     _ = @import("css/Selector.zig");
-    _ = @import("css/values/BoxShadow.zig");
+    _ = @import("css/rule.zig");
+    _ = @import("css/sheet.zig");
+    _ = @import("css/values/box_shadow.zig");
     _ = @import("css/values/Color.zig");
     _ = @import("css/values/Dimension.zig");
     _ = @import("css/values/Px.zig");
