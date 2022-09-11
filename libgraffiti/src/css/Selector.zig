@@ -13,6 +13,8 @@ pub const Selector = struct {
 
     const Self = @This();
 
+    pub const UNIVERSAL = Self{ .parts = &.{Part.universal} };
+
     const Part = union(enum) {
         // components
         unsupported,

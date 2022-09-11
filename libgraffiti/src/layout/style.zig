@@ -67,8 +67,8 @@ pub const AlignContent = enum {
     flex_end,
     stretch,
     space_between,
-    space_evenly,
     space_around,
+    space_evenly,
 };
 
 pub const AlignItems = enum {
@@ -93,8 +93,8 @@ pub const JustifyContent = enum {
     center,
     flex_end,
     space_between,
-    space_evenly,
     space_around,
+    space_evenly,
 };
 
 pub const Dimension = union(enum) {

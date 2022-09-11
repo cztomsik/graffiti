@@ -5,12 +5,11 @@ const Parser = @import("parser.zig").Parser;
 const expectParse = @import("parser.zig").expectParse;
 const expectFmt = std.testing.expectFmt;
 
-const BoxShadow = @import("values/BoxShadow.zig").BoxShadow;
+const BoxShadow = @import("values/box_shadow.zig").BoxShadow;
 const Color = @import("values/Color.zig").Color;
 const Dimension = @import("values/Dimension.zig").Dimension;
 const enums = @import("values/enums.zig");
 const Px = @import("values/Px.zig").Px;
-const Transform = @import("values/Transform.zig").Transform;
 
 pub const StyleProp = union(enum) {
     // size
@@ -65,10 +64,10 @@ pub const StyleProp = union(enum) {
     @"flex-basis": Dimension,
     @"flex-direction": enums.FlexDirection,
     @"flex-wrap": enums.FlexWrap,
-    @"align-content": enums.Align,
-    @"align-items": enums.Align,
-    @"align-self": enums.Align,
-    @"justify-content": enums.Justify,
+    @"align-content": enums.AlignContent,
+    @"align-items": enums.AlignItems,
+    @"align-self": enums.AlignSelf,
+    @"justify-content": enums.JustifyContent,
 
     // text
     // @"font-family": []const u8,
@@ -97,7 +96,7 @@ pub const StyleProp = union(enum) {
     @"display": enums.Display,
     @"opacity": f32,
     @"visibility": enums.Visibility,
-    @"transform": Transform,
+    // @"transform": Transform,
 
     const Self = @This();
 
