@@ -3,5 +3,4 @@ zig-out/
 **/*~
 **/node_modules
 **/.DS_Store
-lib
 _site/
