@@ -1,6 +1,5 @@
 const std = @import("std");
 const lib = @import("lib.zig");
-const c = @import("c.zig");
 const dom = @import("dom/dom.zig");
 const WidgetRef = @import("widget.zig").WidgetRef;
 // const Renderer = @import("renderer.zig").Renderer;
@@ -16,8 +15,8 @@ pub fn main() anyerror!void {
     const allocator = gpa.allocator();
     // defer if (gpa.deinit()) @panic("mem leak");
 
-    if (c.glfwInit() == 0) return error.GlfwInitFailed;
-    defer c.glfwTerminate();
+    var app = try lib.App.init(allocator);
+    defer app.deinit();
 
     // var doc = try createSampleDoc(allocator);
     // defer doc.deinit();
@@ -26,11 +25,12 @@ pub fn main() anyerror!void {
     // defer renderer.deinit();
 
     var hello = Hello{};
-    var window = try lib.Window.init(allocator, "Hello", 800, 600, WidgetRef.fromPtr(&hello));
+    var window = try app.createWindow("Hello", 800, 600);
     defer window.deinit();
+    window.content = WidgetRef.fromPtr(&hello);
 
-    while (c.glfwWindowShouldClose(window.glfw_window) == 0) {
-        c.glfwWaitEvents();
+    while (!window.shouldClose()) {
+        app.tick();
         window.render();
     }
 }
