@@ -59,16 +59,11 @@ pub const LayoutNode = struct {
     }
 
     pub fn computeInline(self: *Self) void {
-        self.width = 100;
-        self.height = 40;
+        self.width = 0;
+        self.height = 0;
 
-        if (self.user_fn != null) {
-            @panic("call user fn");
-            // self.width = 10 * @intToFloat(f32, t.len);
-            // self.height = 40;
-        } else {
-            self.width = 0;
-            self.height = 0;
+        if (self.user_fn) |fun| {
+            fun(self);
         }
     }
 

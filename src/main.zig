@@ -2,7 +2,6 @@ const std = @import("std");
 const lib = @import("lib.zig");
 const dom = @import("dom/dom.zig");
 const WidgetRef = @import("widget.zig").WidgetRef;
-// const Renderer = @import("renderer.zig").Renderer;
 
 const Hello = struct {
     pub fn render(self: *Hello, canvas: *lib.Canvas) void {
@@ -18,16 +17,19 @@ pub fn main() anyerror!void {
     var app = try lib.App.init(allocator);
     defer app.deinit();
 
-    // var doc = try createSampleDoc(allocator);
-    // defer doc.deinit();
-
-    // var renderer = try Renderer.init(allocator);
-    // defer renderer.deinit();
-
-    var hello = Hello{};
     var window = try app.createWindow("Hello", 800, 600);
     defer window.deinit();
-    window.content = WidgetRef.fromPtr(&hello);
+
+    var doc = try createSampleDoc(allocator);
+    defer doc.deinit();
+
+    var dom_view = try lib.DomView.init(allocator);
+    defer dom_view.deinit();
+    dom_view.dom_node = doc.node;
+    window.content = WidgetRef.fromPtr(&dom_view);
+
+    // var hello = Hello{};
+    //window.content = WidgetRef.fromPtr(&hello);
 
     while (!window.shouldClose()) {
         app.tick();
