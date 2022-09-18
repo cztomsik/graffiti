@@ -7,16 +7,11 @@ pub const Window = struct {
     allocator: std.mem.Allocator,
     glfw_window: *c.GLFWwindow,
     canvas: Canvas,
-    content: WidgetRef,
+    content: ?WidgetRef = null,
 
     const Self = @This();
 
-    pub fn init(allocator: std.mem.Allocator, title: [*:0]const u8, width: i32, height: i32, content: WidgetRef) !Self {
-        c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 2);
-        c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 0);
-
-        const glfw_window = c.glfwCreateWindow(width, height, title, null, null) orelse return error.GlfwCreateWindowFailed;
-
+    pub fn init(allocator: std.mem.Allocator, glfw_window: *c.GLFWwindow) !Self {
         c.glfwMakeContextCurrent(glfw_window);
         _ = gladLoadGL();
 
@@ -26,8 +21,15 @@ pub const Window = struct {
             .allocator = allocator,
             .glfw_window = glfw_window,
             .canvas = canvas,
-            .content = content,
         };
+    }
+
+    pub fn deinit(self: *Self) void {
+        c.glfwDestroyWindow(self.glfw_window);
+    }
+
+    pub fn shouldClose(self: *Self) bool {
+        return c.glfwWindowShouldClose(self.glfw_window) == c.GLFW_TRUE;
     }
 
     pub fn render(self: *Self) void {
@@ -35,16 +37,14 @@ pub const Window = struct {
         var h: i32 = undefined;
         c.glfwGetWindowSize(self.glfw_window, &w, &h);
 
-        // TODO: clear()
-        self.canvas.begin(@intToFloat(f32, w), @intToFloat(f32, h));
-        self.content.render(&self.canvas);
-        self.canvas.end();
+        if (self.content) |*content| {
+            // TODO: clear()
+            self.canvas.begin(@intToFloat(f32, w), @intToFloat(f32, h));
+            content.render(&self.canvas);
+            self.canvas.end();
+        }
 
         c.glfwSwapBuffers(self.glfw_window);
-    }
-
-    pub fn deinit(self: *Self) void {
-        c.glfwDestroyWindow(self.glfw_window);
     }
 };
 

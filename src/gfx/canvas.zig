@@ -32,7 +32,7 @@ pub const Canvas = struct {
             .debug = true,
         });
 
-        const font = @embedFile("../../nanovg-zig/examples/Roboto-Regular.ttf");
+        const font = @embedFile("../../libs/nanovg-zig/examples/Roboto-Regular.ttf");
         _ = vg.createFontMem("sans", font);
 
         return Self{

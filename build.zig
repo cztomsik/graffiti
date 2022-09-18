@@ -1,5 +1,5 @@
 const std = @import("std");
-const nanovg = @import("nanovg-zig/build.zig");
+const nanovg = @import("libs/nanovg-zig/build.zig");
 
 pub fn build(b: *std.build.Builder) void {
     const target = b.standardTargetOptions(.{});
@@ -13,8 +13,8 @@ pub fn build(b: *std.build.Builder) void {
 
     add_glfw(exe);
     nanovg.addNanoVGPackage(exe);
-    exe.addIncludeDir("nanovg-zig/lib/gl2/include");
-    exe.addCSourceFile("nanovg-zig/lib/gl2/src/glad.c", &.{});
+    exe.addIncludeDir("libs/nanovg-zig/lib/gl2/include");
+    exe.addCSourceFile("libs/nanovg-zig/lib/gl2/src/glad.c", &.{});
 
     exe.install();
 
@@ -38,18 +38,19 @@ pub fn build(b: *std.build.Builder) void {
 
 // TODO: unfortunately it doesn't work for linux cross-compilation (-Dtarget=arm-linux-gnueabi)
 //       (LLD Link... ld.lld: error: unable to find library -lglfw)
+// TODO: we could zig translate-c glfw headers and keep them in repo (for the purpose of dynamic linking on linux machines)
 fn add_glfw(exe: anytype) void {
     switch (exe.target.getOsTag()) {
         .macos => {
-            exe.addIncludeDir("glfw/include");
+            exe.addIncludeDir("libs/glfw/include");
 
             exe.addCSourceFiles(&.{
-                "glfw/src/context.c",
-                "glfw/src/init.c",
-                "glfw/src/input.c",
-                "glfw/src/monitor.c",
-                "glfw/src/vulkan.c",
-                "glfw/src/window.c",
+                "libs/glfw/src/context.c",
+                "libs/glfw/src/init.c",
+                "libs/glfw/src/input.c",
+                "libs/glfw/src/monitor.c",
+                "libs/glfw/src/vulkan.c",
+                "libs/glfw/src/window.c",
             }, &[_][]const u8{});
 
             exe.defineCMacro("_GLFW_COCOA", "1");
@@ -57,15 +58,15 @@ fn add_glfw(exe: anytype) void {
             exe.linkFramework("IOKit");
             //exe.linkFramework("OpenGL");
             exe.addCSourceFiles(&.{
-                "glfw/src/cocoa_init.m",
-                "glfw/src/cocoa_joystick.m",
-                "glfw/src/cocoa_monitor.m",
-                "glfw/src/cocoa_window.m",
-                "glfw/src/cocoa_time.c",
-                "glfw/src/posix_thread.c",
-                "glfw/src/nsgl_context.m",
-                "glfw/src/egl_context.c",
-                "glfw/src/osmesa_context.c",
+                "libs/glfw/src/cocoa_init.m",
+                "libs/glfw/src/cocoa_joystick.m",
+                "libs/glfw/src/cocoa_monitor.m",
+                "libs/glfw/src/cocoa_window.m",
+                "libs/glfw/src/cocoa_time.c",
+                "libs/glfw/src/posix_thread.c",
+                "libs/glfw/src/nsgl_context.m",
+                "libs/glfw/src/egl_context.c",
+                "libs/glfw/src/osmesa_context.c",
             }, &[_][]const u8{});
         },
         else => {
