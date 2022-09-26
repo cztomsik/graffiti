@@ -1,6 +1,5 @@
 {
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "[typescript]": {
+  "[javascript]": {
     "editor.formatOnSave": true
   },
   "[zig]": {

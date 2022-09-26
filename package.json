@@ -1,0 +1,23 @@
+{
+  "name": "graffiti",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": "./graffiti.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cztomsik/graffiti.git"
+  },
+  "author": "Kamil Tomšík",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cztomsik/graffiti/issues"
+  },
+  "homepage": "https://github.com/cztomsik/graffiti#readme",
+  "prettier": {
+    "singleQuote": true,
+    "semi": false,
+    "printWidth": 120,
+    "arrowParens": "avoid"
+  }
+}
