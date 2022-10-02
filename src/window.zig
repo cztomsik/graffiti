@@ -11,21 +11,25 @@ pub const Window = struct {
 
     const Self = @This();
 
-    pub fn init(allocator: std.mem.Allocator, glfw_window: *c.GLFWwindow) !Self {
+    pub fn init(allocator: std.mem.Allocator, glfw_window: *c.GLFWwindow) !*Self {
         c.glfwMakeContextCurrent(glfw_window);
         _ = gladLoadGL();
 
         const canvas = try Canvas.init(allocator);
 
-        return Self{
+        var self = try allocator.create(Self);
+        self.* = Self{
             .allocator = allocator,
             .glfw_window = glfw_window,
             .canvas = canvas,
         };
+
+        return self;
     }
 
     pub fn deinit(self: *Self) void {
         c.glfwDestroyWindow(self.glfw_window);
+        self.allocator.destroy(self);
     }
 
     pub fn shouldClose(self: *Self) bool {
