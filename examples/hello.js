@@ -1,3 +1,6 @@
 import '../graffiti.js'
 
-document.body.textContent = 'Hello'
+// TODO
+// document.body.textContent = 'Hello'
+
+document.body.appendChild(document.createTextNode('Hello'))
