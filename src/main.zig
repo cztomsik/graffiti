@@ -1,63 +1,40 @@
+const std = @import("std");
 const napigen = @import("napigen");
+const App = @import("app.zig").App;
+const Document = @import("document.zig").Document;
+const Node = @import("document.zig").Node;
+const c = @import("c.zig");
 
 export fn napi_register_module_v1(env: napigen.napi_env, _: napigen.napi_value) napigen.napi_value {
-    return napigen.wrap(env, .{}) catch @panic("err");
+    var cx = napigen.Context{ .env = env };
+
+    const exports = .{
+        .App_init = &App.init,
+        .App_tick = &App.tick,
+        .App_createWindow = &App.createWindow,
+
+        .Document_init = &Document.init,
+        .Document_createElement = &Document.createElement,
+        .Document_createTextNode = &Document.createTextNode,
+
+        .Node_appendChild = &Node.appendChild,
+        .Node_parentNode = &getter(Node, .parent_node),
+        .Node_firstChild = &getter(Node, .first_child),
+        // .Node_previousSibling = &getter(Node, .previous_sibling),
+        .Node_nextSibling = &getter(Node, .next_sibling),
+    };
+
+    return cx.write(exports) catch |e| return cx.throw(e);
 }
 
-// const std = @import("std");
-// const lib = @import("lib.zig");
-// const dom = @import("dom/dom.zig");
-// const WidgetRef = @import("widget.zig").WidgetRef;
-
-// const Hello = struct {
-//     pub fn render(self: *Hello, canvas: *lib.Canvas) void {
-//         canvas.drawText(.{ .w = 100, .h = 20 }, "Hello from " ++ @typeName(@TypeOf(self)));
-//     }
-// };
-
-// pub fn main() anyerror!void {
-//     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-//     const allocator = gpa.allocator();
-//     // defer if (gpa.deinit()) @panic("mem leak");
-
-//     var app = try lib.App.init(allocator);
-//     defer app.deinit();
-
-//     var window = try app.createWindow("Hello", 800, 600);
-//     defer window.deinit();
-
-//     // TODO: HtmlView + @embedFile
-//     var doc = try createSampleDoc(allocator);
-//     defer doc.deinit();
-
-//     var dom_view = try lib.DomView.init(allocator);
-//     defer dom_view.deinit();
-//     dom_view.dom_node = doc.node;
-//     window.content = WidgetRef.fromPtr(&dom_view);
-
-//     // var hello = Hello{};
-//     //window.content = WidgetRef.fromPtr(&hello);
-
-//     while (!window.shouldClose()) {
-//         app.tick();
-//         window.render();
-//     }
-// }
-
-// fn createSampleDoc(allocator: std.mem.Allocator) !*dom.Document {
-//     var parser = dom.DOMParser.init(allocator);
-
-//     return try parser.parseFromString(
-//         \\<html>
-//         \\  <body style="padding: 20px; background: #f00a; opacity: .75">
-//         \\    <div style="background: 0f08; border-radius: 9px">
-//         \\      Hello
-//         \\      <button style="background: 00f; border-radius: 9px">Click me</button>
-//         \\    </div>
-//         \\  </body>
-//         \\</html>
-//     );
-// }
+fn getter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) std.meta.fieldInfo(T, field).field_type {
+    const f = std.meta.fieldInfo(T, field);
+    return (struct {
+        fn get(ptr: *T) f.field_type {
+            return @field(ptr, f.name);
+        }
+    }).get;
+}
 
 // test {
 //     _ = @import("dom/dom.zig");

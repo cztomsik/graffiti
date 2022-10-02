@@ -7,10 +7,10 @@ pub fn build(b: *std.build.Builder) void {
     const lib = b.addSharedLibrary("graffiti", "src/main.zig", .unversioned);
     lib.setBuildMode(mode);
     // lib.use_stage1 = true;
-    // lib.main_pkg_path = ".";
+    lib.main_pkg_path = ".";
     lib.linkSystemLibrary("glfw3");
     nanovg.addNanoVGPackage(lib);
-    lib.addIncludeDir("libs/nanovg-zig/lib/gl2/include");
+    lib.addIncludePath("libs/nanovg-zig/lib/gl2/include");
     lib.addCSourceFile("libs/nanovg-zig/lib/gl2/src/glad.c", &.{});
     lib.linker_allow_shlib_undefined = true;
     lib.addPackagePath("napigen", "libs/napigen/napigen.zig");
