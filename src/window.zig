@@ -1,13 +1,11 @@
 const std = @import("std");
 const c = @import("c.zig");
 const Canvas = @import("gfx/canvas.zig").Canvas;
-const WidgetRef = @import("widget.zig").WidgetRef;
 
 pub const Window = struct {
     allocator: std.mem.Allocator,
     glfw_window: *c.GLFWwindow,
     canvas: Canvas,
-    content: ?WidgetRef = null,
 
     const Self = @This();
 

@@ -25,6 +25,14 @@ pub const Node = struct {
 
     const Self = @This();
 
+    pub fn as(self: *Self, comptime kind: std.meta.FieldEnum(@TypeOf(self.data))) ?std.meta.fieldInfo(@TypeOf(self.data), kind).field_type {
+        switch (self.data) {
+            .document => |el| if (kind == .document) el else null,
+            .element => |el| if (kind == .element) el else null,
+            .text => |el| if (kind == .text) el else null,
+        }
+    }
+
     pub fn appendChild(self: *Self, child: *Node) void {
         if (self.first_child) |first| {
             var last = first;
