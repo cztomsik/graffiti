@@ -3,9 +3,11 @@ const nanovg = @import("libs/nanovg-zig/build.zig");
 
 pub fn build(b: *std.build.Builder) void {
     const mode = b.standardReleaseOptions();
+    const target = b.standardTargetOptions(.{});
 
     const lib = b.addSharedLibrary("graffiti", "src/main.zig", .unversioned);
     lib.setBuildMode(mode);
+    lib.setTarget(target);
     // lib.use_stage1 = true;
     lib.main_pkg_path = ".";
     lib.linkSystemLibrary("glfw3");
