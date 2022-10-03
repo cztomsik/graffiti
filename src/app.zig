@@ -40,8 +40,8 @@ pub const App = struct {
         return try Window.init(self.allocator, glfw_window);
     }
 
-    pub fn tick(self: *Self) void {
+    pub fn pollEvents(self: *Self) void {
         _ = self;
-        c.glfwWaitEvents();
+        c.glfwPollEvents();
     }
 };

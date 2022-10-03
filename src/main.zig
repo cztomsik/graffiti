@@ -1,18 +1,27 @@
 const std = @import("std");
 const napigen = @import("napigen");
+const nvg = @import("nanovg");
 const App = @import("app.zig").App;
+const Window = @import("window.zig").Window;
 const Document = @import("document.zig").Document;
 const Node = @import("document.zig").Node;
 const c = @import("c.zig");
 
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+const allocator = gpa.allocator();
+
+var app: *App = undefined;
+var window: *Window = undefined;
+var vg: nvg = undefined;
+
 export fn napi_register_module_v1(env: napigen.napi_env, _: napigen.napi_value) napigen.napi_value {
+    app = App.init() catch @panic("err");
+    window = app.createWindow("Hello", 800, 600) catch @panic("err");
+    vg = nvg.gl.init(allocator, .{}) catch @panic("err");
+
     var cx = napigen.Context{ .env = env };
 
     const exports = .{
-        .App_init = &App.init,
-        .App_tick = &App.tick,
-        .App_createWindow = &App.createWindow,
-
         .Document_init = &Document.init,
         .Document_createElement = &Document.createElement,
         .Document_createTextNode = &Document.createTextNode,
@@ -22,6 +31,8 @@ export fn napi_register_module_v1(env: napigen.napi_env, _: napigen.napi_value) 
         .Node_firstChild = &getter(Node, .first_child),
         // .Node_previousSibling = &getter(Node, .previous_sibling),
         .Node_nextSibling = &getter(Node, .next_sibling),
+
+        .render = &render,
     };
 
     return cx.write(exports) catch |e| return cx.throw(e);
@@ -34,6 +45,24 @@ fn getter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) std.m
             return @field(ptr, f.name);
         }
     }).get;
+}
+
+export fn render() void {
+    vg.beginFrame(300, 300, 1);
+    vg.beginPath();
+    vg.rect(10, 10, 100, 100);
+    vg.fillColor(nvg.rgb(100, 100, 100));
+    vg.fill();
+
+    vg.beginPath();
+    vg.rect(20, 20, 100, 100);
+    vg.fillColor(nvg.rgb(255, 0, 100));
+    vg.fill();
+
+    vg.endFrame();
+
+    c.glfwSwapBuffers(window.glfw_window);
+    app.pollEvents();
 }
 
 // test {

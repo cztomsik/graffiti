@@ -45,31 +45,9 @@ class Document extends Node {
   }
 }
 
-class App {
-  constructor() {
-    return wrap(native.App_init(), App)
-  }
-
-  createWindow(title, width, height) {
-    return wrap(native.App_createWindow(this, title, width, height), Window)
-  }
-
-  tick() {
-    native.App_tick(this)
-  }
-
-  run() {
-    setInterval(() => this.tick(), 33)
-  }
-}
-
-class Window {}
-
 const wrap = (obj, Clz) => (Object.setPrototypeOf(obj, Clz.prototype), obj)
 
 global.document = new Document()
 document.body = document.createElement('body')
 
-const app = new App()
-const window = app.createWindow('Hello', 800, 600)
-app.run()
+setInterval(() => native.render(), 33)
