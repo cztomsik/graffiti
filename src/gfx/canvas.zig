@@ -59,7 +59,7 @@ pub const Canvas = struct {
     }
 
     pub fn fillShape(self: *Self, shape: *const Shape, color: Color) void {
-        // std.debug.print("shape {any}\n", .{shape});
+        // std.log.debug("shape {any}\n", .{shape});
 
         self.vg.beginPath();
 
