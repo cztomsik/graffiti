@@ -26,6 +26,11 @@ class Node {
 }
 
 class Element extends Node {
+  get style() {
+    // virtual object, stateless
+    return new CSSStyleDeclaration(this)
+  }
+
   setAttribute() {}
 }
 
@@ -47,7 +52,20 @@ class Document extends Node {
 
 const wrap = (obj, Clz) => (Object.setPrototypeOf(obj, Clz.prototype), obj)
 
+//native.defineStyleProperties(CSSStyleDeclaration.prototype);
+class CSSStyleDeclaration {
+  #element
+
+  constructor(element) {
+    this.#element = element
+  }
+
+  set cssText(v) {
+    native.Element_setStyle(this.#element, v)
+  }
+}
+
 global.document = new Document()
 document.body = document.createElement('body')
 
-setInterval(() => native.render(), 33)
+setInterval(() => native.render(document), 33)
