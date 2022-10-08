@@ -3,7 +3,11 @@ const std = @import("std");
 
 const c = if (!builtin.is_test) @cImport({
     @cInclude("GLFW/glfw3.h");
-}) else struct {};
+}) else struct {
+    pub const GLFWwindow = opaque {};
+    pub extern fn glfwSwapBuffers(window: ?*GLFWwindow) callconv(.C) void;
+    pub extern fn glfwPollEvents() callconv(.C) void;
+};
 
 pub const Window = struct {
     glfw_window: *c.GLFWwindow,
@@ -11,6 +15,8 @@ pub const Window = struct {
     const Self = @This();
 
     pub fn init(title: [*:0]const u8, width: i32, height: i32) !Self {
+        if (builtin.is_test) unreachable;
+
         // TODO: once
         if (c.glfwInit() == 0) return error.GlfwInitFailed;
 
