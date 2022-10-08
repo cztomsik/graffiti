@@ -32,6 +32,10 @@ pub const Parser = struct {
             return T.parse(self);
         }
 
+        if (comptime @typeInfo(T) == .Struct and @hasField(T, "r") and @hasField(T, "g") and @hasField(T, "b") and @hasField(T, "a")) {
+            return parseColor(self, T);
+        }
+
         return switch (@typeInfo(T)) {
             .Enum => self.parseEnum(T),
             .Union => self.parseUnion(T),
@@ -74,6 +78,52 @@ pub const Parser = struct {
         }
 
         return error.InvalidValue;
+    }
+
+    pub fn parseColor(self: *Self, comptime T: type) !T {
+        const tok = try self.tokenizer.next();
+
+        switch (tok) {
+            //.ident => if (named(tok.ident)) |c| return c,
+            .function => {
+                if (std.mem.eql(u8, tok.function, "rgb")) {
+                    @panic("TODO: rgb()");
+                }
+
+                if (std.mem.eql(u8, tok.function, "rgba")) {
+                    @panic("TODO: rgba()");
+                }
+            },
+            .hash => |s| {
+                switch (s.len) {
+                    8 => return rgba(T, hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), hex(s[6..8])),
+                    6 => return rgba(T, hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), 0xFF),
+                    4 => return rgba(T, (hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, (hex(s[3..4])) * 17),
+                    3 => return rgba(T, (hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, 0xFF),
+                    else => {},
+                }
+            },
+            else => {},
+        }
+
+        return error.InvalidColor;
+    }
+
+    fn hex(s: []const u8) u8 {
+        return std.fmt.parseInt(u8, s, 16) catch 0;
+    }
+
+    fn rgba(comptime T: type, r: u8, g: u8, b: u8, a: u8) T {
+        if (comptime std.meta.fieldInfo(T, .r).field_type == f32) {
+            return T{
+                .r = @intToFloat(f32, r) / 255.0,
+                .g = @intToFloat(f32, g) / 255.0,
+                .b = @intToFloat(f32, b) / 255.0,
+                .a = @intToFloat(f32, a) / 255.0,
+            };
+        }
+
+        return T{ .r = r, .g = g, .b = b, .a = a };
     }
 
     pub fn cssName(comptime name: []const u8) []const u8 {
@@ -127,4 +177,28 @@ test "Parser.parse(Union)" {
     try expectParse(Dimension, "100%", .{ .percent = 100 });
 
     try expectParse(Dimension, "xxx", error.InvalidValue);
+}
+
+test "Parser.parse(ColorLike)" {
+    const Color = struct { r: u8, g: u8, b: u8, a: u8 };
+
+    try expectParse(Color, "#000000", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
+    try expectParse(Color, "#ff0000", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
+    try expectParse(Color, "#00ff00", .{ .r = 0, .g = 0xFF, .b = 0, .a = 0xFF });
+    try expectParse(Color, "#0000ff", .{ .r = 0, .g = 0, .b = 0xFF, .a = 0xFF });
+
+    try expectParse(Color, "#000", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
+    try expectParse(Color, "#f00", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
+    try expectParse(Color, "#fff", .{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF });
+
+    try expectParse(Color, "#0000", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
+    try expectParse(Color, "#f00f", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
+
+    // try expectParse(Color, "rgb(0, 0, 0)", Color.BLACK);
+    // try expectParse(Color, "rgba(0, 0, 0, 0)", Color.TRANSPARENT);
+
+    // try expectParse(Color, "transparent", Color.TRANSPARENT);
+    // try expectParse(Color, "black", Color.BLACK);
+
+    try expectParse(Color, "xxx", error.InvalidColor);
 }
