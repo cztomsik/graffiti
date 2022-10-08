@@ -26,7 +26,9 @@ const RRect = struct {
 };
 
 pub const Renderer = struct {
+    allocator: std.mem.Allocator,
     vg: nvg,
+    layout_nodes: []LayoutNode = undefined,
 
     const Self = @This();
 
@@ -41,6 +43,7 @@ pub const Renderer = struct {
         _ = vg.createFontMem("sans", font);
 
         return Self{
+            .allocator = allocator,
             .vg = vg,
         };
     }
@@ -61,22 +64,50 @@ pub const Renderer = struct {
         // TODO: https://github.com/ziglang/zig/issues/12142#issuecomment-1204416869
         self.fillShape(&Shape{ .rect = .{ .w = w, .h = h } }, nvg.rgb(255, 255, 255));
 
+        // layout-all
+        self.layout_nodes = self.allocator.alloc(LayoutNode, document.nodes.len) catch @panic("oom");
+        defer self.allocator.free(self.layout_nodes);
+        for (self.layout_nodes) |*l, n| {
+            const node = document.nodes.at(n);
+
+            l.* = switch (node.data) {
+                .element => |el| .{
+                    .style = &el.style,
+                    .user_ptr = node,
+                },
+                .text => .{
+                    .style = &.{ .display = .@"inline" },
+                    .user_fn = &textLayout,
+                    .user_ptr = node,
+                },
+                .document => .{
+                    .style = &.{},
+                    .user_ptr = node,
+                },
+            };
+
+            l.first_child = if (node.first_child) |ch| &self.layout_nodes[ch.id] else null;
+            l.next = if (node.next_sibling) |ne| &self.layout_nodes[ne.id] else null;
+        }
+
         // TODO: 0 == document.body for now
         const root = document.nodes.at(0);
 
-        root.layout_node.compute(w, h);
+        // TODO: 0 == document.body for now
+        self.layout_nodes[0].compute(w, h);
 
         self.renderNode(root);
         self.vg.endFrame();
     }
+
     fn renderNode(self: *Self, node: *Node) void {
         // std.log.debug("renderNode({any} {*})\n", .{ node.nodeType(), node });
 
-        const ln = &node.layout_node;
+        const ln = &self.layout_nodes[node.id];
         const rect = Rect{ .x = ln.x, .y = ln.y, .w = ln.width, .h = ln.height };
 
         switch (node.data) {
-            .element => |el| self.renderElement(rect, el.style, node.first_child),
+            .element => |el| self.renderElement(rect, &el.style, node.first_child),
             .text => |t| self.renderText(rect, t),
             .document => @panic("TODO"), // |d| self.renderNode(d.root),
         }
