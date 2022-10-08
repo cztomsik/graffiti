@@ -26,6 +26,11 @@ class Node {
 }
 
 class Element extends Node {
+  get style() {
+    // virtual object, stateless
+    return new CSSStyleDeclaration(this)
+  }
+
   setAttribute() {}
 }
 
@@ -45,31 +50,22 @@ class Document extends Node {
   }
 }
 
-class App {
-  constructor() {
-    return wrap(native.App_init(), App)
+const wrap = (obj, Clz) => (Object.setPrototypeOf(obj, Clz.prototype), obj)
+
+//native.defineStyleProperties(CSSStyleDeclaration.prototype);
+class CSSStyleDeclaration {
+  #element
+
+  constructor(element) {
+    this.#element = element
   }
 
-  createWindow(title, width, height) {
-    return wrap(native.App_createWindow(this, title, width, height), Window)
-  }
-
-  tick() {
-    native.App_tick(this)
-  }
-
-  run() {
-    setInterval(() => this.tick(), 33)
+  set cssText(v) {
+    native.Element_setStyle(this.#element, v)
   }
 }
-
-class Window {}
-
-const wrap = (obj, Clz) => (Object.setPrototypeOf(obj, Clz.prototype), obj)
 
 global.document = new Document()
 document.body = document.createElement('body')
 
-const app = new App()
-const window = app.createWindow('Hello', 800, 600)
-app.run()
+setInterval(() => native.render(document), 33)

@@ -1,51 +1,48 @@
+const builtin = @import("builtin");
 const std = @import("std");
-const c = @import("c.zig");
-const Canvas = @import("gfx/canvas.zig").Canvas;
+
+const c = if (!builtin.is_test) @cImport({
+    @cInclude("GLFW/glfw3.h");
+}) else struct {
+    pub const GLFWwindow = opaque {};
+    pub extern fn glfwSwapBuffers(window: ?*GLFWwindow) callconv(.C) void;
+    pub extern fn glfwPollEvents() callconv(.C) void;
+};
 
 pub const Window = struct {
-    allocator: std.mem.Allocator,
     glfw_window: *c.GLFWwindow,
-    canvas: Canvas,
 
     const Self = @This();
 
-    pub fn init(allocator: std.mem.Allocator, glfw_window: *c.GLFWwindow) !*Self {
+    pub fn init(title: [*:0]const u8, width: i32, height: i32) !Self {
+        if (builtin.is_test) unreachable;
+
+        // TODO: once
+        if (c.glfwInit() == 0) return error.GlfwInitFailed;
+
+        c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 2);
+        c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 0);
+
+        const glfw_window = c.glfwCreateWindow(width, height, title, null, null) orelse return error.GlfwCreateWindowFailed;
+
         c.glfwMakeContextCurrent(glfw_window);
         _ = gladLoadGL();
 
-        const canvas = try Canvas.init(allocator);
-
-        var self = try allocator.create(Self);
-        self.* = Self{
-            .allocator = allocator,
+        return Self{
             .glfw_window = glfw_window,
-            .canvas = canvas,
         };
-
-        return self;
     }
 
     pub fn deinit(self: *Self) void {
         c.glfwDestroyWindow(self.glfw_window);
-        self.allocator.destroy(self);
     }
 
-    pub fn shouldClose(self: *Self) bool {
-        return c.glfwWindowShouldClose(self.glfw_window) == c.GLFW_TRUE;
+    pub fn pollEvents(self: *Self) void {
+        _ = self;
+        c.glfwPollEvents();
     }
 
-    pub fn render(self: *Self) void {
-        var w: i32 = undefined;
-        var h: i32 = undefined;
-        c.glfwGetWindowSize(self.glfw_window, &w, &h);
-
-        if (self.content) |*content| {
-            // TODO: clear()
-            self.canvas.begin(@intToFloat(f32, w), @intToFloat(f32, h));
-            content.render(&self.canvas);
-            self.canvas.end();
-        }
-
+    pub fn swapBuffers(self: *Self) void {
         c.glfwSwapBuffers(self.glfw_window);
     }
 };

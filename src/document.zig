@@ -1,36 +1,28 @@
 // minimal subset of DOM to serve as a model API
 
 const std = @import("std");
-
-pub const NodeId = usize;
-
-pub const NodeType = enum(u32) {
-    element = 1,
-    text = 3,
-    // comment = 8,
-    document = 9,
-    // document_fragment = 11,
-};
+const Style = @import("style.zig").Style;
+const LayoutNode = @import("layout.zig").LayoutNode;
 
 pub const Node = struct {
-    id: NodeId,
+    id: usize,
     parent_node: ?*Node = null,
     first_child: ?*Node = null,
     next_sibling: ?*Node = null,
-    data: union(NodeType) {
+    data: union(enum) {
         document: *Document,
-        element: struct { local_name: []const u8, attributes: std.BufMap },
+        element: *Element,
         text: []const u8,
     },
 
     const Self = @This();
 
     pub fn as(self: *Self, comptime kind: std.meta.FieldEnum(@TypeOf(self.data))) ?std.meta.fieldInfo(@TypeOf(self.data), kind).field_type {
-        switch (self.data) {
-            .document => |el| if (kind == .document) el else null,
-            .element => |el| if (kind == .element) el else null,
-            .text => |el| if (kind == .text) el else null,
-        }
+        return switch (self.data) {
+            .document => |v| if (kind == .document) v else null,
+            .element => |v| if (kind == .element) v else null,
+            .text => |v| if (kind == .text) v else null,
+        };
     }
 
     pub fn appendChild(self: *Self, child: *Node) void {
@@ -46,9 +38,16 @@ pub const Node = struct {
     }
 };
 
+pub const Element = struct {
+    local_name: []const u8,
+    attributes: std.BufMap,
+    style: Style,
+};
+
 pub const Document = struct {
     allocator: std.mem.Allocator,
     nodes: std.SegmentedList(Node, 64),
+    elements: std.SegmentedList(Element, 32),
 
     const Self = @This();
 
@@ -61,6 +60,7 @@ pub const Document = struct {
         self.* = .{
             .allocator = allocator,
             .nodes = .{},
+            .elements = .{},
         };
 
         // self.nodes.insert(.{ .document = self });
@@ -70,15 +70,20 @@ pub const Document = struct {
 
     pub fn deinit(self: *Self) void {
         // TODO: deinit nodes (el attrs, ...)
+        self.elements.deinit(self.allocator);
         self.nodes.deinit(self.allocator);
     }
 
     pub fn createElement(self: *Self, local_name: []const u8) !*Node {
+        var element = try self.elements.addOne(self.allocator);
+        element.* = .{
+            .local_name = try self.allocator.dupe(u8, local_name),
+            .attributes = std.BufMap.init(self.allocator),
+            .style = .{},
+        };
+
         return self.createNode(.{
-            .element = .{
-                .local_name = try self.allocator.dupe(u8, local_name),
-                .attributes = std.BufMap.init(self.allocator),
-            },
+            .element = element,
         });
     }
 
