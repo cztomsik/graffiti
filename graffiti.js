@@ -32,6 +32,7 @@ class Element extends Node {
   }
 
   setAttribute() {}
+  addEventListener() {}
 }
 
 class Text extends Node {}
@@ -46,7 +47,7 @@ class Document extends Node {
   }
 
   createTextNode(data) {
-    return wrap(native.Document_createTextNode(this, data), Text)
+    return wrap(native.Document_createTextNode(this, '' + data), Text)
   }
 }
 
