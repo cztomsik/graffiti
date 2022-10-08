@@ -8,7 +8,6 @@ pub const Token = union(enum) {
     ident: []const u8,
     function: []const u8,
     number: f32,
-    percentage: f32,
     dimension: struct { value: f32, unit: []const u8 },
     hash: []const u8,
     string: []const u8,
@@ -90,7 +89,7 @@ pub const Tokenizer = struct {
             if (std.fmt.parseFloat(f32, self.consume(isNumeric)) catch null) |num| {
                 if (self.peek(0) catch 0 == '%') {
                     self.pos += 1;
-                    return Token{ .percentage = num };
+                    return Token{ .dimension = .{ .value = num, .unit = "percent" } };
                 }
 
                 if (isIdentStart(self.peek(0) catch 0)) {
@@ -239,7 +238,7 @@ test {
 
     try expectTokens(
         "@media { a b { left: 10% } }",
-        &.{ .other, .ident, .lcurly, .ident, .space, .ident, .lcurly, .ident, .colon, .percentage, .rcurly, .rcurly },
+        &.{ .other, .ident, .lcurly, .ident, .space, .ident, .lcurly, .ident, .colon, .dimension, .rcurly, .rcurly },
     );
 
     try expectTokens("/**/ a /**/ b {}", &.{ .ident, .space, .ident, .lcurly, .rcurly });
