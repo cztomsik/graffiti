@@ -6,7 +6,7 @@ Work in progress, do not use.
 I've reduced the scope to something which I can finish myself in a reasonable time and which is also useful to me.
 I have some ideas for the future (and lots of deleted code in a git history) but those will have to wait.
 
-- [ ] single-window, single-thread, single-script (global `document`), nodejs-only (N-API)
+- [x] single-window, single-thread, single-script (global `document`), nodejs-only (N-API)
 - [ ] subset of DOM needed by major JS frameworks (`preact`-only for now)
 - [ ] subset of CSSOM for CSS-in-JS (`goober`-only for now)
 - [ ] block/flexbox layout (no floats)
@@ -22,7 +22,7 @@ I have some ideas for the future (and lots of deleted code in a git history) but
 - it has to be fun (for me, sorry)
 
 ## Hacking
-- you will need Zig (`0.10.0-dev.3953+8e631ee3e`)
+- you will need Zig (`0.10.0-dev.4247+3234e8de3`)
 - and system-installed GLFW3.3 with headers (`brew install glfw`)
 
 ```
