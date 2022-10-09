@@ -10,8 +10,8 @@ I have some ideas for the future (and lots of deleted code in a git history) but
 - [ ] subset of DOM needed by major JS frameworks (`preact`-only for now)
 - [ ] subset of CSSOM for CSS-in-JS (`goober`-only for now)
 - [ ] block/flexbox layout (no floats)
-- [ ] no index.html, no runtime behavior (no `<script>`, no `<link>`, ...)
-- [ ] no HMR, no live-reload (but `nodemon` should work)
+- [x] no index.html, no runtime behavior (no `<script>`, no `<link>`, ...)
+- [x] no HMR, no live-reload (but `nodemon` works)
 - [ ] publish to npm (until then, you can `npm i github:cztomsik/graffiti`)
 - [ ] and even then, [it will be just a toy](https://www.cmyr.net/blog/gui-framework-ingredients.html)
 
