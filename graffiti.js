@@ -32,6 +32,7 @@ class Element extends Node {
   }
 
   setAttribute() {}
+  addEventListener() {}
 }
 
 class Text extends Node {}
@@ -46,13 +47,12 @@ class Document extends Node {
   }
 
   createTextNode(data) {
-    return wrap(native.Document_createTextNode(this, data), Text)
+    return wrap(native.Document_createTextNode(this, '' + data), Text)
   }
 }
 
 const wrap = (obj, Clz) => (Object.setPrototypeOf(obj, Clz.prototype), obj)
 
-//native.defineStyleProperties(CSSStyleDeclaration.prototype);
 class CSSStyleDeclaration {
   #element
 
@@ -60,10 +60,21 @@ class CSSStyleDeclaration {
     this.#element = element
   }
 
+  setProperty(prop, value) {
+    native.Element_setStyleProp(this.#element, prop, '' + value)
+  }
+
   set cssText(v) {
     native.Element_setStyle(this.#element, v)
   }
 }
+
+Object.setPrototypeOf(
+  CSSStyleDeclaration.prototype,
+  new Proxy(Object.getPrototypeOf(CSSStyleDeclaration.prototype), {
+    set: (_, k, v, style) => (style.setProperty(k, v), true),
+  })
+)
 
 global.document = new Document()
 document.body = document.createElement('body')

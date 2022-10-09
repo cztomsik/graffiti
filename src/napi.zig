@@ -31,6 +31,7 @@ export fn napi_register_module_v1(env: napigen.napi_env, _: napigen.napi_value) 
         // .Node_previousSibling = &getter(Node, .previous_sibling),
         .Node_nextSibling = &getter(Node, .next_sibling),
         .Element_setStyle = &Element_setStyle,
+        .Element_setStyleProp = &Element_setStyleProp,
 
         .render = &renderDoc,
     };
@@ -55,11 +56,25 @@ fn renderDoc(doc: *Document) void {
 
 fn Element_setStyle(node: *Node, style: []const u8) !void {
     if (node.as(.element)) |el| {
+        // TODO: cx.allocator
         var parser = css.Parser.init(allocator, style);
-        var decl = try parser.parse(css.DeclarationBlock(Style));
-        std.log.debug("parsed {any}", .{decl});
+        var block = try parser.parse(css.DeclarationBlock(Style));
+        std.log.debug("parsed {any}", .{block});
         el.style = .{};
-        decl.apply(&el.style);
-        std.log.debug("parsed {any}", .{el.style});
+        block.apply(&el.style);
+        std.log.debug("style = {any}", .{el.style});
+    }
+}
+
+fn Element_setStyleProp(node: *Node, prop_name: []const u8, prop_value: []const u8) !void {
+    if (node.as(.element)) |el| {
+        // TODO: cx.allocator
+        // TODO: hm, it's weird to even allocate... parsing prop value probably shouldn't need any allocation
+        var parser = css.Parser.init(allocator, prop_value);
+        var decl = css.DeclarationBlock(Style).parseDeclaration(&parser, prop_name) catch return;
+        var block = css.DeclarationBlock(Style){ .declarations = &.{decl} };
+        std.log.debug("parsed {any}", .{block});
+        block.apply(&el.style);
+        std.log.debug("style = {any}", .{el.style});
     }
 }

@@ -7,20 +7,22 @@ pub const Parser = @import("css/parser.zig").Parser;
 
 // TODO: StyleSheet(T), StyleRule(T)
 
-// a "script" of arbitrary field assignments (for a given struct type)
+// essentially, this is just a script of operations to be applied to a given struct type
+// and those operations are just field assignments
+// TODO: consider !important, inherit, initial
 pub fn DeclarationBlock(comptime T: type) type {
-    const StyleProp = Prop(T);
+    const Declaration = DeclarationUnion(T);
 
     return struct {
-        props: []const StyleProp = &.{},
+        declarations: []const Declaration = &.{},
 
         const Self = @This();
 
         pub fn eql(self: Self, other: Self) bool {
-            if (self.props.len != other.props.len) return false;
+            if (self.declarations.len != other.declarations.len) return false;
 
-            for (self.props) |prop, i| {
-                if (!std.meta.eql(prop, other.props[i])) {
+            for (self.declarations) |decl, i| {
+                if (!std.meta.eql(decl, other.declarations[i])) {
                     return false;
                 }
             }
@@ -29,18 +31,18 @@ pub fn DeclarationBlock(comptime T: type) type {
         }
 
         pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-            for (self.props) |p, i| {
+            for (self.declarations) |p, i| {
                 if (i != 0) try writer.writeAll("; ");
-                try formatProp(p, writer);
+                try formatDeclaration(p, writer);
             }
         }
 
-        fn formatProp(prop: StyleProp, writer: anytype) !void {
-            inline for (std.meta.fields(StyleProp)) |f| {
-                if (prop == @field(StyleProp, f.name)) {
-                    const v = @field(prop, f.name);
+        fn formatDeclaration(declaration: Declaration, writer: anytype) !void {
+            inline for (std.meta.fields(Declaration)) |f| {
+                if (declaration == @field(Declaration, f.name)) {
+                    const v = @field(declaration, f.name);
 
-                    try writer.print("{s}: ", .{@tagName(prop)});
+                    try writer.print("{s}: ", .{@tagName(declaration)});
 
                     return switch (@typeInfo(f.field_type)) {
                         .Enum => writer.writeAll(@tagName(v)),
@@ -52,30 +54,33 @@ pub fn DeclarationBlock(comptime T: type) type {
         }
 
         pub fn parse(parser: *Parser) !Self {
-            var props = std.ArrayList(StyleProp).init(parser.allocator);
-            errdefer props.deinit();
+            var declarations = std.ArrayList(Declaration).init(parser.allocator);
+            errdefer declarations.deinit();
 
             while (true) {
-                // TODO: shorthands
-                try props.append(parseProp(parser) catch |e| {
+                // TODO: maybe DeclarationBlock.fromKeyValue(name_str, val_str)?
+                //       or I don't know, maybe Declaration should be private anyway
+                //       (if we ever want to do encoding, then I don't know how the public struct would look like
+                //        and even then I don't know, declarations feels like something internal... the problem
+                //        is that we need some way to create "one-prop" declaration for el.style.setProperty())
+                const prop_name = try parser.expect(.ident);
+                try parser.expect(.colon);
+                try declarations.append(parseDeclaration(parser, prop_name) catch |e| {
                     if ((e == error.Eof) or ((parser.tokenizer.peek(0) catch 0) == '}')) break else continue;
                 });
             }
 
             return Self{
-                .props = props.toOwnedSlice(),
+                .declarations = declarations.toOwnedSlice(),
             };
         }
 
-        fn parseProp(parser: *Parser) !StyleProp {
-            const prop_name = try parser.expect(.ident);
-
-            try parser.expect(.colon);
-
-            inline for (std.meta.fields(StyleProp)) |f| {
-                if (std.mem.eql(u8, prop_name, Parser.cssName(f.name))) {
+        // TODO: public only because of el.style.setProperty()
+        pub fn parseDeclaration(parser: *Parser, prop_name: []const u8) !Declaration {
+            inline for (std.meta.fields(Declaration)) |f| {
+                if (propNameEql(f.name, prop_name)) {
                     const value = try parser.parse(f.field_type);
-                    return @unionInit(StyleProp, f.name, value);
+                    return @unionInit(Declaration, f.name, value);
                 }
             }
 
@@ -83,10 +88,10 @@ pub fn DeclarationBlock(comptime T: type) type {
         }
 
         pub fn apply(self: Self, target: *T) void {
-            for (self.props) |p| {
+            for (self.declarations) |decl| {
                 inline for (std.meta.fields(T)) |f| {
-                    if (p == @field(Prop(T), f.name)) {
-                        @field(target, f.name) = @field(p, f.name);
+                    if (decl == @field(Declaration, f.name)) {
+                        @field(target, f.name) = @field(decl, f.name);
                     }
                 }
             }
@@ -94,7 +99,8 @@ pub fn DeclarationBlock(comptime T: type) type {
     };
 }
 
-fn Prop(comptime T: type) type {
+// operation to be performed (field-value assignment for now)
+fn DeclarationUnion(comptime T: type) type {
     const fields = std.meta.fields(T);
     var union_fields: [fields.len]std.builtin.Type.UnionField = undefined;
     inline for (fields) |f, i| {
@@ -120,23 +126,23 @@ test {
 }
 
 const TestStyle = struct { display: enum { none, block } = .block, opacity: f32 = 1, flex_grow: f32 = 0 };
-const Decl = DeclarationBlock(TestStyle);
+const TestBlock = DeclarationBlock(TestStyle);
 
 test "DeclarationBlock.format()" {
-    try expectFmt("display: block; opacity: 1", "{}", .{Decl{ .props = &.{
+    try expectFmt("display: block; opacity: 1", "{}", .{TestBlock{ .declarations = &.{
         .{ .display = .block },
         .{ .opacity = 1 },
     } }});
 }
 
 test "DeclarationBlock.parse()" {
-    try expectParse(Decl, "", Decl{});
-    try expectParse(Decl, "unknown-a: 0; unknown-b: 0", Decl{});
+    try expectParse(TestBlock, "", TestBlock{});
+    try expectParse(TestBlock, "unknown-a: 0; unknown-b: 0", TestBlock{});
 
-    try expectParse(Decl, "opacity: 0", Decl{ .props = &.{.{ .opacity = 0 }} });
-    try expectParse(Decl, "opacity: 0; opacity: invalid-ignored", Decl{ .props = &.{.{ .opacity = 0 }} });
+    try expectParse(TestBlock, "opacity: 0", TestBlock{ .declarations = &.{.{ .opacity = 0 }} });
+    try expectParse(TestBlock, "opacity: 0; opacity: invalid-ignored", TestBlock{ .declarations = &.{.{ .opacity = 0 }} });
 
-    try expectParse(Decl, "opacity: 0; flex-grow: 1", Decl{ .props = &.{
+    try expectParse(TestBlock, "opacity: 0; flex-grow: 1", TestBlock{ .declarations = &.{
         .{ .opacity = 0 },
         .{ .flex_grow = 1 },
     } });
@@ -144,7 +150,29 @@ test "DeclarationBlock.parse()" {
 
 test "DeclarationBlock.apply()" {
     var target = TestStyle{};
-    const decl: Decl = .{ .props = &.{.{ .opacity = 0.5 }} };
-    decl.apply(&target);
+    const block: TestBlock = .{ .declarations = &.{.{ .opacity = 0.5 }} };
+    block.apply(&target);
     try std.testing.expectEqual(target.opacity, 0.5);
+}
+
+// a.toLowerCase().replace(/-_/g, '') == ...(b)
+pub fn propNameEql(a: []const u8, b: []const u8) bool {
+    var j: usize = 0;
+    for (a) |c| {
+        if (c == '-' or c == '_') continue;
+        if (j >= b.len) return false;
+        if (b[j] == '-' or b[j] == '_') j += 1;
+        if (j >= b.len) return false;
+        if (std.ascii.toLower(c) != std.ascii.toLower(b[j])) return false;
+        j += 1;
+    }
+    return j == b.len;
+}
+
+test "propNameEql(a, b)" {
+    try std.testing.expect(propNameEql("background_color", "background-color"));
+    try std.testing.expect(propNameEql("background-color", "backgroundColor"));
+    try std.testing.expect(!propNameEql("background-color", "xxx"));
+    try std.testing.expect(!propNameEql("xxx", "background-color"));
+    try std.testing.expect(!propNameEql("foo", "bar"));
 }
