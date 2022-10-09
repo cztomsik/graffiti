@@ -61,7 +61,7 @@ class CSSStyleDeclaration {
   }
 
   setProperty(prop, value) {
-    console.log('TODO: setProperty', prop, value)
+    native.Element_setStyleProp(this.#element, prop, '' + value)
   }
 
   set cssText(v) {

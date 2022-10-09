@@ -9,9 +9,9 @@ pub const Parser = @import("css/parser.zig").Parser;
 
 // essentially, this is just a script of operations to be applied to a given struct type
 // and those operations are just field assignments
-// TODO: consider important, inherit, unset, initial
+// TODO: consider !important, inherit, initial
 pub fn DeclarationBlock(comptime T: type) type {
-    const Declaration = DeclarationType(T);
+    const Declaration = DeclarationUnion(T);
 
     return struct {
         declarations: []const Declaration = &.{},
@@ -58,8 +58,14 @@ pub fn DeclarationBlock(comptime T: type) type {
             errdefer declarations.deinit();
 
             while (true) {
-                // TODO: shorthands
-                try declarations.append(parseDeclaration(parser) catch |e| {
+                // TODO: maybe DeclarationBlock.fromKeyValue(name_str, val_str)?
+                //       or I don't know, maybe Declaration should be private anyway
+                //       (if we ever want to do encoding, then I don't know how the public struct would look like
+                //        and even then I don't know, declarations feels like something internal... the problem
+                //        is that we need some way to create "one-prop" declaration for el.style.setProperty())
+                const prop_name = try parser.expect(.ident);
+                try parser.expect(.colon);
+                try declarations.append(parseDeclaration(parser, prop_name) catch |e| {
                     if ((e == error.Eof) or ((parser.tokenizer.peek(0) catch 0) == '}')) break else continue;
                 });
             }
@@ -69,11 +75,8 @@ pub fn DeclarationBlock(comptime T: type) type {
             };
         }
 
-        fn parseDeclaration(parser: *Parser) !Declaration {
-            const prop_name = try parser.expect(.ident);
-
-            try parser.expect(.colon);
-
+        // TODO: public only because of el.style.setProperty()
+        pub fn parseDeclaration(parser: *Parser, prop_name: []const u8) !Declaration {
             inline for (std.meta.fields(Declaration)) |f| {
                 if (propNameEql(f.name, prop_name)) {
                     const value = try parser.parse(f.field_type);
@@ -97,7 +100,7 @@ pub fn DeclarationBlock(comptime T: type) type {
 }
 
 // operation to be performed (field-value assignment for now)
-pub fn DeclarationType(comptime T: type) type {
+fn DeclarationUnion(comptime T: type) type {
     const fields = std.meta.fields(T);
     var union_fields: [fields.len]std.builtin.Type.UnionField = undefined;
     inline for (fields) |f, i| {
