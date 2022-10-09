@@ -53,7 +53,6 @@ class Document extends Node {
 
 const wrap = (obj, Clz) => (Object.setPrototypeOf(obj, Clz.prototype), obj)
 
-//native.defineStyleProperties(CSSStyleDeclaration.prototype);
 class CSSStyleDeclaration {
   #element
 
@@ -61,10 +60,21 @@ class CSSStyleDeclaration {
     this.#element = element
   }
 
+  setProperty(prop, value) {
+    console.log('TODO: setProperty', prop, value)
+  }
+
   set cssText(v) {
     native.Element_setStyle(this.#element, v)
   }
 }
+
+Object.setPrototypeOf(
+  CSSStyleDeclaration.prototype,
+  new Proxy(Object.getPrototypeOf(CSSStyleDeclaration.prototype), {
+    set: (_, k, v, style) => (style.setProperty(k, v), true),
+  })
+)
 
 global.document = new Document()
 document.body = document.createElement('body')

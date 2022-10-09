@@ -1,4 +1,5 @@
 const std = @import("std");
+const css = @import("../css.zig");
 const Tokenizer = @import("tokenizer.zig").Tokenizer;
 const Token = @import("tokenizer.zig").Token;
 
@@ -48,7 +49,7 @@ pub const Parser = struct {
         const ident = try self.expect(.ident);
 
         inline for (std.meta.fields(T)) |f| {
-            if (std.mem.eql(u8, ident, cssName(f.name))) {
+            if (css.propNameEql(f.name, ident)) {
                 return @intToEnum(T, f.value);
             }
         }
@@ -124,15 +125,6 @@ pub const Parser = struct {
         }
 
         return T{ .r = r, .g = g, .b = b, .a = a };
-    }
-
-    pub fn cssName(comptime name: []const u8) []const u8 {
-        comptime {
-            var buf: [name.len:0]u8 = undefined;
-            _ = std.mem.replace(u8, name, "_", "-", &buf);
-            buf[buf.len] = 0;
-            return &buf;
-        }
     }
 };
 

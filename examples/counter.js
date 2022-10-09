@@ -4,7 +4,7 @@ import '../graffiti.js'
 import { html, useState, render } from 'htm/preact/standalone.mjs'
 
 const Counter = () => {
-  const [count, setCount] = useState(0)
+  const [count, setCount] = useState(10)
   const dec = () => setCount(count - 1)
   const inc = () => setCount(count + 1)
 
