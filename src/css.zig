@@ -63,9 +63,7 @@ pub fn DeclarationBlock(comptime T: type) type {
                 //       (if we ever want to do encoding, then I don't know how the public struct would look like
                 //        and even then I don't know, declarations feels like something internal... the problem
                 //        is that we need some way to create "one-prop" declaration for el.style.setProperty())
-                const prop_name = try parser.expect(.ident);
-                try parser.expect(.colon);
-                try declarations.append(parseDeclaration(parser, prop_name) catch |e| {
+                try declarations.append(parseDeclaration(parser) catch |e| {
                     if ((e == error.Eof) or ((parser.tokenizer.peek(0) catch 0) == '}')) break else continue;
                 });
             }
@@ -75,8 +73,15 @@ pub fn DeclarationBlock(comptime T: type) type {
             };
         }
 
+        fn parseDeclaration(parser: *Parser) !Declaration {
+            const prop_name = try parser.expect(.ident);
+            try parser.expect(.colon);
+
+            return parseDeclarationByName(parser, prop_name);
+        }
+
         // TODO: public only because of el.style.setProperty()
-        pub fn parseDeclaration(parser: *Parser, prop_name: []const u8) !Declaration {
+        pub fn parseDeclarationByName(parser: *Parser, prop_name: []const u8) !Declaration {
             inline for (std.meta.fields(Declaration)) |f| {
                 if (propNameEql(f.name, prop_name)) {
                     const value = try parser.parse(f.field_type);

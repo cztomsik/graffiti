@@ -71,7 +71,7 @@ fn Element_setStyleProp(node: *Node, prop_name: []const u8, prop_value: []const 
         // TODO: cx.allocator
         // TODO: hm, it's weird to even allocate... parsing prop value probably shouldn't need any allocation
         var parser = css.Parser.init(allocator, prop_value);
-        var decl = css.DeclarationBlock(Style).parseDeclaration(&parser, prop_name) catch return;
+        var decl = css.DeclarationBlock(Style).parseDeclarationByName(&parser, prop_name) catch return;
         var block = css.DeclarationBlock(Style){ .declarations = &.{decl} };
         std.log.debug("parsed {any}", .{block});
         block.apply(&el.style);
