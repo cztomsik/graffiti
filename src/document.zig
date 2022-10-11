@@ -2,10 +2,10 @@
 
 const std = @import("std");
 const Style = @import("style.zig").Style;
-const LayoutNode = @import("layout.zig").LayoutNode;
 
 pub const Node = struct {
     id: usize,
+    document: *Document,
     parent_node: ?*Node = null,
     first_child: ?*Node = null,
     next_sibling: ?*Node = null,
@@ -39,9 +39,27 @@ pub const Node = struct {
 };
 
 pub const Element = struct {
+    node: *Node,
     local_name: []const u8,
     attributes: std.BufMap,
     style: Style,
+
+    const Self = @This();
+
+    fn getAttribute(self: *Self, name: []const u8) ?[]const u8 {
+        // TODO: mark dirty
+        return self.attributes.get(name);
+    }
+
+    fn setAttribute(self: *Self, name: []const u8, value: []const u8) !void {
+        // TODO: mark dirty
+        try self.attributes.put(name, value);
+    }
+
+    fn removeAttribute(self: *Self, name: []const u8) ?[]const u8 {
+        // TODO: mark dirty
+        try self.attributes.remove(name);
+    }
 };
 
 pub const Document = struct {
@@ -76,15 +94,18 @@ pub const Document = struct {
 
     pub fn createElement(self: *Self, local_name: []const u8) !*Node {
         var element = try self.elements.addOne(self.allocator);
+        var node = try self.createNode(.{
+            .element = element,
+        });
+
         element.* = .{
+            .node = node,
             .local_name = try self.allocator.dupe(u8, local_name),
             .attributes = std.BufMap.init(self.allocator),
             .style = .{},
         };
 
-        return self.createNode(.{
-            .element = element,
-        });
+        return node;
     }
 
     pub fn createTextNode(self: *Self, data: []const u8) !*Node {
@@ -98,7 +119,7 @@ pub const Document = struct {
     fn createNode(self: *Self, data: anytype) !*Node {
         const id = self.nodes.len;
         const node = try self.nodes.addOne(self.allocator);
-        node.* = Node{ .id = id, .data = data };
+        node.* = Node{ .id = id, .document = self, .data = data };
         return node;
     }
 };

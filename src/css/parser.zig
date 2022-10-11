@@ -33,15 +33,17 @@ pub const Parser = struct {
             return T.parse(self);
         }
 
-        if (comptime @typeInfo(T) == .Struct and @hasField(T, "r") and @hasField(T, "g") and @hasField(T, "b") and @hasField(T, "a")) {
-            return parseColor(self, T);
-        }
-
         return switch (@typeInfo(T)) {
             .Enum => self.parseEnum(T),
-            .Union => self.parseUnion(T),
             .Float => @floatCast(T, try self.expect(.number)),
-            else => @compileError("unknown value type"),
+            .Union => self.parseUnion(T),
+            else => {
+                if (comptime isColorLike(T)) {
+                    return parseColor(self, T);
+                }
+
+                @compileError("unknown value type " ++ @typeName(T));
+            },
         };
     }
 
@@ -127,6 +129,10 @@ pub const Parser = struct {
         return T{ .r = r, .g = g, .b = b, .a = a };
     }
 };
+
+fn isColorLike(comptime T: type) bool {
+    return @typeInfo(T) == .Struct and @hasField(T, "r") and @hasField(T, "g") and @hasField(T, "b") and @hasField(T, "a");
+}
 
 pub fn expectParse(comptime T: type, input: []const u8, expected: anyerror!T) anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);

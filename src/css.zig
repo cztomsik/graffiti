@@ -112,7 +112,7 @@ fn DeclarationUnion(comptime T: type) type {
         union_fields[i] = .{
             .name = f.name,
             .field_type = f.field_type,
-            .alignment = f.alignment,
+            .alignment = @alignOf(f.field_type),
         };
     }
 
@@ -134,9 +134,10 @@ const TestStyle = struct { display: enum { none, block } = .block, opacity: f32 
 const TestBlock = DeclarationBlock(TestStyle);
 
 test "DeclarationBlock.format()" {
-    try expectFmt("display: block; opacity: 1", "{}", .{TestBlock{ .declarations = &.{
+    try expectFmt("display: block; opacity: 1; flex-grow: 1", "{}", .{TestBlock{ .declarations = &.{
         .{ .display = .block },
         .{ .opacity = 1 },
+        .{ .flex_grow = 1 },
     } }});
 }
 
