@@ -5,48 +5,60 @@ const expectFmt = std.testing.expectFmt;
 pub const Tokenizer = @import("css/tokenizer.zig");
 pub const Parser = @import("css/parser.zig").Parser;
 
-// TODO: StyleSheet(T), StyleRule(T)
+// TODO but maybe gpa is fine if we make sure everything parsed will also get freed
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+const allocator = gpa.allocator();
 
-// essentially, this is just a script of operations to be applied to a given struct type
-// and those operations are just field assignments
-// TODO: consider !important, inherit, initial
-pub fn DeclarationBlock(comptime T: type) type {
-    const Declaration = DeclarationUnion(T);
-
+// declaration block represented as a wrapper over user-provided Style struct
+// setting property will immediately change the style and set a flag
+// removing will undo that (and restore the default value)
+pub fn StyleDeclaration(comptime T: type) type {
     return struct {
-        declarations: []const Declaration = &.{},
+        flags: [std.meta.fields(T).len]u1 = std.mem.zeroes([std.meta.fields(T).len]u1),
+        data: T = .{},
 
         const Self = @This();
 
-        pub fn eql(self: Self, other: Self) bool {
-            if (self.declarations.len != other.declarations.len) return false;
+        pub fn getProperty() void {
+            // TODO
+        }
 
-            for (self.declarations) |decl, i| {
-                if (!std.meta.eql(decl, other.declarations[i])) {
-                    return false;
+        pub fn setProperty(self: *Self, prop_name: []const u8, value: []const u8) void {
+            inline for (std.meta.fields(T)) |f, i| {
+                if (propNameEql(f.name, prop_name)) {
+                    var parser = Parser.init(gpa.allocator(), value);
+                    @field(self.data, f.name) = parser.parse(f.field_type) catch {
+                        return std.log.debug("ignored invalid {s}: {s}\n", .{ prop_name, value });
+                    };
+                    self.flags[i] = 1;
                 }
             }
+        }
 
-            return true;
+        pub fn removeProperty(self: *Self, prop_name: []const u8) void {
+            inline for (std.meta.fields(T)) |f, i| {
+                if (propNameEql(f.name, prop_name)) {
+                    @field(self.data, f.name) = f.default_value;
+                    self.flags[i] = 0;
+                }
+            }
         }
 
         pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-            for (self.declarations) |p, i| {
-                if (i != 0) try writer.writeAll("; ");
-                try formatDeclaration(p, writer);
-            }
-        }
+            var sep = false;
+            inline for (std.meta.fields(T)) |f, i| {
+                if (self.flags[i] == 1) {
+                    if (sep) try writer.writeAll("; ");
+                    sep = true;
 
-        fn formatDeclaration(declaration: Declaration, writer: anytype) !void {
-            inline for (std.meta.fields(Declaration)) |f| {
-                if (declaration == @field(Declaration, f.name)) {
-                    const v = @field(declaration, f.name);
+                    try writer.print("{s}: ", .{cssName(f.name)});
 
-                    try writer.print("{s}: ", .{@tagName(declaration)});
+                    const v = @field(self.data, f.name);
 
-                    return switch (@typeInfo(f.field_type)) {
+                    try switch (@typeInfo(f.field_type)) {
                         .Enum => writer.writeAll(@tagName(v)),
                         .Float => writer.print("{d}", .{v}),
+                        // TODO: DimensionLike, ColorLike, ...
                         else => writer.print("{any}", .{v}),
                     };
                 }
@@ -54,111 +66,56 @@ pub fn DeclarationBlock(comptime T: type) type {
         }
 
         pub fn parse(parser: *Parser) !Self {
-            var declarations = std.ArrayList(Declaration).init(parser.allocator);
-            errdefer declarations.deinit();
+            var res = Self{};
 
-            while (true) {
-                // TODO: maybe DeclarationBlock.fromKeyValue(name_str, val_str)?
-                //       or I don't know, maybe Declaration should be private anyway
-                //       (if we ever want to do encoding, then I don't know how the public struct would look like
-                //        and even then I don't know, declarations feels like something internal... the problem
-                //        is that we need some way to create "one-prop" declaration for el.style.setProperty())
-                try declarations.append(parseDeclaration(parser) catch |e| {
-                    if ((e == error.Eof) or ((parser.tokenizer.peek(0) catch 0) == '}')) break else continue;
-                });
+            while (parser.expect(.ident) catch null) |prop_name| {
+                try parser.expect(.colon);
+
+                const val_start = parser.tokenizer.pos;
+                while (parser.tokenizer.next() catch null) |t2| if (t2 == .semi or t2 == .rcurly) break;
+
+                res.setProperty(prop_name, parser.tokenizer.input[val_start..parser.tokenizer.pos]);
             }
 
-            return Self{
-                .declarations = declarations.toOwnedSlice(),
-            };
-        }
-
-        fn parseDeclaration(parser: *Parser) !Declaration {
-            const prop_name = try parser.expect(.ident);
-            try parser.expect(.colon);
-
-            return parseDeclarationByName(parser, prop_name);
-        }
-
-        // TODO: public only because of el.style.setProperty()
-        pub fn parseDeclarationByName(parser: *Parser, prop_name: []const u8) !Declaration {
-            inline for (std.meta.fields(Declaration)) |f| {
-                if (propNameEql(f.name, prop_name)) {
-                    const value = try parser.parse(f.field_type);
-                    return @unionInit(Declaration, f.name, value);
-                }
-            }
-
-            return error.UnknownProperty;
-        }
-
-        pub fn apply(self: Self, target: *T) void {
-            for (self.declarations) |decl| {
-                inline for (std.meta.fields(T)) |f| {
-                    if (decl == @field(Declaration, f.name)) {
-                        @field(target, f.name) = @field(decl, f.name);
-                    }
-                }
-            }
+            return res;
         }
     };
-}
-
-// operation to be performed (field-value assignment for now)
-fn DeclarationUnion(comptime T: type) type {
-    const fields = std.meta.fields(T);
-    var union_fields: [fields.len]std.builtin.Type.UnionField = undefined;
-    inline for (fields) |f, i| {
-        union_fields[i] = .{
-            .name = f.name,
-            .field_type = f.field_type,
-            .alignment = @alignOf(f.field_type),
-        };
-    }
-
-    return @Type(.{
-        .Union = .{
-            .layout = .Auto,
-            .tag_type = std.meta.FieldEnum(T),
-            .fields = &union_fields,
-            .decls = &.{},
-        },
-    });
 }
 
 test {
     std.testing.refAllDecls(@This());
 }
 
-const TestStyle = struct { display: enum { none, block } = .block, opacity: f32 = 1, flex_grow: f32 = 0 };
-const TestBlock = DeclarationBlock(TestStyle);
+const Decl = StyleDeclaration(struct {
+    display: enum { none, block } = .block,
+    opacity: f32 = 1,
+    flex_grow: f32 = 0,
+});
 
-test "DeclarationBlock.format()" {
-    try expectFmt("display: block; opacity: 1; flex-grow: 1", "{}", .{TestBlock{ .declarations = &.{
-        .{ .display = .block },
-        .{ .opacity = 1 },
-        .{ .flex_grow = 1 },
-    } }});
+test "StyleDeclaration.format()" {
+    var s = Decl{};
+    try expectFmt("", "{}", .{s});
+
+    s.setProperty("display", "none");
+    try expectFmt("display: none", "{}", .{s});
+
+    s.setProperty("flex-grow", "1");
+    try expectFmt("display: none; flex-grow: 1", "{}", .{s});
 }
 
-test "DeclarationBlock.parse()" {
-    try expectParse(TestBlock, "", TestBlock{});
-    try expectParse(TestBlock, "unknown-a: 0; unknown-b: 0", TestBlock{});
-
-    try expectParse(TestBlock, "opacity: 0", TestBlock{ .declarations = &.{.{ .opacity = 0 }} });
-    try expectParse(TestBlock, "opacity: 0; opacity: invalid-ignored", TestBlock{ .declarations = &.{.{ .opacity = 0 }} });
-
-    try expectParse(TestBlock, "opacity: 0; flex-grow: 1", TestBlock{ .declarations = &.{
-        .{ .opacity = 0 },
-        .{ .flex_grow = 1 },
-    } });
+test "StyleDeclaration.parse()" {
+    try expectParse(Decl, "", Decl{});
+    try expectParse(Decl, "display: block", Decl{ .prop_set = .{ 1, 0, 0 } });
+    try expectParse(Decl, "unknown: 0; opacity: 0", Decl{ .prop_set = .{ 0, 1, 0 }, .data = .{ .opacity = 0 } });
+    try expectParse(Decl, "opacity: 0; opacity: invalid", Decl{ .prop_set = .{ 0, 1, 0 }, .data = .{ .opacity = 0 } });
 }
 
-test "DeclarationBlock.apply()" {
-    var target = TestStyle{};
-    const block: TestBlock = .{ .declarations = &.{.{ .opacity = 0.5 }} };
-    block.apply(&target);
-    try std.testing.expectEqual(target.opacity, 0.5);
+fn cssName(comptime prop_name: []const u8) []const u8 {
+    comptime {
+        var buf: [prop_name.len]u8 = undefined;
+        _ = std.mem.replace(u8, prop_name, "_", "-", &buf);
+        return &buf;
+    }
 }
 
 // a.toLowerCase().replace(/-_/g, '') == ...(b)
