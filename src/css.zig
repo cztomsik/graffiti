@@ -105,9 +105,9 @@ test "StyleDeclaration.format()" {
 
 test "StyleDeclaration.parse()" {
     try expectParse(Decl, "", Decl{});
-    try expectParse(Decl, "display: block", Decl{ .prop_set = .{ 1, 0, 0 } });
-    try expectParse(Decl, "unknown: 0; opacity: 0", Decl{ .prop_set = .{ 0, 1, 0 }, .data = .{ .opacity = 0 } });
-    try expectParse(Decl, "opacity: 0; opacity: invalid", Decl{ .prop_set = .{ 0, 1, 0 }, .data = .{ .opacity = 0 } });
+    try expectParse(Decl, "display: block", Decl{ .flags = .{ 1, 0, 0 } });
+    try expectParse(Decl, "unknown: 0; opacity: 0", Decl{ .flags = .{ 0, 1, 0 }, .data = .{ .opacity = 0 } });
+    try expectParse(Decl, "opacity: 0; opacity: invalid", Decl{ .flags = .{ 0, 1, 0 }, .data = .{ .opacity = 0 } });
 }
 
 fn cssName(comptime prop_name: []const u8) []const u8 {
