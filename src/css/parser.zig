@@ -38,8 +38,12 @@ pub const Parser = struct {
             .Float => @floatCast(T, try self.expect(.number)),
             .Union => self.parseUnion(T),
             else => {
-                if (comptime isColorLike(T)) {
+                if (comptime isColor(T)) {
                     return parseColor(self, T);
+                }
+
+                if (comptime isRect(T)) {
+                    return parseRect(self, T);
                 }
 
                 @compileError("unknown value type " ++ @typeName(T));
@@ -112,6 +116,16 @@ pub const Parser = struct {
         return error.InvalidColor;
     }
 
+    pub fn parseRect(self: *Self, comptime T: type) !T {
+        const V = std.meta.fieldInfo(T, .top).field_type;
+        const top = try self.parse(V);
+        const right = try self.parse(?V) orelse top;
+        const bottom = try self.parse(?V) orelse top;
+        const left = try self.parse(?V) orelse right;
+
+        return T{ .top = top, .right = right, .bottom = bottom, .left = left };
+    }
+
     fn hex(s: []const u8) u8 {
         return std.fmt.parseInt(u8, s, 16) catch 0;
     }
@@ -130,8 +144,12 @@ pub const Parser = struct {
     }
 };
 
-fn isColorLike(comptime T: type) bool {
-    return @typeInfo(T) == .Struct and @hasField(T, "r") and @hasField(T, "g") and @hasField(T, "b") and @hasField(T, "a");
+fn isColor(comptime T: type) bool {
+    return std.meta.trait.hasFields(T, .{ "r", "g", "b", "a" });
+}
+
+fn isRect(comptime T: type) bool {
+    return std.meta.trait.hasFields(T, .{ "top", "right", "left", "bottom" });
 }
 
 pub fn expectParse(comptime T: type, input: []const u8, expected: anyerror!T) anyerror!void {
@@ -157,6 +175,10 @@ pub fn expectParse(comptime T: type, input: []const u8, expected: anyerror!T) an
     } else |err| return std.testing.expectError(err, result);
 }
 
+test "Parser.parse(f32)" {
+    try expectParse(f32, "1", 1);
+}
+
 test "Parser.parse(Enum)" {
     const Display = enum { block, @"table-row" };
 
@@ -177,7 +199,7 @@ test "Parser.parse(Union)" {
     try expectParse(Dimension, "xxx", error.InvalidValue);
 }
 
-test "Parser.parse(ColorLike)" {
+test "Parser.parse(Color)" {
     const Color = struct { r: u8, g: u8, b: u8, a: u8 };
 
     try expectParse(Color, "#000000", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
@@ -199,4 +221,15 @@ test "Parser.parse(ColorLike)" {
     // try expectParse(Color, "black", Color.BLACK);
 
     try expectParse(Color, "xxx", error.InvalidColor);
+}
+
+test "Parser.parse(Rect)" {
+    const Rect = struct { top: f32, right: f32, bottom: f32, left: f32 };
+
+    try expectParse(Rect, "1", .{ .top = 1, .right = 1, .bottom = 1, .left = 1 });
+    try expectParse(Rect, "1 2", .{ .top = 1, .right = 2, .bottom = 1, .left = 2 });
+    try expectParse(Rect, "1 2 3", .{ .top = 1, .right = 2, .bottom = 3, .left = 2 });
+    try expectParse(Rect, "1 2 3 4", .{ .top = 1, .right = 2, .bottom = 3, .left = 4 });
+
+    try expectParse(Rect, "xxx", error.UnexpectedToken);
 }
