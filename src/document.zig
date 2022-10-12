@@ -1,7 +1,10 @@
 // minimal subset of DOM to serve as a model API
 
 const std = @import("std");
+const css = @import("css.zig");
 const Style = @import("style.zig").Style;
+
+const StyleDeclaration = css.StyleDeclaration(Style);
 
 pub const Node = struct {
     id: usize,
@@ -42,7 +45,7 @@ pub const Element = struct {
     node: *Node,
     local_name: []const u8,
     attributes: std.BufMap,
-    style: Style,
+    style: StyleDeclaration,
 
     const Self = @This();
 

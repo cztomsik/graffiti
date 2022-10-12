@@ -56,25 +56,15 @@ fn renderDoc(doc: *Document) void {
 
 fn Element_setStyle(node: *Node, style: []const u8) !void {
     if (node.as(.element)) |el| {
-        // TODO: cx.allocator
         var parser = css.Parser.init(allocator, style);
-        var block = try parser.parse(css.DeclarationBlock(Style));
-        std.log.debug("parsed {any}", .{block});
-        el.style = .{};
-        block.apply(&el.style);
+        el.style = try parser.parse(css.StyleDeclaration(Style));
         std.log.debug("style = {any}", .{el.style});
     }
 }
 
 fn Element_setStyleProp(node: *Node, prop_name: []const u8, prop_value: []const u8) !void {
     if (node.as(.element)) |el| {
-        // TODO: cx.allocator
-        // TODO: hm, it's weird to even allocate... parsing prop value probably shouldn't need any allocation
-        var parser = css.Parser.init(allocator, prop_value);
-        var decl = css.DeclarationBlock(Style).parseDeclarationByName(&parser, prop_name) catch return;
-        var block = css.DeclarationBlock(Style){ .declarations = &.{decl} };
-        std.log.debug("parsed {any}", .{block});
-        block.apply(&el.style);
+        el.style.setProperty(prop_name, prop_value);
         std.log.debug("style = {any}", .{el.style});
     }
 }
