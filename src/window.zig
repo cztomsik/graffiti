@@ -37,9 +37,27 @@ pub const Window = struct {
         c.glfwDestroyWindow(self.glfw_window);
     }
 
+    pub fn shouldClose(self: *Self) bool {
+        return c.glfwWindowShouldClose(self.glfw_window) == 1;
+    }
+
     pub fn pollEvents(self: *Self) void {
         _ = self;
         c.glfwPollEvents();
+    }
+
+    pub fn getSize(self: *Self) [2]i32 {
+        var res: [2]i32 = undefined;
+        c.glfwGetWindowSize(self.glfw_window, &res[0], &res[1]);
+
+        return res;
+    }
+
+    pub fn getContentScale(self: *Self) [2]f32 {
+        var res: [2]f32 = undefined;
+        c.glfwGetWindowContentScale(self.glfw_window, &res[0], &res[1]);
+
+        return res;
     }
 
     pub fn swapBuffers(self: *Self) void {

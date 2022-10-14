@@ -48,10 +48,11 @@ fn getter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) std.m
     }).get;
 }
 
-fn renderDoc(doc: *Document) void {
+fn renderDoc(doc: *Document) bool {
     renderer.render(doc);
     window.swapBuffers();
     window.pollEvents();
+    return !window.shouldClose();
 }
 
 fn Element_setStyle(node: *Node, style: []const u8) !void {
