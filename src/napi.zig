@@ -49,9 +49,10 @@ fn getter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) std.m
 }
 
 fn renderDoc(doc: *Document) bool {
-    renderer.render(doc);
+    renderer.render(doc, window.getSize(), window.getContentScale());
     window.swapBuffers();
     window.pollEvents();
+
     return !window.shouldClose();
 }
 

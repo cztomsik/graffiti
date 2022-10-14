@@ -52,12 +52,9 @@ pub const Renderer = struct {
         self.vg.deinit();
     }
 
-    pub fn render(self: *Self, document: *Document) void {
-        const w = 800;
-        const h = 600;
-
+    pub fn render(self: *Self, document: *Document, size: [2]f32, scale: [2]f32) void {
         self.vg.reset();
-        self.vg.beginFrame(w, h, 1.0);
+        self.vg.beginFrame(size[0], size[1], scale[0]);
 
         // white bg
         // TODO: clear()
