@@ -19,13 +19,10 @@ pub const Parser = struct {
     }
 
     pub fn expect(self: *Self, comptime tag: std.meta.FieldEnum(Token)) !std.meta.fieldInfo(Token, tag).field_type {
-        const tok = try self.tokenizer.next();
-
-        if (tok == tag) {
-            return @field(tok, @tagName(tag));
-        }
-
-        return error.UnexpectedToken;
+        return switch (try self.tokenizer.next()) {
+            tag => |t| t,
+            else => error.UnexpectedToken,
+        };
     }
 
     pub fn parse(self: *Self, comptime T: type) !T {
