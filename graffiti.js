@@ -3,6 +3,7 @@ process.dlopen(mod, new URL('zig-out/lib/libgraffiti.dylib', import.meta.url).pa
 console.log(mod.exports)
 const native = mod.exports
 
+// TODO: decide what to restore from https://github.com/cztomsik/graffiti/blob/50affb8419ff06a809099a85511042c08b0d1066/src/dom/Node.ts
 class Node {
   get parentNode() {
     return native.Node_parentNode(this)
@@ -21,7 +22,19 @@ class Node {
   }
 
   appendChild(child) {
-    native.Node_appendChild(this, child)
+    return native.Node_appendChild(this, child), child
+  }
+
+  insertBefore(child, before) {
+    return before ? (native.Node_insertBefore(this, child, before), child) : this.appendChild(child)
+  }
+
+  replaceChild(child, oldChild) {
+    return this.insertBefore(child, oldChild), this.removeChild(child)
+  }
+
+  removeChild(child) {
+    return native.Node_removeChild(this, child), child
   }
 }
 
@@ -79,4 +92,4 @@ Object.setPrototypeOf(
 global.document = new Document()
 document.body = document.createElement('body')
 
-setInterval(() => native.render(document), 33)
+const loop = setInterval(() => native.render(document) || clearInterval(loop), 33)
