@@ -31,11 +31,10 @@ pub const Style = struct {
 
     // TODO: position, top, right, left
 
-    // flex_grow: f32 = 0,
-    // flex_shrink: f32 = 1,
-    // flex_basis: layout.Dimension = .auto,
-
-    // flex_direction: layout.FlexDirection = .row,
+    flex_grow: f32 = 0,
+    flex_shrink: f32 = 1,
+    flex_basis: layout.Dimension = .auto,
+    flex_direction: layout.FlexDirection = .row,
     // flex_wrap: layout.FlexWrap = .no_wrap,
 
     // align_content: layout.AlignContent = .stretch,
