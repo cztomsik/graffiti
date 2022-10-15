@@ -46,17 +46,15 @@ pub const Window = struct {
         c.glfwPollEvents();
     }
 
-    pub fn getSize(self: *Self) [2]i32 {
+    pub fn getSize(self: *Self) [2]f32 {
         var res: [2]i32 = undefined;
         c.glfwGetWindowSize(self.glfw_window, &res[0], &res[1]);
-
-        return res;
+        return .{ @intToFloat(f32, res[0]), @intToFloat(f32, res[1]) };
     }
 
     pub fn getContentScale(self: *Self) [2]f32 {
         var res: [2]f32 = undefined;
         c.glfwGetWindowContentScale(self.glfw_window, &res[0], &res[1]);
-
         return res;
     }
 
