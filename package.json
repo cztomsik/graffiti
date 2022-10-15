@@ -4,11 +4,10 @@
   "type": "module",
   "exports": "./graffiti.js",
   "scripts": {
-    "prepare": "zig build"
+    "postinstall": "git clone https://github.com/fabioarnold/nanovg-zig ./libs/nanovg-zig && git clone https://github.com/cztomsik/zig-napigen ./libs/napigen && zig build"
   },
   "files": [
     "src",
-    "libs",
     "build.zig",
     "graffiti.js"
   ],
