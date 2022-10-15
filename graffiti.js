@@ -1,7 +1,6 @@
-const mod = { exports: {} }
-process.dlopen(mod, new URL('zig-out/lib/libgraffiti.dylib', import.meta.url).pathname)
-console.log(mod.exports)
-const native = mod.exports
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const native = require('./zig-out/lib/graffiti.node')
 
 // TODO: decide what to restore from https://github.com/cztomsik/graffiti/blob/50affb8419ff06a809099a85511042c08b0d1066/src/dom/Node.ts
 class Node {

@@ -18,6 +18,10 @@ pub fn build(b: *std.build.Builder) void {
     lib.addPackagePath("napigen", "libs/napigen/napigen.zig");
     lib.install();
 
+    // copy result to a fixed filename with .node suffix
+    // TODO: is this the way how to do such thing?
+    b.installLibFile(b.pathJoin(&.{ "zig-out/lib", lib.out_lib_filename }), "graffiti.node");
+
     const main_tests = b.addTest("src/main.zig");
     main_tests.setBuildMode(mode);
 
