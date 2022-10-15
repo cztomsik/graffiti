@@ -31,10 +31,11 @@ pub const Parser = struct {
         }
 
         return switch (@typeInfo(T)) {
+            .Optional => self.parseOptional(std.meta.Child(T)),
             .Enum => self.parseEnum(T),
             .Float => @floatCast(T, try self.expect(.number)),
             .Union => self.parseUnion(T),
-            else => {
+            .Struct => {
                 if (comptime isColor(T)) {
                     return parseColor(self, T);
                 }
@@ -43,8 +44,17 @@ pub const Parser = struct {
                     return parseRect(self, T);
                 }
 
-                @compileError("unknown value type " ++ @typeName(T));
+                return self.parseStruct(T);
             },
+            else => @compileError("unknown value type " ++ @typeName(T)),
+        };
+    }
+
+    pub fn parseOptional(self: *Self, comptime T: type) ?T {
+        const prev = self.tokenizer;
+        return self.parse(T) catch {
+            self.tokenizer = prev;
+            return null;
         };
     }
 
@@ -121,6 +131,21 @@ pub const Parser = struct {
         const left = try self.parse(?V) orelse right;
 
         return T{ .top = top, .right = right, .bottom = bottom, .left = left };
+    }
+
+    pub fn parseStruct(self: *Self, comptime T: type) !T {
+        var res: T = undefined;
+
+        inline for (std.meta.fields(T)) |f| {
+            if (f.default_value) |ptr| {
+                const v = @ptrCast(*const f.field_type, @alignCast(f.alignment, ptr)).*;
+                @field(res, f.name) = self.parseOptional(f.field_type) orelse v;
+            } else {
+                @field(res, f.name) = try self.parse(f.field_type);
+            }
+        }
+
+        return res;
     }
 
     fn hex(s: []const u8) u8 {
@@ -229,4 +254,27 @@ test "Parser.parse(Rect)" {
     try expectParse(Rect, "1 2 3 4", .{ .top = 1, .right = 2, .bottom = 3, .left = 4 });
 
     try expectParse(Rect, "xxx", error.UnexpectedToken);
+}
+
+test "Parser.parse(Struct)" {
+    const Color = enum { black, blue };
+    const Outline = struct { width: f32 = 3, style: enum { none, solid }, color: Color = .black };
+    const Shadow = struct { x: f32, y: f32, blur: f32 = 0, spread: f32 = 0, color: Color = .black };
+
+    try expectParse(Outline, "solid", .{ .style = .solid });
+    try expectParse(Outline, "1 solid", .{ .width = 1, .style = .solid });
+    try expectParse(Outline, "1 solid blue", .{ .width = 1, .style = .solid, .color = .blue });
+
+    try expectParse(Shadow, "1 1", .{ .x = 1, .y = 1 });
+    try expectParse(Shadow, "1 1 blue", .{ .x = 1, .y = 1, .color = .blue });
+    try expectParse(Shadow, "1 1 1 blue", .{ .x = 1, .y = 1, .blur = 1, .color = .blue });
+
+    try expectParse(Outline, "xxx", error.InvalidValue);
+    try expectParse(Shadow, "xxx", error.UnexpectedToken);
+}
+
+test "Parser.parse(Optional)" {
+    try expectParse(?f32, "", null);
+    try expectParse(?f32, "foo", null);
+    try expectParse(?f32, "1", 1);
 }
