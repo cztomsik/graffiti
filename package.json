@@ -10,7 +10,7 @@
     "src",
     "libs",
     "build.zig",
-    "graffiti.js",
+    "graffiti.js"
   ],
   "repository": {
     "type": "git",
