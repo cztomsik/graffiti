@@ -2,8 +2,9 @@ const layout = @import("layout.zig");
 const nvg = @import("nanovg");
 
 pub const Style = struct {
-    display: layout.Display = .block,
+    display: layout.Display = .flex,
     background_color: nvg.Color = nvg.rgba(0, 0, 0, 0),
+    border_radius: f32 = 0,
     opacity: f32 = 1,
 
     width: layout.Dimension = .auto,
