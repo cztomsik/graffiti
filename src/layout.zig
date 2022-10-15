@@ -1,13 +1,17 @@
+// TODO: this is just a PoC, it sort-of works but there are no tests
+//       and I realy need to figure that out somehow before proceeding any further
+//       (min/max, absolute/relative, wrap, reverse, ordering, ...)
+
 const std = @import("std");
 const Style = @import("style.zig").Style;
-const NaN = std.math.nan_f32;
+const Node = @import("document.zig").Node;
 const isNan = std.math.isNan;
 const expectFmt = std.testing.expectFmt;
 
 // enums
-pub const Display = enum { none, block, flex, @"inline" };
+pub const Display = enum { none, flex };
 // TODO
-// pub const FlexDirection = enum { row, column, row_reverse, column_reverse };
+pub const FlexDirection = enum { row, column }; // , row_reverse, column_reverse };
 // pub const FlexWrap = enum { no_wrap, wrap, wrap_reverse };
 // pub const AlignContent = enum { flex_start, center, flex_end, stretch, space_between, space_around, space_evenly };
 // pub const AlignItems = enum { flex_start, center, flex_end, baseline, stretch };
@@ -28,113 +32,84 @@ pub const Dimension = union(enum) {
     }
 };
 
-pub const LayoutNode = struct {
-    style: *const Style,
-
-    // links
-    first_child: ?*Self = null,
-    next: ?*Self = null,
-
-    // result
-    x: f32 = 0,
-    y: f32 = 0,
-    width: f32 = 0,
-    height: f32 = 0,
-
-    // custom extensions
-    user_ptr: ?*anyopaque = null,
-    user_fn: ?std.meta.FnPtr(fn (*Self) void) = null,
-
-    pub const Self = @This();
-
-    pub fn format(self: *const Self, comptime _: []const u8, opts: std.fmt.FormatOptions, writer: anytype) !void {
-        const indent = opts.width orelse 0;
-
-        try writer.writeByteNTimes(' ', indent);
-        try writer.print("{s} {d} {d} {d} {d}", .{ @tagName(self.style.display), self.x, self.y, self.width, self.height });
-
-        var next = self.first_child;
-        while (next) |ch| : (next = ch.next) {
-            try writer.print("\n{:[w]}", .{ .v = ch, .w = indent + 2 });
-        }
-    }
-
-    pub fn compute(self: *Self, width: f32, height: f32) void {
-        self.width = self.style.width.resolve(width);
-        self.height = self.style.height.resolve(height);
-
-        switch (self.style.display) {
-            .none => {
-                self.width = 0;
-                self.height = 0;
-            },
-            .block => self.computeBlock(width, height),
-            .flex => self.computeFlex(width, height),
-            .@"inline" => self.computeInline(),
-        }
-
-        // std.log.debug("{*} {} {d:.2} -> {d:.2}@{d:.2}\n", .{ node, node.style.display, parent_size.width, node.layout.size.width, node.layout.size.height });
-
-        return;
-    }
-
-    pub fn computeInline(self: *Self) void {
-        self.width = 0;
-        self.height = 0;
-
-        if (self.user_fn) |fun| {
-            fun(self);
-        }
-    }
-
-    pub fn computeBlock(self: *Self, width: f32, height: f32) void {
-        const s = self.style;
-
-        var y: f32 = s.padding_top.resolve(height);
-        var content_height: f32 = 0;
-
-        const inner_w = @maximum(0, width - s.padding_left.resolve(width) - s.padding_right.resolve(width));
-        const inner_h = @maximum(0, height - s.padding_top.resolve(height) - s.padding_bottom.resolve(height));
-
-        var next = self.first_child;
-        while (next) |ch| : (next = ch.next) {
-            ch.compute(inner_w, inner_h);
-
-            // ch.align()?
-            ch.x = s.padding_left.resolve(width);
-            ch.y = y;
-
-            content_height += ch.height;
-            y += ch.height;
-        }
-
-        if (std.math.isNan(self.width)) {
-            self.width = width;
-        }
-
-        if (std.math.isNan(self.height)) {
-            self.height = content_height + s.padding_top.resolve(height) + s.padding_bottom.resolve(height);
-        }
-    }
-
-    pub fn computeFlex(_: *LayoutNode, _: f32, _: f32) void {
-        @panic("TODO: flex");
-    }
-};
-
-test "LayoutNode.format()" {
-    var n1 = LayoutNode{ .style = &.{} };
-    try expectFmt("block 0 0 0 0", "{}", .{n1});
-
-    var n2 = LayoutNode{ .style = &.{}, .first_child = &n1 };
-    try expectFmt(
-        \\block 0 0 0 0
-        \\  block 0 0 0 0
-    , "{}", .{n2});
+pub fn layout(node: *Node, size: [2]f32) void {
+    // std.debug.print("-------\n", .{});
+    node.size = size;
+    computeNode(node, &Style{}, size);
 }
 
-test "display: none" {
-    var n1 = LayoutNode{ .style = &.{ .display = .none } };
-    n1.compute(0, 0);
-    try expectFmt("none 0 0 0 0", "{}", .{n1});
+fn computeNode(node: *Node, style: *const Style, size: [2]f32) void {
+    // std.debug.print("{} {s} {d} {d}\n", .{ node.id, @tagName(node.data), node.size[0], node.size[1] });
+
+    const is_row = style.flex_direction == .row; // or style.flex_direction == .row_reverse;
+    const main: u1 = if (is_row) 0 else 1;
+    const cross: u1 = ~main;
+
+    var flex_space = node.size[main];
+    var grows: f32 = 0;
+    var shrinks: f32 = 0;
+
+    var next = node.first_child;
+    while (next) |ch| : (next = ch.next_sibling) {
+        switch (ch.data) {
+            .text => |t| ch.size = .{ 10 * @intToFloat(f32, t.len), 40 },
+            .element => |el| {
+                const ch_style = &el.style.data;
+                grows += ch_style.flex_grow;
+                shrinks += ch_style.flex_shrink;
+
+                ch.size[0] = ch_style.width.resolve(size[0]);
+                ch.size[1] = ch_style.height.resolve(size[1]);
+                if (isNan(ch.size[main])) ch.size[main] = 0;
+                if (isNan(ch.size[cross])) ch.size[cross] = size[cross]; // TODO: - margin[w/h]
+                const basis = ch_style.flex_basis.resolve(size[main]);
+                if (!isNan(basis)) ch.size[main] = basis;
+
+                // TODO: skip if we can, but items should not directly cause overflow (text or child-child with given size)
+                computeNode(ch, ch_style, ch.size);
+            },
+            else => {},
+        }
+
+        node.size[cross] = @maximum(node.size[cross], ch.size[cross]);
+        flex_space -= @maximum(0, ch.size[main]);
+    }
+
+    node.size[main] = @maximum(node.size[main], -flex_space);
+
+    var pos: [2]f32 = .{
+        @maximum(0, style.padding_left.resolve(size[0])),
+        @maximum(0, style.padding_top.resolve(size[1])),
+    };
+
+    // grow/shrink, position, reverse, align, stretch, margin, ...
+    next = node.first_child;
+    while (next) |ch| : (next = ch.next_sibling) {
+        ch.pos = pos;
+
+        switch (ch.data) {
+            .element => |el| {
+                const ch_style = &el.style.data;
+
+                if (flex_space > 0 and ch_style.flex_grow > 0) {
+                    ch.size[main] += (flex_space / grows) * ch_style.flex_grow;
+                }
+
+                if (flex_space < 0 and ch_style.flex_shrink > 0) {
+                    ch.size[main] += (flex_space / shrinks) * ch_style.flex_shrink;
+                }
+
+                // ch.pos[main] += @maximum(0, ch_style.margin_left/top.resolve())
+                // pos[main] += @maximum(0, ch_style.margin_x/y.resolve())
+
+                // TODO: align
+
+                computeNode(ch, ch_style, ch.size);
+            },
+            else => {},
+        }
+
+        // advance
+        pos[main] += ch.size[main];
+    }
 }
