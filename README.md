@@ -28,6 +28,8 @@ I have some ideas for the future (and lots of deleted code in a git history) but
 ```
 git clone ...
 cd ...
+git submodule update
+git submodule init
 npm i
 zig build
 node examples/hello.js
