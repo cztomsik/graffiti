@@ -66,7 +66,7 @@ pub const Renderer = struct {
     }
 
     fn renderNode(self: *Self, node: *Node) void {
-        // std.log.debug("renderNode({any} {*})\n", .{ node.nodeType(), node });
+        // std.debug.print("renderNode({} {s} {d} {d} {d} {d})\n", .{ node.id, @tagName(node.data), node.pos[0], node.pos[1], node.size[0], node.size[1] });
 
         const rect = @bitCast(Rect, [2][2]f32{ node.pos, node.size });
 
@@ -124,13 +124,13 @@ pub const Renderer = struct {
         //     self.canvas.concat(matrix);
         // }
 
-        // if (style.shadow) |shadow| {
-        //     self.drawShadow(&shape, shadow);
-        // }
+        if (style.box_shadow) |shadow| {
+            self.drawShadow(&shape, shadow);
+        }
 
-        // if (style.outline) |outline| {
-        //     self.drawOutline(&shape, outline);
-        // }
+        if (style.outline) |outline| {
+            self.drawOutline(&shape, outline);
+        }
 
         // if style.clip {
         //     self.clipShape(&shape, ClipOp::Intersect, true /*style.transform.is_some()*/);
@@ -156,6 +156,31 @@ pub const Renderer = struct {
 
     fn drawBgColor(self: *Self, shape: *const Shape, color: Color) void {
         self.fillShape(shape, .{ .color = color });
+    }
+
+    fn drawOutline(self: *Self, shape: *const Shape, outline: Style.Outline) void {
+        self.vg.beginPath();
+        self.vg.rect(shape.rect.x, shape.rect.y, shape.rect.w, shape.rect.h);
+        self.vg.strokeWidth(outline.width);
+        self.vg.strokeColor(outline.color);
+        self.vg.stroke();
+    }
+
+    // TODO: something here is wrong... good luck, future me :-D
+    fn drawShadow(self: *Self, shape: *const Shape, shadow: Style.BoxShadow) void {
+        const rect = shape.rect;
+        var out_rect = Rect{
+            .x = rect.x - shadow.blur,
+            .y = rect.y - shadow.blur,
+            .w = rect.w + 2 * shadow.blur,
+            .h = rect.h + 2 * shadow.blur,
+        };
+        var col = shadow.color;
+        //col.a *= rect.w / out_rect.w;
+        const paint = self.vg.boxGradient(rect.x, rect.y, rect.w, rect.h, shape.radius, shadow.blur, col, TRANSPARENT);
+        // TODO(later): shape.winding?
+        // self.vg.pathWinding(nvg.Winding.solidity(.hole));
+        self.fillShape(&Shape{ .rect = out_rect }, .{ .paint = paint });
     }
 
     fn fillShape(self: *Self, shape: *const Shape, fill: union(enum) { color: nvg.Color, paint: nvg.Paint }) void {
