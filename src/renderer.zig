@@ -3,32 +3,26 @@ const nvg = @import("nanovg");
 const Node = @import("document.zig").Node;
 const Document = @import("document.zig").Document;
 const Style = @import("style.zig").Style;
-const LayoutNode = @import("layout.zig").LayoutNode;
+const layout = @import("layout.zig").layout;
 
 const Color = nvg.Color;
 const TRANSPARENT = nvg.rgba(0, 0, 0, 0);
 
-const Shape = union(enum) {
+const Shape = struct {
     rect: Rect,
-    rrect: RRect,
+    radius: f32 = 0,
 };
 
-const Rect = struct {
+const Rect = packed struct {
     x: f32 = 0,
     y: f32 = 0,
     w: f32 = 0,
     h: f32 = 0,
 };
 
-const RRect = struct {
-    rect: Rect,
-    radii: [4]f32,
-};
-
 pub const Renderer = struct {
     allocator: std.mem.Allocator,
     vg: nvg,
-    layout_nodes: []LayoutNode = undefined,
 
     const Self = @This();
 
@@ -59,39 +53,13 @@ pub const Renderer = struct {
         // white bg
         // TODO: clear()
         // TODO: https://github.com/ziglang/zig/issues/12142#issuecomment-1204416869
-        self.fillShape(&Shape{ .rect = .{ .w = w, .h = h } }, nvg.rgb(255, 255, 255));
-
-        // layout-all
-        self.layout_nodes = self.allocator.alloc(LayoutNode, document.nodes.len) catch @panic("oom");
-        defer self.allocator.free(self.layout_nodes);
-        for (self.layout_nodes) |*l, n| {
-            const node = document.nodes.at(n);
-
-            l.* = switch (node.data) {
-                .element => |el| .{
-                    .style = &el.style,
-                    .user_ptr = node,
-                },
-                .text => .{
-                    .style = &.{ .display = .@"inline" },
-                    .user_fn = &textLayout,
-                    .user_ptr = node,
-                },
-                .document => .{
-                    .style = &.{},
-                    .user_ptr = node,
-                },
-            };
-
-            l.first_child = if (node.first_child) |ch| &self.layout_nodes[ch.id] else null;
-            l.next = if (node.next_sibling) |ne| &self.layout_nodes[ne.id] else null;
-        }
+        self.fillShape(&Shape{ .rect = .{ .w = size[0], .h = size[1] } }, .{ .color = nvg.rgb(255, 255, 255) });
 
         // TODO: 0 == document.body for now
         const root = document.nodes.at(0);
 
         // TODO: 0 == document.body for now
-        self.layout_nodes[0].compute(w, h);
+        layout(document.nodes.at(0), size);
 
         self.renderNode(root);
         self.vg.endFrame();
@@ -100,11 +68,10 @@ pub const Renderer = struct {
     fn renderNode(self: *Self, node: *Node) void {
         // std.log.debug("renderNode({any} {*})\n", .{ node.nodeType(), node });
 
-        const ln = &self.layout_nodes[node.id];
-        const rect = Rect{ .x = ln.x, .y = ln.y, .w = ln.width, .h = ln.height };
+        const rect = @bitCast(Rect, [2][2]f32{ node.pos, node.size });
 
         switch (node.data) {
-            .element => |el| self.renderElement(rect, &el.style, node.first_child),
+            .element => |el| self.renderElement(rect, &el.style.data, node.first_child),
             .text => |t| self.renderText(rect, t),
             .document => @panic("TODO"), // |d| self.renderNode(d.root),
         }
@@ -151,11 +118,7 @@ pub const Renderer = struct {
             return true;
         }
 
-        // const shape = if (!std.meta.eql(style.border_radius, .{ 0, 0, 0, 0 }))
-        //     Shape{ .rrect = .{ .rect = rect, .radii = style.border_radius } }
-        // else
-        //     Shape{ .rect = rect };
-        const shape = Shape{ .rect = rect };
+        const shape = Shape{ .rect = rect, .radius = style.border_radius };
 
         // if let Some(matrix) = &style.transform {
         //     self.canvas.concat(matrix);
@@ -192,33 +155,25 @@ pub const Renderer = struct {
     }
 
     fn drawBgColor(self: *Self, shape: *const Shape, color: Color) void {
-        self.fillShape(shape, color);
+        self.fillShape(shape, .{ .color = color });
     }
 
-    fn fillShape(self: *Self, shape: *const Shape, color: Color) void {
+    fn fillShape(self: *Self, shape: *const Shape, fill: union(enum) { color: nvg.Color, paint: nvg.Paint }) void {
         // std.log.debug("shape {any}\n", .{shape});
 
         self.vg.beginPath();
 
-        switch (shape.*) {
-            .rect => |rect| self.vg.rect(rect.x, rect.y, rect.w, rect.h),
-            .rrect => |rrect| {
-                const rect = &rrect.rect;
-                // TODO: if (radii[0] == radii[1] ...) else ...
-                self.vg.roundedRect(rect.x, rect.y, rect.w, rect.h, rrect.radii[0]);
-            },
+        if (shape.radius != 0) {
+            self.vg.roundedRect(shape.rect.x, shape.rect.y, shape.rect.w, shape.rect.h, shape.radius);
+        } else {
+            self.vg.rect(shape.rect.x, shape.rect.y, shape.rect.w, shape.rect.h);
         }
 
-        self.vg.fillColor(color);
+        switch (fill) {
+            .color => |c| self.vg.fillColor(c),
+            .paint => |p| self.vg.fillPaint(p),
+        }
+
         self.vg.fill();
     }
 };
-
-fn textLayout(n: *LayoutNode) void {
-    if (n.user_ptr) |ptr| {
-        if (@ptrCast(*Node, @alignCast(@alignOf(Node), ptr)).as(.text)) |t| {
-            n.width = 10 * @intToFloat(f32, t.len);
-            n.height = 40;
-        }
-    }
-}

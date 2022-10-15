@@ -17,6 +17,8 @@ pub const Node = struct {
         element: *Element,
         text: []const u8,
     },
+    pos: [2]f32 = .{ 0, 0 },
+    size: [2]f32 = .{ 0, 0 },
 
     const Self = @This();
 
