@@ -20,7 +20,7 @@ const Counter = () => {
 
       <div>
         <div style="background-color: #88f">world</div>
-        <div style="background-color: #fff; flex-grow: 1">hello</div>
+        <div style="background-color: #fff; flex: 1">hello</div>
         <div style="background-color: #88f; width: 20px; height: 10px"></div>
       </div>
 
@@ -40,10 +40,7 @@ const styles = {
     // flex: 1,
     width: '80%',
     height: '100%',
-    paddingTop: 20,
-    paddingRight: 20,
-    paddingBottom: 20,
-    paddingLeft: 20,
+    padding: 20,
     flexDirection: 'column',
     backgroundColor: '#ffa',
   },

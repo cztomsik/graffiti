@@ -17,6 +17,7 @@ pub const FlexDirection = enum { row, column }; // , row_reverse, column_reverse
 // pub const AlignItems = enum { flex_start, center, flex_end, baseline, stretch };
 // pub const AlignSelf = enum { auto, flex_start, center, flex_end, baseline, stretch };
 // pub const JustifyContent = enum { flex_start, center, flex_end, space_between, space_around, space_evenly };
+// pub const Position = enum { static, absolute, relative };
 
 pub const Dimension = union(enum) {
     auto,
@@ -55,14 +56,14 @@ fn computeNode(node: *Node, style: *const Style, size: [2]f32) void {
             .text => |t| ch.size = .{ 10 * @intToFloat(f32, t.len), 40 },
             .element => |el| {
                 const ch_style = &el.style.data;
-                grows += ch_style.flex_grow;
-                shrinks += ch_style.flex_shrink;
+                grows += ch_style.flex.grow;
+                shrinks += ch_style.flex.shrink;
 
                 ch.size[0] = ch_style.width.resolve(size[0]);
                 ch.size[1] = ch_style.height.resolve(size[1]);
                 if (isNan(ch.size[main])) ch.size[main] = 0;
                 if (isNan(ch.size[cross])) ch.size[cross] = size[cross]; // TODO: - margin[w/h]
-                const basis = ch_style.flex_basis.resolve(size[main]);
+                const basis = ch_style.flex.basis.resolve(size[main]);
                 if (!isNan(basis)) ch.size[main] = basis;
 
                 // TODO: skip if we can, but items should not directly cause overflow (text or child-child with given size)
@@ -78,8 +79,8 @@ fn computeNode(node: *Node, style: *const Style, size: [2]f32) void {
     node.size[main] = @maximum(node.size[main], -flex_space);
 
     var pos: [2]f32 = .{
-        @maximum(0, style.padding_left.resolve(size[0])),
-        @maximum(0, style.padding_top.resolve(size[1])),
+        @maximum(0, style.padding.left.resolve(size[0])),
+        @maximum(0, style.padding.top.resolve(size[1])),
     };
 
     // grow/shrink, position, reverse, align, stretch, margin, ...
@@ -91,12 +92,12 @@ fn computeNode(node: *Node, style: *const Style, size: [2]f32) void {
             .element => |el| {
                 const ch_style = &el.style.data;
 
-                if (flex_space > 0 and ch_style.flex_grow > 0) {
-                    ch.size[main] += (flex_space / grows) * ch_style.flex_grow;
+                if (flex_space > 0 and ch_style.flex.grow > 0) {
+                    ch.size[main] += (flex_space / grows) * ch_style.flex.grow;
                 }
 
-                if (flex_space < 0 and ch_style.flex_shrink > 0) {
-                    ch.size[main] += (flex_space / shrinks) * ch_style.flex_shrink;
+                if (flex_space < 0 and ch_style.flex.shrink > 0) {
+                    ch.size[main] += (flex_space / shrinks) * ch_style.flex.shrink;
                 }
 
                 // ch.pos[main] += @maximum(0, ch_style.margin_left/top.resolve())

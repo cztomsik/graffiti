@@ -176,7 +176,7 @@ pub const Renderer = struct {
             .h = rect.h + 2 * shadow.blur,
         };
         var col = shadow.color;
-        //col.a *= rect.w / out_rect.w;
+        // col.a *= rect.w / out_rect.w;
         const paint = self.vg.boxGradient(rect.x, rect.y, rect.w, rect.h, shape.radius, shadow.blur, col, TRANSPARENT);
         // TODO(later): shape.winding?
         // self.vg.pathWinding(nvg.Winding.solidity(.hole));
