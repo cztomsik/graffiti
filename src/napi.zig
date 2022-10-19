@@ -28,6 +28,7 @@ export fn napi_register_module_v1(env: napigen.napi_env, _: napigen.napi_value) 
         .document = document,
         .Document_createElement = &Document.createElement,
         .Document_createTextNode = &Document.createTextNode,
+        .Document_elementFromPoint = &Document.elementFromPoint,
 
         .Node_appendChild = &Node.appendChild,
         .Node_parentNode = &getter(Node, .parent_node),
