@@ -1,7 +1,7 @@
 const std = @import("std");
 const napigen = @import("napigen");
 const lib = @import("root");
-const Window = @import("window.zig").Window;
+const platform = @import("platform.zig");
 const Document = @import("document.zig").Document;
 const Node = @import("document.zig").Node;
 const Renderer = @import("renderer.zig").Renderer;
@@ -11,17 +11,21 @@ const css = @import("css.zig");
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 const allocator = gpa.allocator();
 
-var window: Window = undefined;
+var window: *platform.Window = undefined;
+var document: *Document = undefined;
 var renderer: Renderer = undefined;
 
 export fn napi_register_module_v1(env: napigen.napi_env, _: napigen.napi_value) napigen.napi_value {
-    window = Window.init("Hello", 800, 600) catch @panic("err");
+    platform.init() catch @panic("err");
+
+    window = platform.Window.init("Hello", 800, 600) catch @panic("err");
+    document = Document.init(allocator);
     renderer = Renderer.init(allocator) catch @panic("err");
 
     var cx = napigen.Context{ .env = env };
 
     const exports = .{
-        .Document_init = &Document.init,
+        .document = document,
         .Document_createElement = &Document.createElement,
         .Document_createTextNode = &Document.createTextNode,
 
@@ -33,7 +37,7 @@ export fn napi_register_module_v1(env: napigen.napi_env, _: napigen.napi_value) 
         .Element_setStyle = &Element_setStyle,
         .Element_setStyleProp = &Element_setStyleProp,
 
-        .render = &renderDoc,
+        .tick = &tick,
     };
 
     return cx.write(exports) catch |e| return cx.throw(e);
@@ -48,10 +52,16 @@ fn getter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) std.m
     }).get;
 }
 
-fn renderDoc(doc: *Document) bool {
-    renderer.render(doc, window.getSize(), window.getContentScale());
+fn tick(cx: *napigen.Context, dispatch_fn: napigen.napi_value) !bool {
+    // handle events in JS
+    while (platform.nextEvent()) |ev| try cx.call(void, dispatch_fn, .{ev});
+
+    // re-render
+    renderer.render(document, window.size(), window.scale());
     window.swapBuffers();
-    window.pollEvents();
+
+    // wait for input
+    platform.waitEvents();
 
     return !window.shouldClose();
 }
