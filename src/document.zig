@@ -24,9 +24,8 @@ pub const Node = struct {
 
     pub fn as(self: *Self, comptime kind: std.meta.FieldEnum(@TypeOf(self.data))) ?std.meta.fieldInfo(@TypeOf(self.data), kind).field_type {
         return switch (self.data) {
-            .document => |v| if (kind == .document) v else null,
-            .element => |v| if (kind == .element) v else null,
-            .text => |v| if (kind == .text) v else null,
+            kind => |v| v,
+            else => null,
         };
     }
 
@@ -74,21 +73,17 @@ pub const Document = struct {
 
     const Self = @This();
 
-    // TODO
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-
-    pub fn init() *Self {
-        const allocator = gpa.allocator();
-        var self = allocator.create(Self) catch @panic("OOM");
-        self.* = .{
+    pub fn init(allocator: std.mem.Allocator) *Self {
+        var doc = allocator.create(Self) catch @panic("OOM");
+        doc.* = .{
             .allocator = allocator,
             .nodes = .{},
             .elements = .{},
         };
 
-        // self.nodes.insert(.{ .document = self });
+        // doc.root = doc.createNode(.{ .document = doc }) catch @panic("OOM");
 
-        return self;
+        return doc;
     }
 
     pub fn deinit(self: *Self) void {
