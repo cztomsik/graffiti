@@ -92,6 +92,10 @@ class Document extends Node {
   createTextNode(data) {
     return wrap(native.Document_createTextNode(this, '' + data), Text)
   }
+
+  elementFromPoint(x, y) {
+    return native.Document_elementFromPoint(document, x, y)
+  }
 }
 
 const wrap = (obj, Clz) => (Object.setPrototypeOf(obj, Clz.prototype), obj)
@@ -119,7 +123,26 @@ Object.setPrototypeOf(
   })
 )
 
-global.document = new Document()
+global.document = wrap(native.document, Document)
 document.body = document.createElement('body')
 
-const loop = setInterval(() => native.render(document) || clearInterval(loop), 33)
+const runLoop = async () => {
+  while (await native.tick(null, ev => document.elementFromPoint(ev.x, ev.y).dispatchEvent(wrap(ev, Event)))) {}
+}
+
+Promise.resolve().then(runLoop)
+
+class Event {
+  get type() {
+    const types = ['mousemove', 'scroll', 'mousedown', 'mouseup', 'keydown', 'keypress', 'key_up']
+    return types[this.kind]
+  }
+
+  stopPropagation() {
+    this.cancelBubble = true
+  }
+
+  preventDefault() {
+    this.defaultPrevented = true
+  }
+}

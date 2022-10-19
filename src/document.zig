@@ -114,6 +114,29 @@ pub const Document = struct {
         });
     }
 
+    pub fn elementFromPoint(self: *Self, x: f32, y: f32) *Node {
+        // TODO: body/documentElement
+        var res = self.nodes.at(0);
+        var next: ?*Node = res;
+        var cur: [2]f32 = .{ x, y };
+
+        while (next) |n| {
+            // std.debug.print("{} {d}@{d} {d}x{d} <- {d},{d}\n", .{ n.id, n.pos[0], n.pos[1], n.size[0], n.size[1], cur[0], cur[1] });
+
+            // TODO: display, scroll, clip, radius, etc. and it's wrong anyway (overflow, absolute, etc.)
+            if (n.data == .element and cur[0] >= n.pos[0] and cur[1] >= n.pos[1] and cur[0] <= (n.pos[0] + n.size[0]) and cur[1] <= (n.pos[1] + n.size[1])) {
+                res = n;
+                cur[0] -= n.pos[0];
+                cur[1] -= n.pos[1];
+                next = n.first_child;
+            } else {
+                next = n.next_sibling;
+            }
+        }
+
+        return res;
+    }
+
     // helpers
 
     fn createNode(self: *Self, data: anytype) !*Node {
