@@ -24,9 +24,8 @@ pub const Node = struct {
 
     pub fn as(self: *Self, comptime kind: std.meta.FieldEnum(@TypeOf(self.data))) ?std.meta.fieldInfo(@TypeOf(self.data), kind).field_type {
         return switch (self.data) {
-            .document => |v| if (kind == .document) v else null,
-            .element => |v| if (kind == .element) v else null,
-            .text => |v| if (kind == .text) v else null,
+            kind => |v| v,
+            else => null,
         };
     }
 
@@ -74,21 +73,17 @@ pub const Document = struct {
 
     const Self = @This();
 
-    // TODO
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-
-    pub fn init() *Self {
-        const allocator = gpa.allocator();
-        var self = allocator.create(Self) catch @panic("OOM");
-        self.* = .{
+    pub fn init(allocator: std.mem.Allocator) *Self {
+        var doc = allocator.create(Self) catch @panic("OOM");
+        doc.* = .{
             .allocator = allocator,
             .nodes = .{},
             .elements = .{},
         };
 
-        // self.nodes.insert(.{ .document = self });
+        // doc.root = doc.createNode(.{ .document = doc }) catch @panic("OOM");
 
-        return self;
+        return doc;
     }
 
     pub fn deinit(self: *Self) void {
@@ -117,6 +112,29 @@ pub const Document = struct {
         return self.createNode(.{
             .text = try self.allocator.dupe(u8, data),
         });
+    }
+
+    pub fn elementFromPoint(self: *Self, x: f32, y: f32) *Node {
+        // TODO: body/documentElement
+        var res = self.nodes.at(0);
+        var next: ?*Node = res;
+        var cur: [2]f32 = .{ x, y };
+
+        while (next) |n| {
+            // std.debug.print("{} {d}@{d} {d}x{d} <- {d},{d}\n", .{ n.id, n.pos[0], n.pos[1], n.size[0], n.size[1], cur[0], cur[1] });
+
+            // TODO: display, scroll, clip, radius, etc. and it's wrong anyway (overflow, absolute, etc.)
+            if (n.data == .element and cur[0] >= n.pos[0] and cur[1] >= n.pos[1] and cur[0] <= (n.pos[0] + n.size[0]) and cur[1] <= (n.pos[1] + n.size[1])) {
+                res = n;
+                cur[0] -= n.pos[0];
+                cur[1] -= n.pos[1];
+                next = n.first_child;
+            } else {
+                next = n.next_sibling;
+            }
+        }
+
+        return res;
     }
 
     // helpers
