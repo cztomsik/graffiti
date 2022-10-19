@@ -2,8 +2,39 @@ import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
 const native = require('./zig-out/lib/graffiti.node')
 
+const LISTENERS = Symbol()
+const listeners = new WeakMap()
+
+class EventTarget {
+  get [LISTENERS]() {
+    return listeners.get(this) ?? (listeners.set(this, {}), this[LISTENERS])
+  }
+
+  addEventListener(type, listener) {
+    this[LISTENERS][type] = [...(this[LISTENERS][type] ?? []), listener]
+  }
+
+  dispatchEvent(event) {
+    let curr = (event.target = this)
+    do {
+      event.currentTarget = curr
+      for (const l of curr[LISTENERS][event.type] ?? []) {
+        l.call(curr, event)
+      }
+    } while (!event.cancelBubble && (curr = curr.parentNode))
+  }
+}
+
+// https://github.com/preactjs/preact/blob/0f8c55c6cfad8d5cc3aec6785c1f6940998b4782/src/diff/props.js#L102
+Object.setPrototypeOf(
+  EventTarget.prototype,
+  new Proxy(Object.getPrototypeOf(EventTarget.prototype), {
+    has: (_, p) => typeof p === 'string' && p.match(/on\w+/),
+  })
+)
+
 // TODO: decide what to restore from https://github.com/cztomsik/graffiti/blob/50affb8419ff06a809099a85511042c08b0d1066/src/dom/Node.ts
-class Node {
+class Node extends EventTarget {
   get parentNode() {
     return native.Node_parentNode(this)
   }
