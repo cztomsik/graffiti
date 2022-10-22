@@ -70,8 +70,20 @@ pub fn init() !void {
     if (c.glfwInit() == 0) return error.GlfwInitFailed;
 }
 
+pub fn pollEvents() void {
+    c.glfwPollEvents();
+}
+
 pub fn waitEvents() void {
     c.glfwWaitEvents();
+}
+
+pub fn waitEventsTimeout(timeout: f64) void {
+    c.glfwWaitEventsTimeout(timeout);
+}
+
+pub fn wakeUp() void {
+    c.glfwPostEmptyEvent();
 }
 
 pub fn nextEvent() ?Event {
