@@ -11,10 +11,6 @@ pub const Specificity = u32;
 pub const Selector = struct {
     parts: []const Part,
 
-    const Self = @This();
-
-    pub const UNIVERSAL = Self{ .parts = &.{Part.universal} };
-
     const Part = union(enum) {
         // components
         unsupported,
@@ -29,9 +25,7 @@ pub const Selector = struct {
         @"or",
 
         fn eql(self: Part, other: Part) bool {
-            if (std.meta.activeTag(self) != std.meta.activeTag(other)) return false;
-
-            return switch (self) {
+            return std.meta.activeTag(self) == other and switch (self) {
                 .local_name => std.mem.eql(u8, self.local_name, other.local_name),
                 .identifier => std.mem.eql(u8, self.identifier, other.identifier),
                 .class_name => std.mem.eql(u8, self.class_name, other.class_name),
@@ -39,6 +33,8 @@ pub const Selector = struct {
             };
         }
     };
+
+    const Self = @This();
 
     pub fn eql(self: Self, other: Self) bool {
         if (self.parts.len != other.parts.len) return false;
@@ -74,119 +70,115 @@ pub const Selector = struct {
         var parts = std.ArrayList(Part).init(parser.allocator);
         errdefer parts.deinit();
 
+        var combinator: ?Part = null;
+
         while (parser.tokenizer.next() catch null) |tok| {
             if (tok == .lcurly) {
-                // put back
-                parser.tokenizer.pos -= 1;
+                if (combinator != null) return error.ComponentExpected;
                 break;
             }
 
-            try parts.append(switch (tok) {
+            const component: ?Part = switch (tok) {
                 .star => Part.universal,
-                .ident => |name| Part{ .local_name = name },
-                .hash => |id| Part{ .identifier = id },
-                .dot => Part{ .class_name = try parser.expect(.ident) },
-                .colon => blk: {
-                    _ = try parser.expect(.ident);
-                    break :blk Part.unsupported;
-                },
+                .ident => |s| Part{ .local_name = s },
+                .hash => |s| Part{ .identifier = s },
+                .class_name => |s| Part{ .class_name = s },
+                .colon => Part.unsupported,
+                else => null,
+            };
 
-                .gt => Part.parent,
-                .space => Part.ancestor,
-                .comma => Part.@"or",
-                .plus => Part.unsupported,
-                .tilde => Part.unsupported,
-                else => return error.InvalidSelectorPart,
-            });
+            if (component) |comp| {
+                if (combinator) |comb| {
+                    try parts.append(comb);
+                } else if (parser.tokenizer.space == .before) {
+                    try parts.append(Part.ancestor);
+                }
+
+                try parts.append(comp);
+                combinator = null;
+            } else {
+                combinator = switch (tok) {
+                    .gt => Part.parent,
+                    .comma => Part.@"or",
+                    .plus => Part.unsupported,
+                    .tilde => Part.unsupported,
+                    else => return error.InvalidSelectorPart,
+                };
+            }
         }
 
+        // save in reverse
         std.mem.reverse(Part, parts.items);
+
         return Self{
             .parts = parts.toOwnedSlice(),
         };
     }
 
-    // pub fn match_element<C: MatchingContext>(&self, element: C::ElementRef, ctx: &C) -> Option<Specificity> {
-    //     // so we can fast-forward to next OR
-    //     var parts_iter = self.parts.iter();
+    pub fn matchElement(self: *Self, element: anytype) ?Specificity {
+        // state
+        var i: usize = 0;
+        var current = element;
+        var parent = false;
+        var ancestors = false;
+        var specificity: Specificity = 0;
 
-    //     // state
-    //     var current = element;
-    //     var parent = false;
-    //     var ancestors = false;
-    //     let specificity = Specificity(0);
+        next_part: while (i < self.parts.len) : (i += 1) {
+            switch (self.parts[i]) {
+                .parent => parent = true,
+                .ancestor => ancestors = true,
+                // end-of-branch and we still have a match, no need to check others
+                .@"or" => break :next_part,
+                else => |comp| {
+                    while (true) {
+                        if (parent or ancestors) {
+                            parent = false;
+                            current = current.parentElement() orelse break;
+                        }
 
-    //     // we are always going forward
-    //     'next_part: while let Some(p) = parts_iter.next() {
-    //         match p {
-    //             SelectorPart::Combinator(comb) => {
-    //                 match comb {
-    //                     // state changes
-    //                     Combinator::Parent => parent = true,
-    //                     Combinator::Ancestor => ancestors = true,
+                        if (Self.matchComponent(current, comp)) {
+                            ancestors = false;
+                            continue :next_part;
+                        }
 
-    //                     // end-of-branch and we still have a match, no need to check others
-    //                     Combinator::Or => break 'next_part,
-    //                 }
-    //             }
+                        // we got no match on parent
+                        if (!ancestors) {
+                            break;
+                        }
+                    }
 
-    //             comp => {
-    //                 loop {
-    //                     if parent || ancestors {
-    //                         parent = false;
+                    // no match, fast-forward to next OR
+                    while (i < self.parts.len) : (i += 1) {
+                        if (self.parts[i] == .@"or") {
+                            // reset stack
+                            current = element;
+                            continue :next_part;
+                        }
+                    }
 
-    //                         match ctx.parent_element(current) {
-    //                             Some(parent) => current = parent,
+                    // or fail otherwise
+                    return null;
+                },
+            }
+        }
 
-    //                             // nothing left to match
-    //                             None => break,
-    //                         }
-    //                     }
+        // everything was fine
+        return specificity;
+    }
 
-    //                     if Self::match_component(current, comp, ctx) {
-    //                         ancestors = false;
-    //                         continue 'next_part;
-    //                     }
-
-    //                     // we got no match on parent
-    //                     if !ancestors {
-    //                         break;
-    //                     }
-    //                 }
-
-    //                 // no match, fast-forward to next OR
-    //                 for p in parts_iter.by_ref() {
-    //                     if p == &SelectorPart::Combinator(Combinator::Or) {
-    //                         // reset stack
-    //                         current = element;
-    //                         continue 'next_part;
-    //                     }
-    //                 }
-
-    //                 // or fail otherwise
-    //                 return None;
-    //             }
-    //         }
-    //     }
-
-    //     // everything was fine
-    //     Some(specificity)
-    // }
-
-    // fn match_component<C: MatchingContext>(el: C::ElementRef, comp: &SelectorPart, ctx: &C) -> bool {
-    //     match comp {
-    //         SelectorPart::Universal => true,
-    //         SelectorPart::LocalName(name) => ctx.local_name(el) == &**name,
-    //         SelectorPart::Identifier(id) => ctx.attribute(el, "id") == Some(id),
-    //         SelectorPart::ClassName(cls) => match ctx.attribute(el, "class") {
-    //             Some(s) => s.split_ascii_whitespace().any(|part| part == &**cls),
-    //             _ => false,
-    //         },
-    //         SelectorPart::Unsupported => false,
-    //         SelectorPart::Combinator(_) => unreachable!(),
-    //     }
-    // }
-
+    fn matchComponent(el: anytype, comp: Part) bool {
+        return switch (comp) {
+            .universal => true,
+            .local_name => |name| std.mem.eql(u8, el.localName(), name),
+            .identifier => |id| std.mem.eql(u8, el.id(), id),
+            .class_name => |cls| {
+                var parts = std.mem.split(u8, el.className(), " ");
+                while (parts.next()) |s| if (std.mem.eql(u8, s, cls)) return true;
+                return false;
+            },
+            else => false,
+        };
+    }
 };
 
 test "Selector.format()" {
@@ -218,6 +210,7 @@ test "parsing" {
     try expectParts("div#app.test", &.{ .{ .class_name = "test" }, .{ .identifier = "app" }, .{ .local_name = "div" } });
 
     // combined with combinators
+    try expectParts("div .btn", &.{ .{ .class_name = "btn" }, .ancestor, .{ .local_name = "div" } });
     try expectParts("body > div.test div#test", &.{
         .{ .identifier = "test" },
         .{ .local_name = "div" },
@@ -243,7 +236,7 @@ test "parsing" {
     });
 
     // unsupported for now
-    try expectParts(":root", &.{.unsupported});
+    try expectParts(":root", &.{ .{ .local_name = "root" }, .unsupported });
     try expectParts("* + *", &.{ .universal, .unsupported, .universal });
     try expectParts("* ~ *", &.{ .universal, .unsupported, .universal });
 
@@ -254,27 +247,46 @@ test "parsing" {
     // try expectParse(Selector, "a,,b", error.invalid);
     // try expectParse(Selector, "a>>b", error.invalid);
 
-    // bugs & edge-cases
+    // TODO: bugs & edge-cases
     // try expectParts("input[type=\"submit\"]", &.{ Unsupported, LocalName("input")]);
 }
 
 fn expectMatch(selector: []const u8, index: usize) !void {
-    // TODO
-    // parents: [null, 0, 1, 2, 3]
-    // local_names: ["html", "body", "div", "button", "span"];
-    // ids: ["", "app", "panel", "", ""]
-    // class_names: ["", "", "", "btn", ""]
+    var parser = Parser.init(std.testing.allocator, selector);
+    var sel = try parser.parse(Selector);
+    defer std.testing.allocator.free(sel.parts);
 
-    _ = selector;
-    _ = index;
+    const parents = [_]?usize{ null, 0, 1, 2, 3 };
+    const local_names = [_][]const u8{ "html", "body", "div", "button", "span" };
+    const ids = [_][]const u8{ "", "app", "panel", "", "" };
+    const class_names = [_][]const u8{ "", "", "", "btn", "" };
 
-    return;
+    const Element = struct {
+        index: usize,
+
+        const Self = @This();
+
+        fn parentElement(self: Self) ?Self {
+            return if (parents[self.index]) |parent| .{ .index = parent } else null;
+        }
+
+        fn localName(self: Self) []const u8 {
+            return local_names[self.index];
+        }
+
+        fn id(self: Self) []const u8 {
+            return ids[self.index];
+        }
+
+        fn className(self: Self) []const u8 {
+            return class_names[self.index];
+        }
+    };
+
+    try std.testing.expect(sel.matchElement(Element{ .index = index }) != null);
 }
 
 test "matching" {
-    // invalid
-    // std.testing.expect(Selector::unsupported().match_element(0, &Ctx).is_none());
-
     // basic
     try expectMatch("*", 0);
     try expectMatch("html", 0);
@@ -298,6 +310,7 @@ test "matching" {
     // ancestor
     try expectMatch("button span", 4);
     try expectMatch("div#panel span", 4);
+    try expectMatch("html body div button span", 4);
     try expectMatch("body div .btn span", 4);
 
     // OR
