@@ -4,6 +4,26 @@ const Rule = @import("rule.zig").Rule;
 const expectParse = @import("parser.zig").expectParse;
 const expectFmt = std.testing.expectFmt;
 
+pub const StyleRule = struct {
+    selector: Selector,
+    style: Style,
+
+    pub fn format(self: StyleRule, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        return writer.print("{} {{ {} }}", .{ self.selector, self.style });
+    }
+};
+
+test "StyleRule.format()" {
+    try expectFmt("* {  }", "{}", .{StyleRule{ .selector = .{ .parts = &.{.universal} }, .style = .{} }});
+}
+
+test "StyleRule.parse()" {
+    try expectParse(StyleRule, "* { opacity: 0 }", StyleRule{ .selector = .{ .parts = &.{.universal} }, .style = Style{ .props = &.{.{ .opacity = 0 }} } });
+
+    try expectParse(StyleRule, "", error.Eof);
+    try expectParse(StyleRule, "xxx", error.Eof);
+}
+
 pub const StyleSheet = struct {
     rules: []const Rule,
 

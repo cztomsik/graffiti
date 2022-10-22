@@ -4,6 +4,7 @@ const expectFmt = std.testing.expectFmt;
 
 pub const Tokenizer = @import("css/tokenizer.zig");
 pub const Parser = @import("css/parser.zig").Parser;
+pub const Selector = @import("css/selectors.zig").Selector;
 
 // TODO but maybe gpa is fine if we make sure everything parsed will also get freed
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -18,6 +19,24 @@ pub fn StyleDeclaration(comptime T: type) type {
         data: T = .{},
 
         const Self = @This();
+
+        pub fn length(self: *Self) usize {
+            var len: usize = 0;
+            for (self.flags) |v| {
+                if (v == 1) len += 1;
+            }
+            return len;
+        }
+
+        pub fn item(self: *Self, index: usize) []const u8 {
+            var i: usize = 0;
+
+            inline for (std.meta.fields(T)) |f, j| {
+                if (self.flags[j] == 1) {
+                    if (i == index) return cssName(f.name) else i += 1;
+                }
+            } else return "";
+        }
 
         pub fn getProperty() void {
             // TODO
@@ -92,6 +111,24 @@ const Decl = StyleDeclaration(struct {
     flex_grow: f32 = 0,
 });
 
+test "StyleDeclaration.length()" {
+    var s = Decl{};
+    try std.testing.expectEqual(s.length(), 0);
+
+    s.flags[0] = 1;
+    try std.testing.expectEqual(s.length(), 1);
+}
+
+test "StyleDeclaration.item()" {
+    var s = Decl{};
+    try std.testing.expectEqualStrings(s.item(0), "");
+
+    s.flags[0] = 1;
+    s.flags[2] = 1;
+    try std.testing.expectEqualStrings(s.item(0), "display");
+    try std.testing.expectEqualStrings(s.item(1), "flex-grow");
+}
+
 test "StyleDeclaration.format()" {
     var s = Decl{};
     try expectFmt("", "{}", .{s});
@@ -110,7 +147,7 @@ test "StyleDeclaration.parse()" {
     try expectParse(Decl, "opacity: 0; opacity: invalid", Decl{ .flags = .{ 0, 1, 0 }, .data = .{ .opacity = 0 } });
 }
 
-fn cssName(comptime prop_name: []const u8) []const u8 {
+pub fn cssName(comptime prop_name: []const u8) []const u8 {
     comptime {
         var buf: [prop_name.len]u8 = undefined;
         _ = std.mem.replace(u8, prop_name, "_", "-", &buf);
