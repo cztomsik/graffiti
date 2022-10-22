@@ -2,7 +2,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 
 pub const Event = struct {
-    kind: enum { mouse_move, scroll, mouse_down, mouse_up, key_down, key_press, key_up },
+    kind: enum { mouse_move, scroll, mouse_down, mouse_up, click, key_down, key_press, key_up },
     target: ?*anyopaque = null,
     x: f64 = 0,
     y: f64 = 0,
@@ -102,7 +102,18 @@ fn handleGlfwScroll(w: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void {
 fn handleGlfwMouseButton(w: ?*c.GLFWwindow, _: c_int, action: c_int, _: c_int) callconv(.C) void {
     var pos: [2]f64 = .{ 0, 0 };
     c.glfwGetCursorPos(w, &pos[0], &pos[1]);
-    pushEvent(.{ .target = w, .kind = if (action == c.GLFW_PRESS) .mouse_down else .mouse_up, .x = pos[0], .y = pos[0] });
+
+    switch (action) {
+        c.GLFW_PRESS => pushEvent(.{ .target = w, .kind = .mouse_down, .x = pos[0], .y = pos[1] }),
+        c.GLFW_RELEASE => {
+            pushEvent(.{ .target = w, .kind = .mouse_up, .x = pos[0], .y = pos[1] });
+
+            // TODO: only if released over the same element
+            // TODO: focus change? native or JS?
+            pushEvent(.{ .target = w, .kind = .click, .x = pos[0], .y = pos[1] });
+        },
+        else => {},
+    }
 }
 
 fn handleGlfwKey(w: ?*c.GLFWwindow, key: c_int, _: c_int, action: c_int, _: c_int) callconv(.C) void {
