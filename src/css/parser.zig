@@ -33,7 +33,7 @@ pub const Parser = struct {
         return switch (@typeInfo(T)) {
             .Optional => self.parseOptional(std.meta.Child(T)),
             .Enum => self.parseEnum(T),
-            .Float => @floatCast(T, try self.expect(.number)),
+            .Float => self.parseFloat(T),
             .Union => self.parseUnion(T),
             .Struct => {
                 if (comptime isColor(T)) {
@@ -50,6 +50,10 @@ pub const Parser = struct {
         };
     }
 
+    pub fn parseFloat(self: *Self, comptime T: type) !T {
+        return @floatCast(T, try self.expect(.number));
+    }
+
     pub fn parseOptional(self: *Self, comptime T: type) ?T {
         const prev = self.tokenizer;
         return self.parse(T) catch {
@@ -62,7 +66,7 @@ pub const Parser = struct {
         const ident = try self.expect(.ident);
 
         inline for (std.meta.fields(T)) |f| {
-            if (css.propNameEql(f.name, ident)) {
+            if (std.mem.eql(u8, css.cssName(f.name), ident)) {
                 return @intToEnum(T, f.value);
             }
         }
@@ -202,10 +206,10 @@ test "Parser.parse(f32)" {
 }
 
 test "Parser.parse(Enum)" {
-    const Display = enum { block, @"table-row" };
+    const Display = enum { block, table_row };
 
     try expectParse(Display, "block", .block);
-    try expectParse(Display, "table-row", .@"table-row");
+    try expectParse(Display, "table-row", .table_row);
 
     try expectParse(Display, "err", error.InvalidValue);
 }
