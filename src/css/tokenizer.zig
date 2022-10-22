@@ -1,6 +1,6 @@
 // different from https://www.w3.org/TR/2021/CRD-css-syntax-3-20211224/#tokenization
 // the purpose here is to simplify parsing rather than to implement spec-compliant tokenizer
-// spaces are only generated in selectors (after ident/*/] and before ident/#/./*)
+// (spaces are not generated, but the `.space` field can be used to tell if there was a space before)
 
 const std = @import("std");
 
@@ -10,13 +10,12 @@ pub const Token = union(enum) {
     number: f32,
     dimension: struct { value: f32, unit: []const u8 },
     hash: []const u8,
+    class_name: []const u8,
     string: []const u8,
     important,
-    space,
     colon,
     semi,
     star,
-    dot,
     gt,
     plus,
     tilde,
@@ -35,7 +34,7 @@ const TokenTag = std.meta.Tag(Token);
 pub const Tokenizer = struct {
     input: []const u8,
     pos: usize = 0,
-    space: enum { skip, wait, emit } = .skip,
+    space: enum { no, yes, before } = .no,
 
     const Self = @This();
 
@@ -49,14 +48,15 @@ pub const Tokenizer = struct {
         const ch = try self.peek(0);
 
         if (std.ascii.isSpace(ch)) {
+            self.space = .yes;
             self.pos += 1;
-
-            if (self.space == .wait) {
-                self.space = .emit;
-            }
-
             return try self.next();
         }
+
+        self.space = switch (self.space) {
+            .yes => .before,
+            else => .no,
+        };
 
         if (ch == '/' and (self.peek(1) catch 0) == '*') {
             self.pos += 2;
@@ -65,14 +65,7 @@ pub const Tokenizer = struct {
             return try self.next();
         }
 
-        if (self.space == .emit and (ch == '#' or ch == '.' or ch == '*' or isIdentStart(ch))) {
-            self.space = .skip;
-            return Token.space;
-        }
-
         if (isIdentStart(ch)) {
-            self.space = .wait;
-
             const ident = self.consume(isIdent);
 
             if ((self.peek(0) catch 0) == '(') {
@@ -103,17 +96,17 @@ pub const Tokenizer = struct {
             }
         }
 
+        if (ch == '.' and isIdentStart(self.peek(1) catch 0)) {
+            self.pos += 1;
+            return Token{ .class_name = self.consume(isIdent) };
+        }
+
         self.pos += 1;
-        self.space = .skip;
 
         return switch (ch) {
             '\'', '"' => .{ .string = try self.consumeString(ch) },
             '#' => Token{ .hash = self.consume(isIdent) },
-            '*' => blk: {
-                self.space = .wait;
-                break :blk Token.star;
-            },
-            '.' => Token.dot,
+            '*' => Token.star,
             '>' => Token.gt,
             '+' => Token.plus,
             '~' => Token.tilde,
@@ -121,10 +114,7 @@ pub const Tokenizer = struct {
             ';' => Token.semi,
             ',' => Token.comma,
             '[' => Token.lsquare,
-            ']' => blk: {
-                self.space = .wait;
-                break :blk Token.rsquare;
-            },
+            ']' => Token.rsquare,
             '(' => Token.lparen,
             ')' => Token.rparen,
             '{' => Token.lcurly,
@@ -216,9 +206,9 @@ test {
     try expectTokens("0 10px", &.{ .number, .dimension });
     try expectTokens("0 0 10px 0", &.{ .number, .number, .dimension, .number });
 
-    try expectTokens("a b", &.{ .ident, .space, .ident });
-    try expectTokens(".a .b", &.{ .dot, .ident, .space, .dot, .ident });
-    try expectTokens(" a .b #c *", &.{ .ident, .space, .dot, .ident, .space, .hash, .star });
+    try expectTokens("a b", &.{ .ident, .ident });
+    try expectTokens(".a .b", &.{ .class_name, .class_name });
+    try expectTokens(" a .b #c *", &.{ .ident, .class_name, .hash, .star });
 
     // try expectTokens("!important", &.{.important});
     // try expectTokens("! important", &.{ .other, .ident });
@@ -227,7 +217,7 @@ test {
 
     try expectTokens(
         "parent .btn { /**/ padding: 10px }",
-        &.{ .ident, .space, .dot, .ident, .lcurly, .ident, .colon, .dimension, .rcurly },
+        &.{ .ident, .class_name, .lcurly, .ident, .colon, .dimension, .rcurly },
     );
 
     try expectTokens("'foo'", &.{.string});
@@ -238,8 +228,8 @@ test {
 
     try expectTokens(
         "@media { a b { left: 10% } }",
-        &.{ .other, .ident, .lcurly, .ident, .space, .ident, .lcurly, .ident, .colon, .dimension, .rcurly, .rcurly },
+        &.{ .other, .ident, .lcurly, .ident, .ident, .lcurly, .ident, .colon, .dimension, .rcurly, .rcurly },
     );
 
-    try expectTokens("/**/ a /**/ b {}", &.{ .ident, .space, .ident, .lcurly, .rcurly });
+    try expectTokens("/**/ a /**/ b {}", &.{ .ident, .ident, .lcurly, .rcurly });
 }
