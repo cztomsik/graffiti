@@ -75,16 +75,19 @@ class Element extends Node {
   }
 
   setAttribute() {}
-  addEventListener() {}
 }
 
-class Text extends Node {}
-
-class Document extends Node {
-  constructor() {
-    return wrap(native.Document_init(), Document)
+class Text extends Node {
+  get data() {
+    return native.Text_data(this)
   }
 
+  set data(data) {
+    native.Text_setData(this, '' + data)
+  }
+}
+
+class Document extends Node {
   createElement(localName) {
     return wrap(native.Document_createElement(this, localName), Element)
   }
@@ -123,18 +126,28 @@ Object.setPrototypeOf(
   })
 )
 
-global.document = wrap(native.document, Document)
-document.body = document.createElement('body')
-
-const runLoop = async () => {
-  while (await native.tick(null, ev => document.elementFromPoint(ev.x, ev.y).dispatchEvent(wrap(ev, Event)))) {}
+// TODO: weak-ref GC (*anyopaque in event creates ref to temporal object which is collected if not used)
+// (can be trickier because of unknown order of finalization + possible re-creation later/before)
+const handleEvent = ev => {
+  //console.log(ev)
+  const el = document.elementFromPoint(ev.x, ev.y)
+  el.dispatchEvent(wrap(ev, Event))
 }
 
-Promise.resolve().then(runLoop)
+class Window extends EventTarget {}
+
+// TODO: just pass protos to init()
+// TODO: it could also patch globals
+Object.assign(global, native.init({ handleEvent }))
+wrap(document, Document)
+document.body = document.createElement('body')
+wrap(window, Window)
+// TODO: should be window
+document.body.addEventListener('close', () => process.exit())
 
 class Event {
   get type() {
-    const types = ['mousemove', 'scroll', 'mousedown', 'mouseup', 'keydown', 'keypress', 'key_up']
+    const types = ['close', 'mousemove', 'scroll', 'mousedown', 'mouseup', 'click', 'keydown', 'keypress', 'keyup']
     return types[this.kind]
   }
 

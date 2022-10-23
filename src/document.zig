@@ -73,15 +73,15 @@ pub const Document = struct {
 
     const Self = @This();
 
-    pub fn init(allocator: std.mem.Allocator) *Self {
-        var doc = allocator.create(Self) catch @panic("OOM");
+    pub fn init(allocator: std.mem.Allocator) !*Self {
+        var doc = try allocator.create(Self);
         doc.* = .{
             .allocator = allocator,
             .nodes = .{},
             .elements = .{},
         };
 
-        // doc.root = doc.createNode(.{ .document = doc }) catch @panic("OOM");
+        // doc.root = try doc.createNode(.{ .document = doc });
 
         return doc;
     }
@@ -125,6 +125,8 @@ pub const Document = struct {
 
             // TODO: display, scroll, clip, radius, etc. and it's wrong anyway (overflow, absolute, etc.)
             if (n.data == .element and cur[0] >= n.pos[0] and cur[1] >= n.pos[1] and cur[0] <= (n.pos[0] + n.size[0]) and cur[1] <= (n.pos[1] + n.size[1])) {
+                // std.debug.print("res = {}\n", .{n.id});
+
                 res = n;
                 cur[0] -= n.pos[0];
                 cur[1] -= n.pos[1];

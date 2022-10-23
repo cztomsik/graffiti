@@ -26,5 +26,8 @@
     "semi": false,
     "printWidth": 120,
     "arrowParens": "avoid"
+  },
+  "volta": {
+    "node": "19.0.0"
   }
 }
