@@ -79,11 +79,11 @@ class Element extends Node {
 
 class Text extends Node {
   get data() {
-    return ''
+    return native.Text_data(this)
   }
 
   set data(data) {
-    console.log('set data', data)
+    native.Text_setData(this, '' + data)
   }
 }
 
@@ -134,15 +134,20 @@ const handleEvent = ev => {
   el.dispatchEvent(wrap(ev, Event))
 }
 
+class Window extends EventTarget {}
+
 // TODO: just pass protos to init()
 // TODO: it could also patch globals
 Object.assign(global, native.init({ handleEvent }))
 wrap(document, Document)
 document.body = document.createElement('body')
+wrap(window, Window)
+// TODO: should be window
+document.body.addEventListener('close', () => process.exit())
 
 class Event {
   get type() {
-    const types = ['mousemove', 'scroll', 'mousedown', 'mouseup', 'click', 'keydown', 'keypress', 'keyup']
+    const types = ['close', 'mousemove', 'scroll', 'mousedown', 'mouseup', 'click', 'keydown', 'keypress', 'keyup']
     return types[this.kind]
   }
 
@@ -154,8 +159,3 @@ class Event {
     this.defaultPrevented = true
   }
 }
-
-var setTimeout = global.setTimeout
-global.setTimeout = (...args) => (console.log(args), setTimeout(...args))
-
-// setInterval(() => {}, 10000)

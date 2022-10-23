@@ -2,7 +2,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 
 pub const Event = struct {
-    kind: enum { mouse_move, scroll, mouse_down, mouse_up, click, key_down, key_press, key_up },
+    kind: enum { close, mouse_move, scroll, mouse_down, mouse_up, click, key_down, key_press, key_up },
     target: ?*anyopaque = null,
     x: f64 = 0,
     y: f64 = 0,
@@ -21,6 +21,7 @@ pub const Window = opaque {
         c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 0);
 
         const window = c.glfwCreateWindow(width, height, title, null, null) orelse return error.GlfwCreateWindowFailed;
+        _ = c.glfwSetWindowCloseCallback(window, &handleGlfwWindowClose);
         _ = c.glfwSetCursorPosCallback(window, &handleGlfwCursorPos);
         _ = c.glfwSetScrollCallback(window, &handleGlfwScroll);
         _ = c.glfwSetMouseButtonCallback(window, &handleGlfwMouseButton);
@@ -102,6 +103,10 @@ const c = if (!builtin.is_test) @cImport({
 }) else struct {};
 
 extern fn gladLoadGL() callconv(.C) c_int;
+
+fn handleGlfwWindowClose(w: ?*c.GLFWwindow) callconv(.C) void {
+    pushEvent(.{ .target = w, .kind = .close });
+}
 
 fn handleGlfwCursorPos(w: ?*c.GLFWwindow, x: f64, y: f64) callconv(.C) void {
     pushEvent(.{ .target = w, .kind = .mouse_move, .x = x, .y = y });

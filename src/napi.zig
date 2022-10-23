@@ -51,7 +51,7 @@ fn init(opts: JsInitOpts) !napigen.napi_value {
     });
 }
 
-// prepare because we need to read timeout
+// prepare task because we need to read timeout
 fn waitEvents(_: [*c]uv_prepare_t) callconv(.C) void {
     const timeout = uv_backend_timeout(uv_loop);
     // std.debug.print("waitEvents {}\n", .{timeout});
@@ -76,14 +76,13 @@ fn waitEvents(_: [*c]uv_prepare_t) callconv(.C) void {
     // bye-bye
     napigen.check(napigen.napi_close_handle_scope(js.env, scope)) catch @panic("close scope");
 
-    // continue later
-    _ = uv_idle_start(&idle_handle, &update);
+    // re-render in idle task
+    _ = uv_idle_start(&idle_handle, &render);
 }
 
-// idle because it continues after the prepare is done (and we don't get blocked if there's no more work)
+// idle task because it continues after the prepare is done (and we don't get blocked if there's no more work)
 // but we also need to stop again because the timeout is always zero if there are any active idle tasks
-fn update(_: [*c]uv_idle_t) callconv(.C) void {
-    // re-render
+fn render(_: [*c]uv_idle_t) callconv(.C) void {
     renderer.render(document, window.size(), window.scale());
     window.swapBuffers();
 
@@ -126,6 +125,8 @@ export fn napi_register_module_v1(env: napigen.napi_env, _: napigen.napi_value) 
         .Node_nextSibling = &getter(Node, .next_sibling),
         .Element_setStyle = &Element_setStyle,
         .Element_setStyleProp = &Element_setStyleProp,
+        .Text_data = &Text_data,
+        .Text_setData = &Text_setData,
 
         .init = &init,
     };
@@ -140,6 +141,16 @@ fn getter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) std.m
             return @field(ptr, f.name);
         }
     }).get;
+}
+
+fn Text_data(node: *Node) ![]const u8 {
+    return if (node.as(.text)) |t| t else error.InvalidNode;
+}
+
+fn Text_setData(node: *Node, data: []const u8) !void {
+    return if (node.data == .text) {
+        node.data = .{ .text = try node.document.allocator.dupe(u8, data) };
+    } else error.InvalidNode;
 }
 
 fn Element_setStyle(node: *Node, style: []const u8) !void {
