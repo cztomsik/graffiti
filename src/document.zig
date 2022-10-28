@@ -4,7 +4,7 @@ const std = @import("std");
 const css = @import("css.zig");
 const Style = @import("style.zig").Style;
 
-const StyleDeclaration = css.StyleDeclaration(Style);
+pub const StyleDeclaration = css.StyleDeclaration(Style);
 
 pub const Node = struct {
     id: usize,
@@ -15,7 +15,7 @@ pub const Node = struct {
     data: union(enum) {
         document: *Document,
         element: *Element,
-        text: []const u8,
+        text: Text,
     },
     pos: [2]f32 = .{ 0, 0 },
     size: [2]f32 = .{ 0, 0 },
@@ -50,20 +50,23 @@ pub const Element = struct {
 
     const Self = @This();
 
-    fn getAttribute(self: *Self, name: []const u8) ?[]const u8 {
-        // TODO: mark dirty
+    pub fn getAttribute(self: *Self, name: []const u8) ?[]const u8 {
         return self.attributes.get(name);
     }
 
-    fn setAttribute(self: *Self, name: []const u8, value: []const u8) !void {
+    pub fn setAttribute(self: *Self, name: []const u8, value: []const u8) !void {
         // TODO: mark dirty
         try self.attributes.put(name, value);
     }
 
-    fn removeAttribute(self: *Self, name: []const u8) ?[]const u8 {
+    pub fn removeAttribute(self: *Self, name: []const u8) void {
         // TODO: mark dirty
-        try self.attributes.remove(name);
+        self.attributes.remove(name);
     }
+};
+
+pub const Text = struct {
+    data: []const u8,
 };
 
 pub const Document = struct {
@@ -110,7 +113,7 @@ pub const Document = struct {
 
     pub fn createTextNode(self: *Self, data: []const u8) !*Node {
         return self.createNode(.{
-            .text = try self.allocator.dupe(u8, data),
+            .text = .{ .data = try self.allocator.dupe(u8, data) },
         });
     }
 

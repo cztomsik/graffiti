@@ -13,7 +13,7 @@ var allocator = std.heap.c_allocator;
 var window: *platform.Window = undefined;
 var document: *lib.Document = undefined;
 var renderer: lib.Renderer = undefined;
-var js: napigen.Context = undefined;
+var js: napigen.JsContext = undefined;
 var handleEventRef: napigen.napi_ref = undefined;
 var uv_loop: ?*napigen.uv_loop_s = undefined;
 var prepare_handle: uv_prepare_t = undefined;
@@ -70,7 +70,7 @@ fn waitEvents(_: [*c]uv_prepare_t) callconv(.C) void {
 
     // handle events in JS
     while (platform.nextEvent()) |ev| {
-        _ = js.call(void, handleEvent, .{ev}) catch |e| js.throw(e);
+        _ = js.call(handleEvent, .{ev}) catch |e| js.throw(e);
     }
 
     // bye-bye
@@ -111,7 +111,7 @@ fn monitorUvLoop() void {
 }
 
 export fn napi_register_module_v1(env: napigen.napi_env, _: napigen.napi_value) napigen.napi_value {
-    js = napigen.Context{ .env = env };
+    js = napigen.JsContext{ .env = env };
 
     const exports = .{
         .Document_createElement = &Document.createElement,
@@ -168,7 +168,7 @@ fn Element_setStyleProp(node: *Node, prop_name: []const u8, prop_value: []const 
     }
 }
 
-// we can't target uv.h directly but we just need enough space
+// we can't target uv.h directly but 128 should be enough
 const uv_prepare_t = [128]u8;
 const uv_idle_t = [128]u8;
 extern fn uv_backend_timeout(loop: ?*napigen.uv_loop_s) c_int;

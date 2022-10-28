@@ -57,7 +57,8 @@ pub fn StyleDeclaration(comptime T: type) type {
         pub fn removeProperty(self: *Self, prop_name: []const u8) void {
             inline for (std.meta.fields(T)) |f, i| {
                 if (propNameEql(f.name, prop_name)) {
-                    @field(self.data, f.name) = f.default_value;
+                    const default = @ptrCast(*const f.field_type, @alignCast(f.alignment, f.default_value.?)).*;
+                    @field(self.data, f.name) = default;
                     self.flags[i] = 0;
                 }
             }

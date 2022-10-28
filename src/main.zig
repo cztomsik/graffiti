@@ -4,9 +4,11 @@ const std = @import("std");
 const document = @import("document.zig");
 const renderer = @import("renderer.zig");
 
-pub const Document = document.Document;
 pub const Node = document.Node;
 pub const Element = document.Element;
+pub const Text = document.Text;
+pub const Document = document.Document;
+pub const StyleDeclaration = document.StyleDeclaration;
 pub const Renderer = renderer.Renderer;
 
 comptime {
