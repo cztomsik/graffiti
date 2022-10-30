@@ -36,19 +36,19 @@ Object.setPrototypeOf(
 // TODO: decide what to restore from https://github.com/cztomsik/graffiti/blob/50affb8419ff06a809099a85511042c08b0d1066/src/dom/Node.ts
 class Node extends EventTarget {
   get parentNode() {
-    return native.Node_parentNode(this)
+    return native.Node_parent_node(this)
   }
 
   get firstChild() {
-    return native.Node_firstChild(this)
+    return native.Node_first_child(this)
   }
 
   get previousSibling() {
-    return native.Node_previousSibling(this)
+    return native.Node_previous_sibling(this)
   }
 
   get nextSibling() {
-    return native.Node_nextSibling(this)
+    return native.Node_next_sibling(this)
   }
 
   appendChild(child) {
@@ -83,7 +83,7 @@ class Text extends Node {
   }
 
   set data(data) {
-    native.Text_setData(this, '' + data)
+    // native.Text_set_data(this, '' + data)
   }
 }
 
@@ -111,11 +111,11 @@ class CSSStyleDeclaration {
   }
 
   setProperty(prop, value) {
-    native.Element_setStyleProp(this.#element, prop, '' + value)
+    // native.Element_setStyleProp(this.#element, prop, '' + value)
   }
 
   set cssText(v) {
-    native.Element_setStyle(this.#element, v)
+    // native.Element_setStyle(this.#element, v)
   }
 }
 
@@ -128,17 +128,18 @@ Object.setPrototypeOf(
 
 // TODO: weak-ref GC (*anyopaque in event creates ref to temporal object which is collected if not used)
 // (can be trickier because of unknown order of finalization + possible re-creation later/before)
-const handleEvent = ev => {
-  //console.log(ev)
-  const el = document.elementFromPoint(ev.x, ev.y)
-  el.dispatchEvent(wrap(ev, Event))
-}
 
-class Window extends EventTarget {}
+class Window extends EventTarget {
+  handleEvent(ev) {
+    //console.log(ev)
+    const el = document.elementFromPoint(ev.x, ev.y)
+    el.dispatchEvent(wrap(ev, Event))
+  }
+}
 
 // TODO: just pass protos to init()
 // TODO: it could also patch globals
-Object.assign(global, native.init({ handleEvent }))
+Object.assign(global, native.init())
 wrap(document, Document)
 document.body = document.createElement('body')
 wrap(window, Window)

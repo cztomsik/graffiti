@@ -72,7 +72,7 @@ pub const Renderer = struct {
 
         switch (node.data) {
             .element => |el| self.renderElement(rect, &el.style.data, node.first_child),
-            .text => |t| self.renderText(rect, t),
+            .text => |t| self.renderText(rect, t.data),
             .document => @panic("TODO"), // |d| self.renderNode(d.root),
         }
     }

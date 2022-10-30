@@ -53,7 +53,7 @@ fn computeNode(node: *Node, style: *const Style, size: [2]f32) void {
     var next = node.first_child;
     while (next) |ch| : (next = ch.next_sibling) {
         switch (ch.data) {
-            .text => |t| ch.size = .{ 10 * @intToFloat(f32, t.len), 40 },
+            .text => |t| ch.size = .{ 10 * @intToFloat(f32, t.data.len), 40 },
             .element => |el| {
                 const ch_style = &el.style.data;
                 grows += ch_style.flex.grow;
