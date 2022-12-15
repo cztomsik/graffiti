@@ -35,6 +35,7 @@ pub const Tokenizer = struct {
     input: []const u8,
     pos: usize = 0,
     space: enum { no, yes, before } = .no,
+    semi: bool = false,
 
     const Self = @This();
 
@@ -44,8 +45,21 @@ pub const Tokenizer = struct {
         return self.input[self.pos..];
     }
 
-    pub fn next(self: *Self) Error!Token {
+    fn nextCharSkipComments(self: *Self) Error!u8 {
         const ch = try self.peek(0);
+
+        if (ch == '/' and (self.peek(1) catch 0) == '*') {
+            self.pos += 2;
+            while ((try self.peek(0)) != '*' and (try self.peek(1)) != '/') self.pos += 1;
+            self.pos += 2;
+            return try self.nextCharSkipComments();
+        }
+
+        return ch;
+    }
+
+    pub fn next(self: *Self) Error!Token {
+        const ch = try self.nextCharSkipComments();
 
         if (std.ascii.isSpace(ch)) {
             self.space = .yes;
@@ -57,13 +71,6 @@ pub const Tokenizer = struct {
             .yes => .before,
             else => .no,
         };
-
-        if (ch == '/' and (self.peek(1) catch 0) == '*') {
-            self.pos += 2;
-            while ((try self.peek(0)) != '*' and (try self.peek(1)) != '/') self.pos += 1;
-            self.pos += 2;
-            return try self.next();
-        }
 
         if (isIdentStart(ch)) {
             const ident = self.consume(isIdent);
@@ -79,6 +86,8 @@ pub const Tokenizer = struct {
         if (isNumeric(ch)) {
             const start = self.pos;
 
+            // maybe we should not parse number here because of int vs. f32 precision
+            // but so far it's f32 everywhere, except rgb() and that's u8
             if (std.fmt.parseFloat(f32, self.consume(isNumeric)) catch null) |num| {
                 if (self.peek(0) catch 0 == '%') {
                     self.pos += 1;
@@ -103,6 +112,13 @@ pub const Tokenizer = struct {
 
         self.pos += 1;
 
+        if (ch == ';') {
+            defer self.semi = true;
+            return if (self.semi) self.next() else Token.semi;
+        } else {
+            self.semi = false;
+        }
+
         return switch (ch) {
             '\'', '"' => .{ .string = try self.consumeString(ch) },
             '#' => Token{ .hash = self.consume(isIdent) },
@@ -111,7 +127,6 @@ pub const Tokenizer = struct {
             '+' => Token.plus,
             '~' => Token.tilde,
             ':' => Token.colon,
-            ';' => Token.semi,
             ',' => Token.comma,
             '[' => Token.lsquare,
             ']' => Token.rsquare,
@@ -188,9 +203,9 @@ test {
     try expectTokens(" /**/ /**/ ", &.{});
 
     try expectTokens(";", &.{.semi});
-    // try expectTokens(";;", &.{.semi});
-    // try expectTokens(";; ;;", &.{.semi});
-    // try expectTokens(" ; ; ; ;", &.{.semi});
+    try expectTokens(";;", &.{.semi});
+    try expectTokens(";; ;;", &.{.semi});
+    try expectTokens(" ; ; ; ;", &.{.semi});
 
     try expectTokens("()[]{}", &.{ .lparen, .rparen, .lsquare, .rsquare, .lcurly, .rcurly });
 
@@ -202,6 +217,7 @@ test {
     try expectTokens("ff0", &.{.ident});
     try expectTokens("00f", &.{.dimension});
     try expectTokens("#00f", &.{.hash});
+    try expectTokens("rgb(0, 0, 1)", &.{ .function, .number, .comma, .number, .comma, .number, .rparen });
 
     try expectTokens("0 10px", &.{ .number, .dimension });
     try expectTokens("0 0 10px 0", &.{ .number, .number, .dimension, .number });
