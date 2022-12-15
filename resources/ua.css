@@ -1,9 +1,9 @@
 /* default styles */
 
 /* not supported yet, it's here just to stress parsing */
-:root {
+/* :root {
   --x: 0
-}
+} */
 
 html {
   /* should be serif but everybody sets it to sans-serif anyway */

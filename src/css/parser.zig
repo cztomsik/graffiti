@@ -3,6 +3,15 @@ const css = @import("../css.zig");
 const Tokenizer = @import("tokenizer.zig").Tokenizer;
 const Token = @import("tokenizer.zig").Token;
 
+// comptime "xxx_yyy" -> "xxx-yyy"
+pub fn cssName(comptime name: []const u8) []const u8 {
+    comptime {
+        var buf: [name.len]u8 = undefined;
+        _ = std.mem.replace(u8, name, "_", "-", &buf);
+        return &buf;
+    }
+}
+
 pub const Parser = struct {
     // TODO: parsed things are likely to out-live the parser itself
     // and should be in arena or .deinit() should be called explicitly
@@ -31,10 +40,11 @@ pub const Parser = struct {
         }
 
         return switch (@typeInfo(T)) {
-            .Optional => self.parseOptional(std.meta.Child(T)),
-            .Enum => self.parseEnum(T),
+            .Int => self.parseInt(T),
             .Float => self.parseFloat(T),
+            .Enum => self.parseEnum(T),
             .Union => self.parseUnion(T),
+            .Optional => self.parseOptional(std.meta.Child(T)),
             .Struct => {
                 if (comptime isColor(T)) {
                     return parseColor(self, T);
@@ -46,27 +56,24 @@ pub const Parser = struct {
 
                 return self.parseStruct(T);
             },
-            else => @compileError("unknown value type " ++ @typeName(T)),
+            else => @compileError("type " ++ @typeName(T) ++ " cannot be parsed"),
         };
+    }
+
+    pub fn parseInt(self: *Self, comptime T: type) !T {
+        const num = try self.expect(.number);
+        return std.math.cast(T, @floatToInt(u32, num)) orelse error.InvalidInt;
     }
 
     pub fn parseFloat(self: *Self, comptime T: type) !T {
         return @floatCast(T, try self.expect(.number));
     }
 
-    pub fn parseOptional(self: *Self, comptime T: type) ?T {
-        const prev = self.tokenizer;
-        return self.parse(T) catch {
-            self.tokenizer = prev;
-            return null;
-        };
-    }
-
     pub fn parseEnum(self: *Self, comptime T: type) !T {
         const ident = try self.expect(.ident);
 
         inline for (std.meta.fields(T)) |f| {
-            if (std.mem.eql(u8, css.cssName(f.name), ident)) {
+            if (std.mem.eql(u8, cssName(f.name), ident)) {
                 return @intToEnum(T, f.value);
             }
         }
@@ -98,6 +105,29 @@ pub const Parser = struct {
         return error.InvalidValue;
     }
 
+    pub fn parseOptional(self: *Self, comptime T: type) ?T {
+        const prev = self.tokenizer;
+        return self.parse(T) catch {
+            self.tokenizer = prev;
+            return null;
+        };
+    }
+
+    pub fn parseStruct(self: *Self, comptime T: type) !T {
+        var res: T = undefined;
+
+        inline for (std.meta.fields(T)) |f| {
+            if (f.default_value) |ptr| {
+                const v = @ptrCast(*const f.field_type, @alignCast(f.alignment, ptr)).*;
+                @field(res, f.name) = self.parseOptional(f.field_type) orelse v;
+            } else {
+                @field(res, f.name) = try self.parse(f.field_type);
+            }
+        }
+
+        return res;
+    }
+
     pub fn parseColor(self: *Self, comptime T: type) !T {
         const tok = try self.tokenizer.next();
 
@@ -105,19 +135,21 @@ pub const Parser = struct {
             //.ident => if (named(tok.ident)) |c| return c,
             .function => {
                 if (std.mem.eql(u8, tok.function, "rgb")) {
-                    @panic("TODO: rgb()");
+                    const args = try self.parseArgs(std.meta.Tuple(&.{ u8, u8, u8 }));
+                    return T.rgba(args.@"0", args.@"1", args.@"2", 0xFF);
                 }
 
                 if (std.mem.eql(u8, tok.function, "rgba")) {
-                    @panic("TODO: rgba()");
+                    const args = try self.parseArgs(std.meta.Tuple(&.{ u8, u8, u8, u8 }));
+                    return T.rgba(args.@"0", args.@"1", args.@"2", args.@"3");
                 }
             },
             .hash => |s| {
                 switch (s.len) {
-                    8 => return rgba(T, hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), hex(s[6..8])),
-                    6 => return rgba(T, hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), 0xFF),
-                    4 => return rgba(T, (hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, (hex(s[3..4])) * 17),
-                    3 => return rgba(T, (hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, 0xFF),
+                    8 => return T.rgba(hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), hex(s[6..8])),
+                    6 => return T.rgba(hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), 0xFF),
+                    4 => return T.rgba((hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, (hex(s[3..4])) * 17),
+                    3 => return T.rgba((hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, 0xFF),
                     else => {},
                 }
             },
@@ -137,16 +169,12 @@ pub const Parser = struct {
         return T{ .top = top, .right = right, .bottom = bottom, .left = left };
     }
 
-    pub fn parseStruct(self: *Self, comptime T: type) !T {
+    pub fn parseArgs(self: *Self, comptime T: type) !T {
         var res: T = undefined;
 
-        inline for (std.meta.fields(T)) |f| {
-            if (f.default_value) |ptr| {
-                const v = @ptrCast(*const f.field_type, @alignCast(f.alignment, ptr)).*;
-                @field(res, f.name) = self.parseOptional(f.field_type) orelse v;
-            } else {
-                @field(res, f.name) = try self.parse(f.field_type);
-            }
+        inline for (std.meta.fields(T)) |f, i| {
+            if (i > 0) try self.expect(.comma);
+            @field(res, f.name) = try self.parse(f.field_type);
         }
 
         return res;
@@ -155,23 +183,10 @@ pub const Parser = struct {
     fn hex(s: []const u8) u8 {
         return std.fmt.parseInt(u8, s, 16) catch 0;
     }
-
-    fn rgba(comptime T: type, r: u8, g: u8, b: u8, a: u8) T {
-        if (comptime std.meta.fieldInfo(T, .r).field_type == f32) {
-            return T{
-                .r = @intToFloat(f32, r) / 255.0,
-                .g = @intToFloat(f32, g) / 255.0,
-                .b = @intToFloat(f32, b) / 255.0,
-                .a = @intToFloat(f32, a) / 255.0,
-            };
-        }
-
-        return T{ .r = r, .g = g, .b = b, .a = a };
-    }
 };
 
 fn isColor(comptime T: type) bool {
-    return std.meta.trait.hasFields(T, .{ "r", "g", "b", "a" });
+    return @hasDecl(T, "rgba");
 }
 
 fn isRect(comptime T: type) bool {
@@ -201,8 +216,17 @@ pub fn expectParse(comptime T: type, input: []const u8, expected: anyerror!T) an
     } else |err| return std.testing.expectError(err, result);
 }
 
-test "Parser.parse(f32)" {
+test "Parser.parse(num)" {
+    try expectParse(u32, "123", 123);
+    try expectParse(u16, "123", 123);
+    try expectParse(u8, "123", 123);
+
+    try expectParse(f32, "1.23", 1.23);
+    try expectParse(f16, "1.23", 1.23);
     try expectParse(f32, "1", 1);
+
+    try expectParse(u8, "255", 255);
+    try expectParse(u8, "256", error.InvalidInt);
 }
 
 test "Parser.parse(Enum)" {
@@ -218,6 +242,7 @@ test "Parser.parse(Union)" {
     const Dimension = union(enum) { auto, px: f32, percent: f32 };
 
     try expectParse(Dimension, "auto", .auto);
+    // TODO
     // try expectParse(Dimension, "0", .{ .px = 0 });
     try expectParse(Dimension, "10px", .{ .px = 10 });
     try expectParse(Dimension, "100%", .{ .percent = 100 });
@@ -226,7 +251,16 @@ test "Parser.parse(Union)" {
 }
 
 test "Parser.parse(Color)" {
-    const Color = struct { r: u8, g: u8, b: u8, a: u8 };
+    const Color = struct {
+        r: u8,
+        g: u8,
+        b: u8,
+        a: u8,
+
+        pub fn rgba(r: u8, g: u8, b: u8, a: u8) @This() {
+            return .{ .r = r, .g = g, .b = b, .a = a };
+        }
+    };
 
     try expectParse(Color, "#000000", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
     try expectParse(Color, "#ff0000", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
@@ -240,9 +274,11 @@ test "Parser.parse(Color)" {
     try expectParse(Color, "#0000", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
     try expectParse(Color, "#f00f", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
 
-    // try expectParse(Color, "rgb(0, 0, 0)", Color.BLACK);
-    // try expectParse(Color, "rgba(0, 0, 0, 0)", Color.TRANSPARENT);
+    try expectParse(Color, "rgb(0, 0, 0)", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
+    try expectParse(Color, "rgba(0, 0, 0, 0)", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
+    try expectParse(Color, "rgba(255, 128, 0, 255)", .{ .r = 0xFF, .g = 0x80, .b = 0, .a = 0xFF });
 
+    // TODO
     // try expectParse(Color, "transparent", Color.TRANSPARENT);
     // try expectParse(Color, "black", Color.BLACK);
 
