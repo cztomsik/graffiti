@@ -1,6 +1,6 @@
 [submodule "libgraffiti/nanovg-zig"]
 	path = libs/nanovg-zig
-	url = https://github.com/fabioarnold/nanovg-zig
+	url = https://github.com/cztomsik/nanovg-zig
 [submodule "libgraffiti/glfw"]
 	path = libs/glfw
 	url = https://github.com/glfw/glfw
