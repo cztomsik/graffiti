@@ -3,13 +3,33 @@ const css = @import("../css.zig");
 const Tokenizer = @import("tokenizer.zig").Tokenizer;
 const Token = @import("tokenizer.zig").Token;
 
-// comptime "xxx_yyy" -> "xxx-yyy"
+// comptime snake_case/camelCase to css-case
 pub fn cssName(comptime name: []const u8) []const u8 {
     comptime {
-        var buf: [name.len]u8 = undefined;
-        _ = std.mem.replace(u8, name, "_", "-", &buf);
-        return &buf;
+        var len = name.len;
+        for (name) |ch| {
+            if (std.ascii.isUpper(ch)) len += 1;
+        }
+        var res: [len]u8 = undefined;
+        var i = 0;
+        for (name) |ch| {
+            if (std.ascii.isUpper(ch)) {
+                res[i] = '-';
+                i += 1;
+            }
+
+            res[i] = if (ch == '_') '-' else std.ascii.toLower(ch);
+            i += 1;
+        }
+        return &res;
     }
+}
+
+test "cssName" {
+    try std.testing.expectEqualSlices(u8, "background-color", cssName("background-color"));
+    try std.testing.expectEqualSlices(u8, "background-color", cssName("background_color"));
+    try std.testing.expectEqualSlices(u8, "background-color", cssName("backgroundColor"));
+    try std.testing.expectEqualSlices(u8, "border-top-left-radius", cssName("borderTopLeftRadius"));
 }
 
 pub const Parser = struct {

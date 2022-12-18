@@ -1,9 +1,7 @@
 const std = @import("std");
 const nvg = @import("nanovg");
-const Node = @import("document.zig").Node;
-const Document = @import("document.zig").Document;
 const Style = @import("style.zig").Style;
-const layout = @import("layout.zig").layout;
+const LayoutNode = @import("layout.zig").LayoutNode;
 
 const Color = nvg.Color;
 const TRANSPARENT = nvg.rgba(0, 0, 0, 0);
@@ -46,7 +44,7 @@ pub const Renderer = struct {
         self.vg.deinit();
     }
 
-    pub fn render(self: *Self, document: *Document, size: [2]f32, scale: [2]f32) void {
+    pub fn render(self: *Self, root: *LayoutNode, size: [2]f32, scale: [2]f32) void {
         self.vg.reset();
         self.vg.beginFrame(size[0], size[1], scale[0]);
 
@@ -55,25 +53,19 @@ pub const Renderer = struct {
         // TODO: https://github.com/ziglang/zig/issues/12142#issuecomment-1204416869
         self.fillShape(&Shape{ .rect = .{ .w = size[0], .h = size[1] } }, .{ .color = nvg.rgb(255, 255, 255) });
 
-        // TODO: 0 == document.body for now
-        const root = document.nodes.at(0);
-
-        // TODO: 0 == document.body for now
-        layout(document.nodes.at(0), size);
-
         self.renderNode(root);
         self.vg.endFrame();
     }
 
-    fn renderNode(self: *Self, node: *Node) void {
+    noinline fn renderNode(self: *Self, node: *LayoutNode) void {
         // std.debug.print("renderNode({} {s} {d} {d} {d} {d})\n", .{ node.id, @tagName(node.data), node.pos[0], node.pos[1], node.size[0], node.size[1] });
 
         const rect = @bitCast(Rect, [2][2]f32{ node.pos, node.size });
 
-        switch (node.data) {
-            .element => |el| self.renderElement(rect, &el.style.data, node.first_child),
-            .text => |t| self.renderText(rect, t.data),
-            .document => @panic("TODO"), // |d| self.renderNode(d.root),
+        if (node.text) |t| {
+            self.renderText(rect, t);
+        } else {
+            self.renderContainer(rect, node.style, node.first_child);
         }
     }
 
@@ -84,10 +76,9 @@ pub const Renderer = struct {
         _ = self.vg.text(rect.x, rect.y + 16, text);
     }
 
-    fn renderElement(self: *Self, rect: Rect, style: *const Style, first_child: ?*Node) void {
-        // split open/close so we can skip invisibles AND we can also reduce stack usage per each recursion
-        // TODO: @call(.{ .modifier = .never_inline }, ...)
-        if (self.openElement(rect, style)) {
+    fn renderContainer(self: *Self, rect: Rect, style: *const Style, first_child: ?*LayoutNode) void {
+        // split open/close so we can skip invisibles AND we can also reduce the stack usage per each recursion
+        if (self.openContainer(rect, style)) {
             self.vg.translate(rect.x, rect.y);
 
             var next = first_child;
@@ -95,11 +86,11 @@ pub const Renderer = struct {
                 self.renderNode(ch);
             }
 
-            self.closeElement();
+            self.closeContainer();
         }
     }
 
-    fn openElement(self: *Self, rect: Rect, style: *const Style) bool {
+    fn openContainer(self: *Self, rect: Rect, style: *const Style) bool {
         // we don't have to save/restore() if we can skip the whole subtree
         if (style.display == .none or style.opacity == 0) {
             return false;
@@ -148,7 +139,7 @@ pub const Renderer = struct {
         return true;
     }
 
-    fn closeElement(self: *Self) void {
+    fn closeContainer(self: *Self) void {
         // TODO: optional border
 
         self.vg.restore();

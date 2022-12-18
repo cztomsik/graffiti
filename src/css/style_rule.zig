@@ -25,24 +25,24 @@ pub fn StyleRule(comptime T: type) type {
     };
 }
 
-test "StyleRule.format()" {
-    const Style = struct { border_radius: f32 = 0 };
-    try expectFmt("* { border-radius: 0 }", "{}", .{StyleRule(Style){
-        .selector = .{ .parts = &.{.universal} },
-        .style_declaration = .{},
-    }});
-}
+// test "StyleRule.format()" {
+//     const Style = struct { border_radius: f32 = 0 };
+//     try expectFmt("* { border-radius: 0 }", "{}", .{StyleRule(Style){
+//         .selector = .{ .parts = &.{.universal} },
+//         .style_declaration = .{},
+//     }});
+// }
 
-test "StyleRule.parse()" {
-    const Style = struct { opacity: f32 = 1 };
-    const Rule = StyleRule(Style);
-    try expectParse(Rule, "* { opacity: 0.5 }", .{
-        .selector = .{ .parts = &.{.universal} },
-        .style_declaration = StyleDeclaration(Style){
-            .style = .{ .opacity = 0.5 },
-        },
-    });
+// test "StyleRule.parse()" {
+//     const Style = struct { opacity: f32 = 1 };
+//     const Rule = StyleRule(Style);
+//     try expectParse(Rule, "* { opacity: 0.5 }", .{
+//         .selector = .{ .parts = &.{.universal} },
+//         .style_declaration = StyleDeclaration(Style){
+//             .style = .{ .opacity = 0.5 },
+//         },
+//     });
 
-    try expectParse(Rule, "", error.Eof);
-    try expectParse(Rule, "xxx", error.Eof);
-}
+//     try expectParse(Rule, "", error.Eof);
+//     try expectParse(Rule, "xxx", error.Eof);
+// }

@@ -24,7 +24,7 @@ pub fn StyleSheet(comptime T: type) type {
 
         pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
             for (self.rules) |r| {
-                try writer.print("{}", .{r});
+                try writer.print("{}\n", .{r});
             }
         }
 
