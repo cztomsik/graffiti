@@ -1,3 +1,5 @@
+// generic CSS parser
+
 const std = @import("std");
 const css = @import("../css.zig");
 const Tokenizer = @import("tokenizer.zig").Tokenizer;
@@ -47,7 +49,7 @@ pub const Parser = struct {
         };
     }
 
-    pub fn expect(self: *Self, comptime tag: std.meta.FieldEnum(Token)) !std.meta.fieldInfo(Token, tag).field_type {
+    pub fn expect(self: *Self, comptime tag: std.meta.FieldEnum(Token)) !std.meta.fieldInfo(Token, tag).type {
         return switch (try self.tokenizer.next()) {
             tag => |t| t,
             else => error.UnexpectedToken,
@@ -106,14 +108,14 @@ pub const Parser = struct {
 
         switch (tok) {
             .dimension => |d| inline for (std.meta.fields(T)) |f| {
-                if (comptime @typeInfo(f.field_type) == .Float) {
+                if (comptime @typeInfo(f.type) == .Float) {
                     if (std.mem.eql(u8, d.unit, f.name)) {
                         return @unionInit(T, f.name, d.value);
                     }
                 }
             },
             .ident => |k| inline for (std.meta.fields(T)) |f| {
-                if (comptime f.field_type == void) {
+                if (comptime f.type == void) {
                     if (std.mem.eql(u8, k, f.name)) {
                         return @field(T, f.name);
                     }
@@ -138,10 +140,10 @@ pub const Parser = struct {
 
         inline for (std.meta.fields(T)) |f| {
             if (f.default_value) |ptr| {
-                const v = @ptrCast(*const f.field_type, @alignCast(f.alignment, ptr)).*;
-                @field(res, f.name) = self.parseOptional(f.field_type) orelse v;
+                const v = @ptrCast(*const f.type, @alignCast(f.alignment, ptr)).*;
+                @field(res, f.name) = self.parseOptional(f.type) orelse v;
             } else {
-                @field(res, f.name) = try self.parse(f.field_type);
+                @field(res, f.name) = try self.parse(f.type);
             }
         }
 
@@ -180,7 +182,7 @@ pub const Parser = struct {
     }
 
     pub fn parseRect(self: *Self, comptime T: type) !T {
-        const V = std.meta.fieldInfo(T, .top).field_type;
+        const V = std.meta.fieldInfo(T, .top).type;
         const top = try self.parse(V);
         const right = try self.parse(?V) orelse top;
         const bottom = try self.parse(?V) orelse top;
@@ -192,9 +194,9 @@ pub const Parser = struct {
     pub fn parseArgs(self: *Self, comptime T: type) !T {
         var res: T = undefined;
 
-        inline for (std.meta.fields(T)) |f, i| {
+        inline for (std.meta.fields(T), 0..) |f, i| {
             if (i > 0) try self.expect(.comma);
-            @field(res, f.name) = try self.parse(f.field_type);
+            @field(res, f.name) = try self.parse(f.type);
         }
 
         return res;
@@ -320,6 +322,7 @@ test "Parser.parse(Struct)" {
     const Color = enum { black, blue };
     const Outline = struct { width: f32 = 3, style: enum { none, solid }, color: Color = .black };
     const Shadow = struct { x: f32, y: f32, blur: f32 = 0, spread: f32 = 0, color: Color = .black };
+    const Packed = packed struct { x: u1, y: u1 };
 
     try expectParse(Outline, "solid", .{ .style = .solid });
     try expectParse(Outline, "1 solid", .{ .width = 1, .style = .solid });
@@ -331,6 +334,8 @@ test "Parser.parse(Struct)" {
 
     try expectParse(Outline, "xxx", error.InvalidValue);
     try expectParse(Shadow, "xxx", error.UnexpectedToken);
+
+    try expectParse(Packed, "1 1", .{ .x = 1, .y = 1 });
 }
 
 test "Parser.parse(Optional)" {

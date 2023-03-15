@@ -1,6 +1,6 @@
 // different from https://www.w3.org/TR/2021/CRD-css-syntax-3-20211224/#tokenization
 // the purpose here is to simplify parsing rather than to implement spec-compliant tokenizer
-// (spaces are not generated, but the `.space` field can be used to tell if there was a space before)
+// (spaces are not generated, but the `.space_before` field can be used to tell if there was a space)
 
 const std = @import("std");
 
@@ -34,8 +34,8 @@ const TokenTag = std.meta.Tag(Token);
 pub const Tokenizer = struct {
     input: []const u8,
     pos: usize = 0,
-    space: enum { no, yes, before } = .no,
-    semi: bool = false,
+    space_before: bool = false,
+    semi_before: bool = false,
 
     const Self = @This();
 
@@ -45,83 +45,50 @@ pub const Tokenizer = struct {
         return self.input[self.pos..];
     }
 
-    fn nextCharSkipComments(self: *Self) Error!u8 {
-        const ch = try self.peek(0);
-
-        if (ch == '/' and (self.peek(1) catch 0) == '*') {
-            self.pos += 2;
-            while ((try self.peek(0)) != '*' and (try self.peek(1)) != '/') self.pos += 1;
-            self.pos += 2;
-            return try self.nextCharSkipComments();
-        }
-
-        return ch;
+    pub fn peek(self: *Self) Error!u8 {
+        return if (self.pos < self.input.len) self.input[self.pos] else error.Eof;
     }
 
     pub fn next(self: *Self) Error!Token {
+        self.space_before = false;
+
+        if (self.consumeNumber()) |num| {
+            if (self.consumeSeq("%")) {
+                return Token{ .dimension = .{ .value = num, .unit = "percent" } };
+            }
+
+            if (self.consumeIdent()) |unit| {
+                return Token{ .dimension = .{ .value = num, .unit = unit } };
+            }
+
+            return Token{ .number = num };
+        }
+
+        if (self.consumeIdent()) |id| {
+            if (self.consumeSeq("(")) {
+                return Token{ .function = id };
+            }
+
+            return Token{ .ident = id };
+        }
+
+        // TODO(perf): happy-path should be first
         const ch = try self.nextCharSkipComments();
 
-        if (std.ascii.isSpace(ch)) {
-            self.space = .yes;
-            self.pos += 1;
-            return try self.next();
+        if (std.ascii.isWhitespace(ch)) {
+            defer self.space_before = true;
+            return self.next();
         }
-
-        self.space = switch (self.space) {
-            .yes => .before,
-            else => .no,
-        };
-
-        if (isIdentStart(ch)) {
-            const ident = self.consume(isIdent);
-
-            if ((self.peek(0) catch 0) == '(') {
-                self.pos += 1;
-                return Token{ .function = ident };
-            }
-
-            return Token{ .ident = ident };
-        }
-
-        if (isNumeric(ch)) {
-            const start = self.pos;
-
-            // maybe we should not parse number here because of int vs. f32 precision
-            // but so far it's f32 everywhere, except rgb() and that's u8
-            if (std.fmt.parseFloat(f32, self.consume(isNumeric)) catch null) |num| {
-                if (self.peek(0) catch 0 == '%') {
-                    self.pos += 1;
-                    return Token{ .dimension = .{ .value = num, .unit = "percent" } };
-                }
-
-                if (isIdentStart(self.peek(0) catch 0)) {
-                    return Token{ .dimension = .{ .value = num, .unit = self.consume(isIdent) } };
-                }
-
-                return Token{ .number = num };
-            } else {
-                // reset (put everything back)
-                self.pos = start;
-            }
-        }
-
-        if (ch == '.' and isIdentStart(self.peek(1) catch 0)) {
-            self.pos += 1;
-            return Token{ .class_name = self.consume(isIdent) };
-        }
-
-        self.pos += 1;
 
         if (ch == ';') {
-            defer self.semi = true;
-            return if (self.semi) self.next() else Token.semi;
-        } else {
-            self.semi = false;
-        }
+            defer self.semi_before = true;
+            return if (self.semi_before) self.next() else Token.semi;
+        } else self.semi_before = false;
 
         return switch (ch) {
-            '\'', '"' => .{ .string = try self.consumeString(ch) },
-            '#' => Token{ .hash = self.consume(isIdent) },
+            '\'', '"' => Token{ .string = try self.consumeString(ch) },
+            '#' => Token{ .hash = self.consumeHash() orelse "" },
+            '.' => Token{ .class_name = self.consumeIdent() orelse "" },
             '*' => Token.star,
             '>' => Token.gt,
             '+' => Token.plus,
@@ -138,11 +105,46 @@ pub const Tokenizer = struct {
         };
     }
 
-    fn consume(self: *Self, fun: anytype) []const u8 {
-        const start = self.pos;
-        while (fun(self.peek(0) catch 0)) self.pos += 1;
+    fn consumeNumber(self: *Self) ?f32 {
+        const prev = self.pos;
+        const s = self.consume(isNumStart, isNumeric) orelse return null;
+        return std.fmt.parseFloat(f32, s) catch {
+            self.pos = prev;
+            return null;
+        };
+    }
 
-        return self.input[start..self.pos];
+    fn consumeIdent(self: *Self) ?[]const u8 {
+        return self.consume(isIdentStart, isIdent);
+    }
+
+    fn consumeHash(self: *Self) ?[]const u8 {
+        return self.consume(isIdent, isIdent);
+    }
+
+    fn consumeSeq(self: *Self, needle: []const u8) bool {
+        if (std.mem.startsWith(u8, self.rest(), needle)) {
+            self.pos += needle.len;
+            return true;
+        }
+
+        return false;
+    }
+
+    fn consume(self: *Self, f1: anytype, f2: anytype) ?[]const u8 {
+        const start = self.pos;
+
+        if (f1(self.peek() catch return null)) {
+            self.pos += 1;
+
+            while (self.peek() catch null) |ch2| : (self.pos += 1) {
+                if (!f2(ch2)) break;
+            }
+
+            return self.input[start..self.pos];
+        }
+
+        return null;
     }
 
     fn consumeString(self: *Self, quote: u8) ![]const u8 {
@@ -150,7 +152,7 @@ pub const Tokenizer = struct {
         var prev: u8 = '\\';
         self.pos += 1;
 
-        while (self.peek(0) catch null) |ch| {
+        while (self.peek() catch null) |ch| {
             if (ch == quote and prev != '\\') break;
 
             prev = ch;
@@ -162,23 +164,31 @@ pub const Tokenizer = struct {
         return self.input[(start + 1)..(self.pos - 1)];
     }
 
-    pub fn peek(self: *Self, n: usize) !u8 {
-        const i = self.pos + n;
+    fn nextCharSkipComments(self: *Self) Error!u8 {
+        while (self.consumeSeq("/*")) {
+            while (!self.consumeSeq("*/")) self.pos += 1;
+        }
 
-        return if (i < self.input.len) self.input[i] else error.Eof;
+        const ch = try self.peek();
+        self.pos += 1;
+        return ch;
     }
 };
 
 fn isIdentStart(ch: u8) bool {
-    return ch == '_' or ch == '-' or std.ascii.isAlpha(ch);
+    return std.ascii.isAlphabetic(ch) or ch == '_' or ch == '-';
 }
 
 fn isIdent(ch: u8) bool {
     return isIdentStart(ch) or std.ascii.isDigit(ch);
 }
 
+fn isNumStart(ch: u8) bool {
+    return isNumeric(ch) or ch == '-' or ch == '+';
+}
+
 fn isNumeric(ch: u8) bool {
-    return ch == '.' or std.ascii.isDigit(ch);
+    return std.ascii.isDigit(ch) or ch == '.';
 }
 
 fn expectTokens(input: []const u8, tokens: []const TokenTag) !void {
@@ -207,11 +217,14 @@ test {
     try expectTokens(";; ;;", &.{.semi});
     try expectTokens(" ; ; ; ;", &.{.semi});
 
+    try expectTokens("+", &.{.plus});
+    // try expectTokens("-", &.{.other});
+
     try expectTokens("()[]{}", &.{ .lparen, .rparen, .lsquare, .rsquare, .lcurly, .rcurly });
 
     try expectTokens("block", &.{.ident});
     try expectTokens("10px", &.{.dimension});
-    // try expectTokens("-10px", &.{.dimension});
+    try expectTokens("-10px", &.{.dimension});
     try expectTokens("ident2", &.{.ident});
 
     try expectTokens("ff0", &.{.ident});
@@ -221,6 +234,7 @@ test {
 
     try expectTokens("0 10px", &.{ .number, .dimension });
     try expectTokens("0 0 10px 0", &.{ .number, .number, .dimension, .number });
+    try expectTokens("-10.1 +1.1 .123px -10.1%", &.{ .number, .number, .dimension, .dimension });
 
     try expectTokens("a b", &.{ .ident, .ident });
     try expectTokens(".a .b", &.{ .class_name, .class_name });

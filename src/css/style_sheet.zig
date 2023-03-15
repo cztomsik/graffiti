@@ -13,7 +13,7 @@ pub fn StyleSheet(comptime T: type) type {
         pub fn eql(self: Self, other: Self) bool {
             if (self.rules.len != other.rules.len) return false;
 
-            for (self.rules) |part, i| {
+            for (self.rules, 0..) |part, i| {
                 if (!part.eql(other.rules[i])) {
                     return false;
                 }

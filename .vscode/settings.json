@@ -3,7 +3,7 @@
     "editor.formatOnSave": true
   },
   "[zig]": {
-    "editor.defaultFormatter": "tiehuis.zig",
+    "editor.defaultFormatter": "ziglang.vscode-zig",
     "editor.formatOnSave": true
   }
 }

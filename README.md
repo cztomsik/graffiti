@@ -75,7 +75,7 @@ I have reduced the scope to something which I can finish myself in a reasonable 
 - it has to be fun (for me, sorry)
 
 ## Hacking
-- you will need Zig (`0.10.0-dev.4247+3234e8de3`)
+- you will need Zig (`0.11.0-dev.1898+36d47dd19`)
 - and system-installed GLFW3.3 with headers (`brew install glfw`)
 
 ```
