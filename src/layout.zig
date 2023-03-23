@@ -72,15 +72,15 @@ fn computeNode(node: *Node, style: *const Style, size: [2]f32) void {
             else => {},
         }
 
-        node.size[cross] = @maximum(node.size[cross], ch.size[cross]);
-        flex_space -= @maximum(0, ch.size[main]);
+        node.size[cross] = @max(node.size[cross], ch.size[cross]);
+        flex_space -= @max(0, ch.size[main]);
     }
 
-    node.size[main] = @maximum(node.size[main], -flex_space);
+    node.size[main] = @max(node.size[main], -flex_space);
 
     var pos: [2]f32 = .{
-        @maximum(0, style.padding.left.resolve(size[0])),
-        @maximum(0, style.padding.top.resolve(size[1])),
+        @max(0, style.padding.left.resolve(size[0])),
+        @max(0, style.padding.top.resolve(size[1])),
     };
 
     // grow/shrink, position, reverse, align, stretch, margin, ...
@@ -100,8 +100,8 @@ fn computeNode(node: *Node, style: *const Style, size: [2]f32) void {
                     ch.size[main] += (flex_space / shrinks) * ch_style.flex.shrink;
                 }
 
-                // ch.pos[main] += @maximum(0, ch_style.margin_left/top.resolve())
-                // pos[main] += @maximum(0, ch_style.margin_x/y.resolve())
+                // ch.pos[main] += @max(0, ch_style.margin_left/top.resolve())
+                // pos[main] += @max(0, ch_style.margin_x/y.resolve())
 
                 // TODO: align
 

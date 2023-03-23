@@ -47,7 +47,7 @@ pub const Tokenizer = struct {
     pub fn next(self: *Self) Error!Token {
         const ch = try self.peek(0);
 
-        if (std.ascii.isSpace(ch)) {
+        if (std.ascii.isWhitespace(ch)) {
             self.space = .yes;
             self.pos += 1;
             return try self.next();
@@ -155,7 +155,7 @@ pub const Tokenizer = struct {
 };
 
 fn isIdentStart(ch: u8) bool {
-    return ch == '_' or ch == '-' or std.ascii.isAlpha(ch);
+    return ch == '_' or ch == '-' or std.ascii.isAlphabetic(ch);
 }
 
 fn isIdent(ch: u8) bool {
