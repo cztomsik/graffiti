@@ -4,7 +4,7 @@
   "type": "module",
   "exports": "./graffiti.js",
   "scripts": {
-    "postinstall": "git submodule init && git submodule update && zig build"
+    "postinstall": "git clone https://github.com/fabioarnold/nanovg-zig ./libs/nanovg-zig && git clone https://github.com/cztomsik/zig-napigen ./libs/napigen && zig build"
   },
   "files": [
     "src",
