@@ -126,19 +126,17 @@ Object.setPrototypeOf(
   })
 )
 
-// TODO: weak-ref GC (*anyopaque in event creates ref to temporal object which is collected if not used)
-// (can be trickier because of unknown order of finalization + possible re-creation later/before)
-const handleEvent = ev => {
-  //console.log(ev)
-  const el = document.elementFromPoint(ev.x, ev.y)
-  el.dispatchEvent(wrap(ev, Event))
+class Window extends EventTarget {
+  handleEvent(ev) {
+    //console.log(ev)
+    const el = document.elementFromPoint(ev.x, ev.y)
+    el.dispatchEvent(wrap(ev, Event))
+  }
 }
-
-class Window extends EventTarget {}
 
 // TODO: just pass protos to init()
 // TODO: it could also patch globals
-Object.assign(global, native.init({ handleEvent }))
+Object.assign(global, native.init())
 wrap(document, Document)
 document.body = document.createElement('body')
 wrap(window, Window)

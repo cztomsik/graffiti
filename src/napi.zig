@@ -2,6 +2,8 @@ const std = @import("std");
 const napigen = @import("napigen");
 const lib = @import("root");
 const platform = @import("platform.zig");
+const Style = @import("style.zig").Style;
+const css = @import("css.zig");
 
 // globals
 var window: *platform.Window = undefined;
@@ -12,30 +14,45 @@ comptime {
     napigen.defineModule(&initModule);
 }
 
-fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi_value {
-    try js.setNamedProperty(exports, "init", try js.createFunction(&init));
+fn Text_data(node: *lib.Node) ![]const u8 {
+    return if (node.as(.text)) |t| t else error.InvalidNode;
+}
 
-    const defs = .{
-        .Node = .{ .parent_node, .first_child, .next_sibling, .appendChild },
-        // .Element = .{ .local_name, .style, .getAttribute, .setAttribute, .removeAttribute },
-        // .Text = .{.data},
-        .Document = .{ .createElement, .createTextNode, .elementFromPoint },
-        //.CSSStyleDeclaration = .{ .length, .item, .getProperty, .setProperty, .removeProperty },
-    };
+fn Text_setData(node: *lib.Node, data: []const u8) !void {
+    return if (node.data == .text) {
+        node.data = .{ .text = try node.document.allocator.dupe(u8, data) };
+    } else error.InvalidNode;
+}
 
-    // generate fns
-    inline for (std.meta.fields(@TypeOf(defs))) |f| {
-        const T = @field(lib, f.name);
-
-        inline for (@field(defs, f.name)) |member| {
-            var fun = try js.createFunction(if (comptime @hasDecl(T, @tagName(member)))
-                &@field(T, @tagName(member))
-            else
-                &getter(T, member));
-
-            try js.setNamedProperty(exports, f.name ++ "_" ++ @tagName(member), fun);
-        }
+fn Element_setStyle(node: *lib.Node, style: []const u8) !void {
+    if (node.as(.element)) |el| {
+        var parser = css.Parser.init(napigen.allocator, style);
+        el.style = try parser.parse(css.StyleDeclaration(Style));
+        // std.log.debug("style = {any}", .{el.style});
     }
+}
+
+fn Element_setStyleProp(node: *lib.Node, prop_name: []const u8, prop_value: []const u8) !void {
+    if (node.as(.element)) |el| {
+        el.style.setProperty(prop_name, prop_value);
+        // std.log.debug("style = {any}", .{el.style});
+    }
+}
+
+fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi_value {
+    try js.setNamedProperty(exports, "Document_createElement", try js.createFunction(&lib.Document.createElement));
+    try js.setNamedProperty(exports, "Document_createTextNode", try js.createFunction(&lib.Document.createTextNode));
+    try js.setNamedProperty(exports, "Document_elementFromPoint", try js.createFunction(&lib.Document.elementFromPoint));
+    try js.setNamedProperty(exports, "Node_appendChild", try js.createFunction(&lib.Node.appendChild));
+    try js.setNamedProperty(exports, "Node_parentNode", try js.createFunction(&getter(lib.Node, .parent_node)));
+    try js.setNamedProperty(exports, "Node_firstChild", try js.createFunction(&getter(lib.Node, .first_child)));
+    // try js.setNamedProperty(exports, "Node_previousSibling", try js.createFunction(&getter(Node, .previous_sibling)));
+    try js.setNamedProperty(exports, "Node_nextSibling", try js.createFunction(&getter(lib.Node, .next_sibling)));
+    try js.setNamedProperty(exports, "Element_setStyle", try js.createFunction(&Element_setStyle));
+    try js.setNamedProperty(exports, "Element_setStyleProp", try js.createFunction(&Element_setStyleProp));
+    try js.setNamedProperty(exports, "Text_data", try js.createFunction(&Text_data));
+    try js.setNamedProperty(exports, "Text_setData", try js.createFunction(&Text_setData));
+    try js.setNamedProperty(exports, "init", try js.createFunction(&init));
 
     return exports;
 }
