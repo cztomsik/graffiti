@@ -18,7 +18,7 @@ pub const Parser = struct {
         };
     }
 
-    pub fn expect(self: *Self, comptime tag: std.meta.FieldEnum(Token)) !std.meta.fieldInfo(Token, tag).field_type {
+    pub fn expect(self: *Self, comptime tag: std.meta.FieldEnum(Token)) !std.meta.fieldInfo(Token, tag).type {
         return switch (try self.tokenizer.next()) {
             tag => |t| t,
             else => error.UnexpectedToken,
@@ -79,14 +79,14 @@ pub const Parser = struct {
 
         switch (tok) {
             .dimension => |d| inline for (std.meta.fields(T)) |f| {
-                if (comptime @typeInfo(f.field_type) == .Float) {
+                if (comptime @typeInfo(f.type) == .Float) {
                     if (std.mem.eql(u8, d.unit, f.name)) {
                         return @unionInit(T, f.name, d.value);
                     }
                 }
             },
             .ident => |k| inline for (std.meta.fields(T)) |f| {
-                if (comptime f.field_type == void) {
+                if (comptime f.type == void) {
                     if (std.mem.eql(u8, k, f.name)) {
                         return @field(T, f.name);
                     }
@@ -128,7 +128,7 @@ pub const Parser = struct {
     }
 
     pub fn parseRect(self: *Self, comptime T: type) !T {
-        const V = std.meta.fieldInfo(T, .top).field_type;
+        const V = std.meta.fieldInfo(T, .top).type;
         const top = try self.parse(V);
         const right = try self.parse(?V) orelse top;
         const bottom = try self.parse(?V) orelse top;
@@ -142,10 +142,10 @@ pub const Parser = struct {
 
         inline for (std.meta.fields(T)) |f| {
             if (f.default_value) |ptr| {
-                const v = @ptrCast(*const f.field_type, @alignCast(f.alignment, ptr)).*;
-                @field(res, f.name) = self.parseOptional(f.field_type) orelse v;
+                const v = @ptrCast(*const f.type, @alignCast(f.alignment, ptr)).*;
+                @field(res, f.name) = self.parseOptional(f.type) orelse v;
             } else {
-                @field(res, f.name) = try self.parse(f.field_type);
+                @field(res, f.name) = try self.parse(f.type);
             }
         }
 
@@ -157,7 +157,7 @@ pub const Parser = struct {
     }
 
     fn rgba(comptime T: type, r: u8, g: u8, b: u8, a: u8) T {
-        if (comptime std.meta.fieldInfo(T, .r).field_type == f32) {
+        if (comptime std.meta.fieldInfo(T, .r).type == f32) {
             return T{
                 .r = @intToFloat(f32, r) / 255.0,
                 .g = @intToFloat(f32, g) / 255.0,

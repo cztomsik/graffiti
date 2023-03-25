@@ -31,7 +31,7 @@ pub fn StyleDeclaration(comptime T: type) type {
         pub fn item(self: *Self, index: usize) []const u8 {
             var i: usize = 0;
 
-            inline for (std.meta.fields(T)) |f, j| {
+            inline for (std.meta.fields(T), 0..) |f, j| {
                 if (self.flags[j] == 1) {
                     if (i == index) return cssName(f.name) else i += 1;
                 }
@@ -43,10 +43,10 @@ pub fn StyleDeclaration(comptime T: type) type {
         }
 
         pub fn setProperty(self: *Self, prop_name: []const u8, value: []const u8) void {
-            inline for (std.meta.fields(T)) |f, i| {
+            inline for (std.meta.fields(T), 0..) |f, i| {
                 if (propNameEql(f.name, prop_name)) {
                     var parser = Parser.init(gpa.allocator(), value);
-                    @field(self.data, f.name) = parser.parse(f.field_type) catch {
+                    @field(self.data, f.name) = parser.parse(f.type) catch {
                         return std.log.debug("ignored invalid {s}: {s}\n", .{ prop_name, value });
                     };
                     self.flags[i] = 1;
@@ -55,7 +55,7 @@ pub fn StyleDeclaration(comptime T: type) type {
         }
 
         pub fn removeProperty(self: *Self, prop_name: []const u8) void {
-            inline for (std.meta.fields(T)) |f, i| {
+            inline for (std.meta.fields(T), 0..) |f, i| {
                 if (propNameEql(f.name, prop_name)) {
                     @field(self.data, f.name) = f.default_value;
                     self.flags[i] = 0;
@@ -65,7 +65,7 @@ pub fn StyleDeclaration(comptime T: type) type {
 
         pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
             var sep = false;
-            inline for (std.meta.fields(T)) |f, i| {
+            inline for (std.meta.fields(T), 0..) |f, i| {
                 if (self.flags[i] == 1) {
                     if (sep) try writer.writeAll("; ");
                     sep = true;
@@ -74,7 +74,7 @@ pub fn StyleDeclaration(comptime T: type) type {
 
                     const v = @field(self.data, f.name);
 
-                    try switch (@typeInfo(f.field_type)) {
+                    try switch (@typeInfo(f.type)) {
                         .Enum => writer.writeAll(@tagName(v)),
                         .Float => writer.print("{d}", .{v}),
                         // TODO: DimensionLike, ColorLike, ...

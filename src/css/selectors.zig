@@ -39,7 +39,7 @@ pub const Selector = struct {
     pub fn eql(self: Self, other: Self) bool {
         if (self.parts.len != other.parts.len) return false;
 
-        for (self.parts) |part, i| {
+        for (self.parts, 0..) |part, i| {
             if (!part.eql(other.parts[i])) {
                 return false;
             }

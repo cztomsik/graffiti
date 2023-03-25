@@ -22,7 +22,7 @@ pub const Node = struct {
 
     const Self = @This();
 
-    pub fn as(self: *Self, comptime kind: std.meta.FieldEnum(@TypeOf(self.data))) ?std.meta.fieldInfo(@TypeOf(self.data), kind).field_type {
+    pub fn as(self: *Self, comptime kind: std.meta.FieldEnum(@TypeOf(self.data))) ?std.meta.fieldInfo(@TypeOf(self.data), kind).type {
         return switch (self.data) {
             kind => |v| v,
             else => null,
