@@ -11,22 +11,27 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    // lib.use_stage1 = true;
     lib.main_pkg_path = ".";
+
+    // glfw3
     lib.linkSystemLibrary("glfw3");
-    nanovg_build.addCSourceFiles(lib);
-    lib.addIncludePath("libs/nanovg-zig/lib/gl2/include");
-    lib.addCSourceFile("libs/nanovg-zig/lib/gl2/src/glad.c", &.{});
-    lib.linker_allow_shlib_undefined = true;
-    const napigenModule = b.createModule(.{ .source_file = .{ .path = "libs/napigen/napigen.zig" } });
-    lib.addModule("napigen", napigenModule);
+
+    // nanovg
     const nanovg = b.createModule(.{ .source_file = .{ .path = "libs/nanovg-zig/src/nanovg.zig" } });
     lib.addModule("nanovg", nanovg);
-    lib.install();
+    lib.addIncludePath("libs/nanovg-zig/lib/gl2/include");
+    lib.addCSourceFile("libs/nanovg-zig/lib/gl2/src/glad.c", &.{});
+    nanovg_build.addCSourceFiles(lib);
 
-    // copy result to a fixed filename with .node suffix
-    // TODO: is this the way how to do such thing?
-    b.installLibFile(b.pathJoin(&.{ "zig-out/lib", lib.out_lib_filename }), "graffiti.node");
+    // napigen
+    const napigenModule = b.createModule(.{ .source_file = .{ .path = "libs/napigen/napigen.zig" } });
+    lib.addModule("napigen", napigenModule);
+    lib.linker_allow_shlib_undefined = true;
+
+    // build .dylib & copy as .node
+    lib.install();
+    const copy_node_step = b.addInstallLibFile(lib.getOutputSource(), "graffiti.node");
+    b.getInstallStep().dependOn(&copy_node_step.step);
 
     const main_tests = b.addTest(.{
         .root_source_file = .{ .path = "src/main.zig" },
