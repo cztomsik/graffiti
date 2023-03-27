@@ -13,37 +13,52 @@ comptime {
 }
 
 fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi_value {
+    // export init() function which will init native window, and return the globals for JS
     try js.setNamedProperty(exports, "init", try js.createFunction(&init));
 
+    // function wrappers and field getters we want to generate
+    // `&` means we want to get a pointer to the field
     const defs = .{
-        .Node = .{ .parent_node, .first_child, .next_sibling, .appendChild },
-        // .Element = .{ .local_name, .style, .getAttribute, .setAttribute, .removeAttribute },
-        // .Text = .{.data},
+        .Node = .{ .parent_node, .first_child, .next_sibling, .appendChild, .insertBefore, .removeChild },
+        .Element = .{ .local_name, &.style, .getAttribute, .setAttribute, .removeAttribute },
         .Document = .{ .createElement, .createTextNode, .elementFromPoint },
-        //.CSSStyleDeclaration = .{ .length, .item, .getProperty, .setProperty, .removeProperty },
     };
 
-    // generate fns
+    // generate bindings
     inline for (std.meta.fields(@TypeOf(defs))) |f| {
         const T = @field(lib, f.name);
 
         inline for (@field(defs, f.name)) |member| {
-            var fun = try js.createFunction(if (comptime @hasDecl(T, @tagName(member)))
+            var fun = try js.createFunction(if (comptime std.meta.trait.is(.Pointer)(@TypeOf(member)))
+                &refGetter(T, member.*)
+            else if (comptime std.meta.trait.hasFn(@tagName(member))(T))
                 &@field(T, @tagName(member))
             else
-                &getter(T, member));
+                &valGetter(T, member));
 
-            try js.setNamedProperty(exports, f.name ++ "_" ++ @tagName(member), fun);
+            const name = if (comptime std.meta.trait.is(.Pointer)(@TypeOf(member)))
+                @tagName(member.*)
+            else
+                @tagName(member);
+            try js.setNamedProperty(exports, f.name ++ "_" ++ name, fun);
         }
     }
 
     return exports;
 }
 
-fn getter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) std.meta.fieldInfo(T, field).field_type {
+fn valGetter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) std.meta.fieldInfo(T, field).type {
     return (struct {
-        fn get(ptr: *T) std.meta.fieldInfo(T, field).field_type {
+        fn get(ptr: *T) std.meta.fieldInfo(T, field).type {
             return @field(ptr, @tagName(field));
+        }
+    }).get;
+}
+
+fn refGetter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) *std.meta.fieldInfo(T, field).type {
+    return (struct {
+        fn get(ptr: *T) *std.meta.fieldInfo(T, field).type {
+            return &@field(ptr, @tagName(field));
         }
     }).get;
 }

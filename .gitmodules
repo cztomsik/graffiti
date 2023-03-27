@@ -7,3 +7,6 @@
 [submodule "zig-napigen"]
 	path = libs/napigen
 	url = https://github.com/cztomsik/zig-napigen
+[submodule "libs/emlay"]
+	path = libs/emlay
+	url = https://github.com/cztomsik/emlay

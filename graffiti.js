@@ -83,7 +83,7 @@ class Text extends Node {
   }
 
   set data(data) {
-    // native.Text_set_data(this, '' + data)
+    native.Text_setData(this, '' + data)
   }
 }
 
@@ -142,6 +142,7 @@ class Window extends EventTarget {
 Object.assign(global, native.init())
 wrap(document, Document)
 document.body = document.createElement('body')
+document.appendChild(document.body)
 wrap(window, Window)
 // TODO: should be window
 document.body.addEventListener('close', () => process.exit())

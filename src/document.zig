@@ -1,4 +1,8 @@
 // minimal subset of DOM to serve as a model API
+//
+// for now, it allocates every node separately, which is simple but wasteful
+// maybe we can use SegmentedList or `zig-stable-array` or something else,
+// but we definitely need stable pointers and upcasting because of JS bindings
 
 const std = @import("std");
 const css = @import("css.zig");
@@ -6,130 +10,178 @@ const Style = @import("style.zig").Style;
 
 pub const StyleDeclaration = css.StyleDeclaration(Style);
 
+// TODO: these could/should be extern structs but
+//       then we can't store std.mem.Allocator in Document :-/
 pub const Node = struct {
-    id: usize,
+    // tree
     document: *Document,
+    node_type: enum { element, text, comment, document },
     parent_node: ?*Node = null,
     first_child: ?*Node = null,
+    last_child: ?*Node = null,
+    previous_sibling: ?*Node = null,
     next_sibling: ?*Node = null,
-    data: union(enum) {
-        document: *Document,
-        element: *Element,
-        text: Text,
-    },
+
+    // layout
     pos: [2]f32 = .{ 0, 0 },
     size: [2]f32 = .{ 0, 0 },
 
-    const Self = @This();
-
-    pub fn as(self: *Self, comptime kind: std.meta.FieldEnum(@TypeOf(self.data))) ?std.meta.fieldInfo(@TypeOf(self.data), kind).field_type {
-        return switch (self.data) {
-            kind => |v| v,
-            else => null,
-        };
+    pub fn cast(self: *Node, comptime T: type) *T {
+        return @ptrCast(*T, self);
     }
 
-    pub fn appendChild(self: *Self, child: *Node) void {
-        if (self.first_child) |first| {
-            var last = first;
-            while (last.next_sibling) |n| last = n;
+    pub fn children(self: *Node) ChildrenIter {
+        return .{ .next = self.first_child };
+    }
+
+    pub fn appendChild(self: *Node, child: *Node) !void {
+        try self.checkParent(child, null);
+
+        if (self.last_child) |last| {
             last.next_sibling = child;
+            child.previous_sibling = last;
         } else {
             self.first_child = child;
         }
 
+        self.last_child = child;
         child.parent_node = self;
     }
+
+    pub fn insertBefore(self: *Node, child: *Node, before: *Node) !void {
+        try self.checkParent(child, null);
+        try self.checkParent(before, self);
+
+        if (before.previous_sibling) |prev| {
+            prev.next_sibling = child;
+            child.previous_sibling = prev;
+        } else {
+            self.first_child = child;
+        }
+
+        child.next_sibling = before;
+        before.previous_sibling = child;
+        child.parent_node = self;
+    }
+
+    pub fn removeChild(self: *Node, child: *Node) !void {
+        try self.checkParent(child, self);
+
+        if (child.previous_sibling) |prev| {
+            prev.next_sibling = child.next_sibling;
+        } else {
+            self.first_child = child.next_sibling;
+        }
+
+        if (child.next_sibling) |next| {
+            next.previous_sibling = child.previous_sibling;
+        } else {
+            self.last_child = child.previous_sibling;
+        }
+
+        child.next_sibling = null;
+        child.previous_sibling = null;
+        child.parent_node = null;
+    }
+
+    fn checkParent(self: *Node, node: *Node, parent: ?*Node) !void {
+        if (node.document != self.document or node.parent_node != parent) {
+            return error.InvalidChild;
+        }
+    }
+
+    // fn markDirty(self: *Self) void {
+    //     self.flags.is_dirty = true;
+
+    //     // propagate up, so we can go in-order but skip up-to-date subtrees
+    //     // we always recompute whole subtree so we don't need to mark descendants
+    //     var next = self.parent_node;
+    //     while (next) |n| : (next = n.parent_node) {
+    //         if (n.flags.is_dirty or n.flags.has_dirty) break;
+    //         n.flags.has_dirty = true;
+    //     }
+    // }
 };
 
 pub const Element = struct {
-    node: *Node,
+    node: Node,
     local_name: []const u8,
     attributes: std.BufMap,
     style: StyleDeclaration,
 
-    const Self = @This();
-
-    pub fn getAttribute(self: *Self, name: []const u8) ?[]const u8 {
+    pub fn getAttribute(self: *Element, name: []const u8) ?[]const u8 {
         return self.attributes.get(name);
     }
 
-    pub fn setAttribute(self: *Self, name: []const u8, value: []const u8) !void {
-        // TODO: mark dirty
+    pub fn setAttribute(self: *Element, name: []const u8, value: []const u8) !void {
         try self.attributes.put(name, value);
     }
 
-    pub fn removeAttribute(self: *Self, name: []const u8) void {
-        // TODO: mark dirty
+    pub fn removeAttribute(self: *Element, name: []const u8) void {
         self.attributes.remove(name);
     }
 };
 
-pub const Text = struct {
+pub const CharacterData = struct {
+    node: Node,
     data: []const u8,
+
+    pub fn setData(self: *CharacterData, data: []const u8) !void {
+        self.allocator.free(self.data);
+        self.data = try self.allocator.dupe(u8, data);
+    }
 };
 
 pub const Document = struct {
+    node: Node,
     allocator: std.mem.Allocator,
-    nodes: std.SegmentedList(Node, 64),
-    elements: std.SegmentedList(Element, 32),
 
-    const Self = @This();
-
-    pub fn init(allocator: std.mem.Allocator) !*Self {
-        var doc = try allocator.create(Self);
-        doc.* = .{
+    pub fn init(allocator: std.mem.Allocator) !*Document {
+        var document = try allocator.create(Document);
+        document.* = .{
+            .node = .{ .document = document, .node_type = .document },
             .allocator = allocator,
-            .nodes = .{},
-            .elements = .{},
         };
-
-        // doc.root = try doc.createNode(.{ .document = doc });
-
-        return doc;
+        return document;
     }
 
-    pub fn deinit(self: *Self) void {
-        // TODO: deinit nodes (el attrs, ...)
-        self.elements.deinit(self.allocator);
-        self.nodes.deinit(self.allocator);
-    }
-
-    pub fn createElement(self: *Self, local_name: []const u8) !*Node {
-        var element = try self.elements.addOne(self.allocator);
-        var node = try self.createNode(.{
-            .element = element,
-        });
-
+    pub fn createElement(self: *Document, local_name: []const u8) !*Element {
+        var element = try self.allocator.create(Element);
         element.* = .{
-            .node = node,
+            .node = .{ .document = self, .node_type = .element },
             .local_name = try self.allocator.dupe(u8, local_name),
             .attributes = std.BufMap.init(self.allocator),
             .style = .{},
         };
-
-        return node;
+        return element;
     }
 
-    pub fn createTextNode(self: *Self, data: []const u8) !*Node {
-        return self.createNode(.{
-            .text = .{ .data = try self.allocator.dupe(u8, data) },
-        });
+    pub fn createTextNode(self: *Document, data: []const u8) !*CharacterData {
+        var text = try self.allocator.create(CharacterData);
+        text.* = .{
+            .node = .{ .document = self, .node_type = .text },
+            .data = try self.allocator.dupe(u8, data),
+        };
+        return text;
     }
 
-    pub fn elementFromPoint(self: *Self, x: f32, y: f32) *Node {
-        // TODO: body/documentElement
-        var res = self.nodes.at(0);
+    pub fn createComment(self: *Document, data: []const u8) !*CharacterData {
+        var text = try self.allocator.create(CharacterData);
+        text.* = .{
+            .node = .{ .document = self, .node_type = .comment },
+            .data = try self.allocator.dupe(u8, data),
+        };
+        return text;
+    }
+
+    pub fn elementFromPoint(self: *Document, x: f32, y: f32) *Node {
+        var res = self.node.first_child orelse @panic("no root element");
         var next: ?*Node = res;
         var cur: [2]f32 = .{ x, y };
 
         while (next) |n| {
-            // std.debug.print("{} {d}@{d} {d}x{d} <- {d},{d}\n", .{ n.id, n.pos[0], n.pos[1], n.size[0], n.size[1], cur[0], cur[1] });
-
             // TODO: display, scroll, clip, radius, etc. and it's wrong anyway (overflow, absolute, etc.)
-            if (n.data == .element and cur[0] >= n.pos[0] and cur[1] >= n.pos[1] and cur[0] <= (n.pos[0] + n.size[0]) and cur[1] <= (n.pos[1] + n.size[1])) {
-                // std.debug.print("res = {}\n", .{n.id});
-
+            if (n.node_type == .element and cur[0] >= n.pos[0] and cur[1] >= n.pos[1] and cur[0] <= (n.pos[0] + n.size[0]) and cur[1] <= (n.pos[1] + n.size[1])) {
                 res = n;
                 cur[0] -= n.pos[0];
                 cur[1] -= n.pos[1];
@@ -141,13 +193,17 @@ pub const Document = struct {
 
         return res;
     }
+};
 
-    // helpers
+pub const ChildrenIter = struct {
+    next: ?*Node,
 
-    fn createNode(self: *Self, data: anytype) !*Node {
-        const id = self.nodes.len;
-        const node = try self.nodes.addOne(self.allocator);
-        node.* = Node{ .id = id, .document = self, .data = data };
-        return node;
+    pub fn next(self: *ChildrenIter) ?*Node {
+        if (self.next) |n| {
+            self.next = n.next_sibling;
+            return n;
+        }
+
+        return null;
     }
 };
