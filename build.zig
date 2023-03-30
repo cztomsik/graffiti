@@ -23,14 +23,13 @@ pub fn build(b: *std.Build) void {
     lib.addCSourceFile("libs/nanovg-zig/lib/gl2/src/glad.c", &.{});
     nanovg_build.addCSourceFiles(lib);
 
-    // layout lib
-    const layoutModule = b.createModule(.{ .source_file = .{ .path = "libs/emlay/src/main.zig" } });
-    lib.addModule("emlay", layoutModule);
-    lib.linker_allow_shlib_undefined = true;
+    // layout
+    const emlay = b.createModule(.{ .source_file = .{ .path = "libs/emlay/src/main.zig" } });
+    lib.addModule("emlay", emlay);
 
     // JS bindings generator
-    const napigenModule = b.createModule(.{ .source_file = .{ .path = "libs/napigen/napigen.zig" } });
-    lib.addModule("napigen", napigenModule);
+    const napigen = b.createModule(.{ .source_file = .{ .path = "libs/napigen/napigen.zig" } });
+    lib.addModule("napigen", napigen);
     lib.linker_allow_shlib_undefined = true;
 
     // build .dylib & copy as .node
@@ -38,12 +37,14 @@ pub fn build(b: *std.Build) void {
     const copy_node_step = b.addInstallLibFile(lib.getOutputSource(), "graffiti.node");
     b.getInstallStep().dependOn(&copy_node_step.step);
 
-    const main_tests = b.addTest(.{
+    const tests = b.addTest(.{
         .root_source_file = .{ .path = "src/main.zig" },
         .target = target,
         .optimize = optimize,
     });
+    tests.addModule("emlay", emlay);
+    var run_tests = tests.run();
 
     const test_step = b.step("test", "Run library tests");
-    test_step.dependOn(&main_tests.step);
+    test_step.dependOn(&run_tests.step);
 }

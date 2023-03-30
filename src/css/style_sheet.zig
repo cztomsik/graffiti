@@ -4,93 +4,115 @@ const StyleRule = @import("style_rule.zig").StyleRule;
 const expectParse = @import("parser.zig").expectParse;
 const expectFmt = std.testing.expectFmt;
 
-pub fn StyleSheet(comptime T: type) type {
-    return struct {
-        rules: []const StyleRule(T),
+pub const StyleSheet = struct {
+    rules: std.ArrayList(StyleRule),
 
-        const Self = @This();
+    pub fn init(allocator: std.mem.Allocator) StyleSheet {
+        return StyleSheet{
+            .rules = std.ArrayList(StyleRule).init(allocator),
+        };
+    }
 
-        pub fn eql(self: Self, other: Self) bool {
-            if (self.rules.len != other.rules.len) return false;
+    pub fn deinit(self: *StyleSheet) void {
+        self.rules.deinit();
+    }
 
-            for (self.rules, 0..) |part, i| {
-                if (!part.eql(other.rules[i])) {
-                    return false;
-                }
-            }
+    pub fn format(self: StyleSheet, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        for (self.rules) |r| {
+            try writer.print("{}\n", .{r});
+        }
+    }
 
-            return true;
+    pub fn parse(allocator: std.mem.Allocator, input: []const u8) !StyleSheet {
+        var parser = Parser.init(allocator, input);
+        var sheet = StyleSheet.init(allocator);
+        errdefer sheet.deinit();
+
+        while (parser.parse(StyleRule) catch null) |r| {
+            try sheet.rules.append(r);
         }
 
-        pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-            for (self.rules) |r| {
-                try writer.print("{}\n", .{r});
-            }
-        }
+        return sheet;
+    }
 
-        pub fn parse(parser: *Parser) !Self {
-            var rules = std.ArrayList(StyleRule(T)).init(parser.allocator);
-            errdefer rules.deinit();
+    pub fn insertRule(self: *StyleSheet, rule: []const u8, index: usize) !usize {
+        if (index > self.rules.items.len) return error.IndexSizeError;
 
-            // // anything until next "}}" (empty media is matched with unknown)
-            // let media =
-            //     sym("@") * sym("media") * (!seq(&["}", "}"]) * skip(1)).repeat(1..).map(|_| None) - sym("}") - sym("}");
-            // // anything until next "}"
-            // let unknown = (!sym("}") * skip(1)).repeat(1..).map(|_| None) - sym("}").opt();
+        var parser = Parser.init(self.rules.allocator, rule);
+        var res = try parser.parse(StyleRule);
 
-            // (StyleRule::parser().map(Option::Some) | media | unknown)
-            //     .repeat(0..)
-            //     .map(|maybe_rules| Self::new(maybe_rules.into_iter().flatten().collect()))
+        try self.rules.insert(index, res);
+        return index;
+    }
 
-            while (parser.parse(StyleRule(T)) catch null) |r| {
-                try rules.append(r);
-            }
+    pub fn deleteRule(self: *StyleSheet, index: usize) void {
+        if (index >= self.rules.len) return error.IndexSizeError;
 
-            return Self{
-                .rules = try rules.toOwnedSlice(),
-            };
-        }
+        self.rules.orderedRemove(index);
+    }
+};
 
-        pub fn insertRule(self: *Self, rule: []const u8, index: usize) void {
-            _ = self;
-            _ = rule;
-            _ = index;
-            @panic("TODO");
-        }
+test "basic usage" {
+    var sheet = StyleSheet.init(std.testing.allocator);
+    defer sheet.deinit();
 
-        pub fn deleteRule(self: *Self, rule: []const u8, index: usize) void {
-            _ = self;
-            _ = rule;
-            _ = index;
-            @panic("TODO");
-        }
-    };
+    try sheet.insertRule("div { color: #fff }", 0);
+    try sheet.insertRule("div { color: #000 }", 0);
+    try expectFmt(sheet,
+        \\div { color: rgba(0, 0, 0, 255); }
+        \\div { color: rgba(255, 255, 255, 255); }
+    );
+
+    try sheet.deleteRule(0);
+    try expectFmt(sheet,
+        \\div { color: rgba(255, 255, 255, 255); }
+    );
 }
 
-// #[test]
-// fn parse_sheet() -> Result<(), ParseError> {
-//     let sheet = StyleSheet::parse("div { color: #fff }")?;
+test "parsing" {
+    var sheet = try StyleSheet.parse(std.testing.allocator, "div { color: #fff }");
+    defer sheet.deinit();
 
-//     assert_eq!(sheet.rules()[0].selector(), &Selector::parse("div")?);
-//     assert_eq!(sheet.rules()[0].style(), &Style::parse("color: #fff")?);
-//     assert_eq!(sheet.rules()[0].style().to_string(), "color: rgba(255, 255, 255, 255)");
+    try std.testing.expectEqual(sheet.rules.len, 1);
+    try expectFmt(sheet,
+        \\div { color: rgba(255, 255, 255, 255); }
+    );
+}
 
-//     // white-space
-//     assert_eq!(StyleSheet::parse(" *{}")?.rules().len(), 1);
-//     assert_eq!(StyleSheet::parse("\n*{\n}\n")?.rules().len(), 1);
+test "white-space" {
+    var sheet1 = try StyleSheet.parse(std.testing.allocator, " *{}");
+    defer sheet1.deinit();
 
-//     // forgiving/future-compatibility
-//     assert_eq!(StyleSheet::parse(":root {} a { v: 0 }")?.rules().len(), 2);
-//     assert_eq!(StyleSheet::parse("a {} @media { a { v: 0 } } b {}")?.rules().len(), 2);
-//     assert_eq!(StyleSheet::parse("@media { a { v: 0 } } a {} b {}")?.rules().len(), 2);
+    try std.testing.expectEqual(sheet1.rules.len, 1);
+    try expectFmt(sheet1,
+        \\* {  }
+    );
 
-//     Ok(())
-// }
+    var sheet2 = try StyleSheet.parse(std.testing.allocator, "\n*{\n}\n");
+    defer sheet2.deinit();
+    try std.testing.expectEqual(sheet2.rules.len, 1);
+    try expectFmt(sheet2,
+        \\* {  }
+    );
+}
 
-// #[test]
-// fn parse_ua() {
-//     let ua_css = include_str!("../../resources/ua.css");
-//     let sheet = StyleSheet::parse(&ua_css).unwrap();
+test "forgiving/future-compatibility" {
+    var sheet1 = try StyleSheet.parse(":root {} a { v: 0 }");
+    defer sheet1.deinit();
+    try std.testing.expectEqual(sheet1.rules.len, 2);
 
-//     assert_eq!(sheet.rules().len(), 23);
-// }
+    var sheet2 = try StyleSheet.parse("a {} @media { a { v: 0 } } b {}");
+    defer sheet2.deinit();
+    try std.testing.expectEqual(sheet2.rules.len, 2);
+
+    var sheet3 = try StyleSheet.parse("@media { a { v: 0 } } a {} b {}");
+    defer sheet3.deinit();
+    try std.testing.expectEqual(sheet3.rules.len, 2);
+}
+
+test "parse ua.css" {
+    const sheet = try StyleSheet.parse(std.testing.allocator, @embedFile("../../resources/ua.css"));
+    defer sheet.deinit();
+
+    try std.testing.expectEqual(sheet.rules.len, 23);
+}

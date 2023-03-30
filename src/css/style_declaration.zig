@@ -1,159 +1,141 @@
 const std = @import("std");
+const Property = @import("properties.zig").Property;
 const Parser = @import("parser.zig").Parser;
 const cssName = @import("parser.zig").cssName;
-const expectParse = @import("parser.zig").expectParse;
 const expectFmt = std.testing.expectFmt;
 
-// TODO values should not allocate (fixbuf allocator with empty slice?)
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-const allocator = gpa.allocator();
+pub const StyleDeclaration = struct {
+    properties: std.ArrayList(Property),
 
-// declaration block represented as a wrapper over user-provided Style struct
-// - setting property will immediately change the style and set a flag
-// - removing will unset flag (and restore the default value)
-//
-// Style is potentially big but all of this is alloc-free
-// and that should outweight any loss, if there is any at all
-//
-// this also implies that value types can't allocate
-// they have to be either fixed-size (with max., for example)
-// or they have to be interned (likely-forever)
-// IMHO this is good trade-off for the overall simplicity
-pub fn StyleDeclaration(comptime T: type) type {
-    const props = T.cssMapping.properties;
-    const defaults = T{};
+    pub fn init(allocator: std.mem.Allocator) StyleDeclaration {
+        return .{
+            .properties = std.ArrayList(Property).init(allocator),
+        };
+    }
 
-    return struct {
-        flags: std.StaticBitSet(props.len) = .{ .mask = 0 },
-        style: T = .{},
+    pub fn deinit(self: *StyleDeclaration) void {
+        self.properties.deinit();
+    }
 
-        const Self = @This();
+    pub fn format(self: StyleDeclaration, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        var sep = false;
 
-        pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-            var sep = false;
-            inline for (props) |prop, i| {
-                if (self.flags.isSet(i)) {
-                    if (sep) try writer.writeAll("; ");
-                    sep = true;
+        for (self.properties.items) |prop| {
+            if (sep) try writer.writeAll("; ");
+            sep = true;
 
-                    try writer.print("{s}: ", .{prop.@"0"});
+            try writer.print("{s}: ", .{prop.@"0"});
 
-                    const v = prop.@"1"(&self.style);
+            const v = prop.@"1"(&self.style);
 
-                    try switch (@typeInfo(@TypeOf(v))) {
-                        .Enum => writer.writeAll(@tagName(v)),
-                        .Float => writer.print("{d}", .{v}),
-                        // TODO: DimensionLike, ColorLike, ...
-                        else => writer.print("{any}", .{v}),
-                    };
-                }
-            }
+            try switch (@typeInfo(@TypeOf(v))) {
+                .Enum => writer.writeAll(@tagName(v)),
+                .Float => writer.print("{d}", .{v}),
+                // TODO: DimensionLike, ColorLike, ...
+                else => writer.print("{any}", .{v}),
+            };
         }
+    }
 
-        pub fn parse(parser: *Parser) !Self {
-            var res = Self{};
+    pub fn parse(parser: *Parser) !StyleDeclaration {
+        _ = parser;
+    }
 
-            while (parser.expect(.ident) catch null) |prop_name| {
-                try parser.expect(.colon);
+    pub fn cssText(self: *StyleDeclaration) ![]const u8 {
+        return std.fmt.allocPrint(self.properties.allocator, "{}", .{self});
+    }
 
-                const val_start = parser.tokenizer.pos;
-                while (parser.tokenizer.next() catch null) |t2| if (t2 == .semi or t2 == .rcurly) break;
+    pub fn setCssText(self: *StyleDeclaration, css_text: []const u8) !void {
+        var parser = Parser.init(self.properties.allocator, css_text);
+        self.* = try parser.parse(StyleDeclaration);
+    }
 
-                res.setProperty(prop_name, parser.tokenizer.input[val_start..parser.tokenizer.pos]);
-            }
+    pub fn length(self: *StyleDeclaration) usize {
+        return self.properties.items.len;
+    }
 
-            return res;
-        }
+    pub fn item(self: *StyleDeclaration, index: usize) []const u8 {
+        if (index >= self.length()) return "";
 
-        pub fn length(self: *Self) usize {
-            return self.flags.count();
-        }
+        return "";
+        // return self.properties.items[index].name();
+    }
 
-        pub fn item(self: *Self, index: usize) []const u8 {
-            var i: usize = 0;
+    pub fn getPropertyValue(self: *StyleDeclaration, prop_name: []const u8) []const u8 {
+        _ = prop_name;
+        _ = self;
+    }
 
-            inline for (props) |prop, j| {
-                if (self.flags.isSet(j)) {
-                    if (i == index) return prop.@"0" else i += 1;
-                }
-            } else return "";
-        }
+    pub fn setProperty(self: *StyleDeclaration, prop_name: []const u8, value: []const u8) void {
+        _ = value;
+        _ = prop_name;
+        _ = self;
+    }
 
-        pub fn getProperty() void {
-            // TODO
-        }
+    pub fn removeProperty(self: *StyleDeclaration, prop_name: []const u8) void {
+        // get tag
+        // if tag is not found, return
+        // go through properties and if there is a prop with the same tag, remove it using orderedRemove(i)
 
-        pub fn setProperty(self: *Self, prop_name: []const u8, value: []const u8) void {
-            inline for (props) |prop, i| {
-                const V = @typeInfo(@TypeOf(prop.@"1")).Fn.return_type.?;
+        _ = prop_name;
+        _ = self;
+    }
+};
 
-                if (std.mem.eql(u8, prop.@"0", prop_name)) {
-                    var parser = Parser.init(gpa.allocator(), value);
-                    var val = parser.parse(V) catch {
-                        return std.log.debug("ignored invalid {s}: {s}\n", .{ prop_name, value });
-                    };
-                    prop.@"2"(&self.style, val);
-                    self.flags.set(i);
-                }
-            }
-        }
+test "basic usage" {
+    var style = StyleDeclaration.init(std.testing.allocator);
+    defer style.deinit();
 
-        pub fn removeProperty(self: *Self, prop_name: []const u8) void {
-            inline for (props) |prop, i| {
-                if (std.mem.eql(u8, prop.@"0", prop_name)) {
-                    const default = prop.@"1"(&defaults);
-                    prop.@"2"(&self.style, default);
-                    self.flags.unset(i);
-                }
-            }
-        }
-    };
+    style.setProperty("display", "block");
+    style.setProperty("flex-grow", "1");
+    try expectFmt("display: block; flex-grow: 1", "{}", .{style});
+
+    style.removeProperty("display");
+    try expectFmt("flex-grow: 1", "{}", .{style});
 }
 
-pub fn setterName(comptime name: []const u8) []const u8 {
-    return "set" ++ [_]u8{std.ascii.toUpper(name[0])} ++ name[1..];
+test "overriding" {
+    var style = StyleDeclaration.init(std.testing.allocator);
+    defer style.deinit();
+
+    style.setProperty("display", "block");
+    style.setProperty("flex-grow", "1");
+    style.setProperty("display", "none");
+
+    try expectFmt("display: none; flex-grow: 1", "{}", .{style});
 }
 
-// }
+test "get property value" {
+    var style = StyleDeclaration.init(std.testing.allocator);
+    defer style.deinit();
 
-// const Decl = StyleDeclaration(struct {
-//     display: enum { none, block } = .block,
-//     opacity: f32 = 1,
-//     flex_grow: f32 = 0,
-// });
+    style.setProperty("display", "block");
+    try std.testing.expectEqualStrings(style.getPropertyValue("display"), "block");
 
-// test "StyleDeclaration.length()" {
-//     var s = Decl{};
-//     try std.testing.expectEqual(s.length(), 0);
+    style.removeProperty("display");
+    try std.testing.expectEqualStrings(style.getPropertyValue("display"), "");
+}
 
-//     s.flags[0] = 1;
-//     try std.testing.expectEqual(s.length(), 1);
-// }
+test "cssText" {
+    var style = StyleDeclaration.init(std.testing.allocator);
+    defer style.deinit();
 
-// test "StyleDeclaration.item()" {
-//     var s = Decl{};
-//     try std.testing.expectEqualStrings(s.item(0), "");
+    style.setProperty("display", "none");
+    style.setProperty("flex-grow", "1");
+    try std.testing.expectEqualStrings(try style.cssText(), "display: none; flex-grow: 1");
 
-//     s.flags[0] = 1;
-//     s.flags[2] = 1;
-//     try std.testing.expectEqualStrings(s.item(0), "display");
-//     try std.testing.expectEqualStrings(s.item(1), "flex-grow");
-// }
+    try style.setCssText("display: block; flex-grow: 2");
+    try std.testing.expectEqualStrings(try style.getPropertyValue("display"), "block");
+    try std.testing.expectEqualStrings(try style.getPropertyValue("flex-grow"), "2");
+}
 
-// test "StyleDeclaration.format()" {
-//     var s = Decl{};
-//     try expectFmt("", "{}", .{s});
+test "item()" {
+    var style = StyleDeclaration.init(std.testing.allocator);
+    defer style.deinit();
 
-//     s.setProperty("display", "none");
-//     try expectFmt("display: none", "{}", .{s});
+    style.setProperty("display", "none");
+    try std.testing.expectEqualStrings(style.item(0), "display");
 
-//     s.setProperty("flex-grow", "1");
-//     try expectFmt("display: none; flex-grow: 1", "{}", .{s});
-// }
-
-// test "StyleDeclaration.parse()" {
-//     try expectParse(Decl, "", Decl{});
-//     try expectParse(Decl, "display: block", Decl{ .flags = .{ 1, 0, 0 } });
-//     try expectParse(Decl, "unknown: 0; opacity: 0", Decl{ .flags = .{ 0, 1, 0 }, .data = .{ .opacity = 0 } });
-//     try expectParse(Decl, "opacity: 0; opacity: invalid", Decl{ .flags = .{ 0, 1, 0 }, .data = .{ .opacity = 0 } });
-// }
+    style.removeProperty("display");
+    try std.testing.expectEqualStrings(style.item(0), "");
+}
