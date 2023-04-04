@@ -42,6 +42,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    tests.main_pkg_path = ".";
     tests.addModule("emlay", emlay);
     var run_tests = tests.run();
 

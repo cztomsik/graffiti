@@ -29,8 +29,6 @@ pub const Token = union(enum) {
     other: u8,
 };
 
-const TokenTag = std.meta.Tag(Token);
-
 pub const Tokenizer = struct {
     input: []const u8,
     pos: usize = 0,
@@ -191,7 +189,7 @@ fn isNumeric(ch: u8) bool {
     return std.ascii.isDigit(ch) or ch == '.';
 }
 
-fn expectTokens(input: []const u8, tokens: []const TokenTag) !void {
+fn expectTokens(input: []const u8, tokens: []const std.meta.Tag(Token)) !void {
     var tokenizer = Tokenizer{ .input = input };
 
     for (tokens) |tag| {

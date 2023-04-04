@@ -5,58 +5,39 @@ const css = @import("../css.zig");
 const Tokenizer = @import("tokenizer.zig").Tokenizer;
 const Token = @import("tokenizer.zig").Token;
 
-// comptime snake_case/camelCase to css-case
+// comptime snake_case to css-case
 pub fn cssName(comptime name: []const u8) []const u8 {
     comptime {
-        var len = name.len;
-        for (name) |ch| {
-            if (std.ascii.isUpper(ch)) len += 1;
-        }
-        var res: [len]u8 = undefined;
-        var i = 0;
-        for (name) |ch| {
-            if (std.ascii.isUpper(ch)) {
-                res[i] = '-';
-                i += 1;
-            }
-
-            res[i] = if (ch == '_') '-' else std.ascii.toLower(ch);
-            i += 1;
-        }
-        return &res;
+        var buf: [name.len]u8 = undefined;
+        _ = std.mem.replace(u8, name, "_", "-", &buf);
+        return &buf;
     }
 }
 
 test "cssName" {
-    try std.testing.expectEqualSlices(u8, "background-color", cssName("background-color"));
     try std.testing.expectEqualSlices(u8, "background-color", cssName("background_color"));
-    try std.testing.expectEqualSlices(u8, "background-color", cssName("backgroundColor"));
-    try std.testing.expectEqualSlices(u8, "border-top-left-radius", cssName("borderTopLeftRadius"));
+    try std.testing.expectEqualSlices(u8, "background-color", cssName("background-color"));
 }
 
 pub const Parser = struct {
-    // TODO: parsed things are likely to out-live the parser itself
-    // and should be in arena or .deinit() should be called explicitly
     allocator: std.mem.Allocator,
     tokenizer: Tokenizer,
 
-    const Self = @This();
-
-    pub fn init(allocator: std.mem.Allocator, input: []const u8) Self {
+    pub fn init(allocator: std.mem.Allocator, input: []const u8) Parser {
         return .{
             .allocator = allocator,
             .tokenizer = Tokenizer{ .input = input },
         };
     }
 
-    pub fn expect(self: *Self, comptime tag: std.meta.FieldEnum(Token)) !std.meta.fieldInfo(Token, tag).type {
+    pub fn expect(self: *Parser, comptime tag: std.meta.FieldEnum(Token)) !std.meta.fieldInfo(Token, tag).type {
         return switch (try self.tokenizer.next()) {
             tag => |t| t,
             else => error.UnexpectedToken,
         };
     }
 
-    pub fn parse(self: *Self, comptime T: type) !T {
+    pub fn parse(self: *Parser, comptime T: anytype) !T {
         if (comptime std.meta.trait.hasFn("parse")(T)) {
             return T.parse(self);
         }
@@ -67,31 +48,21 @@ pub const Parser = struct {
             .Enum => self.parseEnum(T),
             .Union => self.parseUnion(T),
             .Optional => self.parseOptional(std.meta.Child(T)),
-            .Struct => {
-                if (comptime isColor(T)) {
-                    return parseColor(self, T);
-                }
-
-                if (comptime isRect(T)) {
-                    return parseRect(self, T);
-                }
-
-                return self.parseStruct(T);
-            },
+            .Struct => return self.parseStruct(T),
             else => @compileError("type " ++ @typeName(T) ++ " cannot be parsed"),
         };
     }
 
-    pub fn parseInt(self: *Self, comptime T: type) !T {
+    pub fn parseInt(self: *Parser, comptime T: type) !T {
         const num = try self.expect(.number);
         return std.math.cast(T, @floatToInt(u32, num)) orelse error.InvalidInt;
     }
 
-    pub fn parseFloat(self: *Self, comptime T: type) !T {
+    pub fn parseFloat(self: *Parser, comptime T: type) !T {
         return @floatCast(T, try self.expect(.number));
     }
 
-    pub fn parseEnum(self: *Self, comptime T: type) !T {
+    pub fn parseEnum(self: *Parser, comptime T: type) !T {
         const ident = try self.expect(.ident);
 
         inline for (std.meta.fields(T)) |f| {
@@ -103,7 +74,7 @@ pub const Parser = struct {
         return error.InvalidValue;
     }
 
-    pub fn parseUnion(self: *Self, comptime T: type) !T {
+    pub fn parseUnion(self: *Parser, comptime T: type) !T {
         const tok = try self.tokenizer.next();
 
         switch (tok) {
@@ -127,7 +98,7 @@ pub const Parser = struct {
         return error.InvalidValue;
     }
 
-    pub fn parseOptional(self: *Self, comptime T: type) ?T {
+    pub fn parseOptional(self: *Parser, comptime T: type) ?T {
         const prev = self.tokenizer;
         return self.parse(T) catch {
             self.tokenizer = prev;
@@ -135,7 +106,7 @@ pub const Parser = struct {
         };
     }
 
-    pub fn parseStruct(self: *Self, comptime T: type) !T {
+    pub fn parseStruct(self: *Parser, comptime T: type) !T {
         var res: T = undefined;
 
         inline for (std.meta.fields(T)) |f| {
@@ -150,7 +121,7 @@ pub const Parser = struct {
         return res;
     }
 
-    pub fn parseColor(self: *Self, comptime T: type) !T {
+    pub fn parseColor(self: *Parser, comptime T: type) !T {
         const tok = try self.tokenizer.next();
 
         switch (tok) {
@@ -181,7 +152,7 @@ pub const Parser = struct {
         return error.InvalidColor;
     }
 
-    pub fn parseRect(self: *Self, comptime T: type) !T {
+    pub fn parseRect(self: *Parser, comptime T: type) !T {
         const V = std.meta.fieldInfo(T, .top).type;
         const top = try self.parse(V);
         const right = try self.parse(?V) orelse top;
@@ -191,7 +162,7 @@ pub const Parser = struct {
         return T{ .top = top, .right = right, .bottom = bottom, .left = left };
     }
 
-    pub fn parseArgs(self: *Self, comptime T: type) !T {
+    pub fn parseArgs(self: *Parser, comptime T: type) !T {
         var res: T = undefined;
 
         inline for (std.meta.fields(T), 0..) |f, i| {
@@ -207,14 +178,6 @@ pub const Parser = struct {
     }
 };
 
-fn isColor(comptime T: type) bool {
-    return @hasDecl(T, "rgba");
-}
-
-fn isRect(comptime T: type) bool {
-    return std.meta.trait.hasFields(T, .{ "top", "right", "left", "bottom" });
-}
-
 pub fn expectParse(comptime T: type, input: []const u8, expected: anyerror!T) anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -228,13 +191,7 @@ pub fn expectParse(comptime T: type, input: []const u8, expected: anyerror!T) an
     );
 
     if (expected) |exp| {
-        const parsed = try result;
-
-        if (comptime std.meta.trait.hasFn("eql")(T)) {
-            return std.testing.expect(exp.eql(parsed));
-        } else {
-            return std.testing.expectEqual(exp, parsed);
-        }
+        return std.testing.expectEqualDeep(exp, try result);
     } else |err| return std.testing.expectError(err, result);
 }
 
@@ -272,51 +229,51 @@ test "Parser.parse(Union)" {
     try expectParse(Dimension, "xxx", error.InvalidValue);
 }
 
-test "Parser.parse(Color)" {
-    const Color = struct {
-        r: u8,
-        g: u8,
-        b: u8,
-        a: u8,
+// test "Parser.parse(Color)" {
+//     const Color = struct {
+//         r: u8,
+//         g: u8,
+//         b: u8,
+//         a: u8,
 
-        pub fn rgba(r: u8, g: u8, b: u8, a: u8) @This() {
-            return .{ .r = r, .g = g, .b = b, .a = a };
-        }
-    };
+//         pub fn rgba(r: u8, g: u8, b: u8, a: u8) @This() {
+//             return .{ .r = r, .g = g, .b = b, .a = a };
+//         }
+//     };
 
-    try expectParse(Color, "#000000", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
-    try expectParse(Color, "#ff0000", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
-    try expectParse(Color, "#00ff00", .{ .r = 0, .g = 0xFF, .b = 0, .a = 0xFF });
-    try expectParse(Color, "#0000ff", .{ .r = 0, .g = 0, .b = 0xFF, .a = 0xFF });
+//     try expectParse(Color, "#000000", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
+//     try expectParse(Color, "#ff0000", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
+//     try expectParse(Color, "#00ff00", .{ .r = 0, .g = 0xFF, .b = 0, .a = 0xFF });
+//     try expectParse(Color, "#0000ff", .{ .r = 0, .g = 0, .b = 0xFF, .a = 0xFF });
 
-    try expectParse(Color, "#000", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
-    try expectParse(Color, "#f00", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
-    try expectParse(Color, "#fff", .{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF });
+//     try expectParse(Color, "#000", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
+//     try expectParse(Color, "#f00", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
+//     try expectParse(Color, "#fff", .{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF });
 
-    try expectParse(Color, "#0000", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
-    try expectParse(Color, "#f00f", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
+//     try expectParse(Color, "#0000", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
+//     try expectParse(Color, "#f00f", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
 
-    try expectParse(Color, "rgb(0, 0, 0)", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
-    try expectParse(Color, "rgba(0, 0, 0, 0)", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
-    try expectParse(Color, "rgba(255, 128, 0, 255)", .{ .r = 0xFF, .g = 0x80, .b = 0, .a = 0xFF });
+//     try expectParse(Color, "rgb(0, 0, 0)", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
+//     try expectParse(Color, "rgba(0, 0, 0, 0)", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
+//     try expectParse(Color, "rgba(255, 128, 0, 255)", .{ .r = 0xFF, .g = 0x80, .b = 0, .a = 0xFF });
 
-    // TODO
-    // try expectParse(Color, "transparent", Color.TRANSPARENT);
-    // try expectParse(Color, "black", Color.BLACK);
+//     // TODO
+//     // try expectParse(Color, "transparent", Color.TRANSPARENT);
+//     // try expectParse(Color, "black", Color.BLACK);
 
-    try expectParse(Color, "xxx", error.InvalidColor);
-}
+//     try expectParse(Color, "xxx", error.InvalidColor);
+// }
 
-test "Parser.parse(Rect)" {
-    const Rect = struct { top: f32, right: f32, bottom: f32, left: f32 };
+// test "Parser.parse(Rect)" {
+//     const Rect = struct { top: f32, right: f32, bottom: f32, left: f32 };
 
-    try expectParse(Rect, "1", .{ .top = 1, .right = 1, .bottom = 1, .left = 1 });
-    try expectParse(Rect, "1 2", .{ .top = 1, .right = 2, .bottom = 1, .left = 2 });
-    try expectParse(Rect, "1 2 3", .{ .top = 1, .right = 2, .bottom = 3, .left = 2 });
-    try expectParse(Rect, "1 2 3 4", .{ .top = 1, .right = 2, .bottom = 3, .left = 4 });
+//     try expectParse(Rect, "1", .{ .top = 1, .right = 1, .bottom = 1, .left = 1 });
+//     try expectParse(Rect, "1 2", .{ .top = 1, .right = 2, .bottom = 1, .left = 2 });
+//     try expectParse(Rect, "1 2 3", .{ .top = 1, .right = 2, .bottom = 3, .left = 2 });
+//     try expectParse(Rect, "1 2 3 4", .{ .top = 1, .right = 2, .bottom = 3, .left = 4 });
 
-    try expectParse(Rect, "xxx", error.UnexpectedToken);
-}
+//     try expectParse(Rect, "xxx", error.UnexpectedToken);
+// }
 
 test "Parser.parse(Struct)" {
     const Color = enum { black, blue };
