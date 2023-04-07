@@ -1,7 +1,6 @@
 // generic CSS parser
 
 const std = @import("std");
-const css = @import("../css.zig");
 const Tokenizer = @import("tokenizer.zig").Tokenizer;
 const Token = @import("tokenizer.zig").Token;
 

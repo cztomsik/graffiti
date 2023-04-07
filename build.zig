@@ -44,6 +44,7 @@ pub fn build(b: *std.Build) void {
     });
     tests.main_pkg_path = ".";
     tests.addModule("emlay", emlay);
+    tests.addModule("nanovg", nanovg);
     var run_tests = tests.run();
 
     const test_step = b.step("test", "Run library tests");

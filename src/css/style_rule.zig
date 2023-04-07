@@ -17,7 +17,7 @@ pub const StyleRule = struct {
     }
 
     pub fn format(self: StyleRule, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        return writer.print("{} {{ {} }}", .{ self.selector, self.style_declaration });
+        return writer.print("{} {{ {} }}", .{ self.selector, self.style });
     }
 };
 

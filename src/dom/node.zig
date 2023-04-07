@@ -1,7 +1,7 @@
 const Document = @import("document.zig").Document;
 
-// TODO: these could/should be extern structs but
-//       then we can't store std.mem.Allocator in Document :-/
+// TODO: all node types should be extern structs
+//       but then we couldn't store std.mem.Allocator :-/
 pub const Node = struct {
     // tree
     document: *Document,
@@ -20,8 +20,8 @@ pub const Node = struct {
         return @ptrCast(*T, self);
     }
 
-    pub fn children(self: *Node) ChildrenIter {
-        return .{ .next = self.first_child };
+    pub fn children(self: *Node) ChildrenIterator {
+        return .{ .next_item = self.first_child };
     }
 
     pub fn appendChild(self: *Node, child: *Node) !void {
@@ -94,15 +94,45 @@ pub const Node = struct {
     }
 };
 
-pub const ChildrenIter = struct {
-    next: ?*Node,
+pub const ChildrenIterator = struct {
+    next_item: ?*Node,
 
-    pub fn next(self: *ChildrenIter) ?*Node {
-        if (self.next) |n| {
-            self.next = n.next_sibling;
+    pub fn next(self: *ChildrenIterator) ?*Node {
+        if (self.next_item) |n| {
+            self.next_item = n.next_sibling;
             return n;
         }
 
         return null;
     }
 };
+
+// TODO: consider pubslishing node.descendants()
+//       for now, this is only planned for querySelectorAll()
+// pub const DescendantsIterator = struct {
+//     start: *Node,
+//     pos: *Node,
+
+//     pub fn next(self: *DescendantsIterator) ?*Node {
+//         if (self.pos.first_child) |ch| {
+//             self.pos = ch;
+//         } else if (self.pos.next_sibling) |n| {
+//             self.pos = n;
+//         } else {
+//             var x = self.pos;
+
+//             while (true) {
+//                 if (x == self.start) return null;
+
+//                 if (x.parent_node.?.next_sibling) |n| {
+//                     self.pos = n;
+//                     break;
+//                 }
+
+//                 x = x.parent_node.?;
+//             }
+//         }
+
+//         return self.pos;
+//     }
+// };

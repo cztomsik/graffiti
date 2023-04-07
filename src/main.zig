@@ -1,11 +1,10 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
-// TODO: pub lib.dom.*?
-pub usingnamespace @import("dom/node.zig");
-pub usingnamespace @import("dom/element.zig");
-pub usingnamespace @import("dom/character_data.zig");
-pub usingnamespace @import("dom/document.zig");
+pub const Node = @import("dom/node.zig").Node;
+pub const Element = @import("dom/element.zig").Element;
+pub const CharacterData = @import("dom/character_data.zig").CharacterData;
+pub const Document = @import("dom/document.zig").Document;
 
 pub const Renderer = @import("renderer.zig").Renderer;
 pub const Window = @import("platform.zig").Window;
@@ -17,6 +16,5 @@ comptime {
 }
 
 test {
-    std.testing.refAllDecls(@This());
-    std.testing.refAllDecls(@import("css.zig"));
+    std.testing.refAllDeclsRecursive(Document);
 }

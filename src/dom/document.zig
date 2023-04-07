@@ -8,29 +8,26 @@ const std = @import("std");
 const Node = @import("node.zig").Node;
 const Element = @import("element.zig").Element;
 const CharacterData = @import("character_data.zig").CharacterData;
-const StyleDeclaration = @import("../css/style_declaration.zig").StyleDeclaration;
+const StyleSheet = @import("../css/style_sheet.zig").StyleSheet;
 
 pub const Document = struct {
     node: Node,
     allocator: std.mem.Allocator,
+    style_sheets: std.ArrayList(StyleSheet),
 
     pub fn init(allocator: std.mem.Allocator) !*Document {
         var document = try allocator.create(Document);
         document.* = .{
             .node = .{ .document = document, .node_type = .document },
             .allocator = allocator,
+            .style_sheets = std.ArrayList(StyleSheet).init(allocator),
         };
         return document;
     }
 
     pub fn createElement(self: *Document, local_name: []const u8) !*Element {
         var element = try self.allocator.create(Element);
-        element.* = .{
-            .node = .{ .document = self, .node_type = .element },
-            .local_name = try self.allocator.dupe(u8, local_name),
-            .attributes = std.BufMap.init(self.allocator),
-            .style = StyleDeclaration.init(self.allocator),
-        };
+        element.* = try Element.init(self, local_name);
         return element;
     }
 
