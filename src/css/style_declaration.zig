@@ -7,39 +7,50 @@ const expectFmt = std.testing.expectFmt;
 
 const PropertyId = std.meta.Tag(Property);
 
+/// Collection of longhand properties to be applied to an element.
+/// Shorthand properties are expanded into their longhand components.
 pub const StyleDeclaration = struct {
     properties: std.ArrayList(Property),
 
+    /// Init a new instance.
     pub fn init(allocator: std.mem.Allocator) StyleDeclaration {
         return .{
             .properties = std.ArrayList(Property).init(allocator),
         };
     }
 
+    /// Release all resources.
     pub fn deinit(self: *StyleDeclaration) void {
         self.properties.deinit();
     }
 
+    /// Returns the serialized CSS text representation.
     pub fn cssText(self: *StyleDeclaration, allocator: std.mem.Allocator) ![]const u8 {
         return std.fmt.allocPrint(allocator, "{}", .{self});
     }
 
+    /// Replace all properties with the ones parsed from the given CSS text.
     pub fn setCssText(self: *StyleDeclaration, css_text: []const u8) !void {
         var parser = Parser.init(self.properties.allocator, css_text);
         self.deinit();
         self.* = try parser.parse(StyleDeclaration);
     }
 
+    /// Returns the number of longhand properties.
     pub fn length(self: *StyleDeclaration) usize {
         return self.properties.items.len;
     }
 
+    /// Returns the name of the property at the given index.
     pub fn item(self: *StyleDeclaration, index: usize) []const u8 {
         if (index >= self.length()) return "";
 
         return propName(self.properties.items[index]);
     }
 
+    /// Returns the serialized value of the property at the given index,
+    /// or an empty string if the index is out of bounds.
+    /// Shorthand properties are supported if all of their components are present.
     pub fn getPropertyValue(self: *StyleDeclaration, allocator: std.mem.Allocator, prop_name: []const u8) ![]const u8 {
         inline for (std.meta.fields(Property)) |f| {
             if (std.mem.eql(u8, cssName(f.name), prop_name)) {
@@ -64,6 +75,8 @@ pub const StyleDeclaration = struct {
         return "";
     }
 
+    /// Sets the value of the property with the given name.
+    /// Shorthand properties will be expanded.
     pub fn setProperty(self: *StyleDeclaration, prop_name: []const u8, value: []const u8) !void {
         var parser = Parser.init(self.properties.allocator, value);
 
@@ -89,6 +102,8 @@ pub const StyleDeclaration = struct {
         }
     }
 
+    /// Removes the property with the specified name.
+    /// Shorthand properties will be expanded (all properties will be removed).
     pub fn removeProperty(self: *StyleDeclaration, prop_name: []const u8) void {
         inline for (std.meta.fields(Property)) |f| {
             if (std.mem.eql(u8, cssName(f.name), prop_name)) {
