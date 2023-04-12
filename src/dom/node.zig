@@ -4,13 +4,17 @@ const Document = @import("document.zig").Document;
 //       but then we couldn't store std.mem.Allocator :-/
 pub const Node = struct {
     // tree
-    document: *Document,
+    owner_document: *Document,
     node_type: enum { element, text, comment, document },
     parent_node: ?*Node = null,
     first_child: ?*Node = null,
     last_child: ?*Node = null,
     previous_sibling: ?*Node = null,
     next_sibling: ?*Node = null,
+
+    // change tracking
+    is_dirty: bool = true,
+    has_dirty: bool = true,
 
     // layout
     pos: [2]f32 = .{ 0, 0 },
@@ -20,8 +24,12 @@ pub const Node = struct {
         return @ptrCast(*T, self);
     }
 
-    pub fn children(self: *Node) ChildrenIterator {
-        return .{ .next_item = self.first_child };
+    pub fn hasChildNodes(self: *Node) bool {
+        return self.first_child != null;
+    }
+
+    pub fn childNodes(self: *Node) ChildNodesIterator {
+        return .{ .next_child = self.first_child };
     }
 
     pub fn appendChild(self: *Node, child: *Node) !void {
@@ -36,6 +44,7 @@ pub const Node = struct {
 
         self.last_child = child;
         child.parent_node = self;
+        child.markDirty();
     }
 
     pub fn insertBefore(self: *Node, child: *Node, before: *Node) !void {
@@ -52,6 +61,7 @@ pub const Node = struct {
         child.next_sibling = before;
         before.previous_sibling = child;
         child.parent_node = self;
+        child.markDirty();
     }
 
     pub fn removeChild(self: *Node, child: *Node) !void {
@@ -75,35 +85,31 @@ pub const Node = struct {
     }
 
     fn checkParent(self: *Node, node: *Node, parent: ?*Node) !void {
-        if (node.document != self.document or node.parent_node != parent) {
+        if (node.owner_document != self.owner_document or node.parent_node != parent) {
             return error.InvalidChild;
         }
     }
 
     pub fn markDirty(self: *Node) void {
-        _ = self;
-        //     self.flags.is_dirty = true;
+        self.is_dirty = true;
 
-        //     // propagate up, so we can go in-order but skip up-to-date subtrees
-        //     // we always recompute whole subtree so we don't need to mark descendants
-        //     var next = self.parent_node;
-        //     while (next) |n| : (next = n.parent_node) {
-        //         if (n.flags.is_dirty or n.flags.has_dirty) break;
-        //         n.flags.has_dirty = true;
-        //     }
+        // propagate up, so we can then go in-order but skip up-to-date subtrees
+        // we always recompute whole subtree so we don't need to mark descendants
+        var next = self.parent_node;
+        while (next) |n| : (next = n.parent_node) {
+            if (n.is_dirty or n.has_dirty) break;
+            n.has_dirty = true;
+        }
     }
 };
 
-pub const ChildrenIterator = struct {
-    next_item: ?*Node,
+pub const ChildNodesIterator = struct {
+    next_child: ?*Node,
 
-    pub fn next(self: *ChildrenIterator) ?*Node {
-        if (self.next_item) |n| {
-            self.next_item = n.next_sibling;
-            return n;
-        }
-
-        return null;
+    pub fn next(self: *ChildNodesIterator) ?*Node {
+        const ch = self.next_child orelse return null;
+        self.next_child = ch.next_sibling;
+        return ch;
     }
 };
 

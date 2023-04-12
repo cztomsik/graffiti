@@ -13,7 +13,7 @@ pub const Element = struct {
 
     pub fn init(document: *Document, local_name: []const u8) !Element {
         return .{
-            .node = .{ .document = document, .node_type = .element },
+            .node = .{ .owner_document = document, .node_type = .element },
             .local_name = try document.allocator.dupe(u8, local_name),
             .attributes = std.BufMap.init(document.allocator),
             .style = StyleDeclaration.init(document.allocator),
@@ -22,9 +22,17 @@ pub const Element = struct {
     }
 
     pub fn deinit(self: *Element) void {
-        self.node.document.allocator.free(self.local_name);
+        self.node.owner_document.allocator.free(self.local_name);
         self.attributes.deinit();
         self.style.deinit();
+    }
+
+    pub fn hasAttributes(self: *Element) bool {
+        return self.attributes.hash_map.count() > 0;
+    }
+
+    pub fn hasAttribute(self: *Element, name: []const u8) bool {
+        return self.attributes.hash_map.contains(name);
     }
 
     pub fn getAttribute(self: *Element, name: []const u8) ?[]const u8 {

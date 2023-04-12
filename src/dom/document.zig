@@ -2,7 +2,7 @@
 //
 // for now, it allocates every node separately, which is simple but wasteful
 // maybe we can use SegmentedList or `zig-stable-array` or something else,
-// but we definitely need stable pointers and upcasting because of JS bindings
+// but we definitely need stable pointers and same-ptr upcasting for JS
 
 const std = @import("std");
 const Node = @import("node.zig").Node;
@@ -18,7 +18,7 @@ pub const Document = struct {
     pub fn init(allocator: std.mem.Allocator) !*Document {
         var document = try allocator.create(Document);
         document.* = .{
-            .node = .{ .document = document, .node_type = .document },
+            .node = .{ .owner_document = document, .node_type = .document },
             .allocator = allocator,
             .style_sheets = std.ArrayList(StyleSheet).init(allocator),
         };
@@ -34,7 +34,7 @@ pub const Document = struct {
     pub fn createTextNode(self: *Document, data: []const u8) !*CharacterData {
         var text = try self.allocator.create(CharacterData);
         text.* = .{
-            .node = .{ .document = self, .node_type = .text },
+            .node = .{ .owner_document = self, .node_type = .text },
             .data = try self.allocator.dupe(u8, data),
         };
         return text;
@@ -43,7 +43,7 @@ pub const Document = struct {
     pub fn createComment(self: *Document, data: []const u8) !*CharacterData {
         var text = try self.allocator.create(CharacterData);
         text.* = .{
-            .node = .{ .document = self, .node_type = .comment },
+            .node = .{ .owner_document = self, .node_type = .comment },
             .data = try self.allocator.dupe(u8, data),
         };
         return text;

@@ -1,69 +1,75 @@
+// supported CSS properties
+//
+// note that we are using the types from the style module
+// this is because we want to avoid any unnecessary conversions
+// during layout and rendering (so we parse as much as we can)
+
 // TODO: pub usingnamespace Rect(@This()) ???
 //       which can define both parse() and format() together?
 
 const std = @import("std");
-const layout = @import("emlay");
 const Parser = @import("parser.zig").Parser;
+const style = @import("../style.zig");
 
 // longhand props, these are stored
 pub const Property = union(enum) {
-    display: layout.Display,
+    display: style.Display,
 
-    width: layout.Dimension,
-    height: layout.Dimension,
-    min_width: layout.Dimension,
-    min_height: layout.Dimension,
-    max_width: layout.Dimension,
-    max_height: layout.Dimension,
+    width: style.Dimension,
+    height: style.Dimension,
+    min_width: style.Dimension,
+    min_height: style.Dimension,
+    max_width: style.Dimension,
+    max_height: style.Dimension,
 
     flex_grow: f32,
     flex_shrink: f32,
-    flex_basis: layout.Dimension,
-    flex_direction: layout.FlexDirection,
-    flex_wrap: layout.FlexWrap,
+    flex_basis: style.Dimension,
+    flex_direction: style.FlexDirection,
+    flex_wrap: style.FlexWrap,
 
-    align_content: layout.AlignContent,
-    align_items: layout.AlignItems,
-    align_self: layout.AlignSelf,
-    justify_content: layout.JustifyContent,
+    align_content: style.AlignContent,
+    align_items: style.AlignItems,
+    align_self: style.AlignSelf,
+    justify_content: style.JustifyContent,
 
-    padding_top: layout.Dimension,
-    padding_right: layout.Dimension,
-    padding_bottom: layout.Dimension,
-    padding_left: layout.Dimension,
+    padding_top: style.Dimension,
+    padding_right: style.Dimension,
+    padding_bottom: style.Dimension,
+    padding_left: style.Dimension,
 
-    margin_top: layout.Dimension,
-    margin_right: layout.Dimension,
-    margin_bottom: layout.Dimension,
-    margin_left: layout.Dimension,
+    margin_top: style.Dimension,
+    margin_right: style.Dimension,
+    margin_bottom: style.Dimension,
+    margin_left: style.Dimension,
 
-    border_top_width: layout.Dimension,
-    // border_top_style: BorderStyle,
-    // border_top_color: Color,
+    border_top_width: style.Dimension,
+    border_top_style: style.BorderStyle,
+    border_top_color: style.Color,
 
-    border_right_width: layout.Dimension,
-    // border_right_style: BorderStyle,
-    // border_right_color: Color,
+    border_right_width: style.Dimension,
+    border_right_style: style.BorderStyle,
+    border_right_color: style.Color,
 
-    border_bottom_width: layout.Dimension,
-    // border_bottom_style: BorderStyle,
-    // border_bottom_color: Color,
+    border_bottom_width: style.Dimension,
+    border_bottom_style: style.BorderStyle,
+    border_bottom_color: style.Color,
 
-    border_left_width: layout.Dimension,
-    // border_left_style: BorderStyle,
-    // border_left_color: Color,
+    border_left_width: style.Dimension,
+    border_left_style: style.BorderStyle,
+    border_left_color: style.Color,
 
-    border_top_left_radius: layout.Dimension,
-    border_top_right_radius: layout.Dimension,
-    border_bottom_right_radius: layout.Dimension,
-    border_bottom_left_radius: layout.Dimension,
+    border_top_left_radius: style.Dimension,
+    border_top_right_radius: style.Dimension,
+    border_bottom_right_radius: style.Dimension,
+    border_bottom_left_radius: style.Dimension,
 
-    outline_width: layout.Dimension,
-    // outline_style: BorderStyle,
-    // outline_color: Color,
+    outline_width: style.Dimension,
+    outline_style: style.OutlineStyle,
+    outline_color: style.Color,
 };
 
-// shorthand props, these are only parsed and printed
+// shorthand props, we parse & print them but we always store expanded longhands
 // every shorthand is just a struct of longhands which makes it easy to
 // expand them into longhands with a simple inline for loop.
 //
@@ -76,32 +82,28 @@ pub const Shorthand = union(enum) {
     flex: struct {
         flex_grow: f32 = 0,
         flex_shrink: f32 = 1,
-        flex_basis: layout.Dimension = .auto, // .{ .percent = 0 }
+        flex_basis: style.Dimension = .auto, // .{ .percent = 0 }
     },
 
     padding: struct {
-        padding_top: layout.Dimension = .{ .px = 0 },
-        padding_right: layout.Dimension = .{ .px = 0 },
-        padding_bottom: layout.Dimension = .{ .px = 0 },
-        padding_left: layout.Dimension = .{ .px = 0 },
+        padding_top: style.Dimension = .{ .px = 0 },
+        padding_right: style.Dimension = .{ .px = 0 },
+        padding_bottom: style.Dimension = .{ .px = 0 },
+        padding_left: style.Dimension = .{ .px = 0 },
     },
 
     margin: struct {
-        margin_top: layout.Dimension = .{ .px = 0 },
-        margin_right: layout.Dimension = .{ .px = 0 },
-        margin_bottom: layout.Dimension = .{ .px = 0 },
-        margin_left: layout.Dimension = .{ .px = 0 },
+        margin_top: style.Dimension = .{ .px = 0 },
+        margin_right: style.Dimension = .{ .px = 0 },
+        margin_bottom: style.Dimension = .{ .px = 0 },
+        margin_left: style.Dimension = .{ .px = 0 },
     },
 
-    // inset: struct {
-    //     top: layout.Dimension = .auto,
-    //     right: layout.Dimension = .auto,
-    //     bottom: layout.Dimension = .auto,
-    //     left: layout.Dimension = .auto,
-    // },
-
+    // TODO: this is simplified but the full syntax is crazy, so
+    //       we will likely support just some reasonable subset
     background: struct {
-        // background_color: Color = Color.TRANSPARENT,
+        background_image: []const style.BackgroundImage,
+        background_color: style.Color = style.Color.TRANSPARENT,
     },
 
     // TODO: this should expand to 12 longhands but it should only
@@ -109,66 +111,66 @@ pub const Shorthand = union(enum) {
     // border: struct {}
 
     border_width: struct {
-        border_top_width: layout.Dimension = .{ .px = 3 },
-        border_right_width: layout.Dimension = .{ .px = 3 },
-        border_bottom_width: layout.Dimension = .{ .px = 3 },
-        border_left_width: layout.Dimension = .{ .px = 3 },
+        border_top_width: style.Dimension = .{ .px = 3 },
+        border_right_width: style.Dimension = .{ .px = 3 },
+        border_bottom_width: style.Dimension = .{ .px = 3 },
+        border_left_width: style.Dimension = .{ .px = 3 },
     },
 
     border_style: struct {
-        // border_top_style: BorderStyle = .none,
-        // border_right_style: BorderStyle = .none,
-        // border_bottom_style: BorderStyle = .none,
-        // border_left_style: BorderStyle = .none,
+        border_top_style: style.BorderStyle = .none,
+        border_right_style: style.BorderStyle = .none,
+        border_bottom_style: style.BorderStyle = .none,
+        border_left_style: style.BorderStyle = .none,
     },
 
     border_color: struct {
-        // border_top_color: Color = Color.TRANSPARENT,
-        // border_right_color: Color = Color.TRANSPARENT,
-        // border_bottom_color: Color = Color.TRANSPARENT,
-        // border_left_color: Color = Color.TRANSPARENT,
+        border_top_color: style.Color = style.Color.TRANSPARENT,
+        border_right_color: style.Color = style.Color.TRANSPARENT,
+        border_bottom_color: style.Color = style.Color.TRANSPARENT,
+        border_left_color: style.Color = style.Color.TRANSPARENT,
     },
 
     border_top: struct {
-        // border_top_width: layout.Dimension = .{ .px = 3 },
-        // border_top_style: BorderStyle = .none,
-        // border_top_color: Color = Color.TRANSPARENT,
+        border_top_width: style.Dimension = .{ .px = 3 },
+        border_top_style: style.BorderStyle = .none,
+        border_top_color: style.Color = style.Color.TRANSPARENT,
     },
 
     border_right: struct {
-        // border_right_width: layout.Dimension = .{ .px = 3 },
-        // border_right_style: BorderStyle = .none,
-        // border_right_color: Color = Color.TRANSPARENT,
+        border_right_width: style.Dimension = .{ .px = 3 },
+        border_right_style: style.BorderStyle = .none,
+        border_right_color: style.Color = style.Color.TRANSPARENT,
     },
 
     border_bottom: struct {
-        // border_bottom_width: layout.Dimension = .{ .px = 3 },
-        // border_bottom_style: BorderStyle = .none,
-        // border_bottom_color: Color = Color.TRANSPARENT,
+        border_bottom_width: style.Dimension = .{ .px = 3 },
+        border_bottom_style: style.BorderStyle = .none,
+        border_bottom_color: style.Color = style.Color.TRANSPARENT,
     },
 
     border_left: struct {
-        // border_left_width: layout.Dimension = .{ .px = 3 },
-        // border_left_style: BorderStyle = .none,
-        // border_left_color: Color = Color.TRANSPARENT,
+        border_left_width: style.Dimension = .{ .px = 3 },
+        border_left_style: style.BorderStyle = .none,
+        border_left_color: style.Color = style.Color.TRANSPARENT,
     },
 
     border_radius: struct {
-        border_top_left_radius: layout.Dimension = .{ .px = 0 },
-        border_top_right_radius: layout.Dimension = .{ .px = 0 },
-        border_bottom_right_radius: layout.Dimension = .{ .px = 0 },
-        border_bottom_left_radius: layout.Dimension = .{ .px = 0 },
+        border_top_left_radius: style.Dimension = .{ .px = 0 },
+        border_top_right_radius: style.Dimension = .{ .px = 0 },
+        border_bottom_right_radius: style.Dimension = .{ .px = 0 },
+        border_bottom_left_radius: style.Dimension = .{ .px = 0 },
     },
 
     overflow: struct {
-        // overflow_x: Overflow = .visible,
-        // overflow_y: Overflow = .visible,
+        overflow_x: style.Overflow = .visible,
+        overflow_y: style.Overflow = .visible,
     },
 
     outline: struct {
-        outline_width: layout.Dimension = .{ .px = 3 },
-        // outline_style: BorderStyle,
-        // outline_color: Color = Color.TRANSPARENT,
+        outline_width: style.Dimension = .{ .px = 3 },
+        outline_style: style.OutlineStyle,
+        outline_color: style.Color = style.Color.TRANSPARENT,
     },
 };
 

@@ -1,88 +1,84 @@
+// TODO: rendering should be async (send a frame with display items to the render thread)
+//       all display items should be cached (not just text blobs)
+//       -> Style size is not important because it should not be in hot path
+
 const std = @import("std");
 const nvg = @import("nanovg");
-const Style = @import("style.zig").Style;
-const Node = @import("document.zig").Node;
-const Element = @import("document.zig").Element;
-const CharacterData = @import("document.zig").CharacterData;
-const Document = @import("document.zig").Document;
 
-const Color = nvg.Color;
-const TRANSPARENT = nvg.rgba(0, 0, 0, 0);
+const Node = @import("dom/node.zig").Node;
+const Element = @import("dom/element.zig").Element;
+const CharacterData = @import("dom/character_data.zig").CharacterData;
+const Document = @import("dom/document.zig").Document;
+const Style = @import("style.zig").Style;
+const Color = @import("style.zig").Color;
+const Shadow = @import("style.zig").Shadow;
+const OutlineStyle = @import("style.zig").OutlineStyle;
+const BackgroundImage = @import("style.zig").BackgroundImage;
+const TRANSPARENT = @import("style.zig").TRANSPARENT;
 
 const Shape = struct {
-    rect: Rect,
-    radius: f32 = 0,
-};
-
-const Rect = packed struct {
-    x: f32 = 0,
-    y: f32 = 0,
-    w: f32 = 0,
-    h: f32 = 0,
+    rect: [4]f32,
+    radii: [4]f32 = .{ 0, 0, 0, 0 },
 };
 
 pub const Renderer = struct {
     allocator: std.mem.Allocator,
     vg: nvg,
+    font: nvg.Font,
 
-    const Self = @This();
-
-    pub fn init(allocator: std.mem.Allocator) anyerror!Self {
-        const vg = try nvg.gl.init(allocator, .{
+    pub fn init(allocator: std.mem.Allocator) anyerror!Renderer {
+        var vg = try nvg.gl.init(allocator, .{
             .antialias = true,
             .stencil_strokes = false,
             .debug = true,
         });
 
-        const font = @embedFile("../libs/nanovg-zig/examples/Roboto-Regular.ttf");
-        _ = vg.createFontMem("sans", font);
-
-        return Self{
+        return .{
             .allocator = allocator,
             .vg = vg,
+            .font = vg.createFontMem("sans", @embedFile("../libs/nanovg-zig/examples/Roboto-Regular.ttf")),
         };
     }
 
-    pub fn deinit(self: *Self) void {
+    pub fn deinit(self: *Renderer) void {
         self.vg.deinit();
     }
 
-    pub fn render(self: *Self, document: *Document, size: [2]f32, scale: [2]f32) void {
-        self.vg.reset();
+    pub fn render(self: *Renderer, document: *Document, size: [2]f32, scale: [2]f32) void {
         self.vg.beginFrame(size[0], size[1], scale[0]);
+        defer self.vg.endFrame();
 
         // white bg
-        self.fillShape(&Shape{ .rect = .{ .w = size[0], .h = size[1] } }, .{ .color = nvg.rgb(255, 255, 255) });
+        self.drawShape(&Shape{ .rect = .{ 0, 0, size[0], size[1] } });
+        self.vg.fillColor(nvg.rgb(255, 255, 255));
+        self.vg.fill();
 
-        self.renderNode(&document.node);
-        self.vg.endFrame();
+        // render
+        self.renderNode(document.node.first_child orelse return);
     }
 
-    noinline fn renderNode(self: *Self, node: *Node) void {
-        const rect = @bitCast(Rect, [2][2]f32{ node.pos, node.size });
-
+    noinline fn renderNode(self: *Renderer, node: *Node) void {
         switch (node.node_type) {
-            .element => self.renderElement(rect, &node.cast(Element).style.style, node.first_child),
-            .text => self.renderText(rect, node.cast(CharacterData).data),
-            .document => self.renderNode(node.first_child orelse return),
+            .element => self.renderElement(node.cast(Element)),
+            .text => self.renderText(node.cast(CharacterData)),
             else => return,
         }
     }
 
-    fn renderText(self: *Self, rect: Rect, text: []const u8) void {
+    fn renderText(self: *Renderer, text: *CharacterData) void {
         self.vg.fontFace("sans");
         self.vg.fontSize(16);
         self.vg.fillColor(nvg.rgb(0, 0, 0));
-        _ = self.vg.text(rect.x, rect.y + 16, text);
+        _ = self.vg.text(text.node.pos[0], text.node.pos[1] + 16, text.data);
     }
 
-    fn renderElement(self: *Self, rect: Rect, style: *const Style, first_child: ?*Node) void {
+    fn renderElement(self: *Renderer, element: *Element) void {
         // split open/close so we can skip invisibles AND we can also reduce the stack usage per each recursion
-        if (self.openElement(rect, style)) {
-            self.vg.translate(rect.x, rect.y);
+        if (self.openElement(element)) {
+            self.vg.translate(element.node.pos[0], element.node.pos[1]);
 
-            var next = first_child;
-            while (next) |ch| : (next = ch.next_sibling) {
+            var iter = element.node.childNodes();
+            while (iter.next()) |ch| {
                 self.renderNode(ch);
             }
 
@@ -90,7 +86,9 @@ pub const Renderer = struct {
         }
     }
 
-    fn openElement(self: *Self, rect: Rect, style: *const Style) bool {
+    fn openElement(self: *Renderer, element: *Element) bool {
+        const style = &element.resolved_style;
+
         // we don't have to save/restore() if we can skip the whole subtree
         if (style.display == .none or style.opacity == 0) {
             return false;
@@ -104,23 +102,39 @@ pub const Renderer = struct {
             self.vg.globalAlpha(current * style.opacity);
         }
 
-        if (rect.w == 0 or rect.h == 0) {
+        if (element.node.size[0] == 0 and element.node.size[1] == 0) {
             // skip but recur
             return true;
         }
 
-        const shape = Shape{ .rect = rect, .radius = style.border_radius };
+        const shape = Shape{
+            .rect = .{
+                element.node.pos[0],
+                element.node.pos[1],
+                element.node.size[0],
+                element.node.size[1],
+            },
+            .radii = .{
+                style.border_top_left_radius.resolve(element.node.size[0]),
+                style.border_top_right_radius.resolve(element.node.size[0]),
+                style.border_bottom_right_radius.resolve(element.node.size[0]),
+                style.border_bottom_left_radius.resolve(element.node.size[0]),
+            },
+        };
 
         // if let Some(matrix) = &style.transform {
         //     self.canvas.concat(matrix);
         // }
 
-        if (style.box_shadow) |shadow| {
-            self.drawShadow(&shape, shadow);
+        for (style.box_shadow) |*s| {
+            self.drawShadow(&shape, s);
         }
 
-        if (style.outline) |outline| {
-            self.drawOutline(&shape, outline);
+        if (style.outline_style != .none and !std.meta.eql(style.outline_color, TRANSPARENT)) {
+            const width = style.outline_width.resolve(shape.rect[2]);
+            if (width > 0) {
+                self.drawOutline(&shape, width, style.outline_color);
+            }
         }
 
         // if style.clip {
@@ -131,7 +145,9 @@ pub const Renderer = struct {
             self.drawBgColor(&shape, style.background_color);
         }
 
-        // TODO: image(s)
+        for (style.background_image) |*img| {
+            self.drawBackgroundImage(img);
+        }
 
         // TODO: scroll
         // self.vg.translate(dx, dy);
@@ -139,57 +155,71 @@ pub const Renderer = struct {
         return true;
     }
 
-    fn closeElement(self: *Self) void {
+    fn closeElement(self: *Renderer) void {
         // TODO: optional border
 
         self.vg.restore();
     }
 
-    fn drawBgColor(self: *Self, shape: *const Shape, color: Color) void {
-        self.fillShape(shape, .{ .color = color });
+    fn drawBgColor(self: *Renderer, shape: *const Shape, color: Color) void {
+        self.drawShape(shape);
+        self.vg.fillColor(nvgColor(color));
+        self.vg.fill();
     }
 
-    fn drawOutline(self: *Self, shape: *const Shape, outline: Style.Outline) void {
-        self.vg.beginPath();
-        self.vg.rect(shape.rect.x, shape.rect.y, shape.rect.w, shape.rect.h);
-        self.vg.strokeWidth(outline.width);
-        self.vg.strokeColor(outline.color);
+    fn drawBackgroundImage(_: *Renderer, _: *const BackgroundImage) void {
+        std.debug.print("TODO: drawBackgroundImage", .{});
+    }
+
+    fn drawOutline(self: *Renderer, shape: *const Shape, width: f32, color: Color) void {
+        self.drawShape(shape);
+
+        self.vg.strokeWidth(width);
+        self.vg.strokeColor(nvgColor(color));
         self.vg.stroke();
     }
 
     // TODO: something here is wrong... good luck, future me :-D
-    fn drawShadow(self: *Self, shape: *const Shape, shadow: Style.BoxShadow) void {
+    fn drawShadow(self: *Renderer, shape: *const Shape, shadow: *const Shadow) void {
         const rect = shape.rect;
-        var out_rect = Rect{
-            .x = rect.x - shadow.blur,
-            .y = rect.y - shadow.blur,
-            .w = rect.w + 2 * shadow.blur,
-            .h = rect.h + 2 * shadow.blur,
+        var out_rect: [4]f32 = .{
+            rect[0] - shadow.blur,
+            rect[1] - shadow.blur,
+            rect[2] + 2 * shadow.blur,
+            rect[3] + 2 * shadow.blur,
         };
-        var col = shadow.color;
+        var col = nvgColor(shadow.color);
         // col.a *= rect.w / out_rect.w;
-        const paint = self.vg.boxGradient(rect.x, rect.y, rect.w, rect.h, shape.radius, shadow.blur, col, TRANSPARENT);
+        const paint = self.vg.boxGradient(rect[0], rect[1], rect[2], rect[3], shape.radii[0], shadow.blur, col, nvgColor(TRANSPARENT));
         // TODO(later): shape.winding?
         // self.vg.pathWinding(nvg.Winding.solidity(.hole));
-        self.fillShape(&Shape{ .rect = out_rect }, .{ .paint = paint });
-    }
-
-    fn fillShape(self: *Self, shape: *const Shape, fill: union(enum) { color: nvg.Color, paint: nvg.Paint }) void {
-        // std.log.debug("shape {any}\n", .{shape});
-
-        self.vg.beginPath();
-
-        if (shape.radius != 0) {
-            self.vg.roundedRect(shape.rect.x, shape.rect.y, shape.rect.w, shape.rect.h, shape.radius);
-        } else {
-            self.vg.rect(shape.rect.x, shape.rect.y, shape.rect.w, shape.rect.h);
-        }
-
-        switch (fill) {
-            .color => |c| self.vg.fillColor(c),
-            .paint => |p| self.vg.fillPaint(p),
-        }
-
+        self.drawShape(&Shape{ .rect = out_rect });
+        self.vg.fillPaint(paint);
         self.vg.fill();
     }
+
+    fn drawShape(self: *Renderer, shape: *const Shape) void {
+        self.vg.beginPath();
+
+        if (std.meta.eql(shape.radii, .{ 0, 0, 0, 0 })) {
+            self.vg.rect(shape.rect[0], shape.rect[1], shape.rect[2], shape.rect[3]);
+        } else if (shape.radii[0] == shape.radii[1] and shape.radii[0] == shape.radii[2] and shape.radii[0] == shape.radii[3]) {
+            self.vg.roundedRect(shape.rect[0], shape.rect[1], shape.rect[2], shape.rect[3], shape.radii[0]);
+        } else {
+            self.vg.roundedRectVarying(
+                shape.rect[0],
+                shape.rect[1],
+                shape.rect[2],
+                shape.rect[3],
+                shape.radii[0],
+                shape.radii[1],
+                shape.radii[2],
+                shape.radii[3],
+            );
+        }
+    }
 };
+
+fn nvgColor(color: Color) nvg.Color {
+    return nvg.rgba(color.r, color.g, color.b, color.a);
+}

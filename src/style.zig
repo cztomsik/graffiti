@@ -1,242 +1,116 @@
 const std = @import("std");
-const layout = @import("layout.zig");
-const css = @import("css.zig");
-const nvg = @import("nanovg");
+const layout = @import("emlay");
+
+// re-export layout types
+pub const Display = layout.Display;
+pub const FlexDirection = layout.FlexDirection;
+pub const FlexWrap = layout.FlexWrap;
+pub const AlignContent = layout.AlignContent;
+pub const AlignItems = layout.AlignItems;
+pub const AlignSelf = layout.AlignSelf;
+pub const JustifyContent = layout.JustifyContent;
+pub const Position = layout.Position;
+pub const Dimension = layout.Dimension;
+
+pub const Visibility = enum { visible, hidden };
+pub const Overflow = enum { visible, hidden, scroll, auto };
+pub const Color = struct { r: u8, g: u8, b: u8, a: u8 };
+pub const Shadow = struct { offset: [2]f32, blur: f32, spread: f32, color: Color };
+pub const OutlineStyle = enum { none, solid };
+pub const BackgroundImage = union(enum) { url: []const u8, linear_gradient: LinearGradient };
+pub const LinearGradient = struct { angle: f32, stops: []const ColorStop };
+pub const ColorStop = struct { pos: f32, color: Color };
+pub const BorderStyle = enum { none, solid };
+
+pub const TRANSPARENT: Color = .{ .r = 0, .g = 0, .b = 0, .a = 0 };
+pub const CURRENT_COLOR: Color = .{ .r = 0, .g = 0, .b = 0, .a = 255 }; // TODO
+pub const ZERO: Dimension = .{ .px = 0 };
 
 pub const Style = struct {
-    flags: packed struct {
-        display: layout.Display = .flex,
-    } = .{},
-    w: layout.Dimension = .auto,
+    display: Display = .flex,
 
-    const Self = @This();
+    // size
+    width: Dimension = .auto,
+    height: Dimension = .auto,
+    min_width: Dimension = .auto,
+    min_height: Dimension = .auto,
+    max_width: Dimension = .auto,
+    max_height: Dimension = .auto,
 
-    pub const cssMapping = .{
-        .properties = .{
-            .{ "display", display, setDisplay },
-            .{ "width", width, setWidth },
-        },
-    };
+    // flex
+    flex_grow: f32 = 0,
+    flex_shrink: f32 = 1,
+    flex_basis: Dimension = .auto, // .percent = 0
+    flex_direction: FlexDirection = .row,
+    flex_wrap: FlexWrap = .no_wrap,
 
-    pub fn display(self: *const Self) layout.Display {
-        return self.flags.display;
-    }
+    // align
+    align_content: AlignContent = .stretch,
+    align_items: AlignItems = .stretch,
+    align_self: AlignSelf = .auto,
+    justify_content: JustifyContent = .flex_start,
 
-    pub fn setDisplay(self: *Self, value: layout.Display) void {
-        self.flags.display = value;
-    }
+    // padding
+    padding_top: Dimension = ZERO,
+    padding_right: Dimension = ZERO,
+    padding_bottom: Dimension = ZERO,
+    padding_left: Dimension = ZERO,
 
-    pub fn width(self: *const Self) layout.Dimension {
-        return self.w;
-    }
+    // margin
+    margin_top: Dimension = ZERO,
+    margin_right: Dimension = ZERO,
+    margin_bottom: Dimension = ZERO,
+    margin_left: Dimension = ZERO,
 
-    pub fn setWidth(self: *Self, value: layout.Dimension) void {
-        self.w = value;
-    }
+    // position: Position = .relative, // TODO: should be .static
+    // top: Dimension = .auto,
+    // right: Dimension = .auto,
+    // bottom: Dimension = .auto,
+    // left: Dimension = .auto,
+
+    visibility: Visibility = .visible,
+    opacity: f32 = 1,
+
+    // transform: []const Transform = &.{},
+
+    // overflow
+    overflow_x: Overflow = .visible,
+    overflow_y: Overflow = .visible,
+
+    // border-radius
+    border_top_left_radius: Dimension = ZERO,
+    border_top_right_radius: Dimension = ZERO,
+    border_bottom_right_radius: Dimension = ZERO,
+    border_bottom_left_radius: Dimension = ZERO,
+
+    // box-shadow
+    box_shadow: []const Shadow = &.{},
+
+    // outline
+    outline_width: Dimension = .{ .px = 3 },
+    outline_style: OutlineStyle = .none,
+    outline_color: Color = CURRENT_COLOR,
+
+    // background
+    background_color: Color = TRANSPARENT,
+    background_image: []const BackgroundImage = &.{},
+
+    // border
+    border_top_width: Dimension = .{ .px = 3 },
+    border_top_style: BorderStyle = .none,
+    border_top_color: Color = CURRENT_COLOR,
+    border_right_width: Dimension = .{ .px = 3 },
+    border_right_style: BorderStyle = .none,
+    border_right_color: Color = CURRENT_COLOR,
+    border_bottom_width: Dimension = .{ .px = 3 },
+    border_bottom_style: BorderStyle = .none,
+    border_bottom_color: Color = CURRENT_COLOR,
+    border_left_width: Dimension = .{ .px = 3 },
+    border_left_style: BorderStyle = .none,
+    border_left_color: Color = CURRENT_COLOR,
+
+    // text
+    // font_family: []const u8 = "sans-serif",
+    // font_size: Dimension = .{ .px = 16 },
+    // ...
 };
-
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-
-// pub const Style = struct {
-//     flags: packed struct {
-//         display: layout.Display = .flex,
-//         // position: layout.Position = .static,
-//         // flex_direction: layout.FlexDirection = .row,
-//         // flex_wrap: layout.FlexWrap = .no_wrap,
-//         // align_content: layout.AlignContent = .stretch,
-//         // align_items: layout.AlignItems = .stretch,
-//         // align_self: layout.AlignSelf = .auto,
-//         // justify_content: layout.JustifyContent = .flex_start,
-//         // visibility: Visibility = .visible
-//         // overflow: [2]Overflow = .visible,
-//     } = .{},
-
-//     // outline
-//     // box_shadow
-//     // text - family, size, line-height, text-align, color
-
-//     // TODO: min/max
-//     // TODO: split tag and f32 value
-//     // TODO: technically, size can never be <0 (margin & position is the only exception)
-//     // width: layout.Dimension = .auto,
-//     // height: layout.Dimension = .auto,
-//     // min_width: layout.Dimension = .auto,
-//     // min_height: layout.Dimension = .auto,
-//     // max_width: layout.Dimension = .auto,
-//     // max_height: layout.Dimension = .auto,
-
-//     // padding: Rect(layout.Dimension, .{ .px = 0 }) = .{},
-//     // margin: Rect(layout.Dimension, .{ .px = 0 }) = .{},
-
-//     // top: layout.Dimension = .auto
-//     // right: layout.Dimension = .auto
-//     // left: layout.Dimension = .auto
-//     // bottom: layout.Dimension = .auto
-
-//     // flex: Flex = .{},
-
-//     // border_width: [4]u8 = .{ 0, 0, 0, 0 },
-
-//     // border_radius: [4]u8 = .{ 0, 0, 0, 0 },
-//     // border_color: [4]Color = undefined,
-
-//     // opacity: f32 = 1, // or just packed 1/1000 precision? we mostly just check for 1 anyway
-
-//     // background_color: Color = Color.TRANSPARENT,
-//     // outline: Outline = .{ .style = .none, .color = Color.TRANSPARENT },
-//     // box_shadow: ?BoxShadow = null,
-
-//     const Self = @This();
-
-//     pub fn getDisplay(self: *Self) layout.Display {
-//         return self.flags.display;
-//     }
-
-//     pub fn setDisplay(self: *Self, value: layout.Display) void {
-//         self.flags.display = value;
-//     }
-
-//     // fn getWidth(self: *Self) layout.Dimension {
-//     //     return self.width;
-//     // }
-
-//     // fn setWidth(self: *Self, value: layout.Dimension) void {
-//     //     self.width = value;
-//     // }
-
-//     // fn getHeight(self: *Self) layout.Dimension {
-//     //     return self.height;
-//     // }
-
-//     // fn setHeight(self: *Self, value: layout.Dimension) void {
-//     //     self.height = value;
-//     // }
-
-//     // fn getFlexGrow(self: *Self) f32 {
-//     //     return self.flex_grow;
-//     // }
-
-//     // fn setFlexGrow(self: *Self, value: f32) void {
-//     //     self.flex_grow = value;
-//     // }
-
-//     // fn getFlexShrink(self: *Self) f32 {
-//     //     return self.flex_shrink;
-//     // }
-
-//     // fn setFlexShrink(self: *Self, value: f32) void {
-//     //     self.flex_shrink = value;
-//     // }
-
-//     // fn getBorder(self: *Self) Border {
-//     //     return .{ .width = self.border_widths[0], .style = self.border_style[0], .color = self.border_color[0] };
-//     // }
-
-//     // fn setBorder(self: *Self, border: Border) void {
-//     //     self.setBorderWidth(border.width);
-//     //     self.setBorderStyle(border.style);
-//     //     self.setBorderColor(border.color);
-//     // }
-
-//     // // fn getBorderWidth(self: *Self) void {}
-//     // // fn setBorderWidth(self: *Self) void {}
-
-//     // // fn getBorderRightWidth(self: *Self) f32 {}
-//     // // fn setBorderRightWidth(self: *Self) void {}
-
-//     // // fn getBorderRadius(self: *Self) void {}
-//     // // fn setBorderRadius(self: *Self) void {}
-//     // pub const Flex = struct {
-//     //     grow: f32 = 0,
-//     //     shrink: f32 = 0,
-//     //     basis: layout.Dimension = .auto, // .{ .percent = 0 }
-//     // };
-
-//     // pub const Outline = struct {
-//     //     width: f32 = 3,
-//     //     style: enum { none, solid },
-//     //     color: Color = Color.TRANSPARENT,
-//     // };
-
-//     // pub const BoxShadow = struct {
-//     //     x: f32,
-//     //     y: f32,
-//     //     blur: f32 = 0,
-//     //     spread: f32 = 0,
-//     //     color: Color = Color.TRANSPARENT,
-//     // };
-
-//     // pub fn Rect(comptime T: type, comptime default: T) type {
-//     //     return struct {
-//     //         top: T = default,
-//     //         right: T = default,
-//     //         bottom: T = default,
-//     //         left: T = default,
-//     //     };
-//     // }
-// };
-
-// // const Color = struct {
-// //     r: u8 = 0,
-// //     g: u8 = 0,
-// //     b: u8 = 0,
-// //     a: u8 = 0,
-
-// //     const Self = @This();
-
-// //     const TRANSPARENT: Self = .{};
-
-// //     pub fn rgba(r: u8, g: u8, b: u8, a: u8) Color {
-// //         return .{ .r = r, .g = g, .b = b, .a = a };
-// //     }
-// // };
-
-// // pub const Border = struct { width: layout.Dimension, style: BorderStyle, color: Color };
-
-// // pub const BorderStyle = enum { none, solid };
