@@ -1,3 +1,9 @@
+// minimal subset of DOM and CSSOM to get Preact working
+// everything else is supposed to be in polyfills
+//
+// note that everything is in one file, this is intentional, we want to keep
+// things simple & minimal
+
 import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
 const native = require('./zig-out/lib/graffiti.node')
@@ -21,6 +27,7 @@ class EventTarget {
       for (const l of curr[LISTENERS][event.type] ?? []) {
         l.call(curr, event)
       }
+      // @ts-ignore
     } while (!event.cancelBubble && (curr = curr.parentNode))
   }
 }
@@ -69,12 +76,23 @@ class Node extends EventTarget {
 }
 
 class Element extends Node {
+  _style = null
+
   get style() {
-    // virtual object, stateless
-    return new CSSStyleDeclaration(this)
+    return this._style || (this._style = native.Element_style(this))
   }
 
-  setAttribute() {}
+  getAttribute(name) {
+    return native.Element_getAttribute(this, name)
+  }
+
+  setAttribute(name, value) {
+    native.Element_setAttribute(this, name, '' + value)
+  }
+
+  removeAttribute(name) {
+    native.Element_removeAttribute(this, name)
+  }
 }
 
 class Text extends Node {
@@ -104,24 +122,40 @@ class Document extends Node {
 const wrap = (obj, Clz) => (Object.setPrototypeOf(obj, Clz.prototype), obj)
 
 class CSSStyleDeclaration {
-  #element
+  get length() {
+    return native.CSSStyleDeclaration_length(this)
+  }
 
-  constructor(element) {
-    this.#element = element
+  item(i) {
+    return native.CSSStyleDeclaration_item(this, i)
+  }
+
+  getPropertyValue(prop) {
+    return native.CSSStyleDeclaration_getPropertyValue(this, prop)
   }
 
   setProperty(prop, value) {
-    // native.Element_setStyleProp(this.#element, prop, '' + value)
+    native.CSSStyleDeclaration_setProperty(this, prop, '' + value)
   }
 
-  set cssText(v) {
-    // native.Element_setStyle(this.#element, v)
+  removeProperty(prop) {
+    native.CSSStyleDeclaration_removeProperty(this, prop)
+  }
+
+  get cssText() {
+    return native.CSSStyleDeclaration_cssText(this)
+  }
+
+  set cssText(cssText) {
+    native.CSSStyleDeclaration_setCssText(this, cssText)
   }
 }
 
+// TODO(perf): try to get list of properties from native and define getters/setters
 Object.setPrototypeOf(
   CSSStyleDeclaration.prototype,
   new Proxy(Object.getPrototypeOf(CSSStyleDeclaration.prototype), {
+    get: (_, k) => native.CSSStyleDeclaration_getProperty(this, k),
     set: (_, k, v, style) => (style.setProperty(k, v), true),
   })
 )
@@ -148,6 +182,8 @@ wrap(window, Window)
 document.body.addEventListener('close', () => process.exit())
 
 class Event {
+  kind
+
   get type() {
     const types = ['close', 'mousemove', 'scroll', 'mousedown', 'mouseup', 'click', 'keydown', 'keypress', 'keyup']
     return types[this.kind]

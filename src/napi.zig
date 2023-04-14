@@ -9,12 +9,12 @@ var document: *lib.Document = undefined;
 var renderer: lib.Renderer = undefined;
 
 comptime {
-    napigen.defineModule(&initModule);
+    napigen.defineModule(initModule);
 }
 
 fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi_value {
     // export init() function which will init native window, and return the globals for JS
-    try js.setNamedProperty(exports, "init", try js.createFunction(&init));
+    try js.setNamedProperty(exports, "init", try js.createFunction(init));
 
     // function wrappers and field getters we want to generate
     // `&` means we want to get a pointer to the field
@@ -30,11 +30,11 @@ fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi
 
         inline for (@field(defs, f.name)) |member| {
             var fun = try js.createFunction(if (comptime std.meta.trait.is(.Pointer)(@TypeOf(member)))
-                &refGetter(T, member.*)
+                refGetter(T, member.*)
             else if (comptime std.meta.trait.hasFn(@tagName(member))(T))
-                &@field(T, @tagName(member))
+                @field(T, @tagName(member))
             else
-                &valGetter(T, member));
+                valGetter(T, member));
 
             const name = if (comptime std.meta.trait.is(.Pointer)(@TypeOf(member)))
                 @tagName(member.*)
@@ -130,6 +130,8 @@ const UvHook = struct {
     // idle task because it continues after the prepare is done (and we don't get blocked if there's no more work)
     // but we also need to stop again because the timeout is always zero if there are any active idle tasks
     fn render(_: [*c]uv_idle_t) callconv(.C) void {
+        document.node.size = window.size();
+        document.update();
         renderer.render(document, window.size(), window.scale());
         window.swapBuffers();
 

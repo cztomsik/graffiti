@@ -2,14 +2,19 @@
   "name": "graffiti",
   "version": "1.0.0",
   "type": "module",
-  "exports": "./graffiti.js",
+  "exports": {
+    ".": "./compat.js",
+    "./core": "./core.js"
+  },
   "scripts": {
     "postinstall": "git clone https://github.com/fabioarnold/nanovg-zig ./libs/nanovg-zig && git clone https://github.com/cztomsik/zig-napigen ./libs/napigen && zig build"
   },
   "files": [
     "src",
     "build.zig",
-    "graffiti.js"
+    "core.js",
+    "compat.js",
+    "polyfills"
   ],
   "repository": {
     "type": "git",

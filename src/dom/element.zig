@@ -27,6 +27,10 @@ pub const Element = struct {
         self.style.deinit();
     }
 
+    pub fn children(self: *Element) Element.ChildrenIterator {
+        return .{ .nodes = self.node.childNodes() };
+    }
+
     pub fn hasAttributes(self: *Element) bool {
         return self.attributes.hash_map.count() > 0;
     }
@@ -48,4 +52,15 @@ pub const Element = struct {
         self.attributes.remove(name);
         self.node.markDirty();
     }
+
+    pub const ChildrenIterator = struct {
+        nodes: Node.ChildNodesIterator,
+
+        pub fn next(self: *ChildrenIterator) ?*Element {
+            while (self.nodes.next()) |node| {
+                if (node.node_type == .element) return node.cast(Element);
+            }
+            return null;
+        }
+    };
 };

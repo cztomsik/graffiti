@@ -101,44 +101,44 @@ pub const Node = struct {
             n.has_dirty = true;
         }
     }
+
+    pub const ChildNodesIterator = struct {
+        next_child: ?*Node,
+
+        pub fn next(self: *ChildNodesIterator) ?*Node {
+            const ch = self.next_child orelse return null;
+            self.next_child = ch.next_sibling;
+            return ch;
+        }
+    };
+
+    // TODO: consider pubslishing node.descendants()
+    //       for now, this is only planned for querySelectorAll()
+    // pub const DescendantsIterator = struct {
+    //     start: *Node,
+    //     pos: *Node,
+
+    //     pub fn next(self: *DescendantsIterator) ?*Node {
+    //         if (self.pos.first_child) |ch| {
+    //             self.pos = ch;
+    //         } else if (self.pos.next_sibling) |n| {
+    //             self.pos = n;
+    //         } else {
+    //             var x = self.pos;
+
+    //             while (true) {
+    //                 if (x == self.start) return null;
+
+    //                 if (x.parent_node.?.next_sibling) |n| {
+    //                     self.pos = n;
+    //                     break;
+    //                 }
+
+    //                 x = x.parent_node.?;
+    //             }
+    //         }
+
+    //         return self.pos;
+    //     }
+    // };
 };
-
-pub const ChildNodesIterator = struct {
-    next_child: ?*Node,
-
-    pub fn next(self: *ChildNodesIterator) ?*Node {
-        const ch = self.next_child orelse return null;
-        self.next_child = ch.next_sibling;
-        return ch;
-    }
-};
-
-// TODO: consider pubslishing node.descendants()
-//       for now, this is only planned for querySelectorAll()
-// pub const DescendantsIterator = struct {
-//     start: *Node,
-//     pos: *Node,
-
-//     pub fn next(self: *DescendantsIterator) ?*Node {
-//         if (self.pos.first_child) |ch| {
-//             self.pos = ch;
-//         } else if (self.pos.next_sibling) |n| {
-//             self.pos = n;
-//         } else {
-//             var x = self.pos;
-
-//             while (true) {
-//                 if (x == self.start) return null;
-
-//                 if (x.parent_node.?.next_sibling) |n| {
-//                     self.pos = n;
-//                     break;
-//                 }
-
-//                 x = x.parent_node.?;
-//             }
-//         }
-
-//         return self.pos;
-//     }
-// };

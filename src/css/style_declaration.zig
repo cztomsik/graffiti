@@ -143,6 +143,16 @@ pub const StyleDeclaration = struct {
         return res;
     }
 
+    pub fn apply(self: *StyleDeclaration, target: anytype) void {
+        for (self.properties.items) |p| {
+            inline for (std.meta.fields(Property)) |f| {
+                if (p == @field(PropertyId, f.name)) {
+                    @field(target, f.name) = @field(p, f.name);
+                }
+            }
+        }
+    }
+
     // helpers
 
     fn propName(prop: Property) []const u8 {

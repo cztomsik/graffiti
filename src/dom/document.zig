@@ -5,9 +5,11 @@
 // but we definitely need stable pointers and same-ptr upcasting for JS
 
 const std = @import("std");
+const emlay = @import("emlay");
 const Node = @import("node.zig").Node;
 const Element = @import("element.zig").Element;
 const CharacterData = @import("character_data.zig").CharacterData;
+const Style = @import("../style.zig").Style;
 const StyleSheet = @import("../css/style_sheet.zig").StyleSheet;
 
 pub const Document = struct {
@@ -68,4 +70,50 @@ pub const Document = struct {
 
         return res;
     }
+
+    pub fn update(self: *Document) void {
+        const root = self.node.first_child orelse return;
+
+        // apply inline styles for all elements
+        self.updateStyles(root.cast(Element));
+
+        emlay.layout(&LayoutContext{}, root, self.node.size);
+    }
+
+    fn updateStyles(self: *Document, element: *Element) void {
+        element.resolved_style = .{};
+        element.style.apply(&element.resolved_style);
+
+        var children = element.children();
+        while (children.next()) |ch| {
+            self.updateStyles(ch);
+        }
+    }
 };
+
+const LayoutContext = struct {
+    pub inline fn resolve(_: @This(), dim: anytype, base: f32) f32 {
+        return dim.resolve(base);
+    }
+
+    pub inline fn style(_: @This(), node: *Node) *const Style {
+        return switch (node.node_type) {
+            .element => &node.cast(Element).resolved_style,
+            .text => &INLINE_STYLE,
+            else => &HIDDEN_STYLE,
+        };
+    }
+
+    pub inline fn children(_: @This(), node: *Node) Node.ChildNodesIterator {
+        return node.childNodes();
+    }
+
+    pub inline fn target(_: @This(), node: *Node) *Node {
+        return node;
+    }
+
+    // pub fn measure(node: *Node, ...) [2]f32 {}
+};
+
+const INLINE_STYLE: Style = .{};
+const HIDDEN_STYLE: Style = .{ .display = .none };

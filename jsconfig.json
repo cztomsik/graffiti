@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "checkJs": true,
+    "target": "ESNext",
+    "module": "NodeNext"
+  },
+  "include": ["core.js", "compat.js", "polyfills"],
+  "exclude": ["node_modules"]
+}
