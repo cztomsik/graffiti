@@ -27,7 +27,7 @@ pub const CURRENT_COLOR: Color = .{ .r = 0, .g = 0, .b = 0, .a = 255 }; // TODO
 pub const ZERO: Dimension = .{ .px = 0 };
 
 pub const Style = struct {
-    display: Display = .flex,
+    display: Display = .block,
 
     // size
     width: Dimension = .auto,

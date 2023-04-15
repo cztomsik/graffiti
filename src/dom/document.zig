@@ -114,6 +114,6 @@ const LayoutContext = struct {
     // pub fn measure(node: *Node, ...) [2]f32 {}
 };
 
-const DOCUMENT_STYLE: Style = .{ .width = .{ .percent = 100 }, .height = .{ .percent = 100 }, .flex_direction = .column };
-const INLINE_STYLE: Style = .{};
+const DOCUMENT_STYLE: Style = .{ .width = .{ .percent = 100 }, .height = .{ .percent = 100 } };
+const INLINE_STYLE: Style = .{ .width = .{ .px = 100 }, .height = .{ .px = 20 } };
 const HIDDEN_STYLE: Style = .{ .display = .none };

@@ -95,15 +95,18 @@ class Element extends Node {
   }
 }
 
-class Text extends Node {
+class CharacterData extends Node {
   get data() {
-    return native.Text_data(this)
+    return native.CharacterData_data(this)
   }
 
   set data(data) {
-    native.Text_setData(this, '' + data)
+    native.CharacterData_setData(this, '' + data)
   }
 }
+
+class Text extends CharacterData {}
+class Comment extends CharacterData {}
 
 class Document extends Node {
   createElement(localName) {
