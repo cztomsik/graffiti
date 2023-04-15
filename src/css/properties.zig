@@ -11,8 +11,13 @@ const std = @import("std");
 const Parser = @import("parser.zig").Parser;
 const style = @import("../style.zig");
 
+// TODO: decide if we want to keep this separate or generate it from the Style
+//       struct. But maybe this is easier to read and it's easier to add custom
+//       parsing for some properties. But we could also use custom type in the
+//       Style struct, so I'm not sure.
+//
 // longhand props, these are stored
-pub const Property = union(enum) {
+pub const Property = union(std.meta.FieldEnum(style.Style)) {
     display: style.Display,
 
     width: style.Dimension,
@@ -64,6 +69,14 @@ pub const Property = union(enum) {
     border_bottom_right_radius: style.Dimension,
     border_bottom_left_radius: style.Dimension,
 
+    visibility: style.Visibility,
+    opacity: f32,
+    overflow_x: style.Overflow,
+    overflow_y: style.Overflow,
+    box_shadow: ?style.Shadow, // TODO: []const style.Shadow,
+    background_color: style.Color,
+    // TODO: background_image: []const style.BackgroundImage,
+
     outline_width: style.Dimension,
     outline_style: style.OutlineStyle,
     outline_color: style.Color,
@@ -102,8 +115,8 @@ pub const Shorthand = union(enum) {
     // TODO: this is simplified but the full syntax is crazy, so
     //       we will likely support just some reasonable subset
     background: struct {
-        background_image: []const style.BackgroundImage,
-        background_color: style.Color = style.Color.TRANSPARENT,
+        // TODO: background_image: []const style.BackgroundImage,
+        background_color: style.Color = style.TRANSPARENT,
     },
 
     // TODO: this should expand to 12 longhands but it should only
@@ -125,34 +138,34 @@ pub const Shorthand = union(enum) {
     },
 
     border_color: struct {
-        border_top_color: style.Color = style.Color.TRANSPARENT,
-        border_right_color: style.Color = style.Color.TRANSPARENT,
-        border_bottom_color: style.Color = style.Color.TRANSPARENT,
-        border_left_color: style.Color = style.Color.TRANSPARENT,
+        border_top_color: style.Color = style.TRANSPARENT,
+        border_right_color: style.Color = style.TRANSPARENT,
+        border_bottom_color: style.Color = style.TRANSPARENT,
+        border_left_color: style.Color = style.TRANSPARENT,
     },
 
     border_top: struct {
         border_top_width: style.Dimension = .{ .px = 3 },
         border_top_style: style.BorderStyle = .none,
-        border_top_color: style.Color = style.Color.TRANSPARENT,
+        border_top_color: style.Color = style.TRANSPARENT,
     },
 
     border_right: struct {
         border_right_width: style.Dimension = .{ .px = 3 },
         border_right_style: style.BorderStyle = .none,
-        border_right_color: style.Color = style.Color.TRANSPARENT,
+        border_right_color: style.Color = style.TRANSPARENT,
     },
 
     border_bottom: struct {
         border_bottom_width: style.Dimension = .{ .px = 3 },
         border_bottom_style: style.BorderStyle = .none,
-        border_bottom_color: style.Color = style.Color.TRANSPARENT,
+        border_bottom_color: style.Color = style.TRANSPARENT,
     },
 
     border_left: struct {
         border_left_width: style.Dimension = .{ .px = 3 },
         border_left_style: style.BorderStyle = .none,
-        border_left_color: style.Color = style.Color.TRANSPARENT,
+        border_left_color: style.Color = style.TRANSPARENT,
     },
 
     border_radius: struct {
@@ -170,7 +183,7 @@ pub const Shorthand = union(enum) {
     outline: struct {
         outline_width: style.Dimension = .{ .px = 3 },
         outline_style: style.OutlineStyle,
-        outline_color: style.Color = style.Color.TRANSPARENT,
+        outline_color: style.Color = style.TRANSPARENT,
     },
 };
 

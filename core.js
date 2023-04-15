@@ -79,7 +79,7 @@ class Element extends Node {
   _style = null
 
   get style() {
-    return this._style || (this._style = native.Element_style(this))
+    return this._style || (this._style = wrap(native.Element_style(this), CSSStyleDeclaration))
   }
 
   getAttribute(name) {

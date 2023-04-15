@@ -107,6 +107,7 @@ pub const Renderer = struct {
             return true;
         }
 
+        const width = element.node.size[0];
         const shape = Shape{
             .rect = .{
                 element.node.pos[0],
@@ -115,10 +116,10 @@ pub const Renderer = struct {
                 element.node.size[1],
             },
             .radii = .{
-                style.border_top_left_radius.resolve(element.node.size[0]),
-                style.border_top_right_radius.resolve(element.node.size[0]),
-                style.border_bottom_right_radius.resolve(element.node.size[0]),
-                style.border_bottom_left_radius.resolve(element.node.size[0]),
+                style.border_top_left_radius.resolve(width),
+                style.border_top_right_radius.resolve(width),
+                style.border_bottom_right_radius.resolve(width),
+                style.border_bottom_left_radius.resolve(width),
             },
         };
 
@@ -126,14 +127,22 @@ pub const Renderer = struct {
         //     self.canvas.concat(matrix);
         // }
 
-        for (style.box_shadow) |*s| {
-            self.drawShadow(&shape, s);
+        // TODO: for (style.box_shadow) |*s| {
+        if (style.box_shadow) |*s| {
+            self.drawShadow(
+                &shape,
+                s.x.resolve(width),
+                s.y.resolve(width),
+                s.blur.resolve(width),
+                s.spread.resolve(width),
+                s.color,
+            );
         }
 
         if (style.outline_style != .none and !std.meta.eql(style.outline_color, TRANSPARENT)) {
-            const width = style.outline_width.resolve(shape.rect[2]);
+            const outline_width = style.outline_width.resolve(shape.rect[2]);
             if (width > 0) {
-                self.drawOutline(&shape, width, style.outline_color);
+                self.drawOutline(&shape, outline_width, style.outline_color);
             }
         }
 
@@ -145,9 +154,9 @@ pub const Renderer = struct {
             self.drawBgColor(&shape, style.background_color);
         }
 
-        for (style.background_image) |*img| {
-            self.drawBackgroundImage(img);
-        }
+        // for (style.background_image) |*img| {
+        //     self.drawBackgroundImage(img);
+        // }
 
         // TODO: scroll
         // self.vg.translate(dx, dy);
@@ -180,17 +189,21 @@ pub const Renderer = struct {
     }
 
     // TODO: something here is wrong... good luck, future me :-D
-    fn drawShadow(self: *Renderer, shape: *const Shape, shadow: *const Shadow) void {
+    fn drawShadow(self: *Renderer, shape: *const Shape, x: f32, y: f32, blur: f32, spread: f32, color: Color) void {
+        _ = spread;
+        _ = y;
+        _ = x;
+
         const rect = shape.rect;
         var out_rect: [4]f32 = .{
-            rect[0] - shadow.blur,
-            rect[1] - shadow.blur,
-            rect[2] + 2 * shadow.blur,
-            rect[3] + 2 * shadow.blur,
+            rect[0] - blur,
+            rect[1] - blur,
+            rect[2] + 2 * blur,
+            rect[3] + 2 * blur,
         };
-        var col = nvgColor(shadow.color);
+        var col = nvgColor(color);
         // col.a *= rect.w / out_rect.w;
-        const paint = self.vg.boxGradient(rect[0], rect[1], rect[2], rect[3], shape.radii[0], shadow.blur, col, nvgColor(TRANSPARENT));
+        const paint = self.vg.boxGradient(rect[0], rect[1], rect[2], rect[3], shape.radii[0], blur, col, nvgColor(TRANSPARENT));
         // TODO(later): shape.winding?
         // self.vg.pathWinding(nvg.Winding.solidity(.hole));
         self.drawShape(&Shape{ .rect = out_rect });

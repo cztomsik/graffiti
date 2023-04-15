@@ -1,3 +1,9 @@
+// TODO: we will probably need to a different way of storing the properties
+//       because some of the props are slices/arrays and even if we used just
+//       fixed size arrays, the size of the Property enum would be huge.
+//       BTW: it's already unnecessarily big so it would probably make sense
+//       to do it even if we didn't have the slices/arrays.
+
 const std = @import("std");
 const Property = @import("properties.zig").Property;
 const Shorthand = @import("properties.zig").Shorthand;
@@ -37,12 +43,12 @@ pub const StyleDeclaration = struct {
     }
 
     /// Returns the number of longhand properties.
-    pub fn length(self: *StyleDeclaration) usize {
-        return self.properties.items.len;
+    pub fn length(self: *StyleDeclaration) u32 {
+        return @truncate(u32, self.properties.items.len);
     }
 
     /// Returns the name of the property at the given index.
-    pub fn item(self: *StyleDeclaration, index: usize) []const u8 {
+    pub fn item(self: *StyleDeclaration, index: u32) []const u8 {
         if (index >= self.length()) return "";
 
         return propName(self.properties.items[index]);

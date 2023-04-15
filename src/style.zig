@@ -15,7 +15,7 @@ pub const Dimension = layout.Dimension;
 pub const Visibility = enum { visible, hidden };
 pub const Overflow = enum { visible, hidden, scroll, auto };
 pub const Color = struct { r: u8, g: u8, b: u8, a: u8 };
-pub const Shadow = struct { offset: [2]f32, blur: f32, spread: f32, color: Color };
+pub const Shadow = struct { x: Dimension, y: Dimension, blur: Dimension, spread: Dimension, color: Color };
 pub const OutlineStyle = enum { none, solid };
 pub const BackgroundImage = union(enum) { url: []const u8, linear_gradient: LinearGradient };
 pub const LinearGradient = struct { angle: f32, stops: []const ColorStop };
@@ -84,7 +84,7 @@ pub const Style = struct {
     border_bottom_left_radius: Dimension = ZERO,
 
     // box-shadow
-    box_shadow: []const Shadow = &.{},
+    box_shadow: ?Shadow = null, // TODO: []const Shadow = &.{},
 
     // outline
     outline_width: Dimension = .{ .px = 3 },
@@ -93,7 +93,7 @@ pub const Style = struct {
 
     // background
     background_color: Color = TRANSPARENT,
-    background_image: []const BackgroundImage = &.{},
+    // TODO: background_image: []const BackgroundImage = &.{},
 
     // border
     border_top_width: Dimension = .{ .px = 3 },

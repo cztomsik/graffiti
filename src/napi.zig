@@ -22,6 +22,7 @@ fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi
         .Node = .{ .parent_node, .first_child, .next_sibling, .appendChild, .insertBefore, .removeChild },
         .Element = .{ .local_name, &.style, .getAttribute, .setAttribute, .removeAttribute },
         .Document = .{ .createElement, .createTextNode, .elementFromPoint },
+        .CSSStyleDeclaration = .{ .length, .item, .getPropertyValue, .setProperty, .removeProperty, .cssText, .setCssText },
     };
 
     // generate bindings

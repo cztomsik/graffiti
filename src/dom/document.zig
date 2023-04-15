@@ -72,12 +72,10 @@ pub const Document = struct {
     }
 
     pub fn update(self: *Document) void {
-        const root = self.node.first_child orelse return;
-
         // apply inline styles for all elements
-        self.updateStyles(root.cast(Element));
+        self.updateStyles((self.node.first_child orelse return).cast(Element));
 
-        emlay.layout(&LayoutContext{}, root, self.node.size);
+        emlay.layout(&LayoutContext{}, &self.node, self.node.size);
     }
 
     fn updateStyles(self: *Document, element: *Element) void {
@@ -100,6 +98,7 @@ const LayoutContext = struct {
         return switch (node.node_type) {
             .element => &node.cast(Element).resolved_style,
             .text => &INLINE_STYLE,
+            .document => &DOCUMENT_STYLE,
             else => &HIDDEN_STYLE,
         };
     }
@@ -115,5 +114,6 @@ const LayoutContext = struct {
     // pub fn measure(node: *Node, ...) [2]f32 {}
 };
 
+const DOCUMENT_STYLE: Style = .{ .width = .{ .percent = 100 }, .height = .{ .percent = 100 }, .flex_direction = .column };
 const INLINE_STYLE: Style = .{};
 const HIDDEN_STYLE: Style = .{ .display = .none };
