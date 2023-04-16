@@ -1,9 +1,12 @@
 [submodule "libgraffiti/nanovg-zig"]
 	path = libs/nanovg-zig
-	url = https://github.com/fabioarnold/nanovg-zig
+	url = https://github.com/cztomsik/nanovg-zig
 [submodule "libgraffiti/glfw"]
 	path = libs/glfw
 	url = https://github.com/glfw/glfw
 [submodule "zig-napigen"]
 	path = libs/napigen
 	url = https://github.com/cztomsik/zig-napigen
+[submodule "libs/emlay"]
+	path = libs/emlay
+	url = https://github.com/cztomsik/emlay

@@ -1,69 +1,116 @@
 const std = @import("std");
-const layout = @import("layout.zig");
-const nvg = @import("nanovg");
+const layout = @import("emlay");
+
+// re-export layout types
+pub const Display = layout.Display;
+pub const FlexDirection = layout.FlexDirection;
+pub const FlexWrap = layout.FlexWrap;
+pub const AlignContent = layout.AlignContent;
+pub const AlignItems = layout.AlignItems;
+pub const AlignSelf = layout.AlignSelf;
+pub const JustifyContent = layout.JustifyContent;
+pub const Position = layout.Position;
+pub const Dimension = layout.Dimension;
+
+pub const Visibility = enum { visible, hidden };
+pub const Overflow = enum { visible, hidden, scroll, auto };
+pub const Color = struct { r: u8, g: u8, b: u8, a: u8 };
+pub const Shadow = struct { x: Dimension, y: Dimension, blur: Dimension, spread: Dimension, color: Color };
+pub const OutlineStyle = enum { none, solid };
+pub const BackgroundImage = union(enum) { url: []const u8, linear_gradient: LinearGradient };
+pub const LinearGradient = struct { angle: f32, stops: []const ColorStop };
+pub const ColorStop = struct { pos: f32, color: Color };
+pub const BorderStyle = enum { none, solid };
+
+pub const TRANSPARENT: Color = .{ .r = 0, .g = 0, .b = 0, .a = 0 };
+pub const CURRENT_COLOR: Color = .{ .r = 0, .g = 0, .b = 0, .a = 255 }; // TODO
+pub const ZERO: Dimension = .{ .px = 0 };
 
 pub const Style = struct {
-    display: layout.Display = .flex,
-    background_color: nvg.Color = nvg.rgba(0, 0, 0, 0),
-    border_radius: f32 = 0,
-    outline: ?Outline = null,
-    box_shadow: ?BoxShadow = null,
+    display: Display = .block,
+
+    // size
+    width: Dimension = .auto,
+    height: Dimension = .auto,
+    min_width: Dimension = .auto,
+    min_height: Dimension = .auto,
+    max_width: Dimension = .auto,
+    max_height: Dimension = .auto,
+
+    // flex
+    flex_grow: f32 = 0,
+    flex_shrink: f32 = 1,
+    flex_basis: Dimension = .auto, // .percent = 0
+    flex_direction: FlexDirection = .row,
+    flex_wrap: FlexWrap = .no_wrap,
+
+    // align
+    align_content: AlignContent = .stretch,
+    align_items: AlignItems = .stretch,
+    align_self: AlignSelf = .auto,
+    justify_content: JustifyContent = .flex_start,
+
+    // padding
+    padding_top: Dimension = ZERO,
+    padding_right: Dimension = ZERO,
+    padding_bottom: Dimension = ZERO,
+    padding_left: Dimension = ZERO,
+
+    // margin
+    margin_top: Dimension = ZERO,
+    margin_right: Dimension = ZERO,
+    margin_bottom: Dimension = ZERO,
+    margin_left: Dimension = ZERO,
+
+    // position: Position = .relative, // TODO: should be .static
+    // top: Dimension = .auto,
+    // right: Dimension = .auto,
+    // bottom: Dimension = .auto,
+    // left: Dimension = .auto,
+
+    visibility: Visibility = .visible,
     opacity: f32 = 1,
 
-    width: layout.Dimension = .auto,
-    height: layout.Dimension = .auto,
-    // min_width: layout.Dimension = .auto,
-    // min_height: layout.Dimension = .auto,
-    // max_width: layout.Dimension = .auto,
-    // max_height: layout.Dimension = .auto,
+    // transform: []const Transform = &.{},
 
-    padding: Rect(layout.Dimension, .{ .px = 0 }) = .{},
-    margin: Rect(layout.Dimension, .{ .px = 0 }) = .{},
-    // border: ? = ?,
+    // overflow
+    overflow_x: Overflow = .visible,
+    overflow_y: Overflow = .visible,
 
-    // position: layout.Position = .static,
-    // top: layout.Dimension = .auto
-    // right: layout.Dimension = .auto
-    // left: layout.Dimension = .auto
-    // bottom: layout.Dimension = .auto
+    // border-radius
+    border_top_left_radius: Dimension = ZERO,
+    border_top_right_radius: Dimension = ZERO,
+    border_bottom_right_radius: Dimension = ZERO,
+    border_bottom_left_radius: Dimension = ZERO,
 
-    flex: Flex = .{},
-    flex_direction: layout.FlexDirection = .row,
-    // flex_wrap: layout.FlexWrap = .no_wrap,
+    // box-shadow
+    box_shadow: ?Shadow = null, // TODO: []const Shadow = &.{},
 
-    // align_content: layout.AlignContent = .stretch,
-    // align_items: layout.AlignItems = .stretch,
-    // align_self: layout.AlignSelf = .auto,
-    // justify_content: layout.JustifyContent = .flex_start,
+    // outline
+    outline_width: Dimension = .{ .px = 3 },
+    outline_style: OutlineStyle = .none,
+    outline_color: Color = CURRENT_COLOR,
 
-    pub const INLINE = Style{ .display = .@"inline" };
+    // background
+    background_color: Color = TRANSPARENT,
+    // TODO: background_image: []const BackgroundImage = &.{},
 
-    pub const Flex = struct {
-        grow: f32 = 0,
-        shrink: f32 = 0,
-        basis: layout.Dimension = .auto, // .{ .percent = 0 }
-    };
+    // border
+    border_top_width: Dimension = .{ .px = 3 },
+    border_top_style: BorderStyle = .none,
+    border_top_color: Color = CURRENT_COLOR,
+    border_right_width: Dimension = .{ .px = 3 },
+    border_right_style: BorderStyle = .none,
+    border_right_color: Color = CURRENT_COLOR,
+    border_bottom_width: Dimension = .{ .px = 3 },
+    border_bottom_style: BorderStyle = .none,
+    border_bottom_color: Color = CURRENT_COLOR,
+    border_left_width: Dimension = .{ .px = 3 },
+    border_left_style: BorderStyle = .none,
+    border_left_color: Color = CURRENT_COLOR,
 
-    pub const Outline = struct {
-        width: f32 = 3,
-        style: enum { none, solid },
-        color: nvg.Color,
-    };
-
-    pub const BoxShadow = struct {
-        x: f32,
-        y: f32,
-        blur: f32 = 0,
-        spread: f32 = 0,
-        color: nvg.Color,
-    };
-
-    pub fn Rect(comptime T: type, comptime default: T) type {
-        return struct {
-            top: T = default,
-            right: T = default,
-            bottom: T = default,
-            left: T = default,
-        };
-    }
+    // text
+    // font_family: []const u8 = "sans-serif",
+    // font_size: Dimension = .{ .px = 16 },
+    // ...
 };

@@ -73,10 +73,7 @@ pub const Selector = struct {
         var combinator: ?Part = null;
 
         while (parser.tokenizer.next() catch null) |tok| {
-            if (tok == .lcurly) {
-                if (combinator != null) return error.ComponentExpected;
-                break;
-            }
+            if (tok == .lcurly) break;
 
             const component: ?Part = switch (tok) {
                 .star => Part.universal,
@@ -90,13 +87,15 @@ pub const Selector = struct {
             if (component) |comp| {
                 if (combinator) |comb| {
                     try parts.append(comb);
-                } else if (parser.tokenizer.space == .before) {
+                } else if (parser.tokenizer.space_before) {
                     try parts.append(Part.ancestor);
                 }
 
                 try parts.append(comp);
                 combinator = null;
             } else {
+                if (combinator != null) return error.InvalidToken;
+
                 combinator = switch (tok) {
                     .gt => Part.parent,
                     .comma => Part.@"or",
@@ -107,11 +106,15 @@ pub const Selector = struct {
             }
         }
 
+        if (parts.items.len == 0 or combinator != null) {
+            return error.Eof;
+        }
+
         // save in reverse
         std.mem.reverse(Part, parts.items);
 
         return Self{
-            .parts = parts.toOwnedSlice(),
+            .parts = try parts.toOwnedSlice(),
         };
     }
 
@@ -240,12 +243,15 @@ test "parsing" {
     try expectParts("* + *", &.{ .universal, .unsupported, .universal });
     try expectParts("* ~ *", &.{ .universal, .unsupported, .universal });
 
+    // this should be invalid but it makes rule parsing easier
+    try expectParts("* {", &.{.universal});
+
     // invalid
-    // TODO
-    // try expectParse(Selector, "", error.Eof);
-    // try expectParse(Selector, " ", error.Eof);
-    // try expectParse(Selector, "a,,b", error.invalid);
-    // try expectParse(Selector, "a>>b", error.invalid);
+    try expectParse(Selector, "", error.Eof);
+    try expectParse(Selector, " ", error.Eof);
+    try expectParse(Selector, "foo + {", error.Eof);
+    try expectParse(Selector, "a,,b", error.InvalidToken);
+    try expectParse(Selector, "a>>b", error.InvalidToken);
 
     // TODO: bugs & edge-cases
     // try expectParts("input[type=\"submit\"]", &.{ Unsupported, LocalName("input")]);

@@ -1,13 +1,15 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
-const document = @import("document.zig");
-const renderer = @import("renderer.zig");
+pub const Node = @import("dom/node.zig").Node;
+pub const Element = @import("dom/element.zig").Element;
+pub const CharacterData = @import("dom/character_data.zig").CharacterData;
+pub const Document = @import("dom/document.zig").Document;
 
-pub const Document = document.Document;
-pub const Node = document.Node;
-pub const Element = document.Element;
-pub const Renderer = renderer.Renderer;
+pub const CSSStyleDeclaration = @import("css/style_declaration.zig").StyleDeclaration;
+
+pub const Renderer = @import("renderer.zig").Renderer;
+pub const Window = @import("platform.zig").Window;
 
 comptime {
     if (!builtin.is_test) {
@@ -16,5 +18,5 @@ comptime {
 }
 
 test {
-    std.testing.refAllDecls(@This());
+    std.testing.refAllDeclsRecursive(Document);
 }

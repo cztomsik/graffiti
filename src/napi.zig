@@ -2,65 +2,65 @@ const std = @import("std");
 const napigen = @import("napigen");
 const lib = @import("root");
 const platform = @import("platform.zig");
-const Style = @import("style.zig").Style;
-const css = @import("css.zig");
 
 // globals
-var window: *platform.Window = undefined;
+var window: *lib.Window = undefined;
 var document: *lib.Document = undefined;
 var renderer: lib.Renderer = undefined;
 
 comptime {
-    napigen.defineModule(&initModule);
-}
-
-fn Text_data(node: *lib.Node) ![]const u8 {
-    return if (node.as(.text)) |t| t else error.InvalidNode;
-}
-
-fn Text_setData(node: *lib.Node, data: []const u8) !void {
-    return if (node.data == .text) {
-        node.data = .{ .text = try node.document.allocator.dupe(u8, data) };
-    } else error.InvalidNode;
-}
-
-fn Element_setStyle(node: *lib.Node, style: []const u8) !void {
-    if (node.as(.element)) |el| {
-        var parser = css.Parser.init(napigen.allocator, style);
-        el.style = try parser.parse(css.StyleDeclaration(Style));
-        // std.log.debug("style = {any}", .{el.style});
-    }
-}
-
-fn Element_setStyleProp(node: *lib.Node, prop_name: []const u8, prop_value: []const u8) !void {
-    if (node.as(.element)) |el| {
-        el.style.setProperty(prop_name, prop_value);
-        // std.log.debug("style = {any}", .{el.style});
-    }
+    napigen.defineModule(initModule);
 }
 
 fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi_value {
-    try js.setNamedProperty(exports, "Document_createElement", try js.createFunction(&lib.Document.createElement));
-    try js.setNamedProperty(exports, "Document_createTextNode", try js.createFunction(&lib.Document.createTextNode));
-    try js.setNamedProperty(exports, "Document_elementFromPoint", try js.createFunction(&lib.Document.elementFromPoint));
-    try js.setNamedProperty(exports, "Node_appendChild", try js.createFunction(&lib.Node.appendChild));
-    try js.setNamedProperty(exports, "Node_parentNode", try js.createFunction(&getter(lib.Node, .parent_node)));
-    try js.setNamedProperty(exports, "Node_firstChild", try js.createFunction(&getter(lib.Node, .first_child)));
-    // try js.setNamedProperty(exports, "Node_previousSibling", try js.createFunction(&getter(Node, .previous_sibling)));
-    try js.setNamedProperty(exports, "Node_nextSibling", try js.createFunction(&getter(lib.Node, .next_sibling)));
-    try js.setNamedProperty(exports, "Element_setStyle", try js.createFunction(&Element_setStyle));
-    try js.setNamedProperty(exports, "Element_setStyleProp", try js.createFunction(&Element_setStyleProp));
-    try js.setNamedProperty(exports, "Text_data", try js.createFunction(&Text_data));
-    try js.setNamedProperty(exports, "Text_setData", try js.createFunction(&Text_setData));
-    try js.setNamedProperty(exports, "init", try js.createFunction(&init));
+    // export init() function which will init native window, and return the globals for JS
+    try js.setNamedProperty(exports, "init", try js.createFunction(init));
+
+    // function wrappers and field getters we want to generate
+    // `&` means we want to get a pointer to the field
+    const defs = .{
+        .Node = .{ .parent_node, .first_child, .next_sibling, .appendChild, .insertBefore, .removeChild },
+        .Element = .{ .local_name, &.style, .getAttribute, .setAttribute, .removeAttribute },
+        .CharacterData = .{ .data, .setData },
+        .Document = .{ .createElement, .createTextNode, .elementFromPoint },
+        .CSSStyleDeclaration = .{ .length, .item, .getPropertyValue, .setProperty, .removeProperty, .cssText, .setCssText },
+    };
+
+    // generate bindings
+    inline for (std.meta.fields(@TypeOf(defs))) |f| {
+        const T = @field(lib, f.name);
+
+        inline for (@field(defs, f.name)) |member| {
+            var fun = try js.createFunction(if (comptime std.meta.trait.is(.Pointer)(@TypeOf(member)))
+                refGetter(T, member.*)
+            else if (comptime std.meta.trait.hasFn(@tagName(member))(T))
+                @field(T, @tagName(member))
+            else
+                valGetter(T, member));
+
+            const name = if (comptime std.meta.trait.is(.Pointer)(@TypeOf(member)))
+                @tagName(member.*)
+            else
+                @tagName(member);
+            try js.setNamedProperty(exports, f.name ++ "_" ++ name, fun);
+        }
+    }
 
     return exports;
 }
 
-fn getter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) std.meta.fieldInfo(T, field).type {
+fn valGetter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) std.meta.fieldInfo(T, field).type {
     return (struct {
         fn get(ptr: *T) std.meta.fieldInfo(T, field).type {
             return @field(ptr, @tagName(field));
+        }
+    }).get;
+}
+
+fn refGetter(comptime T: type, comptime field: std.meta.FieldEnum(T)) fn (*T) *std.meta.fieldInfo(T, field).type {
+    return (struct {
+        fn get(ptr: *T) *std.meta.fieldInfo(T, field).type {
+            return &@field(ptr, @tagName(field));
         }
     }).get;
 }
@@ -132,6 +132,8 @@ const UvHook = struct {
     // idle task because it continues after the prepare is done (and we don't get blocked if there's no more work)
     // but we also need to stop again because the timeout is always zero if there are any active idle tasks
     fn render(_: [*c]uv_idle_t) callconv(.C) void {
+        document.node.size = window.size();
+        document.update();
         renderer.render(document, window.size(), window.scale());
         window.swapBuffers();
 

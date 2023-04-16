@@ -71,6 +71,10 @@ pub fn init() !void {
     if (c.glfwInit() == 0) return error.GlfwInitFailed;
 }
 
+pub fn deinit() void {
+    c.glfwTerminate();
+}
+
 pub fn pollEvents() void {
     c.glfwPollEvents();
 }
