@@ -27,15 +27,21 @@ const styles = {
   counter: {
     width: 400,
     height: 300,
-    background: '#ff0',
+    // TODO: color parsing
+    background: '245 245 245 255',
     display: 'flex',
     flexDirection: 'column',
-    padding: 20,
+    // TODO: shorthand
+    paddingTop: 20,
+    paddingRight: 20,
+    paddingBottom: 20,
+    paddingLeft: 20,
     justifyContent: 'space-between',
   },
 
   bar: {
-    background: '#f00',
+    // TODO: color parsing
+    background: '255 0 0 255',
     height: 20,
   },
 
@@ -45,7 +51,9 @@ const styles = {
   },
 
   button: {
-    background: '#22f',
+    // TODO: this shouldn't be necessary
+    display: 'flex',
+    background: '200 200 255 255',
   },
 }
 
