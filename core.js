@@ -122,6 +122,7 @@ class Document extends Node {
   }
 }
 
+const kebabCase = s => s.replace(/[A-Z]/g, c => '-' + c.toLowerCase())
 const wrap = (obj, Clz) => (Object.setPrototypeOf(obj, Clz.prototype), obj)
 
 class CSSStyleDeclaration {
@@ -159,7 +160,7 @@ Object.setPrototypeOf(
   CSSStyleDeclaration.prototype,
   new Proxy(Object.getPrototypeOf(CSSStyleDeclaration.prototype), {
     get: (_, k) => native.CSSStyleDeclaration_getProperty(this, k),
-    set: (_, k, v, style) => (style.setProperty(k, v), true),
+    set: (_, k, v, style) => (style.setProperty(kebabCase(String(k)), v), true),
   })
 )
 
