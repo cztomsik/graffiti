@@ -11,7 +11,6 @@ const CharacterData = @import("dom/character_data.zig").CharacterData;
 const Document = @import("dom/document.zig").Document;
 const Style = @import("style.zig").Style;
 const Color = @import("style.zig").Color;
-const Shadow = @import("style.zig").Shadow;
 const OutlineStyle = @import("style.zig").OutlineStyle;
 const BackgroundImage = @import("style.zig").BackgroundImage;
 const TRANSPARENT = @import("style.zig").TRANSPARENT;
@@ -116,10 +115,11 @@ pub const Renderer = struct {
                 element.node.size[1],
             },
             .radii = .{
-                style.border_top_left_radius.resolve(width),
-                style.border_top_right_radius.resolve(width),
-                style.border_bottom_right_radius.resolve(width),
-                style.border_bottom_left_radius.resolve(width),
+                // TODO: resolve
+                style.border_top_left_radius.px,
+                style.border_top_right_radius.px,
+                style.border_bottom_right_radius.px,
+                style.border_bottom_left_radius.px,
             },
         };
 
@@ -131,16 +131,18 @@ pub const Renderer = struct {
         if (style.box_shadow) |*s| {
             self.drawShadow(
                 &shape,
-                s.x.resolve(width),
-                s.y.resolve(width),
-                s.blur.resolve(width),
-                s.spread.resolve(width),
+                // TODO: resolve
+                s.x.px,
+                s.y.px,
+                s.blur.px,
+                s.spread.px,
                 s.color,
             );
         }
 
         if (style.outline_style != .none and !std.meta.eql(style.outline_color, TRANSPARENT)) {
-            const outline_width = style.outline_width.resolve(shape.rect[2]);
+            // TODO: resolve
+            const outline_width = style.outline_width.px;
             if (width > 0) {
                 self.drawOutline(&shape, outline_width, style.outline_color);
             }

@@ -73,7 +73,7 @@ pub const Property = union(std.meta.FieldEnum(style.Style)) {
     opacity: f32,
     overflow_x: style.Overflow,
     overflow_y: style.Overflow,
-    box_shadow: ?style.Shadow, // TODO: []const style.Shadow,
+    box_shadow: ?style.BoxShadow, // TODO: []const style.BoxShadow,
     background_color: style.Color,
     // TODO: background_image: []const style.BackgroundImage,
 

@@ -91,7 +91,12 @@ pub const Document = struct {
 
 const LayoutContext = struct {
     pub inline fn resolve(_: @This(), dim: anytype, base: f32) f32 {
-        return dim.resolve(base);
+        return switch (dim) {
+            .auto => std.math.nan_f32,
+            .px => |v| v,
+            .percent => |v| v * base,
+            else => @panic("TODO"),
+        };
     }
 
     pub inline fn style(_: @This(), node: *Node) *const Style {

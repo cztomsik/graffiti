@@ -1,7 +1,8 @@
 const std = @import("std");
 const layout = @import("emlay");
+const Parser = @import("css/parser.zig").Parser;
 
-// re-export layout types
+// layout enums
 pub const Display = layout.Display;
 pub const FlexDirection = layout.FlexDirection;
 pub const FlexWrap = layout.FlexWrap;
@@ -10,18 +11,31 @@ pub const AlignItems = layout.AlignItems;
 pub const AlignSelf = layout.AlignSelf;
 pub const JustifyContent = layout.JustifyContent;
 pub const Position = layout.Position;
-pub const Dimension = layout.Dimension;
 
+// other enums
 pub const Visibility = enum { visible, hidden };
 pub const Overflow = enum { visible, hidden, scroll, auto };
-pub const Color = struct { r: u8, g: u8, b: u8, a: u8 };
-pub const Shadow = struct { x: Dimension, y: Dimension, blur: Dimension, spread: Dimension, color: Color };
 pub const OutlineStyle = enum { none, solid };
-pub const BackgroundImage = union(enum) { url: []const u8, linear_gradient: LinearGradient };
-pub const LinearGradient = struct { angle: f32, stops: []const ColorStop };
-pub const ColorStop = struct { pos: f32, color: Color };
 pub const BorderStyle = enum { none, solid };
 
+// TODO: figure out where to put these
+pub const Color = @import("css/color.zig").Color;
+pub const Dimension = @import("css/dimension.zig").Dimension;
+
+// TODO: figure out where to put this
+pub const BoxShadow = struct {
+    x: Dimension,
+    y: Dimension,
+    blur: Dimension,
+    spread: Dimension,
+    color: Color,
+
+    pub fn format(self: BoxShadow, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        try writer.print("{}, {}, {}, {}, {}", .{ self.x, self.y, self.blur, self.spread, self.color });
+    }
+};
+
+// consts
 pub const TRANSPARENT: Color = .{ .r = 0, .g = 0, .b = 0, .a = 0 };
 pub const CURRENT_COLOR: Color = .{ .r = 0, .g = 0, .b = 0, .a = 255 }; // TODO
 pub const ZERO: Dimension = .{ .px = 0 };
@@ -84,7 +98,7 @@ pub const Style = struct {
     border_bottom_left_radius: Dimension = ZERO,
 
     // box-shadow
-    box_shadow: ?Shadow = null, // TODO: []const Shadow = &.{},
+    box_shadow: ?BoxShadow = null, // TODO: []const BoxShadow = &.{},
 
     // outline
     outline_width: Dimension = .{ .px = 3 },

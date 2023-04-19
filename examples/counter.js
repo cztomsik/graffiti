@@ -27,8 +27,7 @@ const styles = {
   counter: {
     width: 400,
     height: 300,
-    // TODO: color parsing
-    background: '245 245 245 255',
+    background: '#eee',
     display: 'flex',
     flexDirection: 'column',
     // TODO: shorthand
@@ -40,8 +39,7 @@ const styles = {
   },
 
   bar: {
-    // TODO: color parsing
-    background: '255 0 0 255',
+    background: '#f00',
     height: 20,
   },
 
@@ -53,7 +51,7 @@ const styles = {
   button: {
     // TODO: this shouldn't be necessary
     display: 'flex',
-    background: '200 200 255 255',
+    background: '#cce',
   },
 }
 
