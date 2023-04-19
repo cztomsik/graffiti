@@ -33,7 +33,7 @@ pub fn build(b: *std.Build) void {
     lib.linker_allow_shlib_undefined = true;
 
     // build .dylib & copy as .node
-    lib.install();
+    b.installArtifact(lib);
     const copy_node_step = b.addInstallLibFile(lib.getOutputSource(), "graffiti.node");
     b.getInstallStep().dependOn(&copy_node_step.step);
 
@@ -45,7 +45,7 @@ pub fn build(b: *std.Build) void {
     tests.main_pkg_path = ".";
     tests.addModule("emlay", emlay);
     tests.addModule("nanovg", nanovg);
-    var run_tests = tests.run();
+    var run_tests = b.addRunArtifact(tests);
 
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&run_tests.step);

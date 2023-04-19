@@ -6,11 +6,13 @@ const Token = @import("tokenizer.zig").Token;
 
 // comptime snake_case to css-case
 pub fn cssName(comptime name: []const u8) []const u8 {
-    comptime {
+    return comptime blk: {
         var buf: [name.len]u8 = undefined;
-        _ = std.mem.replace(u8, name, "_", "-", &buf);
-        return &buf;
-    }
+        for (name, 0..) |c, i| {
+            buf[i] = if (c == '_') '-' else c;
+        }
+        break :blk &buf;
+    };
 }
 
 test "cssName" {
