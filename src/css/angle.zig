@@ -4,7 +4,7 @@ const expectParse = @import("parser.zig").expectParse;
 
 /// A shared type for `angle`, `angle-percentage`
 pub const Angle = union(enum) {
-    // https://www.w3.org/TR/css-values-4/#absolute-lengths
+    // https://www.w3.org/TR/css-values-4/#angles
     deg: f32,
     grad: f32,
     rad: f32,
@@ -25,9 +25,7 @@ pub const Angle = union(enum) {
             .number => |n| return .{ .deg = n },
             .dimension => |d| inline for (std.meta.fields(Angle)) |f| {
                 if (comptime f.type == f32) {
-                    if (std.mem.eql(u8, d.unit, "percent")) {
-                        return .{ .percent = d.value };
-                    } else if (std.mem.eql(u8, d.unit, f.name)) {
+                    if (std.mem.eql(u8, d.unit, f.name)) {
                         return @unionInit(Angle, f.name, d.value);
                     }
                 }
@@ -38,7 +36,7 @@ pub const Angle = union(enum) {
         return error.InvalidValue;
     }
 
-    pub fn toValue(self: Angle) f32 {
+    pub fn value(self: Angle) f32 {
         var v = switch (self) {
             .deg => |v| v / 360.0,
             .grad => |v| v / 400.0,
@@ -69,24 +67,24 @@ test "Angle.parse()" {
     try expectParse(Angle, "xxx", error.InvalidValue);
 }
 
-test "Angle.toPercent()" {
-    try std.testing.expectEqual((Angle{ .deg = 0.0 }).toValue(), 0.0);
-    try std.testing.expectEqual((Angle{ .deg = 36.0 }).toValue(), 0.1);
-    try std.testing.expectEqual((Angle{ .deg = 180.0 }).toValue(), 0.5);
-    try std.testing.expectEqual((Angle{ .deg = 360.0 }).toValue(), 1.0);
+test "Angle.value()" {
+    try std.testing.expectEqual((Angle{ .deg = 0.0 }).value(), 0.0);
+    try std.testing.expectEqual((Angle{ .deg = 36.0 }).value(), 0.1);
+    try std.testing.expectEqual((Angle{ .deg = 180.0 }).value(), 0.5);
+    try std.testing.expectEqual((Angle{ .deg = 360.0 }).value(), 0.0);
 
-    try std.testing.expectEqual((Angle{ .grad = 0.0 }).toValue(), 0.0);
-    try std.testing.expectEqual((Angle{ .grad = 40.0 }).toValue(), 0.1);
-    try std.testing.expectEqual((Angle{ .grad = 200.0 }).toValue(), 0.5);
-    try std.testing.expectEqual((Angle{ .grad = 400.0 }).toValue(), 1.0);
+    try std.testing.expectEqual((Angle{ .grad = 0.0 }).value(), 0.0);
+    try std.testing.expectEqual((Angle{ .grad = 40.0 }).value(), 0.1);
+    try std.testing.expectEqual((Angle{ .grad = 200.0 }).value(), 0.5);
+    try std.testing.expectEqual((Angle{ .grad = 400.0 }).value(), 0.0);
 
-    try std.testing.expectEqual((Angle{ .rad = 0.0 }).toValue(), 0.0);
-    try std.testing.expectEqual((Angle{ .rad = std.math.tau / 10.0 }).toValue(), 0.1);
-    try std.testing.expectEqual((Angle{ .rad = std.math.tau / 2.0 }).toValue(), 0.5);
-    try std.testing.expectEqual((Angle{ .rad = std.math.tau }).toValue(), 1.0);
+    try std.testing.expectEqual((Angle{ .rad = 0.0 }).value(), 0.0);
+    try std.testing.expectEqual((Angle{ .rad = std.math.tau / 10.0 }).value(), 0.1);
+    try std.testing.expectEqual((Angle{ .rad = std.math.tau / 2.0 }).value(), 0.5);
+    try std.testing.expectEqual((Angle{ .rad = std.math.tau }).value(), 0.0);
 
-    try std.testing.expectEqual((Angle{ .turn = 0.0 }).toValue(), 0.0);
-    try std.testing.expectEqual((Angle{ .turn = 0.1 }).toValue(), 0.1);
-    try std.testing.expectEqual((Angle{ .turn = 0.5 }).toValue(), 0.5);
-    try std.testing.expectEqual((Angle{ .turn = 1.0 }).toValue(), 1.0);
+    try std.testing.expectEqual((Angle{ .turn = 0.0 }).value(), 0.0);
+    try std.testing.expectEqual((Angle{ .turn = 0.1 }).value(), 0.1);
+    try std.testing.expectEqual((Angle{ .turn = 0.5 }).value(), 0.5);
+    try std.testing.expectEqual((Angle{ .turn = 1.0 }).value(), 0.0);
 }

@@ -24,7 +24,7 @@ pub const Color = struct {
     }
 
     pub fn hsla(hue: Angle, saturation: NumberOrPercentage, lightness: NumberOrPercentage, alpha: NumberOrPercentage) Color {
-        var h = @mod(hue.toValue(), 1.0);
+        var h = @mod(hue.value(), 1.0);
         if (h < 0.0) h += 1.0;
 
         var s = std.math.clamp(saturation.value, 0, 1);
@@ -46,9 +46,9 @@ pub const Color = struct {
         var m1 = l * 2 - m2;
 
         return .{
-            .r = f32_to_u8_clamped(hue_to_rgb(h + 1.0 / 3.0, m1, m2) * 255.0),
-            .g = f32_to_u8_clamped(hue_to_rgb(h, m1, m2) * 255.0),
-            .b = f32_to_u8_clamped(hue_to_rgb(h - 1.0 / 3.0, m1, m2) * 255.0),
+            .r = f32_to_u8_clamped(@round(hue_to_rgb(h + 1.0 / 3.0, m1, m2) * 255.0)),
+            .g = f32_to_u8_clamped(@round(hue_to_rgb(h, m1, m2) * 255.0)),
+            .b = f32_to_u8_clamped(@round(hue_to_rgb(h - 1.0 / 3.0, m1, m2) * 255.0)),
             .a = a,
         };
     }
@@ -268,33 +268,33 @@ const NAMED_COLORS = .{
 };
 
 test "Color.parse()" {
-    try expectParse(Color, "#000000", .{ .r = 0, .g = 0, .b = 0, .a = 255 });
-    try expectParse(Color, "#ff0000", .{ .r = 0xFF, .g = 0, .b = 0, .a = 255 });
-    try expectParse(Color, "#00ff00", .{ .r = 0, .g = 0xFF, .b = 0, .a = 255 });
-    try expectParse(Color, "#0000ff", .{ .r = 0, .g = 0, .b = 0xFF, .a = 255 });
+    try expectParse(Color, "#000000", .{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF });
+    try expectParse(Color, "#ff0000", .{ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF });
+    try expectParse(Color, "#00ff00", .{ .r = 0x00, .g = 0xFF, .b = 0x00, .a = 0xFF });
+    try expectParse(Color, "#0000ff", .{ .r = 0x00, .g = 0x00, .b = 0xFF, .a = 0xFF });
 
-    try expectParse(Color, "#000", .{ .r = 0, .g = 0, .b = 0, .a = 255 });
-    try expectParse(Color, "#f00", .{ .r = 0xFF, .g = 0, .b = 0, .a = 255 });
-    try expectParse(Color, "#fff", .{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 255 });
+    try expectParse(Color, "#000", .{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF });
+    try expectParse(Color, "#f00", .{ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF });
+    try expectParse(Color, "#fff", .{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF });
 
-    try expectParse(Color, "#0000", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
-    try expectParse(Color, "#f00f", .{ .r = 0xFF, .g = 0, .b = 0, .a = 255 });
+    try expectParse(Color, "#0000", .{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0x00 });
+    try expectParse(Color, "#f00f", .{ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF });
 
-    try expectParse(Color, "rgb(0, 0, 0)", .{ .r = 0, .g = 0, .b = 0, .a = 255 });
-    try expectParse(Color, "rgba(0, 0, 0, 0)", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
-    try expectParse(Color, "rgba(0, 0, 0, 0%)", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
-    try expectParse(Color, "rgba(255, 128, 0, 1)", .{ .r = 0xFF, .g = 0x80, .b = 0, .a = 255 });
-    try expectParse(Color, "rgba(255, 128, 0, 100%)", .{ .r = 0xFF, .g = 0x80, .b = 0, .a = 255 });
+    try expectParse(Color, "rgb(0, 0, 0)", .{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF });
+    try expectParse(Color, "rgba(0, 0, 0, 0)", .{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0x00 });
+    try expectParse(Color, "rgba(0, 0, 0, 0%)", .{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0x00 });
+    try expectParse(Color, "rgba(255, 128, 0, 1)", .{ .r = 0xFF, .g = 0x80, .b = 0x00, .a = 0xFF });
+    try expectParse(Color, "rgba(255, 128, 0, 100%)", .{ .r = 0xFF, .g = 0x80, .b = 0x00, .a = 0xFF });
 
-    try expectParse(Color, "hsl(0, 0%, 0%)", .{ .r = 0, .g = 0, .b = 0, .a = 255 });
-    try expectParse(Color, "hsla(0deg, 0%, 100%, 0%)", .{ .r = 255, .g = 255, .b = 255, .a = 0 });
-    try expectParse(Color, "hsla(120grad, 100%, 50%, 1)", .{ .r = 51, .g = 255, .b = 0, .a = 255 });
-    try expectParse(Color, "hsla(2.0944rad, 100%, 50%, 0%)", .{ .r = 0, .g = 255, .b = 0, .a = 0 });
-    try expectParse(Color, "hsla(0.1667turn, 100%, 50%, 100%)", .{ .r = 255, .g = 255, .b = 0, .a = 255 });
-    try expectParse(Color, "hsla(45deg, 100%, 50%, 50%)", .{ .r = 255, .g = 191, .b = 0, .a = 127 });
+    try expectParse(Color, "hsl(0, 0%, 0%)", .{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF });
+    try expectParse(Color, "hsla(0deg, 0%, 100%, 0%)", .{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0x00 });
+    try expectParse(Color, "hsla(120grad, 100%, 50%, 1)", .{ .r = 0x33, .g = 0xFF, .b = 0x00, .a = 0xFF });
+    try expectParse(Color, "hsla(2.0944rad, 100%, 50%, 0%)", .{ .r = 0x00, .g = 0xFF, .b = 0x00, .a = 0x00 });
+    try expectParse(Color, "hsla(0.1667turn, 100%, 50%, 100%)", .{ .r = 0xFF, .g = 0xFF, .b = 0x00, .a = 0xFF });
+    try expectParse(Color, "hsla(45deg, 100%, 50%, 50%)", .{ .r = 0xFF, .g = 0xBF, .b = 0x00, .a = 0x7F });
 
-    try expectParse(Color, "transparent", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
-    try expectParse(Color, "black", .{ .r = 0, .g = 0, .b = 0, .a = 255 });
+    try expectParse(Color, "transparent", .{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0x00 });
+    try expectParse(Color, "black", .{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF });
 
     try expectParse(Color, "xxx", error.InvalidColor);
 }
