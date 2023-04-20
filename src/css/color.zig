@@ -1,5 +1,7 @@
 const std = @import("std");
 const Parser = @import("parser.zig").Parser;
+const Angle = @import("angle.zig").Angle;
+const NumberOrPercentage = @import("percentage.zig").NumberOrPercentage;
 const expectParse = @import("parser.zig").expectParse;
 
 /// A color in sRGB color space.
@@ -10,11 +12,45 @@ pub const Color = struct {
     a: u8,
 
     pub fn rgb(r: u8, g: u8, b: u8) Color {
-        return rgba(r, g, b, 0xFF);
+        return rgba(r, g, b, .{ .value = 1.0 });
     }
 
-    pub fn rgba(r: u8, g: u8, b: u8, a: u8) Color {
-        return .{ .r = r, .g = g, .b = b, .a = a };
+    pub fn rgba(r: u8, g: u8, b: u8, a: NumberOrPercentage) Color {
+        return .{ .r = r, .g = g, .b = b, .a = f32_to_u8_clamped(a.value * 255.0) };
+    }
+
+    pub fn hsl(h: Angle, s: NumberOrPercentage, l: NumberOrPercentage) Color {
+        return hsla(h, s, l, .{ .value = 1.0 });
+    }
+
+    pub fn hsla(hue: Angle, saturation: NumberOrPercentage, lightness: NumberOrPercentage, alpha: NumberOrPercentage) Color {
+        var h = @mod(hue.toValue(), 1.0);
+        if (h < 0.0) h += 1.0;
+
+        var s = std.math.clamp(saturation.value, 0, 1);
+        var l = std.math.clamp(lightness.value, 0, 1);
+
+        var a = f32_to_u8_clamped(alpha.value * 255.0);
+
+        if (s == 0) {
+            var v = f32_to_u8_clamped(l * 255.0);
+            return .{
+                .r = v,
+                .g = v,
+                .b = v,
+                .a = a,
+            };
+        }
+
+        var m2 = if (l <= 0.5) l * (s + 1) else l + s - l * s;
+        var m1 = l * 2 - m2;
+
+        return .{
+            .r = f32_to_u8_clamped(hue_to_rgb(h + 1.0 / 3.0, m1, m2) * 255.0),
+            .g = f32_to_u8_clamped(hue_to_rgb(h, m1, m2) * 255.0),
+            .b = f32_to_u8_clamped(hue_to_rgb(h - 1.0 / 3.0, m1, m2) * 255.0),
+            .a = a,
+        };
     }
 
     pub fn named(name: []const u8) ?Color {
@@ -36,16 +72,16 @@ pub const Color = struct {
 
         switch (tok) {
             .ident => if (named(tok.ident)) |c| return c,
-            .function => inline for (.{ "rgb", "rgba" }) |name| {
+            .function => inline for (.{ "rgb", "rgba", "hsl", "hsla" }) |name| {
                 if (std.mem.eql(u8, tok.function, name)) {
                     return parser.parseFnCall(@field(Color, name));
                 }
             },
             .hash => |s| switch (s.len) {
-                8 => return rgba(hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), hex(s[6..8])),
-                6 => return rgba(hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), 0xFF),
-                4 => return rgba((hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, (hex(s[3..4])) * 17),
-                3 => return rgba((hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, 0xFF),
+                8 => return rgba(hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), .{ .value = @intToFloat(f32, hex(s[6..8])) / 255.0 }),
+                6 => return rgba(hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), .{ .value = 1.0 }),
+                4 => return rgba((hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, .{ .value = @intToFloat(f32, (hex(s[3..4])) * 17) / 255.0 }),
+                3 => return rgba((hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, .{ .value = 1.0 }),
                 else => {},
             },
             else => {},
@@ -59,8 +95,27 @@ fn hex(s: []const u8) u8 {
     return std.fmt.parseInt(u8, s, 16) catch 0;
 }
 
+fn hue_to_rgb(hue: f32, m1: f32, m2: f32) f32 {
+    var h = if (hue < 0.0) hue + 1.0 else if (hue > 1.0) hue - 1.0 else hue;
+
+    if (h * 6.0 < 1.0) {
+        return m1 + (m2 - m1) * h * 6.0;
+    }
+    if (h * 2.0 < 1.0) {
+        return m2;
+    }
+    if (h * 3.0 < 2.0) {
+        return m1 + (m2 - m1) * (2.0 / 3.0 - h) * 6.0;
+    }
+    return m1;
+}
+
+fn f32_to_u8_clamped(f: f32) u8 {
+    return @floatToInt(u8, std.math.clamp(f, 0, 255));
+}
+
 const NAMED_COLORS = .{
-    .{ "transparent", Color.rgba(0, 0, 0, 0) },
+    .{ "transparent", Color.rgba(0, 0, 0, .{ .value = 0 }) },
     // https://drafts.csswg.org/css-color/#named-colors
     .{ "aliceblue", Color.rgb(240, 248, 255) },
     .{ "antiquewhite", Color.rgb(250, 235, 215) },
@@ -213,24 +268,33 @@ const NAMED_COLORS = .{
 };
 
 test "Color.parse()" {
-    try expectParse(Color, "#000000", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
-    try expectParse(Color, "#ff0000", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
-    try expectParse(Color, "#00ff00", .{ .r = 0, .g = 0xFF, .b = 0, .a = 0xFF });
-    try expectParse(Color, "#0000ff", .{ .r = 0, .g = 0, .b = 0xFF, .a = 0xFF });
+    try expectParse(Color, "#000000", .{ .r = 0, .g = 0, .b = 0, .a = 255 });
+    try expectParse(Color, "#ff0000", .{ .r = 0xFF, .g = 0, .b = 0, .a = 255 });
+    try expectParse(Color, "#00ff00", .{ .r = 0, .g = 0xFF, .b = 0, .a = 255 });
+    try expectParse(Color, "#0000ff", .{ .r = 0, .g = 0, .b = 0xFF, .a = 255 });
 
-    try expectParse(Color, "#000", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
-    try expectParse(Color, "#f00", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
-    try expectParse(Color, "#fff", .{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF });
+    try expectParse(Color, "#000", .{ .r = 0, .g = 0, .b = 0, .a = 255 });
+    try expectParse(Color, "#f00", .{ .r = 0xFF, .g = 0, .b = 0, .a = 255 });
+    try expectParse(Color, "#fff", .{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 255 });
 
     try expectParse(Color, "#0000", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
-    try expectParse(Color, "#f00f", .{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF });
+    try expectParse(Color, "#f00f", .{ .r = 0xFF, .g = 0, .b = 0, .a = 255 });
 
-    try expectParse(Color, "rgb(0, 0, 0)", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
+    try expectParse(Color, "rgb(0, 0, 0)", .{ .r = 0, .g = 0, .b = 0, .a = 255 });
     try expectParse(Color, "rgba(0, 0, 0, 0)", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
-    try expectParse(Color, "rgba(255, 128, 0, 255)", .{ .r = 0xFF, .g = 0x80, .b = 0, .a = 0xFF });
+    try expectParse(Color, "rgba(0, 0, 0, 0%)", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
+    try expectParse(Color, "rgba(255, 128, 0, 1)", .{ .r = 0xFF, .g = 0x80, .b = 0, .a = 255 });
+    try expectParse(Color, "rgba(255, 128, 0, 100%)", .{ .r = 0xFF, .g = 0x80, .b = 0, .a = 255 });
+
+    try expectParse(Color, "hsl(0, 0%, 0%)", .{ .r = 0, .g = 0, .b = 0, .a = 255 });
+    try expectParse(Color, "hsla(0deg, 0%, 100%, 0%)", .{ .r = 255, .g = 255, .b = 255, .a = 0 });
+    try expectParse(Color, "hsla(120grad, 100%, 50%, 1)", .{ .r = 51, .g = 255, .b = 0, .a = 255 });
+    try expectParse(Color, "hsla(2.0944rad, 100%, 50%, 0%)", .{ .r = 0, .g = 255, .b = 0, .a = 0 });
+    try expectParse(Color, "hsla(0.1667turn, 100%, 50%, 100%)", .{ .r = 255, .g = 255, .b = 0, .a = 255 });
+    try expectParse(Color, "hsla(45deg, 100%, 50%, 50%)", .{ .r = 255, .g = 191, .b = 0, .a = 127 });
 
     try expectParse(Color, "transparent", .{ .r = 0, .g = 0, .b = 0, .a = 0 });
-    try expectParse(Color, "black", .{ .r = 0, .g = 0, .b = 0, .a = 0xFF });
+    try expectParse(Color, "black", .{ .r = 0, .g = 0, .b = 0, .a = 255 });
 
     try expectParse(Color, "xxx", error.InvalidColor);
 }
