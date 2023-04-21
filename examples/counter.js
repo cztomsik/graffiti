@@ -39,7 +39,7 @@ const styles = {
   },
 
   bar: {
-    background: '#f00',
+    background: 'hsla(0turn, 100%, 50%, 1)',
     height: 20,
   },
 
