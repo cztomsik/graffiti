@@ -33,6 +33,6 @@
     "arrowParens": "avoid"
   },
   "volta": {
-    "node": "19.0.0"
+    "node": "20.1.0"
   }
 }
