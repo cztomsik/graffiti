@@ -5,6 +5,6 @@
     "target": "ESNext",
     "module": "NodeNext"
   },
-  "include": ["core.js", "compat.js", "polyfills"],
+  "include": ["lib", "polyfills"],
   "exclude": ["node_modules"]
 }

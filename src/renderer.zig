@@ -35,7 +35,7 @@ pub const Renderer = struct {
         return .{
             .allocator = allocator,
             .vg = vg,
-            .font = vg.createFontMem("sans", @embedFile("../libs/nanovg-zig/examples/Roboto-Regular.ttf")),
+            .font = vg.createFontMem("sans", @embedFile("../deps/nanovg-zig/examples/Roboto-Regular.ttf")),
         };
     }
 

@@ -1,5 +1,5 @@
 const std = @import("std");
-const nanovg_build = @import("libs/nanovg-zig/build.zig");
+const nanovg_build = @import("deps/nanovg-zig/build.zig");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -17,18 +17,18 @@ pub fn build(b: *std.Build) void {
     lib.linkSystemLibrary("glfw3");
 
     // GL canvas library
-    const nanovg = b.createModule(.{ .source_file = .{ .path = "libs/nanovg-zig/src/nanovg.zig" } });
+    const nanovg = b.createModule(.{ .source_file = .{ .path = "deps/nanovg-zig/src/nanovg.zig" } });
     lib.addModule("nanovg", nanovg);
-    lib.addIncludePath("libs/nanovg-zig/lib/gl2/include");
-    lib.addCSourceFile("libs/nanovg-zig/lib/gl2/src/glad.c", &.{});
+    lib.addIncludePath("deps/nanovg-zig/lib/gl2/include");
+    lib.addCSourceFile("deps/nanovg-zig/lib/gl2/src/glad.c", &.{});
     nanovg_build.addCSourceFiles(lib);
 
     // layout
-    const emlay = b.createModule(.{ .source_file = .{ .path = "libs/emlay/src/main.zig" } });
+    const emlay = b.createModule(.{ .source_file = .{ .path = "deps/emlay/src/main.zig" } });
     lib.addModule("emlay", emlay);
 
     // JS bindings generator
-    const napigen = b.createModule(.{ .source_file = .{ .path = "libs/napigen/napigen.zig" } });
+    const napigen = b.createModule(.{ .source_file = .{ .path = "deps/napigen/napigen.zig" } });
     lib.addModule("napigen", napigen);
     lib.linker_allow_shlib_undefined = true;
 
