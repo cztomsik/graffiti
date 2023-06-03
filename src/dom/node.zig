@@ -1,3 +1,6 @@
+const std = @import("std");
+const Element = @import("element.zig").Element;
+const CharacterData = @import("character_data.zig").CharacterData;
 const Document = @import("document.zig").Document;
 
 // TODO: all node types should be extern structs
@@ -20,18 +23,22 @@ pub const Node = struct {
     pos: [2]f32 = .{ 0, 0 },
     size: [2]f32 = .{ 0, 0 },
 
-    pub fn cast(self: *Node, comptime T: type) *T {
-        return @ptrCast(*T, self);
+    /// Returns the node as an element, or null otherwise.
+    pub fn element(self: *Node) ?*Element {
+        return if (self.node_type == .element) @ptrCast(*Element, self) else null;
     }
 
+    /// Returns whether the node has any children.
     pub fn hasChildNodes(self: *Node) bool {
         return self.first_child != null;
     }
 
+    /// Returns an iterator over the node's children.
     pub fn childNodes(self: *Node) ChildNodesIterator {
         return .{ .next_child = self.first_child };
     }
 
+    /// Appends a child node to the end of the node's children.
     pub fn appendChild(self: *Node, child: *Node) !void {
         try self.checkParent(child, null);
 
@@ -47,6 +54,7 @@ pub const Node = struct {
         child.markDirty();
     }
 
+    /// Inserts a child node before another child node.
     pub fn insertBefore(self: *Node, child: *Node, before: *Node) !void {
         try self.checkParent(child, null);
         try self.checkParent(before, self);
@@ -64,6 +72,7 @@ pub const Node = struct {
         child.markDirty();
     }
 
+    /// Removes a child node from the node's children.
     pub fn removeChild(self: *Node, child: *Node) !void {
         try self.checkParent(child, self);
 
@@ -84,12 +93,14 @@ pub const Node = struct {
         child.parent_node = null;
     }
 
+    // internal
     fn checkParent(self: *Node, node: *Node, parent: ?*Node) !void {
         if (node.owner_document != self.owner_document or node.parent_node != parent) {
             return error.InvalidChild;
         }
     }
 
+    // internal
     pub fn markDirty(self: *Node) void {
         self.is_dirty = true;
 

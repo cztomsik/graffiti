@@ -67,7 +67,7 @@ fn waitEvents(_: [*c]uv_prepare_t) callconv(.C) void {
 // idle task continues after the prepare is done but we also need to stop again
 // because the timeout is always zero if there are any active idle tasks
 fn render(_: [*c]uv_idle_t) callconv(.C) void {
-    napi.update();
+    _ = napi.update() catch |err| js.throw(err);
 
     // stop so we can read the timeout again
     _ = uv_idle_stop(&idle_handle);

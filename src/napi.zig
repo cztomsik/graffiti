@@ -83,9 +83,9 @@ fn init(js: *napigen.JsContext) !napigen.napi_value {
 }
 
 // called from uv_hook.zig
-pub fn update() void {
+pub fn update() !void {
     document.node.size = window.size();
-    document.update();
+    try document.update();
     renderer.render(document, window.size(), window.scale());
     window.swapBuffers();
 }
