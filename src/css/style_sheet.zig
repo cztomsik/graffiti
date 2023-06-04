@@ -6,6 +6,7 @@ const expectFmt = std.testing.expectFmt;
 
 pub const StyleSheet = struct {
     rules: std.ArrayList(StyleRule),
+    owner_node: ?*anyopaque = null,
 
     pub fn init(allocator: std.mem.Allocator) StyleSheet {
         return StyleSheet{
@@ -35,6 +36,7 @@ pub const StyleSheet = struct {
         return sheet;
     }
 
+    /// Inserts a rule at given index.
     pub fn insertRule(self: *StyleSheet, rule: []const u8, index: usize) !usize {
         if (index > self.rules.items.len) return error.IndexSizeError;
 
@@ -45,6 +47,7 @@ pub const StyleSheet = struct {
         return index;
     }
 
+    /// Deletes a rule at given index.
     pub fn deleteRule(self: *StyleSheet, index: usize) void {
         if (index >= self.rules.len) return error.IndexSizeError;
 

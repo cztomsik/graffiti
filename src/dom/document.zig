@@ -95,60 +95,83 @@ pub const Document = struct {
 
     /// Updates the document after changes.
     pub fn update(self: *Document) !void {
-        if (!self.node.has_dirty) return;
-
-        if (self.head()) |h| {
-            if (h.node.has_dirty) {
-                try self.updateStyleSheets(h);
-            }
+        if (self.node.has_dirty) {
+            try self.updateStyleSheets();
+            self.updateStyles();
         }
 
-        if (self.body()) |b| {
-            if (b.node.has_dirty) {
-                // apply inline styles for all elements
-                self.updateStyles(b);
-            }
-        }
-
-        // compute layout
-        emlay.layout(&LayoutContext{}, &self.node, self.node.size);
+        self.updateLayout();
     }
 
-    // internal
-    fn updateStyleSheets(self: *Document, head_el: *Element) !void {
-        // go through all <style> elements and parse them
-        var i: usize = 0;
-        var it = head_el.childrenByLocalName("style");
-        while (it.next()) |style| : (i += 1) {
-            var buf = std.ArrayList(u8).init(self.allocator);
-            defer buf.deinit();
+    fn updateStyleSheets(self: *Document) !void {
+        const head_el = self.head() orelse return;
 
-            var writer = buf.writer();
-            var it2 = style.node.childNodes();
-            while (it2.next()) |child| {
-                if (child.node_type == .text) {
-                    try writer.writeAll(@ptrCast(*CharacterData, child).data);
+        if (head_el.node.has_dirty) {
+            var style_els = head_el.childrenByLocalName("style");
+            var i: usize = 0;
+
+            while (style_els.next()) |el| : (i += 1) {
+                if (el.node.is_dirty or el.node.has_dirty) {
+                    var buf = std.ArrayList(u8).init(self.allocator);
+                    defer buf.deinit();
+
+                    var writer = buf.writer();
+                    var childNodes = el.node.childNodes();
+
+                    while (childNodes.next()) |child| {
+                        if (child.node_type == .text) {
+                            try writer.writeAll(@ptrCast(*CharacterData, child).data);
+                        }
+                    }
+
+                    var sheet = try StyleSheet.parse(self.allocator, buf.items);
+                    sheet.owner_node = el;
+
+                    // replace or insert the sheet into the list at the correct position
+                    if (self.findStyleSheet(el)) |ptr| {
+                        ptr.deinit();
+                        ptr.* = sheet;
+                    } else {
+                        try self.style_sheets.insert(i, sheet);
+                    }
+                }
+
+                // remove old sheets
+                while (self.style_sheets.items[i].owner_node != @as(*anyopaque, el)) {
+                    self.style_sheets.items[i].deinit();
+                    _ = self.style_sheets.orderedRemove(i);
                 }
             }
 
-            var sheet = try StyleSheet.parse(self.allocator, buf.items);
-            _ = sheet;
-
-            // TODO: insert it in the .style_sheets list at the correct position
-            // TODO: check if it's already in the list
-            // TODO: remove old style sheets (shrink)
+            std.debug.assert(i == self.style_sheets.items.len);
         }
     }
 
-    // internal
-    fn updateStyles(self: *Document, element: *Element) void {
-        element.resolved_style = .{};
-        element.style.apply(&element.resolved_style);
-
-        var children = element.children();
-        while (children.next()) |ch| {
-            self.updateStyles(ch);
+    fn findStyleSheet(self: *Document, element: *Element) ?*StyleSheet {
+        for (self.style_sheets.items) |*sheet| {
+            if (sheet.owner_node == @as(*anyopaque, element)) return sheet;
         }
+        return null;
+    }
+
+    fn updateStyles(self: *Document) void {
+        const body_el = self.body() orelse return;
+
+        if (body_el.node.has_dirty) {
+            // TODO: apply inline styles for all elements
+        }
+
+        // element.resolved_style = .{};
+        // element.style.apply(&element.resolved_style);
+
+        // var children = element.children();
+        // while (children.next()) |ch| {
+        //     self.updateStyles(ch);
+        // }
+    }
+
+    fn updateLayout(self: *Document) void {
+        emlay.layout(&LayoutContext{}, &self.node, self.node.size);
     }
 };
 

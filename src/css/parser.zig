@@ -55,15 +55,18 @@ pub const Parser = struct {
         };
     }
 
+    /// Parse an integer.
     pub fn parseInt(self: *Parser, comptime T: type) !T {
         const num = try self.expect(.number);
         return std.math.cast(T, @floatToInt(u32, num)) orelse error.InvalidInt;
     }
 
+    /// Parse a float.
     pub fn parseFloat(self: *Parser, comptime T: type) !T {
         return @floatCast(T, try self.expect(.number));
     }
 
+    /// Parse an enum.
     pub fn parseEnum(self: *Parser, comptime T: type) !T {
         const ident = try self.expect(.ident);
 
@@ -76,6 +79,7 @@ pub const Parser = struct {
         return error.InvalidValue;
     }
 
+    /// Parse an optional value. If the value is missing, return null.
     pub fn parseOptional(self: *Parser, comptime T: type) ?T {
         const prev = self.tokenizer;
         return self.parse(T) catch {
@@ -116,6 +120,7 @@ pub const Parser = struct {
     }
 };
 
+/// Test helper to parse a value and compare it to an expected value (or error).
 pub fn expectParse(comptime T: type, input: []const u8, expected: anyerror!T) anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();

@@ -35,19 +35,20 @@ pub const Tokenizer = struct {
     space_before: bool = false,
     semi_before: bool = false,
 
-    const Self = @This();
+    pub const Error = error{ Eof, InvalidCharacter };
 
-    const Error = error{ Eof, InvalidCharacter };
-
-    pub fn rest(self: *Self) []const u8 {
+    /// Returns the rest of the input.
+    pub fn rest(self: *Tokenizer) []const u8 {
         return self.input[self.pos..];
     }
 
-    pub fn peek(self: *Self) Error!u8 {
+    /// Returns the next byte without consuming it.
+    pub fn peek(self: *Tokenizer) Error!u8 {
         return if (self.pos < self.input.len) self.input[self.pos] else error.Eof;
     }
 
-    pub fn next(self: *Self) Error!Token {
+    /// Returns the next token.
+    pub fn next(self: *Tokenizer) Error!Token {
         self.space_before = false;
 
         if (self.consumeNumber()) |num| {
@@ -103,7 +104,7 @@ pub const Tokenizer = struct {
         };
     }
 
-    fn consumeNumber(self: *Self) ?f32 {
+    fn consumeNumber(self: *Tokenizer) ?f32 {
         const prev = self.pos;
         const s = self.consume(isNumStart, isNumeric) orelse return null;
         return std.fmt.parseFloat(f32, s) catch {
@@ -112,15 +113,15 @@ pub const Tokenizer = struct {
         };
     }
 
-    fn consumeIdent(self: *Self) ?[]const u8 {
+    fn consumeIdent(self: *Tokenizer) ?[]const u8 {
         return self.consume(isIdentStart, isIdent);
     }
 
-    fn consumeHash(self: *Self) ?[]const u8 {
+    fn consumeHash(self: *Tokenizer) ?[]const u8 {
         return self.consume(isIdent, isIdent);
     }
 
-    fn consumeSeq(self: *Self, needle: []const u8) bool {
+    fn consumeSeq(self: *Tokenizer, needle: []const u8) bool {
         if (std.mem.startsWith(u8, self.rest(), needle)) {
             self.pos += needle.len;
             return true;
@@ -129,7 +130,7 @@ pub const Tokenizer = struct {
         return false;
     }
 
-    fn consume(self: *Self, f1: anytype, f2: anytype) ?[]const u8 {
+    fn consume(self: *Tokenizer, f1: anytype, f2: anytype) ?[]const u8 {
         const start = self.pos;
 
         if (f1(self.peek() catch return null)) {
@@ -145,7 +146,7 @@ pub const Tokenizer = struct {
         return null;
     }
 
-    fn consumeString(self: *Self, quote: u8) ![]const u8 {
+    fn consumeString(self: *Tokenizer, quote: u8) ![]const u8 {
         const start = self.pos;
         var prev: u8 = '\\';
         self.pos += 1;
@@ -162,7 +163,7 @@ pub const Tokenizer = struct {
         return self.input[(start + 1)..(self.pos - 1)];
     }
 
-    fn nextCharSkipComments(self: *Self) Error!u8 {
+    fn nextCharSkipComments(self: *Tokenizer) Error!u8 {
         while (self.consumeSeq("/*")) {
             while (!self.consumeSeq("*/")) self.pos += 1;
         }
