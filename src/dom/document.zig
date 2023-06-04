@@ -158,16 +158,21 @@ pub const Document = struct {
         const body_el = self.body() orelse return;
 
         if (body_el.node.has_dirty) {
-            // TODO: apply inline styles for all elements
+            // TODO: apply sheets
+
+            // apply inline styles for all elements
+            self.applyInlineStyles(body_el);
         }
+    }
 
-        // element.resolved_style = .{};
-        // element.style.apply(&element.resolved_style);
+    fn applyInlineStyles(self: *Document, element: *Element) void {
+        element.resolved_style = .{};
+        element.style.apply(&element.resolved_style);
 
-        // var children = element.children();
-        // while (children.next()) |ch| {
-        //     self.updateStyles(ch);
-        // }
+        var children = element.children();
+        while (children.next()) |ch| {
+            self.applyInlineStyles(ch);
+        }
     }
 
     fn updateLayout(self: *Document) void {
