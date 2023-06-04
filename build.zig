@@ -1,7 +1,7 @@
 const std = @import("std");
 const nanovg_build = @import("deps/nanovg-zig/build.zig");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -34,7 +34,11 @@ pub fn build(b: *std.Build) void {
 
     // build .dylib & copy as .node
     b.installArtifact(lib);
-    const copy_node_step = b.addInstallLibFile(lib.getOutputSource(), "graffiti.node");
+    const copy_node_step = b.addInstallLibFile(lib.getOutputSource(), try std.fmt.allocPrint(
+        b.allocator,
+        "graffiti.{s}.node",
+        .{@tagName(target.getOsTag())},
+    ));
     b.getInstallStep().dependOn(&copy_node_step.step);
 
     const tests = b.addTest(.{

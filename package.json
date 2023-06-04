@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "exports": {
-    ".": "./lib/compat.js",
-    "./core": "./lib/core.js"
+    ".": "./lib/compat/index.js",
+    "./core": "./lib/core/index.js"
   },
   "scripts": {
     "postinstall": "git clone https://github.com/fabioarnold/nanovg-zig ./deps/nanovg-zig && git clone https://github.com/cztomsik/zig-napigen ./deps/napigen && zig build"
@@ -12,8 +12,7 @@
   "files": [
     "src",
     "build.zig",
-    "lib",
-    "polyfills"
+    "lib"
   ],
   "repository": {
     "type": "git",
