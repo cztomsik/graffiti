@@ -23,28 +23,7 @@ pub const Selector = struct {
         parent,
         ancestor,
         @"or",
-
-        fn eql(self: Part, other: Part) bool {
-            return std.meta.activeTag(self) == other and switch (self) {
-                .local_name => std.mem.eql(u8, self.local_name, other.local_name),
-                .identifier => std.mem.eql(u8, self.identifier, other.identifier),
-                .class_name => std.mem.eql(u8, self.class_name, other.class_name),
-                else => true,
-            };
-        }
     };
-
-    pub fn eql(self: Selector, other: Selector) bool {
-        if (self.parts.len != other.parts.len) return false;
-
-        for (self.parts, 0..) |part, i| {
-            if (!part.eql(other.parts[i])) {
-                return false;
-            }
-        }
-
-        return true;
-    }
 
     pub fn format(self: Selector, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         var i = self.parts.len;
