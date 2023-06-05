@@ -34,9 +34,7 @@ pub const Selector = struct {
         }
     };
 
-    const Self = @This();
-
-    pub fn eql(self: Self, other: Self) bool {
+    pub fn eql(self: Selector, other: Selector) bool {
         if (self.parts.len != other.parts.len) return false;
 
         for (self.parts, 0..) |part, i| {
@@ -48,7 +46,7 @@ pub const Selector = struct {
         return true;
     }
 
-    pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn format(self: Selector, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         var i = self.parts.len;
         while (i > 0) {
             i -= 1;
@@ -66,7 +64,7 @@ pub const Selector = struct {
         }
     }
 
-    pub fn parse(parser: *Parser) !Self {
+    pub fn parse(parser: *Parser) !Selector {
         var parts = std.ArrayList(Part).init(parser.allocator);
         errdefer parts.deinit();
 
@@ -113,12 +111,12 @@ pub const Selector = struct {
         // save in reverse
         std.mem.reverse(Part, parts.items);
 
-        return Self{
+        return .{
             .parts = try parts.toOwnedSlice(),
         };
     }
 
-    pub fn matchElement(self: *Self, element: anytype) ?Specificity {
+    pub fn matchElement(self: *Selector, ctx: anytype, element: anytype) ?Specificity {
         // state
         var i: usize = 0;
         var current = element;
@@ -136,10 +134,10 @@ pub const Selector = struct {
                     while (true) {
                         if (parent or ancestors) {
                             parent = false;
-                            current = current.parentElement() orelse break;
+                            current = ctx.parentElement(current) orelse break;
                         }
 
-                        if (Self.matchComponent(current, comp)) {
+                        if (matchComponent(ctx, current, comp)) {
                             ancestors = false;
                             continue :next_part;
                         }
@@ -169,13 +167,13 @@ pub const Selector = struct {
         return specificity;
     }
 
-    fn matchComponent(el: anytype, comp: Part) bool {
+    fn matchComponent(ctx: anytype, el: anytype, comp: Part) bool {
         return switch (comp) {
             .universal => true,
-            .local_name => |name| std.mem.eql(u8, el.localName(), name),
-            .identifier => |id| std.mem.eql(u8, el.id(), id),
+            .local_name => |name| std.mem.eql(u8, ctx.localName(el), name),
+            .identifier => |id| std.mem.eql(u8, ctx.id(el), id),
             .class_name => |cls| {
-                var parts = std.mem.split(u8, el.className(), " ");
+                var parts = std.mem.split(u8, ctx.className(el), " ");
                 while (parts.next()) |s| if (std.mem.eql(u8, s, cls)) return true;
                 return false;
             },
@@ -267,29 +265,25 @@ fn expectMatch(selector: []const u8, index: usize) !void {
     const ids = [_][]const u8{ "", "app", "panel", "", "" };
     const class_names = [_][]const u8{ "", "", "", "btn", "" };
 
-    const Element = struct {
-        index: usize,
-
-        const Self = @This();
-
-        fn parentElement(self: Self) ?Self {
-            return if (parents[self.index]) |parent| .{ .index = parent } else null;
+    const Ctx = struct {
+        fn parentElement(i: usize) ?usize {
+            return parents[i];
         }
 
-        fn localName(self: Self) []const u8 {
-            return local_names[self.index];
+        fn localName(i: usize) []const u8 {
+            return local_names[i];
         }
 
-        fn id(self: Self) []const u8 {
-            return ids[self.index];
+        fn id(i: usize) []const u8 {
+            return ids[i];
         }
 
-        fn className(self: Self) []const u8 {
-            return class_names[self.index];
+        fn className(i: usize) []const u8 {
+            return class_names[i];
         }
     };
 
-    try std.testing.expect(sel.matchElement(Element{ .index = index }) != null);
+    try std.testing.expect(sel.matchElement(Ctx, index) != null);
 }
 
 test "matching" {
