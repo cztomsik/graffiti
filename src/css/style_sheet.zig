@@ -21,7 +21,7 @@ pub const StyleSheet = struct {
     }
 
     pub fn format(self: StyleSheet, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        for (self.rules) |r| {
+        for (self.rules.items) |r| {
             try writer.print("{}\n", .{r});
         }
     }
