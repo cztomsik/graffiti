@@ -11,11 +11,7 @@ pub const Renderer = @import("renderer.zig").Renderer;
 pub const Window = @import("platform.zig").Window;
 
 // generate N-API bindings
-comptime {
-    if (!builtin.is_test) {
-        _ = @import("napi.zig");
-    }
-}
+pub usingnamespace if (!builtin.is_test) @import("napi.zig") else struct {};
 
 // ref all decls for testing
 test {

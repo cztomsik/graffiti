@@ -45,9 +45,7 @@ pub const Document = struct {
 
     /// Creates a new element with the given local name.
     pub fn createElement(self: *Document, local_name: []const u8) !*Element {
-        var element = try self.allocator.create(Element);
-        element.* = try Element.init(self, local_name);
-        return element;
+        return Element.init(self, local_name);
     }
 
     /// Creates a new text node with the given data.

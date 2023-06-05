@@ -58,11 +58,6 @@ const styles = {
 ---
 
 ## Current scope
-I have reduced the scope to something which I can finish myself in a reasonable
-time (before end of 2022) and which is also useful to me. I also have some ideas
-for the future (and lots of deleted code in a git history) but those will have
-to wait.
-
 - single-window, single-thread, single-script (global `document`), nodejs-only
   (N-API)
 - subset of DOM needed by major JS frameworks (`preact`-only for now)
@@ -95,7 +90,18 @@ node examples/hello.js
 ```
 
 ## License
-The project is licensed under the MIT license.
+The code in this repository is licensed under the MIT license, except for the
+HTML parser in `lib/core/htmlparser.js` which is based on the work of John Resig
+(MIT), Juriy "kangax" Zaytsev (MIT) and Erik Arvidsson (MPL).
+
+You are also bound by the licenses of all the transitive dependencies:
+- [Zig](https://ziglang.org/) (MIT)
+- [GLFW](https://www.glfw.org/) (ZLIB)
+- [nanovg-zig](https://github.com/fabioarnold/nanovg-zig) (ZLIB) 
+  - [nanovg](https://github.com/memononen/nanovg) (ZLIB)
+  - [fontstash](https://github.com/memononen/fontstash) (ZLIB)
+  - [stb_truetype](https://github.com/nothings/stb) (MIT)
+- Roboto font (Apache 2.0)
 
 ## Contributing
 If you are interested in contributing, please join the Discord channel to

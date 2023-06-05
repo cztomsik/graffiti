@@ -12,14 +12,16 @@ pub const Element = struct {
     style: StyleDeclaration,
     resolved_style: Style,
 
-    pub fn init(document: *Document, local_name: []const u8) !Element {
-        return .{
+    pub fn init(document: *Document, local_name: []const u8) !*Element {
+        var element = try document.allocator.create(Element);
+        element.* = .{
             .node = .{ .owner_document = document, .node_type = .element },
             .local_name = try document.allocator.dupe(u8, local_name),
             .attributes = std.BufMap.init(document.allocator),
             .style = StyleDeclaration.init(document.allocator),
             .resolved_style = .{},
         };
+        return element;
     }
 
     pub fn deinit(self: *Element) void {
