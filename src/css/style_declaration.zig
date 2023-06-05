@@ -134,7 +134,7 @@ pub const StyleDeclaration = struct {
         }
     }
 
-    pub fn parse(parser: *Parser) !StyleDeclaration {
+    pub fn parseWith(parser: *Parser) !StyleDeclaration {
         var res = StyleDeclaration.init(parser.allocator);
 
         while (parser.expect(.ident) catch null) |prop_name| {

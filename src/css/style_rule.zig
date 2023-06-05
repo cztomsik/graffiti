@@ -9,7 +9,7 @@ pub const StyleRule = struct {
     selector: Selector,
     style: StyleDeclaration,
 
-    pub fn parse(parser: *Parser) !StyleRule {
+    pub fn parseWith(parser: *Parser) !StyleRule {
         return .{
             .selector = try parser.parse(Selector),
             .style = try parser.parse(StyleDeclaration),

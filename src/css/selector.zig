@@ -25,6 +25,10 @@ pub const Selector = struct {
         @"or",
     };
 
+    pub fn deinit(self: *Selector, allocator: std.mem.Allocator) void {
+        allocator.free(self.parts);
+    }
+
     pub fn format(self: Selector, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         var i = self.parts.len;
         while (i > 0) {
@@ -43,7 +47,13 @@ pub const Selector = struct {
         }
     }
 
-    pub fn parse(parser: *Parser) !Selector {
+    pub fn parse(allocator: std.mem.Allocator, selector: []const u8) !Selector {
+        var parser = Parser.init(allocator, selector);
+
+        return try parser.parse(Selector);
+    }
+
+    pub fn parseWith(parser: *Parser) !Selector {
         var parts = std.ArrayList(Part).init(parser.allocator);
         errdefer parts.deinit();
 

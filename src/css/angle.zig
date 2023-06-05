@@ -20,7 +20,7 @@ pub const Angle = union(enum) {
         };
     }
 
-    pub fn parse(parser: *Parser) !Angle {
+    pub fn parseWith(parser: *Parser) !Angle {
         switch (try parser.tokenizer.next()) {
             .number => |n| return .{ .deg = n },
             .dimension => |d| inline for (std.meta.fields(Angle)) |f| {

@@ -43,7 +43,7 @@ pub const Dimension = union(enum) {
         };
     }
 
-    pub fn parse(parser: *Parser) !Dimension {
+    pub fn parseWith(parser: *Parser) !Dimension {
         switch (try parser.tokenizer.next()) {
             .number => |n| if (n == 0) return .{ .px = 0 },
             .dimension => |d| inline for (std.meta.fields(Dimension)) |f| {

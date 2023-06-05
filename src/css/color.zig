@@ -67,7 +67,7 @@ pub const Color = struct {
         try writer.print("rgba({}, {}, {}, {})", .{ self.r, self.g, self.b, self.a });
     }
 
-    pub fn parse(parser: *Parser) !Color {
+    pub fn parseWith(parser: *Parser) !Color {
         const tok = try parser.tokenizer.next();
 
         switch (tok) {

@@ -8,12 +8,14 @@ pub const StyleSheet = struct {
     rules: std.ArrayList(StyleRule),
     owner_node: ?*anyopaque = null,
 
+    /// Creates a new, empty style sheet.
     pub fn init(allocator: std.mem.Allocator) StyleSheet {
         return StyleSheet{
             .rules = std.ArrayList(StyleRule).init(allocator),
         };
     }
 
+    /// Deinitializes the style sheet.
     pub fn deinit(self: *StyleSheet) void {
         self.rules.deinit();
     }

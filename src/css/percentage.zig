@@ -9,7 +9,7 @@ pub const NumberOrPercentage = struct {
         return writer.print("{d}%", .{self.value * 100.0});
     }
 
-    pub fn parse(parser: *Parser) !NumberOrPercentage {
+    pub fn parseWith(parser: *Parser) !NumberOrPercentage {
         switch (try parser.tokenizer.next()) {
             .number => |n| return .{ .value = n },
             .dimension => |d| {

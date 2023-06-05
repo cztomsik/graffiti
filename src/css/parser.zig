@@ -40,9 +40,10 @@ pub const Parser = struct {
         };
     }
 
+    /// Parse a value of any type.
     pub fn parse(self: *Parser, comptime T: anytype) !T {
-        if (comptime std.meta.trait.hasFn("parse")(T)) {
-            return T.parse(self);
+        if (comptime std.meta.trait.hasFn("parseWith")(T)) {
+            return T.parseWith(self);
         }
 
         return switch (@typeInfo(T)) {

@@ -2,7 +2,6 @@ const std = @import("std");
 const Element = @import("element.zig").Element;
 const CharacterData = @import("character_data.zig").CharacterData;
 const Document = @import("document.zig").Document;
-const Parser = @import("../css/parser.zig").Parser;
 const Selector = @import("../css/selector.zig").Selector;
 
 // TODO: all node types should be extern structs
@@ -95,10 +94,10 @@ pub const Node = struct {
         child.parent_node = null;
     }
 
+    /// Returns a first element matching the given selector, or null otherwise.
     pub fn querySelector(self: *Node, selector: []const u8) !?*Element {
-        var parser = Parser.init(self.owner_document.allocator, selector);
-        var sel = try parser.parse(Selector);
-        defer self.owner_document.allocator.free(sel.parts);
+        var sel = try Selector.parse(self.owner_document.allocator, selector);
+        defer sel.deinit(self.owner_document.allocator);
 
         var descendants = DescendantsIterator{ .start = self, .pos = self };
 
