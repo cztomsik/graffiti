@@ -2,6 +2,8 @@ const std = @import("std");
 const Element = @import("element.zig").Element;
 const CharacterData = @import("character_data.zig").CharacterData;
 const Document = @import("document.zig").Document;
+const Parser = @import("../css/parser.zig").Parser;
+const Selector = @import("../css/selector.zig").Selector;
 
 // TODO: all node types should be extern structs
 //       but then we couldn't store std.mem.Allocator :-/
@@ -93,6 +95,41 @@ pub const Node = struct {
         child.parent_node = null;
     }
 
+    pub fn querySelector(self: *Node, selector: []const u8) !?*Element {
+        var parser = Parser.init(self.owner_document.allocator, selector);
+        var sel = try parser.parse(Selector);
+        defer self.owner_document.allocator.free(sel.parts);
+
+        var descendants = DescendantsIterator{ .start = self, .pos = self };
+
+        const Cx = struct {
+            pub fn parentElement(el: *Element) ?*Element {
+                const parent = el.node.parent_node orelse return null;
+                return parent.element();
+            }
+
+            pub fn localName(el: *Element) []const u8 {
+                return el.local_name;
+            }
+
+            pub fn id(el: *Element) []const u8 {
+                return el.getAttribute("id") orelse "";
+            }
+
+            pub fn className(el: *Element) []const u8 {
+                return el.getAttribute("class") orelse "";
+            }
+        };
+
+        while (descendants.next()) |node| {
+            if (node.element()) |el| {
+                if (sel.matchElement(Cx, el) != null) return el;
+            }
+        }
+
+        return null;
+    }
+
     // internal
     fn checkParent(self: *Node, node: *Node, parent: ?*Node) !void {
         if (node.owner_document != self.owner_document or node.parent_node != parent) {
@@ -124,32 +161,32 @@ pub const Node = struct {
     };
 
     // TODO: consider pubslishing node.descendants()
-    //       for now, this is only planned for querySelectorAll()
-    // pub const DescendantsIterator = struct {
-    //     start: *Node,
-    //     pos: *Node,
+    //       for now, this is only planned for querySelector(All)()
+    pub const DescendantsIterator = struct {
+        start: *Node,
+        pos: *Node,
 
-    //     pub fn next(self: *DescendantsIterator) ?*Node {
-    //         if (self.pos.first_child) |ch| {
-    //             self.pos = ch;
-    //         } else if (self.pos.next_sibling) |n| {
-    //             self.pos = n;
-    //         } else {
-    //             var x = self.pos;
+        pub fn next(self: *DescendantsIterator) ?*Node {
+            if (self.pos.first_child) |ch| {
+                self.pos = ch;
+            } else if (self.pos.next_sibling) |n| {
+                self.pos = n;
+            } else {
+                var x = self.pos;
 
-    //             while (true) {
-    //                 if (x == self.start) return null;
+                while (true) {
+                    if (x == self.start) return null;
 
-    //                 if (x.parent_node.?.next_sibling) |n| {
-    //                     self.pos = n;
-    //                     break;
-    //                 }
+                    if (x.parent_node.?.next_sibling) |n| {
+                        self.pos = n;
+                        break;
+                    }
 
-    //                 x = x.parent_node.?;
-    //             }
-    //         }
+                    x = x.parent_node.?;
+                }
+            }
 
-    //         return self.pos;
-    //     }
-    // };
+            return self.pos;
+        }
+    };
 };
