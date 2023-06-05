@@ -148,6 +148,7 @@ pub const Document = struct {
         }
     }
 
+    // find existing sheet for the given element
     fn findStyleSheet(self: *Document, element: *Element) ?*StyleSheet {
         for (self.style_sheets.items) |*sheet| {
             if (sheet.owner_node == @as(*anyopaque, element)) return sheet;

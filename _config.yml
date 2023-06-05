@@ -1,6 +1,6 @@
 exclude:
     - node_modules
-    - libgraffiti
+    - deps
     - src
     - lib
     - examples
