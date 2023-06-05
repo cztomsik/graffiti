@@ -139,6 +139,9 @@ pub const Document = struct {
                     self.style_sheets.items[i].deinit();
                     _ = self.style_sheets.orderedRemove(i);
                 }
+
+                el.node.has_dirty = false;
+                el.node.is_dirty = false;
             }
 
             std.debug.assert(i == self.style_sheets.items.len);
