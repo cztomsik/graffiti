@@ -167,6 +167,8 @@ pub const Shorthand = union(enum) {
         padding_right: Dimension = .{ .px = 0 },
         padding_bottom: Dimension = .{ .px = 0 },
         padding_left: Dimension = .{ .px = 0 },
+
+        pub usingnamespace RectMixin(@This());
     },
 
     margin: struct {
@@ -174,6 +176,8 @@ pub const Shorthand = union(enum) {
         margin_right: Dimension = .{ .px = 0 },
         margin_bottom: Dimension = .{ .px = 0 },
         margin_left: Dimension = .{ .px = 0 },
+
+        pub usingnamespace RectMixin(@This());
     },
 
     // TODO: this is simplified but the full syntax is crazy, so
@@ -250,6 +254,28 @@ pub const Shorthand = union(enum) {
         outline_color: Color = TRANSPARENT,
     },
 };
+
+fn RectMixin(comptime T: type) type {
+    const fields = std.meta.fields(T);
+    const V = fields[0].type;
+
+    return struct {
+        pub fn parseWith(parser: *css.Parser) !T {
+            var res: T = undefined;
+            var vals: [4]V = undefined;
+            vals[0] = try parser.parse(V);
+            vals[1] = try parser.parse(?V) orelse vals[0];
+            vals[2] = try parser.parse(?V) orelse vals[0];
+            vals[3] = try parser.parse(?V) orelse vals[1];
+
+            inline for (fields, vals) |f, v| {
+                @field(res, f.name) = v;
+            }
+
+            return res;
+        }
+    };
+}
 
 pub const StyleDeclaration = css.StyleDeclaration(StyleProp, Shorthand);
 

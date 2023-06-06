@@ -30,11 +30,7 @@ const styles = {
     background: '#eee',
     display: 'flex',
     flexDirection: 'column',
-    // TODO: shorthand
-    paddingTop: 20,
-    paddingRight: 20,
-    paddingBottom: 20,
-    paddingLeft: 20,
+    padding: 20,
     justifyContent: 'space-between',
   },
 
