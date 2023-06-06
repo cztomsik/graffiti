@@ -1,6 +1,6 @@
 const std = @import("std");
-const Parser = @import("parser.zig").Parser;
-const expectParse = @import("parser.zig").expectParse;
+const Parser = @import("../parser.zig").Parser;
+const expectParse = @import("../parser.zig").expectParse;
 
 /// A shared type for `length`, `length-percentage` and
 /// `length-percentage | auto`.

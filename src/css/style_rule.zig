@@ -1,25 +1,26 @@
 const std = @import("std");
 const Parser = @import("parser.zig").Parser;
 const expectParse = @import("parser.zig").expectParse;
-const StyleDeclaration = @import("style_declaration.zig").StyleDeclaration;
 const Selector = @import("selector.zig").Selector;
 const expectFmt = std.testing.expectFmt;
 
-pub const StyleRule = struct {
-    selector: Selector,
-    style: StyleDeclaration,
+pub fn StyleRule(comptime StyleDeclaration: type) type {
+    return struct {
+        selector: Selector,
+        style: StyleDeclaration,
 
-    pub fn parseWith(parser: *Parser) !StyleRule {
-        return .{
-            .selector = try parser.parse(Selector),
-            .style = try parser.parse(StyleDeclaration),
-        };
-    }
+        pub fn parseWith(parser: *Parser) !StyleRule {
+            return .{
+                .selector = try parser.parse(Selector),
+                .style = try parser.parse(StyleDeclaration),
+            };
+        }
 
-    pub fn format(self: StyleRule, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        return writer.print("{} {{ {} }}", .{ self.selector, self.style });
-    }
-};
+        pub fn format(self: StyleRule, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+            return writer.print("{} {{ {} }}", .{ self.selector, self.style });
+        }
+    };
+}
 
 // test "StyleRule.format()" {
 //     const Style = struct { border_radius: f32 = 0 };

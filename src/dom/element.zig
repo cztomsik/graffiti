@@ -2,8 +2,8 @@ const std = @import("std");
 const util = @import("../util.zig");
 const Node = @import("node.zig").Node;
 const Document = @import("document.zig").Document;
-const StyleDeclaration = @import("../css/style_declaration.zig").StyleDeclaration;
 const Style = @import("../style.zig").Style;
+const StyleDeclaration = @import("../style.zig").StyleDeclaration;
 
 pub const Element = struct {
     node: Node,

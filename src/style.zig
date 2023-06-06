@@ -1,6 +1,6 @@
 const std = @import("std");
 const layout = @import("emlay");
-const Parser = @import("css/parser.zig").Parser;
+const css = @import("css/mod.zig");
 
 // layout enums
 pub const Display = layout.Display;
@@ -19,8 +19,8 @@ pub const OutlineStyle = enum { none, solid };
 pub const BorderStyle = enum { none, solid };
 
 // TODO: figure out where to put these
-pub const Color = @import("css/color.zig").Color;
-pub const Dimension = @import("css/dimension.zig").Dimension;
+pub const Color = @import("css/values/color.zig").Color;
+pub const Dimension = @import("css/values/dimension.zig").Dimension;
 
 // TODO: figure out where to put this
 pub const BoxShadow = struct {
@@ -128,3 +128,129 @@ pub const Style = struct {
     // font_size: Dimension = .{ .px = 16 },
     // ...
 };
+
+pub const StyleProp = blk: {
+    var fields: [std.meta.fields(Style).len]std.builtin.Type.UnionField = undefined;
+    for (std.meta.fields(Style), 0..) |f, i| {
+        fields[i] = .{
+            .name = f.name,
+            .type = f.type,
+            .alignment = @alignOf(f.type),
+        };
+    }
+    break :blk @Type(.{ .Union = .{
+        .layout = .Auto,
+        .tag_type = std.meta.FieldEnum(Style),
+        .fields = &fields,
+        .decls = &.{},
+    } });
+};
+
+// shorthand props, we parse & print them but we always store expanded longhands
+// every shorthand is just a struct of longhands which makes it easy to
+// expand them into longhands with a simple inline for loop.
+//
+// we could concat prefix and field name, but there are some edge-cases like `border-radius`
+// where the full name is in mixed order (`border-top-left-radius`)
+//
+// parsing & printing usually works fine thanks to defaults and optionals
+// but it's possible to define `parse()` and `format()` for anything custom
+pub const Shorthand = union(enum) {
+    flex: struct {
+        flex_grow: f32 = 0,
+        flex_shrink: f32 = 1,
+        flex_basis: Dimension = .auto, // .{ .percent = 0 }
+    },
+
+    padding: struct {
+        padding_top: Dimension = .{ .px = 0 },
+        padding_right: Dimension = .{ .px = 0 },
+        padding_bottom: Dimension = .{ .px = 0 },
+        padding_left: Dimension = .{ .px = 0 },
+    },
+
+    margin: struct {
+        margin_top: Dimension = .{ .px = 0 },
+        margin_right: Dimension = .{ .px = 0 },
+        margin_bottom: Dimension = .{ .px = 0 },
+        margin_left: Dimension = .{ .px = 0 },
+    },
+
+    // TODO: this is simplified but the full syntax is crazy, so
+    //       we will likely support just some reasonable subset
+    background: struct {
+        // TODO: background_image: []const BackgroundImage,
+        background_color: Color = TRANSPARENT,
+    },
+
+    // TODO: this should expand to 12 longhands but it should only
+    //       accept/print 3 values
+    // border: struct {}
+
+    border_width: struct {
+        border_top_width: Dimension = .{ .px = 3 },
+        border_right_width: Dimension = .{ .px = 3 },
+        border_bottom_width: Dimension = .{ .px = 3 },
+        border_left_width: Dimension = .{ .px = 3 },
+    },
+
+    border_style: struct {
+        border_top_style: BorderStyle = .none,
+        border_right_style: BorderStyle = .none,
+        border_bottom_style: BorderStyle = .none,
+        border_left_style: BorderStyle = .none,
+    },
+
+    border_color: struct {
+        border_top_color: Color = TRANSPARENT,
+        border_right_color: Color = TRANSPARENT,
+        border_bottom_color: Color = TRANSPARENT,
+        border_left_color: Color = TRANSPARENT,
+    },
+
+    border_top: struct {
+        border_top_width: Dimension = .{ .px = 3 },
+        border_top_style: BorderStyle = .none,
+        border_top_color: Color = TRANSPARENT,
+    },
+
+    border_right: struct {
+        border_right_width: Dimension = .{ .px = 3 },
+        border_right_style: BorderStyle = .none,
+        border_right_color: Color = TRANSPARENT,
+    },
+
+    border_bottom: struct {
+        border_bottom_width: Dimension = .{ .px = 3 },
+        border_bottom_style: BorderStyle = .none,
+        border_bottom_color: Color = TRANSPARENT,
+    },
+
+    border_left: struct {
+        border_left_width: Dimension = .{ .px = 3 },
+        border_left_style: BorderStyle = .none,
+        border_left_color: Color = TRANSPARENT,
+    },
+
+    border_radius: struct {
+        border_top_left_radius: Dimension = .{ .px = 0 },
+        border_top_right_radius: Dimension = .{ .px = 0 },
+        border_bottom_right_radius: Dimension = .{ .px = 0 },
+        border_bottom_left_radius: Dimension = .{ .px = 0 },
+    },
+
+    overflow: struct {
+        overflow_x: Overflow = .visible,
+        overflow_y: Overflow = .visible,
+    },
+
+    outline: struct {
+        outline_width: Dimension = .{ .px = 3 },
+        outline_style: OutlineStyle,
+        outline_color: Color = TRANSPARENT,
+    },
+};
+
+pub const StyleDeclaration = css.StyleDeclaration(StyleProp, Shorthand);
+
+pub const StyleSheet = css.StyleSheet(StyleDeclaration);

@@ -1,8 +1,8 @@
 const std = @import("std");
-const Parser = @import("parser.zig").Parser;
+const Parser = @import("../parser.zig").Parser;
 const Angle = @import("angle.zig").Angle;
 const NumberOrPercentage = @import("percentage.zig").NumberOrPercentage;
-const expectParse = @import("parser.zig").expectParse;
+const expectParse = @import("../parser.zig").expectParse;
 
 /// A color in sRGB color space.
 pub const Color = struct {

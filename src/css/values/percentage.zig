@@ -1,6 +1,6 @@
 const std = @import("std");
-const Parser = @import("parser.zig").Parser;
-const expectParse = @import("parser.zig").expectParse;
+const Parser = @import("../parser.zig").Parser;
+const expectParse = @import("../parser.zig").expectParse;
 
 pub const NumberOrPercentage = struct {
     value: f32,

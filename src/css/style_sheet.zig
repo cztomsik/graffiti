@@ -1,61 +1,65 @@
 const std = @import("std");
 const Parser = @import("parser.zig").Parser;
-const StyleRule = @import("style_rule.zig").StyleRule;
 const expectParse = @import("parser.zig").expectParse;
 const expectFmt = std.testing.expectFmt;
 
-pub const StyleSheet = struct {
-    rules: std.ArrayList(StyleRule),
-    owner_node: ?*anyopaque = null,
+pub fn StyleSheet(comptime StyleRule: type) type {
+    return struct {
+        rules: std.ArrayList(StyleRule),
+        owner_node: ?*anyopaque = null,
 
-    /// Creates a new, empty style sheet.
-    pub fn init(allocator: std.mem.Allocator) StyleSheet {
-        return StyleSheet{
-            .rules = std.ArrayList(StyleRule).init(allocator),
-        };
-    }
+        const Self = @This();
 
-    /// Deinitializes the style sheet.
-    pub fn deinit(self: *StyleSheet) void {
-        self.rules.deinit();
-    }
-
-    pub fn format(self: StyleSheet, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        for (self.rules.items) |r| {
-            try writer.print("{}\n", .{r});
-        }
-    }
-
-    pub fn parse(allocator: std.mem.Allocator, input: []const u8) !StyleSheet {
-        var parser = Parser.init(allocator, input);
-        var sheet = StyleSheet.init(allocator);
-        errdefer sheet.deinit();
-
-        while (parser.parse(StyleRule) catch null) |r| {
-            try sheet.rules.append(r);
+        /// Creates a new, empty style sheet.
+        pub fn init(allocator: std.mem.Allocator) Self {
+            return .{
+                .rules = std.ArrayList(StyleRule).init(allocator),
+            };
         }
 
-        return sheet;
-    }
+        /// Deinitializes the style sheet.
+        pub fn deinit(self: *Self) void {
+            self.rules.deinit();
+        }
 
-    /// Inserts a rule at given index.
-    pub fn insertRule(self: *StyleSheet, rule: []const u8, index: usize) !usize {
-        if (index > self.rules.items.len) return error.IndexSizeError;
+        pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+            for (self.rules.items) |r| {
+                try writer.print("{}\n", .{r});
+            }
+        }
 
-        var parser = Parser.init(self.rules.allocator, rule);
-        var res = try parser.parse(StyleRule);
+        pub fn parse(allocator: std.mem.Allocator, input: []const u8) !Self {
+            var parser = Parser.init(allocator, input);
+            var sheet = Self.init(allocator);
+            errdefer sheet.deinit();
 
-        try self.rules.insert(index, res);
-        return index;
-    }
+            while (parser.parse(StyleRule) catch null) |r| {
+                try sheet.rules.append(r);
+            }
 
-    /// Deletes a rule at given index.
-    pub fn deleteRule(self: *StyleSheet, index: usize) void {
-        if (index >= self.rules.len) return error.IndexSizeError;
+            return sheet;
+        }
 
-        self.rules.orderedRemove(index);
-    }
-};
+        /// Inserts a rule at given index.
+        pub fn insertRule(self: *Self, rule: []const u8, index: usize) !usize {
+            if (index > self.rules.items.len) return error.IndexSizeError;
+
+            var parser = Parser.init(self.rules.allocator, rule);
+            var res = try parser.parse(StyleRule);
+
+            try self.rules.insert(index, res);
+            return index;
+        }
+
+        /// Deletes a rule at given index.
+        pub fn deleteRule(self: *Self, index: usize) void {
+            if (index >= self.rules.len) return error.IndexSizeError;
+
+            var rule = self.rules.orderedRemove(index);
+            rule.deinit(self.rules.allocator);
+        }
+    };
+}
 
 // test "basic usage" {
 //     var sheet = StyleSheet.init(std.testing.allocator);

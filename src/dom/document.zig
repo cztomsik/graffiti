@@ -10,7 +10,7 @@ const Node = @import("node.zig").Node;
 const Element = @import("element.zig").Element;
 const CharacterData = @import("character_data.zig").CharacterData;
 const Style = @import("../style.zig").Style;
-const StyleSheet = @import("../css/style_sheet.zig").StyleSheet;
+const StyleSheet = @import("../style.zig").StyleSheet;
 
 pub const Document = struct {
     node: Node,
@@ -101,6 +101,7 @@ pub const Document = struct {
         self.updateLayout();
     }
 
+    // go through <style> elements and (re)parse them into StyleSheet objects if needed
     fn updateStyleSheets(self: *Document) !void {
         const head_el = self.head() orelse return;
 
