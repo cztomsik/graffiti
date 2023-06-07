@@ -279,4 +279,4 @@ fn RectMixin(comptime T: type) type {
 
 pub const StyleDeclaration = css.StyleDeclaration(StyleProp, Shorthand);
 
-pub const StyleSheet = css.StyleSheet(StyleDeclaration);
+pub const StyleSheet = css.StyleSheet(css.StyleRule(StyleDeclaration));

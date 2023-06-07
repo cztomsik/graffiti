@@ -9,14 +9,16 @@ pub fn StyleRule(comptime StyleDeclaration: type) type {
         selector: Selector,
         style: StyleDeclaration,
 
-        pub fn parseWith(parser: *Parser) !StyleRule {
+        const Self = @This();
+
+        pub fn parseWith(parser: *Parser) !Self {
             return .{
                 .selector = try parser.parse(Selector),
                 .style = try parser.parse(StyleDeclaration),
             };
         }
 
-        pub fn format(self: StyleRule, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        pub fn format(self: Self, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
             return writer.print("{} {{ {} }}", .{ self.selector, self.style });
         }
     };
