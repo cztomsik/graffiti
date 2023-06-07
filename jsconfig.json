@@ -3,7 +3,11 @@
     "noEmit": true,
     "checkJs": true,
     "target": "ESNext",
-    "module": "NodeNext"
+    "module": "NodeNext",
+    "paths": {
+      "graffiti": ["./lib/compat/index.js"],
+      "graffiti/core": ["./lib/core/index.js"]
+    }
   },
   "include": ["lib", "polyfills"],
   "exclude": ["node_modules"]
