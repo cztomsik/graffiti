@@ -2,6 +2,7 @@ const std = @import("std");
 const util = @import("../util.zig");
 const Node = @import("node.zig").Node;
 const Document = @import("document.zig").Document;
+const Selector = @import("../css/mod.zig").Selector;
 const Style = @import("../style.zig").Style;
 const StyleDeclaration = @import("../style.zig").StyleDeclaration;
 
@@ -65,6 +66,29 @@ pub const Element = struct {
     pub fn removeAttribute(self: *Element, name: []const u8) void {
         self.attributes.remove(name);
         self.node.markDirty();
+    }
+
+    pub fn matches(self: *Element, selector: *const Selector) bool {
+        const Cx = struct {
+            pub fn parentElement(el: *Element) ?*Element {
+                const parent = el.node.parent_node orelse return null;
+                return parent.element();
+            }
+
+            pub fn localName(el: *Element) []const u8 {
+                return el.local_name;
+            }
+
+            pub fn id(el: *Element) []const u8 {
+                return el.getAttribute("id") orelse "";
+            }
+
+            pub fn className(el: *Element) []const u8 {
+                return el.getAttribute("class") orelse "";
+            }
+        };
+
+        return selector.matchElement(Cx, self) != null;
     }
 
     pub const ChildrenIterator = struct {

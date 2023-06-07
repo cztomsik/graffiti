@@ -20,7 +20,7 @@ fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi
     // function wrappers and field getters we want to generate
     // `&` means we want to get a pointer to the field
     const defs = .{
-        .Node = .{ .parent_node, .first_child, .next_sibling, .appendChild, .insertBefore, .removeChild, .querySelector },
+        .Node = .{ .appendChild, .insertBefore, .removeChild, .querySelector, .markDirty },
         .Element = .{ .local_name, &.style, .getAttribute, .setAttribute, .removeAttribute },
         .CharacterData = .{ .data, .setData },
         .Document = .{ .createElement, .createTextNode, .elementFromPoint },

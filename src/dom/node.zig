@@ -101,42 +101,23 @@ pub const Node = struct {
 
         var descendants = DescendantsIterator{ .start = self, .pos = self };
 
-        const Cx = struct {
-            pub fn parentElement(el: *Element) ?*Element {
-                const parent = el.node.parent_node orelse return null;
-                return parent.element();
-            }
-
-            pub fn localName(el: *Element) []const u8 {
-                return el.local_name;
-            }
-
-            pub fn id(el: *Element) []const u8 {
-                return el.getAttribute("id") orelse "";
-            }
-
-            pub fn className(el: *Element) []const u8 {
-                return el.getAttribute("class") orelse "";
-            }
-        };
-
         while (descendants.next()) |node| {
             if (node.element()) |el| {
-                if (sel.matchElement(Cx, el) != null) return el;
+                if (el.matches(&sel)) return el;
             }
         }
 
         return null;
     }
 
-    // internal
+    // internal check, called before inserting/removing a node
     fn checkParent(self: *Node, node: *Node, parent: ?*Node) !void {
         if (node.owner_document != self.owner_document or node.parent_node != parent) {
             return error.InvalidChild;
         }
     }
 
-    // internal
+    // mark node and all ancestors dirty
     pub fn markDirty(self: *Node) void {
         self.is_dirty = true;
 

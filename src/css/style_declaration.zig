@@ -156,22 +156,12 @@ pub fn StyleDeclaration(comptime Property: type, comptime Shorthand: type) type 
             return res;
         }
 
-        pub fn apply(self: *Self, target: anytype) void {
-            for (self.properties.items) |p| {
-                inline for (std.meta.fields(Property)) |f| {
-                    if (p == @field(Property, f.name)) {
-                        @field(target, f.name) = @field(p, f.name);
-                    }
-                }
-            }
-        }
-
         // helpers
 
         fn propName(prop: Property) []const u8 {
-            inline for (std.meta.fields(Property)) |f| {
-                if (prop == @field(Property, f.name)) return cssName(f.name);
-            } else unreachable;
+            switch (prop) {
+                inline else => |_, tag| return cssName(@tagName(tag)),
+            }
         }
 
         fn find(self: *Self, tag: std.meta.Tag(Property)) ?usize {

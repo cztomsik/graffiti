@@ -10,6 +10,7 @@ const Node = @import("node.zig").Node;
 const Element = @import("element.zig").Element;
 const CharacterData = @import("character_data.zig").CharacterData;
 const Style = @import("../style.zig").Style;
+const StyleDeclaration = @import("../style.zig").StyleDeclaration;
 const StyleSheet = @import("../style.zig").StyleSheet;
 
 pub const Document = struct {
@@ -25,6 +26,13 @@ pub const Document = struct {
             .allocator = allocator,
             .style_sheets = std.ArrayList(StyleSheet).init(allocator),
         };
+
+        // add default stylesheet
+        try document.style_sheets.append(try StyleSheet.parse(
+            allocator,
+            @embedFile("../../resources/ua.css"),
+        ));
+
         return document;
     }
 
@@ -94,59 +102,58 @@ pub const Document = struct {
     /// Updates the document after changes.
     pub fn update(self: *Document) !void {
         if (self.node.has_dirty) {
-            try self.updateStyleSheets();
-            self.updateStyles();
+            const force = try self.updateStyleSheets();
+            self.updateTree(&self.node, force);
         }
 
         self.updateLayout();
     }
 
     // go through <style> elements and (re)parse them into StyleSheet objects if needed
-    fn updateStyleSheets(self: *Document) !void {
-        const head_el = self.head() orelse return;
+    fn updateStyleSheets(self: *Document) !bool {
+        const head_el = self.head() orelse return false;
+        if (!head_el.node.has_dirty) return false;
 
-        if (head_el.node.has_dirty) {
-            var style_els = head_el.childrenByLocalName("style");
-            var i: usize = 0;
+        var changed = false;
+        var style_els = head_el.childrenByLocalName("style");
+        var i: usize = 1;
 
-            while (style_els.next()) |el| : (i += 1) {
-                if (el.node.is_dirty or el.node.has_dirty) {
-                    var buf = std.ArrayList(u8).init(self.allocator);
-                    defer buf.deinit();
+        while (style_els.next()) |el| : (i += 1) {
+            if (el.node.is_dirty or el.node.has_dirty) {
+                var buf = std.ArrayList(u8).init(self.allocator);
+                defer buf.deinit();
+                defer changed = true;
 
-                    var writer = buf.writer();
-                    var childNodes = el.node.childNodes();
+                var writer = buf.writer();
+                var childNodes = el.node.childNodes();
 
-                    while (childNodes.next()) |child| {
-                        if (child.node_type == .text) {
-                            try writer.writeAll(@ptrCast(*CharacterData, child).data);
-                        }
-                    }
-
-                    var sheet = try StyleSheet.parse(self.allocator, buf.items);
-                    sheet.owner_node = el;
-
-                    // replace or insert the sheet into the list at the correct position
-                    if (self.findStyleSheet(el)) |ptr| {
-                        ptr.deinit();
-                        ptr.* = sheet;
-                    } else {
-                        try self.style_sheets.insert(i, sheet);
+                while (childNodes.next()) |child| {
+                    if (child.node_type == .text) {
+                        try writer.writeAll(@ptrCast(*CharacterData, child).data);
                     }
                 }
 
-                // remove old sheets
-                while (self.style_sheets.items[i].owner_node != @as(*anyopaque, el)) {
-                    self.style_sheets.items[i].deinit();
-                    _ = self.style_sheets.orderedRemove(i);
-                }
+                var sheet = try StyleSheet.parse(self.allocator, buf.items);
+                sheet.owner_node = el;
 
-                el.node.has_dirty = false;
-                el.node.is_dirty = false;
+                // replace or insert the sheet into the list at the correct position
+                if (self.findStyleSheet(el)) |ptr| {
+                    ptr.deinit();
+                    ptr.* = sheet;
+                } else {
+                    try self.style_sheets.insert(i, sheet);
+                }
             }
 
-            std.debug.assert(i == self.style_sheets.items.len);
+            // remove old sheets
+            while (self.style_sheets.items[i].owner_node != @as(*anyopaque, el)) {
+                self.style_sheets.items[i].deinit();
+                _ = self.style_sheets.orderedRemove(i);
+            }
         }
+
+        std.debug.assert(i == self.style_sheets.items.len);
+        return changed;
     }
 
     // find existing sheet for the given element
@@ -157,24 +164,50 @@ pub const Document = struct {
         return null;
     }
 
-    fn updateStyles(self: *Document) void {
-        const body_el = self.body() orelse return;
+    // incrementally update the tree, applying styles and marking dirty nodes as clean
+    fn updateTree(self: *Document, node: *Node, force: bool) void {
+        if (force or node.is_dirty) {
+            switch (node.node_type) {
+                .element => updateElementStyle(self, @ptrCast(*Element, node)),
+                .text => {}, // TODO
+                else => {},
+            }
 
-        if (body_el.node.has_dirty) {
-            // TODO: apply sheets
+            node.is_dirty = false;
+        }
 
-            // apply inline styles for all elements
-            self.applyInlineStyles(body_el);
+        if (force or node.has_dirty) {
+            var childNodes = node.childNodes();
+            while (childNodes.next()) |ch| {
+                self.updateTree(ch, force);
+            }
+
+            node.has_dirty = false;
         }
     }
 
-    fn applyInlineStyles(self: *Document, element: *Element) void {
+    // apply stylesheets and inline style to the given element
+    fn updateElementStyle(self: *Document, element: *Element) void {
+        // clear
         element.resolved_style = .{};
-        element.style.apply(&element.resolved_style);
 
-        var children = element.children();
-        while (children.next()) |ch| {
-            self.applyInlineStyles(ch);
+        for (self.style_sheets.items) |*sheet| {
+            for (sheet.rules.items) |*rule| {
+                if (element.matches(&rule.selector)) {
+                    applyStyle(element, &rule.style);
+                }
+            }
+        }
+
+        // apply inline style
+        applyStyle(element, &element.style);
+    }
+
+    fn applyStyle(element: *Element, style: *const StyleDeclaration) void {
+        for (style.properties.items) |p| {
+            switch (p) {
+                inline else => |value, tag| @field(element.resolved_style, @tagName(tag)) = value,
+            }
         }
     }
 

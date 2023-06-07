@@ -26,6 +26,13 @@ pub const Selector = struct {
     };
 
     pub fn deinit(self: *Selector, allocator: std.mem.Allocator) void {
+        for (self.parts) |part| {
+            switch (part) {
+                // TODO: intern strings
+                .local_name, .identifier, .class_name => |s| allocator.free(s),
+                else => {},
+            }
+        }
         allocator.free(self.parts);
     }
 
@@ -64,9 +71,9 @@ pub const Selector = struct {
 
             const component: ?Part = switch (tok) {
                 .star => Part.universal,
-                .ident => |s| Part{ .local_name = s },
-                .hash => |s| Part{ .identifier = s },
-                .class_name => |s| Part{ .class_name = s },
+                .ident => |s| Part{ .local_name = try parser.allocator.dupe(u8, s) },
+                .hash => |s| Part{ .identifier = try parser.allocator.dupe(u8, s) },
+                .class_name => |s| Part{ .class_name = try parser.allocator.dupe(u8, s) },
                 .colon => Part.unsupported,
                 else => null,
             };
@@ -105,7 +112,7 @@ pub const Selector = struct {
         };
     }
 
-    pub fn matchElement(self: *Selector, ctx: anytype, element: anytype) ?Specificity {
+    pub fn matchElement(self: *const Selector, ctx: anytype, element: anytype) ?Specificity {
         // state
         var i: usize = 0;
         var current = element;
@@ -162,6 +169,7 @@ pub const Selector = struct {
             .local_name => |name| std.mem.eql(u8, ctx.localName(el), name),
             .identifier => |id| std.mem.eql(u8, ctx.id(el), id),
             .class_name => |cls| {
+                std.debug.print("class_name: {s}\n", .{cls});
                 var parts = std.mem.split(u8, ctx.className(el), " ");
                 while (parts.next()) |s| if (std.mem.eql(u8, s, cls)) return true;
                 return false;

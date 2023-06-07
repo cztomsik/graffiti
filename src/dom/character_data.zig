@@ -7,5 +7,6 @@ pub const CharacterData = struct {
     pub fn setData(self: *CharacterData, data: []const u8) !void {
         self.node.owner_document.allocator.free(self.data);
         self.data = try self.node.owner_document.allocator.dupe(u8, data);
+        self.node.markDirty();
     }
 };
