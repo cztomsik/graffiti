@@ -212,40 +212,36 @@ pub const Document = struct {
     }
 
     fn updateLayout(self: *Document) void {
-        emlay.layout(&LayoutContext{}, &self.node, self.node.size);
+        const Cx = struct {
+            pub inline fn resolve(_: @This(), dim: anytype, base: f32) f32 {
+                return switch (dim) {
+                    .auto => std.math.nan_f32,
+                    .px => |v| v,
+                    .percent => |v| v * base,
+                    else => @panic("TODO"),
+                };
+            }
+
+            pub inline fn style(_: @This(), node: *Node) *const Style {
+                return switch (node.node_type) {
+                    .element => &@ptrCast(*Element, node).resolved_style,
+                    .text => &.{ .width = .{ .px = 100 }, .height = .{ .px = 20 } },
+                    .document => &.{ .width = .{ .percent = 100 }, .height = .{ .percent = 100 } },
+                    else => &.{ .display = .none },
+                };
+            }
+
+            pub inline fn children(_: @This(), node: *Node) Node.ChildNodesIterator {
+                return node.childNodes();
+            }
+
+            pub inline fn target(_: @This(), node: *Node) *Node {
+                return node;
+            }
+
+            // pub fn measure(node: *Node, ...) [2]f32 {}
+        };
+
+        emlay.compute_layout(&Cx{}, &self.node, self.node.size);
     }
 };
-
-const LayoutContext = struct {
-    pub inline fn resolve(_: @This(), dim: anytype, base: f32) f32 {
-        return switch (dim) {
-            .auto => std.math.nan_f32,
-            .px => |v| v,
-            .percent => |v| v * base,
-            else => @panic("TODO"),
-        };
-    }
-
-    pub inline fn style(_: @This(), node: *Node) *const Style {
-        return switch (node.node_type) {
-            .element => &@ptrCast(*Element, node).resolved_style,
-            .text => &INLINE_STYLE,
-            .document => &DOCUMENT_STYLE,
-            else => &HIDDEN_STYLE,
-        };
-    }
-
-    pub inline fn children(_: @This(), node: *Node) Node.ChildNodesIterator {
-        return node.childNodes();
-    }
-
-    pub inline fn target(_: @This(), node: *Node) *Node {
-        return node;
-    }
-
-    // pub fn measure(node: *Node, ...) [2]f32 {}
-};
-
-const DOCUMENT_STYLE: Style = .{ .width = .{ .percent = 100 }, .height = .{ .percent = 100 } };
-const INLINE_STYLE: Style = .{ .width = .{ .px = 100 }, .height = .{ .px = 20 } };
-const HIDDEN_STYLE: Style = .{ .display = .none };
