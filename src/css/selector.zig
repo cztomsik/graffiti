@@ -169,7 +169,6 @@ pub const Selector = struct {
             .local_name => |name| std.mem.eql(u8, ctx.localName(el), name),
             .identifier => |id| std.mem.eql(u8, ctx.id(el), id),
             .class_name => |cls| {
-                std.debug.print("class_name: {s}\n", .{cls});
                 var parts = std.mem.split(u8, ctx.className(el), " ");
                 while (parts.next()) |s| if (std.mem.eql(u8, s, cls)) return true;
                 return false;
@@ -255,7 +254,7 @@ test "parsing" {
 fn expectMatch(selector: []const u8, index: usize) !void {
     var parser = Parser.init(std.testing.allocator, selector);
     var sel = try parser.parse(Selector);
-    defer std.testing.allocator.free(sel.parts);
+    defer sel.deinit(std.testing.allocator);
 
     const parents = [_]?usize{ null, 0, 1, 2, 3 };
     const local_names = [_][]const u8{ "html", "body", "div", "button", "span" };
