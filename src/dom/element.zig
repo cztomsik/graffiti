@@ -1,9 +1,11 @@
 const std = @import("std");
+const emlay = @import("emlay");
+const css = @import("../css/mod.zig");
 const util = @import("../util.zig");
 const Node = @import("node.zig").Node;
 const Document = @import("document.zig").Document;
 const Selector = @import("../css/mod.zig").Selector;
-const Style = @import("../style.zig").Style;
+const LayerStyle = @import("../style.zig").LayerStyle;
 const StyleDeclaration = @import("../style.zig").StyleDeclaration;
 
 pub const Element = struct {
@@ -11,16 +13,22 @@ pub const Element = struct {
     local_name: []const u8,
     attributes: std.BufMap,
     style: StyleDeclaration,
-    resolved_style: Style,
+    layer_style: LayerStyle,
 
     pub fn init(document: *Document, local_name: []const u8) !*Element {
         var element = try document.allocator.create(Element);
         element.* = .{
-            .node = .{ .owner_document = document, .node_type = .element },
+            .node = .{
+                .owner_document = document,
+                .node_type = .element,
+                .layout = .{
+                    .context = {},
+                },
+            },
             .local_name = try document.allocator.dupe(u8, local_name),
             .attributes = std.BufMap.init(document.allocator),
             .style = StyleDeclaration.init(document.allocator),
-            .resolved_style = .{},
+            .layer_style = .{},
         };
         return element;
     }
@@ -68,6 +76,7 @@ pub const Element = struct {
         self.node.markDirty();
     }
 
+    /// Returns whether this element matches the given selector.
     pub fn matches(self: *Element, selector: *const Selector) bool {
         const Cx = struct {
             pub fn parentElement(el: *Element) ?*Element {
@@ -89,6 +98,27 @@ pub const Element = struct {
         };
 
         return selector.matchElement(Cx, self) != null;
+    }
+
+    /// Applies the given style to this element.
+    pub fn applyStyle(self: *Element, style: *const StyleDeclaration) void {
+        for (style.properties.items) |p| {
+            switch (p) {
+                inline else => |value, tag| {
+                    const v = if (comptime @TypeOf(value) == css.Dimension) convertDim(value) else value;
+
+                    if (comptime @hasField(emlay.LayoutStyle, @tagName(tag))) {
+                        @field(self.node.layout.style, @tagName(tag)) = v;
+                    } else {
+                        @field(self.layer_style, @tagName(tag)) = v;
+                    }
+                },
+            }
+        }
+
+        if (self.node.layout.style.display == .none) {
+            self.layer_style.visibility = .hidden;
+        }
     }
 
     pub const ChildrenIterator = struct {
@@ -113,3 +143,12 @@ pub const Element = struct {
         pub usingnamespace util.Iterator(@This());
     };
 };
+
+fn convertDim(value: css.Dimension) emlay.Dimension {
+    switch (value) {
+        .auto => return .auto,
+        .px => |v| return .{ .px = v },
+        .percent => |v| return .{ .fraction = v / 100 },
+        else => @panic("TODO"),
+    }
+}

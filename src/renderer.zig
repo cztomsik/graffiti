@@ -9,7 +9,6 @@ const Node = @import("dom/node.zig").Node;
 const Element = @import("dom/element.zig").Element;
 const CharacterData = @import("dom/character_data.zig").CharacterData;
 const Document = @import("dom/document.zig").Document;
-const Style = @import("style.zig").Style;
 const Color = @import("style.zig").Color;
 const OutlineStyle = @import("style.zig").OutlineStyle;
 const BackgroundImage = @import("style.zig").BackgroundImage;
@@ -68,13 +67,13 @@ pub const Renderer = struct {
         self.vg.fontFace("sans");
         self.vg.fontSize(16);
         self.vg.fillColor(nvg.rgb(0, 0, 0));
-        _ = self.vg.text(text.node.pos[0], text.node.pos[1] + 16, text.data);
+        _ = self.vg.text(text.node.layout.pos[0], text.node.layout.pos[1] + 16, text.data);
     }
 
     fn renderElement(self: *Renderer, element: *Element) void {
         // split open/close so we can skip invisibles AND we can also reduce the stack usage per each recursion
         if (self.openElement(element)) {
-            self.vg.translate(element.node.pos[0], element.node.pos[1]);
+            self.vg.translate(element.node.layout.pos[0], element.node.layout.pos[1]);
 
             var iter = element.node.childNodes();
             while (iter.next()) |ch| {
@@ -86,10 +85,11 @@ pub const Renderer = struct {
     }
 
     fn openElement(self: *Renderer, element: *Element) bool {
-        const style = &element.resolved_style;
+        // TODO: const rect = element.paddingRect(), element.borderRect(), ...
+        const style = &element.layer_style;
 
         // we don't have to save/restore() if we can skip the whole subtree
-        if (style.display == .none or style.opacity == 0) {
+        if (style.visibility == .hidden or style.opacity == 0) {
             return false;
         }
 
@@ -101,18 +101,18 @@ pub const Renderer = struct {
             self.vg.globalAlpha(current * style.opacity);
         }
 
-        if (element.node.size[0] == 0 and element.node.size[1] == 0) {
+        if (element.node.layout.size[0] == 0 and element.node.layout.size[1] == 0) {
             // skip but recur
             return true;
         }
 
-        const width = element.node.size[0];
+        const width = element.node.layout.size[0];
         const shape = Shape{
             .rect = .{
-                element.node.pos[0],
-                element.node.pos[1],
-                element.node.size[0],
-                element.node.size[1],
+                element.node.layout.pos[0],
+                element.node.layout.pos[1],
+                element.node.layout.size[0],
+                element.node.layout.size[1],
             },
             .radii = .{
                 // TODO: resolve
@@ -128,21 +128,20 @@ pub const Renderer = struct {
         // }
 
         // TODO: for (style.box_shadow) |*s| {
-        if (style.box_shadow) |*s| {
-            self.drawShadow(
-                &shape,
-                // TODO: resolve
-                s.x.px,
-                s.y.px,
-                s.blur.px,
-                s.spread.px,
-                s.color,
-            );
-        }
+        // if (style.box_shadow) |*s| {
+        //     self.drawShadow(
+        //         &shape,
+        //         // TODO: resolve
+        //         s.x.px,
+        //         s.y.px,
+        //         s.blur.px,
+        //         s.spread.px,
+        //         s.color,
+        //     );
+        // }
 
         if (style.outline_style != .none and !std.meta.eql(style.outline_color, TRANSPARENT)) {
-            // TODO: resolve
-            const outline_width = style.outline_width.px;
+            const outline_width = style.outline_width.resolve(shape.rect[3]);
             if (width > 0) {
                 self.drawOutline(&shape, outline_width, style.outline_color);
             }

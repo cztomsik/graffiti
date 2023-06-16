@@ -5,7 +5,6 @@
 // but we definitely need stable pointers and same-ptr upcasting for JS
 
 const std = @import("std");
-const emlay = @import("emlay");
 const Node = @import("node.zig").Node;
 const Element = @import("element.zig").Element;
 const CharacterData = @import("character_data.zig").CharacterData;
@@ -22,7 +21,14 @@ pub const Document = struct {
     pub fn init(allocator: std.mem.Allocator) !*Document {
         var document = try allocator.create(Document);
         document.* = .{
-            .node = .{ .owner_document = document, .node_type = .document },
+            .node = .{
+                .owner_document = document,
+                .node_type = .document,
+                .layout = .{
+                    .style = .{ .width = .{ .fraction = 1 }, .height = .{ .fraction = 1 } },
+                    .context = {},
+                },
+            },
             .allocator = allocator,
             .style_sheets = std.ArrayList(StyleSheet).init(allocator),
         };
@@ -60,7 +66,14 @@ pub const Document = struct {
     pub fn createTextNode(self: *Document, data: []const u8) !*CharacterData {
         var text = try self.allocator.create(CharacterData);
         text.* = .{
-            .node = .{ .owner_document = self, .node_type = .text },
+            .node = .{
+                .owner_document = self,
+                .node_type = .text,
+                .layout = .{
+                    .style = .{ .width = .{ .px = 100 }, .height = .{ .px = 20 } },
+                    .context = {},
+                },
+            },
             .data = try self.allocator.dupe(u8, data),
         };
         return text;
@@ -70,7 +83,14 @@ pub const Document = struct {
     pub fn createComment(self: *Document, data: []const u8) !*CharacterData {
         var text = try self.allocator.create(CharacterData);
         text.* = .{
-            .node = .{ .owner_document = self, .node_type = .comment },
+            .node = .{
+                .owner_document = self,
+                .node_type = .comment,
+                .layout = .{
+                    .style = .{ .display = .none },
+                    .context = {},
+                },
+            },
             .data = try self.allocator.dupe(u8, data),
         };
         return text;
@@ -84,15 +104,17 @@ pub const Document = struct {
         var next: ?*Node = res;
         var cur: [2]f32 = .{ x, y };
 
-        while (next) |n| {
+        while (next) |node| {
+            const n = &node.layout;
+
             // TODO: display, scroll, clip, radius, etc. and it's wrong anyway (overflow, absolute, etc.)
-            if (n.node_type == .element and cur[0] >= n.pos[0] and cur[1] >= n.pos[1] and cur[0] <= (n.pos[0] + n.size[0]) and cur[1] <= (n.pos[1] + n.size[1])) {
-                res = n;
+            if (node.node_type == .element and cur[0] >= n.pos[0] and cur[1] >= n.pos[1] and cur[0] <= (n.pos[0] + n.size[0]) and cur[1] <= (n.pos[1] + n.size[1])) {
+                res = node;
                 cur[0] -= n.pos[0];
                 cur[1] -= n.pos[1];
-                next = n.first_child;
+                next = node.first_child;
             } else {
-                next = n.next_sibling;
+                next = node.next_sibling;
             }
         }
 
@@ -168,8 +190,8 @@ pub const Document = struct {
     fn updateTree(self: *Document, node: *Node, force: bool) void {
         if (force or node.is_dirty) {
             switch (node.node_type) {
-                .element => updateElementStyle(self, @ptrCast(*Element, node)),
-                .text => {}, // TODO
+                .element => updateElement(self, @ptrCast(*Element, node)),
+                .text => {}, // TODO: node.layout.markDirty();
                 else => {},
             }
 
@@ -187,61 +209,24 @@ pub const Document = struct {
     }
 
     // apply stylesheets and inline style to the given element
-    fn updateElementStyle(self: *Document, element: *Element) void {
+    fn updateElement(self: *Document, element: *Element) void {
         // clear
-        element.resolved_style = .{};
+        element.node.layout.style = .{};
+        element.layer_style = .{};
 
         for (self.style_sheets.items) |*sheet| {
             for (sheet.rules.items) |*rule| {
                 if (element.matches(&rule.selector)) {
-                    applyStyle(element, &rule.style);
+                    element.applyStyle(&rule.style);
                 }
             }
         }
 
         // apply inline style
-        applyStyle(element, &element.style);
-    }
-
-    fn applyStyle(element: *Element, style: *const StyleDeclaration) void {
-        for (style.properties.items) |p| {
-            switch (p) {
-                inline else => |value, tag| @field(element.resolved_style, @tagName(tag)) = value,
-            }
-        }
+        element.applyStyle(&element.style);
     }
 
     fn updateLayout(self: *Document) void {
-        const Cx = struct {
-            pub inline fn resolve(_: @This(), dim: anytype, base: f32) f32 {
-                return switch (dim) {
-                    .auto => std.math.nan_f32,
-                    .px => |v| v,
-                    .percent => |v| v * base,
-                    else => @panic("TODO"),
-                };
-            }
-
-            pub inline fn style(_: @This(), node: *Node) *const Style {
-                return switch (node.node_type) {
-                    .element => &@ptrCast(*Element, node).resolved_style,
-                    .text => &.{ .width = .{ .px = 100 }, .height = .{ .px = 20 } },
-                    .document => &.{ .width = .{ .percent = 100 }, .height = .{ .percent = 100 } },
-                    else => &.{ .display = .none },
-                };
-            }
-
-            pub inline fn children(_: @This(), node: *Node) Node.ChildNodesIterator {
-                return node.childNodes();
-            }
-
-            pub inline fn target(_: @This(), node: *Node) *Node {
-                return node;
-            }
-
-            // pub fn measure(node: *Node, ...) [2]f32 {}
-        };
-
-        emlay.compute_layout(&Cx{}, &self.node, self.node.size);
+        self.node.layout.compute(self.node.layout.size);
     }
 };

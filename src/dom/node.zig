@@ -1,4 +1,5 @@
 const std = @import("std");
+const emlay = @import("emlay");
 const Element = @import("element.zig").Element;
 const CharacterData = @import("character_data.zig").CharacterData;
 const Document = @import("document.zig").Document;
@@ -21,8 +22,19 @@ pub const Node = struct {
     has_dirty: bool = true,
 
     // layout
-    pos: [2]f32 = .{ 0, 0 },
-    size: [2]f32 = .{ 0, 0 },
+    layout: emlay.LayoutNode(void, struct {
+        next_child: ?*Node,
+
+        pub fn init(node: *emlay.LayoutNode(void, @This())) @This() {
+            return .{ .next_child = @fieldParentPtr(Node, "layout", node).first_child };
+        }
+
+        pub fn next(self: *@This()) ?*emlay.LayoutNode(void, @This()) {
+            const ch = self.next_child orelse return null;
+            self.next_child = ch.next_sibling;
+            return &ch.layout;
+        }
+    }),
 
     /// Returns the node as an element, or null otherwise.
     pub fn element(self: *Node) ?*Element {
