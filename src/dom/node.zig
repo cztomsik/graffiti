@@ -107,15 +107,12 @@ pub const Node = struct {
     }
 
     /// Returns a first element matching the given selector, or null otherwise.
-    pub fn querySelector(self: *Node, selector: []const u8) !?*Element {
-        var sel = try Selector.parse(self.owner_document.allocator, selector);
-        defer sel.deinit(self.owner_document.allocator);
-
+    pub fn querySelector(self: *Node, selector: *const Selector) !?*Element {
         var descendants = DescendantsIterator{ .start = self, .pos = self };
 
         while (descendants.next()) |node| {
             if (node.element()) |el| {
-                if (el.matches(&sel)) return el;
+                if (el.matches(selector)) return el;
             }
         }
 

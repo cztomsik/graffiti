@@ -6,6 +6,7 @@ pub const Node = @import("dom/node.zig").Node;
 pub const Element = @import("dom/element.zig").Element;
 pub const CharacterData = @import("dom/character_data.zig").CharacterData;
 pub const Document = @import("dom/document.zig").Document;
+pub const Selector = @import("css/mod.zig").Selector;
 pub const CSSStyleDeclaration = @import("style.zig").StyleDeclaration;
 pub const Renderer = @import("renderer.zig").Renderer;
 pub const Window = @import("platform.zig").Window;

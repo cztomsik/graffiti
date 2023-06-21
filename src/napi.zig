@@ -1,6 +1,6 @@
 const std = @import("std");
 const napigen = @import("napigen");
-const lib = @import("root");
+const lib = @import("main.zig");
 const platform = @import("platform.zig");
 const uv_hook = @import("uv_hook.zig");
 
@@ -21,7 +21,7 @@ fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi
     // `&` means we want to get a pointer to the field
     const defs = .{
         .Node = .{ .appendChild, .insertBefore, .removeChild, .querySelector, .markDirty },
-        .Element = .{ .local_name, &.style, .getAttribute, .setAttribute, .removeAttribute },
+        .Element = .{ .local_name, &.style, .getAttribute, .setAttribute, .removeAttribute, .matches },
         .CharacterData = .{ .data, .setData },
         .Document = .{ .createElement, .createTextNode, .elementFromPoint },
         .CSSStyleDeclaration = .{ .length, .item, .getPropertyValue, .setProperty, .removeProperty, .cssText, .setCssText },
@@ -80,6 +80,17 @@ fn init(js: *napigen.JsContext) !napigen.napi_value {
         .document = document,
         .window = window,
     });
+}
+
+pub fn napigenRead(js: *napigen.JsContext, comptime T: type, value: napigen.napi_value) !T {
+    return switch (T) {
+        *const lib.Selector => {
+            var ptr = try js.arena.allocator().create(lib.Selector);
+            ptr.* = lib.Selector.parse(js.arena.allocator(), try js.readString(value)) catch return error.napi_invalid_arg;
+            return ptr;
+        },
+        else => js.defaultRead(T, value),
+    };
 }
 
 // called from uv_hook.zig
