@@ -76,7 +76,7 @@ const styles = {
 - it has to be fun (for me, sorry)
 
 ## Hacking
-To work on the project, you will need recent Zig (`0.11.0-dev.2317+46b2f1f70`)
+To work on the project, you will need recent Zig (`0.11.0-dev.3731+c6e2e1ae4`)
 and system-installed GLFW3.3 with headers (`brew install pkg-config glfw`).
 
 ```

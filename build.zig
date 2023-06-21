@@ -13,6 +13,9 @@ pub fn build(b: *std.Build) !void {
     });
     lib.main_pkg_path = ".";
 
+    // we need this anyway
+    lib.linkLibC();
+
     // cross-platform windowing
     lib.linkSystemLibrary("glfw3");
 
@@ -21,7 +24,9 @@ pub fn build(b: *std.Build) !void {
     lib.addModule("nanovg", nanovg);
     lib.addIncludePath("deps/nanovg-zig/lib/gl2/include");
     lib.addCSourceFile("deps/nanovg-zig/lib/gl2/src/glad.c", &.{});
-    nanovg_build.addCSourceFiles(lib);
+    lib.addIncludePath("deps/nanovg-zig/src");
+    lib.addCSourceFile("deps/nanovg-zig/src/fontstash.c", &.{ "-DFONS_NO_STDIO", "-fno-stack-protector" });
+    lib.addCSourceFile("deps/nanovg-zig/src/stb_image.c", &.{ "-DSTBI_NO_STDIO", "-fno-stack-protector" });
 
     // layout
     const emlay = b.createModule(.{ .source_file = .{ .path = "deps/emlay/src/main.zig" } });
