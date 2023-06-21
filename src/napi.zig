@@ -23,7 +23,7 @@ fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi
         .Node = .{ .appendChild, .insertBefore, .removeChild, .querySelector, .markDirty },
         .Element = .{ .local_name, &.style, .getAttribute, .setAttribute, .removeAttribute, .matches },
         .CharacterData = .{ .data, .setData },
-        .Document = .{ .createElement, .createTextNode, .elementFromPoint },
+        .Document = .{ .documentElement, .head, .body, .createElement, .createTextNode, .elementFromPoint },
         .CSSStyleDeclaration = .{ .length, .item, .getPropertyValue, .setProperty, .removeProperty, .cssText, .setCssText },
     };
 
