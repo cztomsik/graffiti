@@ -49,12 +49,16 @@ pub const Document = struct {
 
     /// Returns the first <head> child of the document.
     pub fn head(self: *Document) ?*Element {
-        return if (self.documentElement()) |root| root.childrenByLocalName("head").first() else null;
+        var root = self.documentElement() orelse return null;
+        var iter = root.childrenByLocalName("head");
+        return iter.next();
     }
 
     /// Returns the first <body> child of the document.
     pub fn body(self: *Document) ?*Element {
-        return if (self.documentElement()) |root| root.childrenByLocalName("body").first() else null;
+        var root = self.documentElement() orelse return null;
+        var iter = root.childrenByLocalName("body");
+        return iter.next();
     }
 
     /// Creates a new element with the given local name.

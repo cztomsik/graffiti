@@ -1,7 +1,6 @@
 const std = @import("std");
 const emlay = @import("emlay");
 const css = @import("../css/mod.zig");
-const util = @import("../util.zig");
 const Node = @import("node.zig").Node;
 const Document = @import("document.zig").Document;
 const Selector = @import("../css/mod.zig").Selector;
@@ -40,13 +39,13 @@ pub const Element = struct {
     }
 
     /// Returns an iterator over the children of this element.
-    pub fn children(self: *Element) Element.ChildrenIterator {
+    pub fn children(self: *Element) ChildrenIterator {
         return .{ .nodes = self.node.childNodes() };
     }
 
     /// Returns an iterator over the children of this element with the given local name.
-    pub fn childrenByLocalName(self: *Element, local_name: []const u8) Element.ChildrenIterator {
-        return .{ .nodes = self.node.childNodes(), .local_name = local_name };
+    pub fn childrenByLocalName(self: *Element, local_name: []const u8) ChildrenByLocalName {
+        return .{ .children = self.children(), .local_name = local_name };
     }
 
     /// Returns whether this element has any attributes.
@@ -123,24 +122,23 @@ pub const Element = struct {
 
     pub const ChildrenIterator = struct {
         nodes: Node.ChildNodesIterator,
-        local_name: ?[]const u8 = null,
 
         pub fn next(self: *ChildrenIterator) ?*Element {
-            while (self.nodes.next()) |node| {
-                if (node.element()) |element| {
-                    if (self.local_name) |local_name| {
-                        if (!std.mem.eql(u8, element.local_name, local_name)) {
-                            continue;
-                        }
-                    }
-
-                    return element;
-                }
-            }
-            return null;
+            const node = self.nodes.next() orelse return null;
+            return node.element() orelse self.next();
         }
+    };
 
-        pub usingnamespace util.Iterator(@This());
+    // TODO: intern local names and remove/replace this with one O(1) comparison in every step
+    pub const ChildrenByLocalName = struct {
+        children: ChildrenIterator,
+        local_name: []const u8,
+
+        pub fn next(self: *ChildrenByLocalName) ?*Element {
+            const el = self.children.next() orelse return null;
+            if (std.mem.eql(u8, el.local_name, self.local_name)) return el;
+            return self.next();
+        }
     };
 };
 
