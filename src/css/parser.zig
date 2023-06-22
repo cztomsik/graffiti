@@ -59,7 +59,7 @@ pub const Parser = struct {
     /// Parse an integer.
     pub fn parseInt(self: *Parser, comptime T: type) !T {
         const num = try self.expect(.number);
-        return std.math.cast(T, @floatToInt(u32, num)) orelse error.InvalidInt;
+        return std.math.cast(T, @intFromFloat(u32, num)) orelse error.InvalidInt;
     }
 
     /// Parse a float.
@@ -73,7 +73,7 @@ pub const Parser = struct {
 
         inline for (std.meta.fields(T)) |f| {
             if (std.mem.eql(u8, cssName(f.name), ident)) {
-                return @intToEnum(T, f.value);
+                return @enumFromInt(T, f.value);
             }
         }
 

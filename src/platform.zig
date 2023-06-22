@@ -51,7 +51,7 @@ pub const Window = opaque {
     pub fn size(self: *Self) [2]f32 {
         var res: [2]i32 = .{ 0, 0 };
         if (!builtin.is_test) c.glfwGetWindowSize(self.handle(), &res[0], &res[1]);
-        return .{ @intToFloat(f32, res[0]), @intToFloat(f32, res[1]) };
+        return .{ @floatFromInt(f32, res[0]), @floatFromInt(f32, res[1]) };
     }
 
     // TODO: resize, show, hide, focus, blur, ...

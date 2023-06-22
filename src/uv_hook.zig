@@ -45,7 +45,7 @@ fn waitEvents(_: [*c]uv_prepare_t) callconv(.C) void {
     switch (uv_backend_timeout(uv_loop)) {
         0 => platform.pollEvents(),
         -1 => platform.waitEvents(),
-        else => |t| platform.waitEventsTimeout(@intToFloat(f64, t) / 1000),
+        else => |t| platform.waitEventsTimeout(@floatFromInt(f64, t) / 1000),
     }
 
     // prepare JS scope
