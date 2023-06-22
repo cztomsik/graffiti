@@ -58,6 +58,11 @@ pub const Element = struct {
         return self.attributes.hash_map.contains(name);
     }
 
+    /// Returns an iterator over the names of the attributes of this element.
+    pub fn getAttributeNames(self: *Element) AttributeNamesIterator {
+        return .{ .attributes = self.attributes.hash_map.iterator() };
+    }
+
     /// Returns the value of the given attribute, or null if it does not exist.
     pub fn getAttribute(self: *Element, name: []const u8) ?[]const u8 {
         return self.attributes.get(name);
@@ -126,6 +131,15 @@ pub const Element = struct {
         pub fn next(self: *ChildrenIterator) ?*Element {
             const node = self.nodes.next() orelse return null;
             return node.element() orelse self.next();
+        }
+    };
+
+    pub const AttributeNamesIterator = struct {
+        attributes: std.StringHashMap([]const u8).Iterator,
+
+        pub fn next(self: *AttributeNamesIterator) ?[]const u8 {
+            const entry = self.attributes.next() orelse return null;
+            return entry.key_ptr.*;
         }
     };
 

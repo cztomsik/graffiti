@@ -21,7 +21,7 @@ fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi
     // `&` means we want to get a pointer to the field
     const defs = .{
         .Node = .{ .appendChild, .insertBefore, .removeChild, .querySelector, .querySelectorAll, .markDirty },
-        .Element = .{ .local_name, &.style, .getAttribute, .setAttribute, .removeAttribute, .matches },
+        .Element = .{ .local_name, &.style, .hasAttributes, .hasAttribute, .getAttributeNames, .getAttribute, .setAttribute, .removeAttribute, .matches },
         .CharacterData = .{ .data, .setData },
         .Document = .{ .documentElement, .head, .body, .createElement, .createTextNode, .elementFromPoint },
         .CSSStyleDeclaration = .{ .length, .item, .getPropertyValue, .setProperty, .removeProperty, .cssText, .setCssText },
@@ -94,13 +94,17 @@ pub fn napigenRead(js: *napigen.JsContext, comptime T: type, value: napigen.napi
 }
 
 pub fn napigenWrite(js: *napigen.JsContext, value: anytype) !napigen.napi_value {
-    return switch (@TypeOf(value)) {
-        lib.Node.QuerySelectorIterator => {
-            var list = std.ArrayList(*lib.Node).init(js.arena.allocator());
-            return js.createArrayFrom(list.items);
-        },
-        else => js.defaultWrite(value),
-    };
+    const T = @TypeOf(value);
+
+    // support writing iterators as arrays
+    if (@typeInfo(T) == .Struct and @hasDecl(T, "next")) {
+        var iter = value;
+        var list = std.ArrayList(@TypeOf(iter.next().?)).init(js.arena.allocator());
+        while (iter.next()) |it| try list.append(it);
+        return js.createArrayFrom(list.items);
+    }
+
+    return js.defaultWrite(value);
 }
 
 // called from uv_hook.zig
