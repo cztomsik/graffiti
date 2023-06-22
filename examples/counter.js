@@ -1,6 +1,3 @@
-// node --experimental-network-imports examples/counter.js
-// originally restored from https://github.com/cztomsik/graffiti/blob/936b6e4bb5a51e138910a9315ecb91332012afb0/README.md
-// the goal is to make it work again
 import 'graffiti'
 import { html, useState, render } from 'https://unpkg.com/htm/preact/standalone.mjs'
 
@@ -25,29 +22,19 @@ const Counter = () => {
 
 const styles = {
   counter: {
-    width: 400,
-    height: 300,
-    background: '#eee',
-    display: 'flex',
-    flexDirection: 'column',
     padding: 20,
-    justifyContent: 'space-between',
+    background: '#eee',
   },
 
   bar: {
     background: 'hsla(0turn, 100%, 50%, 1)',
     height: 20,
+    margin: '10px 0',
   },
 
   buttons: {
     display: 'flex',
     justifyContent: 'space-between',
-  },
-
-  button: {
-    // TODO: this shouldn't be necessary
-    display: 'flex',
-    background: '#cce',
   },
 }
 
