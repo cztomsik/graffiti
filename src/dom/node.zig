@@ -107,16 +107,17 @@ pub const Node = struct {
     }
 
     /// Returns a first element matching the given selector, or null otherwise.
-    pub fn querySelector(self: *Node, selector: *const Selector) !?*Element {
-        var descendants = DescendantsIterator{ .start = self, .pos = self };
+    pub fn querySelector(self: *Node, selector: *const Selector) ?*Element {
+        var iter = self.querySelectorAll(selector);
+        return iter.next();
+    }
 
-        while (descendants.next()) |node| {
-            if (node.element()) |el| {
-                if (el.matches(selector)) return el;
-            }
-        }
-
-        return null;
+    /// Returns an iterator over all elements matching the given selector.
+    pub fn querySelectorAll(self: *Node, selector: *const Selector) QuerySelectorIterator {
+        return .{
+            .selector = selector,
+            .descendants = .{ .start = self, .pos = self },
+        };
     }
 
     // internal check, called before inserting/removing a node
@@ -176,6 +177,21 @@ pub const Node = struct {
             }
 
             return self.pos;
+        }
+    };
+
+    pub const QuerySelectorIterator = struct {
+        selector: *const Selector,
+        descendants: DescendantsIterator,
+
+        pub fn next(self: *QuerySelectorIterator) ?*Element {
+            while (self.descendants.next()) |node| {
+                if (node.element()) |el| {
+                    if (el.matches(self.selector)) return el;
+                }
+            }
+
+            return null;
         }
     };
 };

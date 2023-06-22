@@ -20,7 +20,7 @@ fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi
     // function wrappers and field getters we want to generate
     // `&` means we want to get a pointer to the field
     const defs = .{
-        .Node = .{ .appendChild, .insertBefore, .removeChild, .querySelector, .markDirty },
+        .Node = .{ .appendChild, .insertBefore, .removeChild, .querySelector, .querySelectorAll, .markDirty },
         .Element = .{ .local_name, &.style, .getAttribute, .setAttribute, .removeAttribute, .matches },
         .CharacterData = .{ .data, .setData },
         .Document = .{ .documentElement, .head, .body, .createElement, .createTextNode, .elementFromPoint },
@@ -90,6 +90,16 @@ pub fn napigenRead(js: *napigen.JsContext, comptime T: type, value: napigen.napi
             return ptr;
         },
         else => js.defaultRead(T, value),
+    };
+}
+
+pub fn napigenWrite(js: *napigen.JsContext, value: anytype) !napigen.napi_value {
+    return switch (@TypeOf(value)) {
+        lib.Node.QuerySelectorIterator => {
+            var list = std.ArrayList(*lib.Node).init(js.arena.allocator());
+            return js.createArrayFrom(list.items);
+        },
+        else => js.defaultWrite(value),
     };
 }
 
