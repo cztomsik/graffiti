@@ -22,19 +22,7 @@ pub const Node = struct {
     has_dirty: bool = true,
 
     // layout
-    layout: emlay.LayoutNode(void, struct {
-        next_child: ?*Node,
-
-        pub fn init(node: *emlay.LayoutNode(void, @This())) @This() {
-            return .{ .next_child = @fieldParentPtr(Node, "layout", node).first_child };
-        }
-
-        pub fn next(self: *@This()) ?*emlay.LayoutNode(void, @This()) {
-            const ch = self.next_child orelse return null;
-            self.next_child = ch.next_sibling;
-            return &ch.layout;
-        }
-    }),
+    layout: emlay.Node,
 
     /// Returns the node as an element, or null otherwise.
     pub fn element(self: *Node) ?*Element {
@@ -57,9 +45,11 @@ pub const Node = struct {
 
         if (self.last_child) |last| {
             last.next_sibling = child;
+            last.layout.next_sibling = &child.layout;
             child.previous_sibling = last;
         } else {
             self.first_child = child;
+            self.layout.first_child = &child.layout;
         }
 
         self.last_child = child;
@@ -74,12 +64,15 @@ pub const Node = struct {
 
         if (before.previous_sibling) |prev| {
             prev.next_sibling = child;
+            prev.layout.next_sibling = &child.layout;
             child.previous_sibling = prev;
         } else {
             self.first_child = child;
+            self.layout.first_child = &child.layout;
         }
 
         child.next_sibling = before;
+        child.layout.next_sibling = &before.layout;
         before.previous_sibling = child;
         child.parent_node = self;
         child.markDirty();
@@ -91,8 +84,10 @@ pub const Node = struct {
 
         if (child.previous_sibling) |prev| {
             prev.next_sibling = child.next_sibling;
+            prev.layout.next_sibling = child.layout.next_sibling;
         } else {
             self.first_child = child.next_sibling;
+            self.layout.first_child = child.layout.next_sibling;
         }
 
         if (child.next_sibling) |next| {
@@ -102,6 +97,7 @@ pub const Node = struct {
         }
 
         child.next_sibling = null;
+        child.layout.next_sibling = null;
         child.previous_sibling = null;
         child.parent_node = null;
     }

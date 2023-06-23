@@ -26,7 +26,6 @@ pub const Document = struct {
                 .node_type = .document,
                 .layout = .{
                     .style = .{ .width = .{ .fraction = 1 }, .height = .{ .fraction = 1 } },
-                    .context = {},
                 },
             },
             .allocator = allocator,
@@ -75,7 +74,6 @@ pub const Document = struct {
                 .node_type = .text,
                 .layout = .{
                     .style = .{ .width = .{ .px = 100 }, .height = .{ .px = 20 } },
-                    .context = {},
                 },
             },
             .data = try self.allocator.dupe(u8, data),
@@ -92,7 +90,6 @@ pub const Document = struct {
                 .node_type = .comment,
                 .layout = .{
                     .style = .{ .display = .none },
-                    .context = {},
                 },
             },
             .data = try self.allocator.dupe(u8, data),

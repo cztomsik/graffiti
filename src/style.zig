@@ -52,14 +52,14 @@ pub const LayerStyle = struct {
 };
 
 // supported CSS props
-// - all LayoutStyle props (but we parse css.Dimension)
+// - all emlay.Style props (but parse css.Dimension which is converted to emlay.Dimension during applyStyle())
 // - all LayerStyle props
 // - all TextAttr variants (TODO)
 pub const StyleProp = blk: {
     var enum_fields: []const std.builtin.Type.EnumField = &.{};
     var union_fields: []const std.builtin.Type.UnionField = &.{};
 
-    for (.{ emlay.LayoutStyle, LayerStyle }) |T| {
+    for (.{ emlay.Style, LayerStyle }) |T| {
         for (std.meta.fields(T)) |f| {
             enum_fields = enum_fields ++ .{.{
                 .name = f.name,

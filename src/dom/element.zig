@@ -20,9 +20,7 @@ pub const Element = struct {
             .node = .{
                 .owner_document = document,
                 .node_type = .element,
-                .layout = .{
-                    .context = {},
-                },
+                .layout = .{},
             },
             .local_name = try document.allocator.dupe(u8, local_name),
             .attributes = std.BufMap.init(document.allocator),
@@ -111,7 +109,7 @@ pub const Element = struct {
                 inline else => |value, tag| {
                     const v = if (comptime @TypeOf(value) == css.Dimension) convertDim(value) else value;
 
-                    if (comptime @hasField(emlay.LayoutStyle, @tagName(tag))) {
+                    if (comptime @hasField(emlay.Style, @tagName(tag))) {
                         @field(self.node.layout.style, @tagName(tag)) = v;
                     } else {
                         @field(self.layer_style, @tagName(tag)) = v;
