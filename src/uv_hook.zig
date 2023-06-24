@@ -57,7 +57,17 @@ fn waitEvents(_: [*c]uv_prepare_t) callconv(.C) void {
     while (platform.nextEvent()) |ev| {
         const js_win = js.write(ev.target) catch @panic("get Window");
         const handleEvent = js.getNamedProperty(js_win, "handleEvent") catch @panic("get handleEvent");
-        _ = js.callFunction(js_win, handleEvent, .{ev}) catch |e| js.throw(e);
+
+        // TODO: maybe we could just break from the loop?
+        _ = js.callFunction(js_win, handleEvent, .{ev}) catch |e| {
+            if (e == error.napi_pending_exception) {
+                var exception: napigen.napi_value = undefined;
+                _ = napigen.napi_get_and_clear_last_exception(js.env, &exception);
+                _ = napigen.napi_fatal_exception(js.env, exception);
+            }
+
+            std.debug.panic("Unexpected {} in handleEvent", .{e});
+        };
     }
 
     // re-render in idle task
