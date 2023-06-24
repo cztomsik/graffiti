@@ -8,7 +8,7 @@ const Counter = () => {
 
   return html`
     <div style=${styles.counter}>
-      <span>${count}</span>
+      <div>${'Count: ' + count}</div>
 
       <div style=${{ ...styles.bar, width: count * 5 }} />
 
@@ -32,9 +32,8 @@ const styles = {
     margin: '10px 0',
   },
 
-  buttons: {
-    display: 'flex',
-    justifyContent: 'space-between',
+  button: {
+    display: 'block',
   },
 }
 

@@ -25,7 +25,7 @@ pub const Document = struct {
                 .owner_document = document,
                 .node_type = .document,
                 .layout = .{
-                    .style = .{ .width = .{ .fraction = 1 }, .height = .{ .fraction = 1 } },
+                    .style = .{ .display = .block, .width = .{ .fraction = 1 }, .height = .{ .fraction = 1 } },
                 },
             },
             .allocator = allocator,
