@@ -67,13 +67,22 @@ pub const Document = struct {
 
     /// Creates a new text node with the given data.
     pub fn createTextNode(self: *Document, data: []const u8) !*CharacterData {
+        const Cx = struct {
+            fn measure(node: *std.meta.FieldType(Node, .layout), _: [2]f32) [2]f32 {
+                // TODO: use node.context.parent_node to get the parent element and use font size from the computed style
+                const text = @ptrCast(*CharacterData, @alignCast(@alignOf(CharacterData), node.context));
+                return .{ @floatFromInt(f32, text.data.len) * 7, 19.5 };
+            }
+        };
+
         var text = try self.allocator.create(CharacterData);
         text.* = .{
             .node = .{
                 .owner_document = self,
                 .node_type = .text,
                 .layout = .{
-                    .style = .{ .width = .{ .px = 100 }, .height = .{ .px = 20 } },
+                    .context = @ptrCast(*anyopaque, text),
+                    .measure_fn = &Cx.measure,
                 },
             },
             .data = try self.allocator.dupe(u8, data),
