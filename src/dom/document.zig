@@ -25,7 +25,7 @@ pub const Document = struct {
                 .owner_document = document,
                 .node_type = .document,
                 .layout = .{
-                    .style = .{ .display = .block, .width = .{ .fraction = 1 }, .height = .{ .fraction = 1 } },
+                    .style = .{ .display = .block, .width = .{ .percent = 100 }, .height = .{ .percent = 100 } },
                 },
             },
             .allocator = allocator,
@@ -70,8 +70,8 @@ pub const Document = struct {
         const Cx = struct {
             fn measure(node: *std.meta.FieldType(Node, .layout), _: [2]f32) [2]f32 {
                 // TODO: use node.context.parent_node to get the parent element and use font size from the computed style
-                const text = @ptrCast(*CharacterData, @alignCast(@alignOf(CharacterData), node.context));
-                return .{ @floatFromInt(f32, text.data.len) * 7, 19.5 };
+                const text = @as(*CharacterData, @ptrCast(@alignCast(node.context)));
+                return .{ @as(f32, @floatFromInt(text.data.len)) * 7, 19.5 };
             }
         };
 
@@ -81,7 +81,7 @@ pub const Document = struct {
                 .owner_document = self,
                 .node_type = .text,
                 .layout = .{
-                    .context = @ptrCast(*anyopaque, text),
+                    .context = @ptrCast(text),
                     .measure_fn = &Cx.measure,
                 },
             },
@@ -161,7 +161,7 @@ pub const Document = struct {
 
                 while (childNodes.next()) |child| {
                     if (child.node_type == .text) {
-                        try writer.writeAll(@ptrCast(*CharacterData, child).data);
+                        try writer.writeAll(@as(*CharacterData, @ptrCast(child)).data);
                     }
                 }
 
@@ -200,7 +200,7 @@ pub const Document = struct {
     fn updateTree(self: *Document, node: *Node, force: bool) void {
         if (force or node.is_dirty) {
             switch (node.node_type) {
-                .element => updateElement(self, @ptrCast(*Element, node)),
+                .element => updateElement(self, @ptrCast(node)),
                 .text => {}, // TODO: node.layout.markDirty();
                 else => {},
             }

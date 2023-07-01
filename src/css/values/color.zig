@@ -78,9 +78,9 @@ pub const Color = struct {
                 }
             },
             .hash => |s| switch (s.len) {
-                8 => return rgba(hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), .{ .value = @floatFromInt(f32, hex(s[6..8])) / 255.0 }),
+                8 => return rgba(hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), .{ .value = @as(f32, @floatFromInt(hex(s[6..8]))) / 255.0 }),
                 6 => return rgba(hex(s[0..2]), hex(s[2..4]), hex(s[4..6]), .{ .value = 1.0 }),
-                4 => return rgba((hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, .{ .value = @floatFromInt(f32, (hex(s[3..4])) * 17) / 255.0 }),
+                4 => return rgba((hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, .{ .value = @as(f32, @floatFromInt((hex(s[3..4])) * 17)) / 255.0 }),
                 3 => return rgba((hex(s[0..1])) * 17, (hex(s[1..2])) * 17, (hex(s[2..3])) * 17, .{ .value = 1.0 }),
                 else => {},
             },
@@ -111,7 +111,7 @@ fn hue_to_rgb(hue: f32, m1: f32, m2: f32) f32 {
 }
 
 fn f32_to_u8_clamped(f: f32) u8 {
-    return @intFromFloat(u8, std.math.clamp(f, 0, 255));
+    return @intFromFloat(std.math.clamp(f, 0, 255));
 }
 
 const NAMED_COLORS = .{

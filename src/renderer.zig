@@ -57,8 +57,8 @@ pub const Renderer = struct {
 
     noinline fn renderNode(self: *Renderer, node: *Node) void {
         switch (node.node_type) {
-            .element => self.renderElement(@ptrCast(*Element, node)),
-            .text => self.renderText(@ptrCast(*CharacterData, node)),
+            .element => self.renderElement(@ptrCast(node)),
+            .text => self.renderText(@ptrCast(node)),
             else => return,
         }
     }

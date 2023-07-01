@@ -31,11 +31,11 @@ pub const Window = opaque {
         c.glfwMakeContextCurrent(window);
         _ = gladLoadGL();
 
-        return @ptrCast(*Self, window);
+        return @ptrCast(window);
     }
 
     fn handle(self: *Self) *c.GLFWwindow {
-        return @ptrCast(*c.GLFWwindow, self);
+        return @ptrCast(self);
     }
 
     pub fn deinit(self: *Self) void {
@@ -51,7 +51,7 @@ pub const Window = opaque {
     pub fn size(self: *Self) [2]f32 {
         var res: [2]i32 = .{ 0, 0 };
         if (!builtin.is_test) c.glfwGetWindowSize(self.handle(), &res[0], &res[1]);
-        return .{ @floatFromInt(f32, res[0]), @floatFromInt(f32, res[1]) };
+        return .{ @floatFromInt(res[0]), @floatFromInt(res[1]) };
     }
 
     // TODO: resize, show, hide, focus, blur, ...
@@ -139,7 +139,7 @@ fn handleGlfwMouseButton(w: ?*c.GLFWwindow, _: c_int, action: c_int, _: c_int) c
 
 fn handleGlfwKey(w: ?*c.GLFWwindow, key: c_int, _: c_int, action: c_int, _: c_int) callconv(.C) void {
     // TODO: key -> which
-    pushEvent(.{ .target = w, .kind = if (action == c.GLFW_PRESS) .key_down else .key_up, .which = @intCast(u32, key) });
+    pushEvent(.{ .target = w, .kind = if (action == c.GLFW_PRESS) .key_down else .key_up, .which = @intCast(key) });
 }
 
 fn handleGlfwChar(w: ?*c.GLFWwindow, char: c_uint) callconv(.C) void {

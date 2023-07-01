@@ -155,10 +155,10 @@ pub const Element = struct {
 };
 
 fn convertDim(value: css.Dimension) emlay.Dimension {
-    switch (value) {
-        .auto => return .auto,
-        .px => |v| return .{ .px = v },
-        .percent => |v| return .{ .fraction = v / 100 },
+    return switch (value) {
+        .auto => .auto,
+        .px => |v| .{ .px = v },
+        .percent => |v| .{ .percent = v },
         else => @panic("TODO"),
-    }
+    };
 }

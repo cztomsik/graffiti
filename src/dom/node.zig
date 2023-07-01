@@ -26,7 +26,7 @@ pub const Node = struct {
 
     /// Returns the node as an element, or null otherwise.
     pub fn element(self: *Node) ?*Element {
-        return if (self.node_type == .element) @ptrCast(*Element, self) else null;
+        return if (self.node_type == .element) @ptrCast(self) else null;
     }
 
     /// Returns whether the node has any children.

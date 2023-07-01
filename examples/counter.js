@@ -32,8 +32,14 @@ const styles = {
     margin: '10px 0',
   },
 
+  buttons: {
+    display: 'flex',
+    justifyContent: 'space-between',
+  },
+
   button: {
-    display: 'block',
+    width: 50,
+    height: 25, // TODO: remove this
   },
 }
 

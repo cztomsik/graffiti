@@ -40,7 +40,7 @@ pub fn StyleDeclaration(comptime Property: type, comptime Shorthand: type) type 
 
         /// Returns the number of longhand properties.
         pub fn length(self: *Self) u32 {
-            return @truncate(u32, self.properties.items.len);
+            return @intCast(self.properties.items.len);
         }
 
         /// Returns the name of the property at the given index.
