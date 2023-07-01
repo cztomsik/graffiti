@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "graffiti": "./lib/compat/index.js",
+    "graffiti/core": "./lib/core/index.js"
+  }
+}
