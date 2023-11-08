@@ -13,7 +13,7 @@ comptime {
     napigen.defineModule(initModule);
 }
 
-fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) !napigen.napi_value {
+fn initModule(js: *napigen.JsContext, exports: napigen.napi_value) anyerror!napigen.napi_value {
     // export init() function which will init native window, and return the globals for JS
     try js.setNamedProperty(exports, "init", try js.createFunction(init));
 

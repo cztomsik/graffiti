@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    lib.main_pkg_path = ".";
+    lib.main_mod_path = .{ .path = "." };
 
     // we need this anyway
     lib.linkLibC();
@@ -22,11 +22,13 @@ pub fn build(b: *std.Build) !void {
     // GL canvas library
     const nanovg = b.createModule(.{ .source_file = .{ .path = "deps/nanovg-zig/src/nanovg.zig" } });
     lib.addModule("nanovg", nanovg);
-    lib.addIncludePath("deps/nanovg-zig/lib/gl2/include");
-    lib.addCSourceFile("deps/nanovg-zig/lib/gl2/src/glad.c", &.{});
-    lib.addIncludePath("deps/nanovg-zig/src");
-    lib.addCSourceFile("deps/nanovg-zig/src/fontstash.c", &.{ "-DFONS_NO_STDIO", "-fno-stack-protector" });
-    lib.addCSourceFile("deps/nanovg-zig/src/stb_image.c", &.{ "-DSTBI_NO_STDIO", "-fno-stack-protector" });
+    lib.addIncludePath(.{ .path = "deps/nanovg-zig/lib/gl2/include" });
+    lib.addCSourceFile(.{ .file = .{ .path = "deps/nanovg-zig/lib/gl2/src/glad.c" }, .flags = &.{} });
+    lib.addIncludePath(.{ .path = "deps/nanovg-zig/src" });
+    lib.addCSourceFiles(.{
+        .files = &.{ "deps/nanovg-zig/src/fontstash.c", "deps/nanovg-zig/src/stb_image.c" },
+        .flags = &.{ "-DFONS_NO_STDIO", "-fno-stack-protector" },
+    });
 
     // layout
     const emlay = b.createModule(.{ .source_file = .{ .path = "deps/emlay/src/main.zig" } });
@@ -51,7 +53,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    tests.main_pkg_path = ".";
+    tests.main_mod_path = .{ .path = "." };
     tests.addModule("emlay", emlay);
     tests.addModule("nanovg", nanovg);
     var run_tests = b.addRunArtifact(tests);
